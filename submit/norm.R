@@ -1,7 +1,7 @@
 #! /usr/bin/Rscript 
 
 # BAYESPROT MODEL
-model.norm <- function(parameters,dd,protein_id) { 
+norm <- function(parameters,dd,protein_id) { 
   library(MCMCglmm)
   
   # some tuning parameters
@@ -70,5 +70,5 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
     seed <- as.integer(commandArgs(T)[2])
   }
   set.seed(seed)
-  model.norm(parameters,data,commandArgs(T)[3])
+  norm(parameters,data,commandArgs(T)[3])
 }

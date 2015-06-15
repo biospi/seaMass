@@ -1,8 +1,8 @@
 getenv = true 
 universe = vanilla
-executable = model.norm.R
+executable = norm.R
 arguments = HTCondor $(Cluster) $(Process)
-initialdir = model.norm
+initialdir = norm
 log = condor.log
 error = $(Process).err
 output = $(Process).out
