@@ -9,6 +9,7 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   library(plyr)
   library(ggplot2)
   library(grid)
+  library(reshape2)
   
   # LOAD NORM SAMPLES
   samps.files = list.files(pattern="+[[:digit:]]\\.Rdata")
