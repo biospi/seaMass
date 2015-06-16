@@ -62,10 +62,18 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   libloc <- "Rpackages"
   dir.create(libloc)
   .libPaths(c(libloc, .libPaths()))
+  
+  if (!require("Rcpp")) install.packages("Rcpp",type="source",lib=libloc,repos=reposloc)
+  # have to use old version of plyr as Manchester Condor cluster only has R 3.0.1
+  if (!require("plyr"))
+  {
+    download.file("http://cran.r-project.org/src/contrib/Archive/plyr/plyr_1.8.1.tar.gz","/tmp/plyr_1.8.1_tar.gz")
+    install.packages("/tmp/plyr_1.8.1_tar.gz",repos=NULL,type='source',lib=libloc)
+  }
   if (!require("foreach")) install.packages("foreach",lib=libloc,repos=reposloc)
   if (!require("iterators")) install.packages("iterators",lib=libloc,repos=reposloc)
   if (!require("reshape2")) install.packages("reshape2",lib=libloc,repos=reposloc)
-
+  
   load("parameters.Rdata")
   load("input.Rdata")
   index <- import(parameters,design,fractions,data)

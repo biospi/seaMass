@@ -1,5 +1,8 @@
 Job A import.sub
 Job B build.sub
 Job C norm.sub
+Job D exposures.sub
 PARENT A B CHILD C
+PARENT C CHILD D
+
 

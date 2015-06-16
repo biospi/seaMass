@@ -1,8 +1,8 @@
 #! /usr/bin/Rscript
 args <- commandArgs(T)
 script_dir <- dirname(strsplit(grep('^--file=',commandArgs(),value=T),'=')[[1]][2])
-#args <- c("MetaData.xlsx","PeptideSummary.txt")
-#script_dir <- "~/Repositories/bayesprot/"
+args <- c("olly_sn.xlsx","PeptideSummary.txt")
+script_dir <- "~/Repositories/bayesprot"
 
 suppressPackageStartupMessages(
   installed <- require("XLConnect")
@@ -16,7 +16,7 @@ suppressPackageStartupMessages(
 )
 
 message("")
-message("BayesProt - Copyright (C) 2014 - CADET Bioinformatics Laboratory, University of Manchester, UK")
+message("BayesProt - Copyright (C) 2015 - biospi Laboratory, EEE, University of Liverpool, UK")
 message("This program comes with ABSOLUTELY NO WARRANTY.")
 message("This is free software, and you are welcome to redistribute it under certain conditions.")
 message("")
@@ -98,6 +98,7 @@ file.copy(file.path(script_dir,"submit"),out_dir,recursive=T)
 save(parameters,file=file.path(out_dir,"submit","input","parameters.Rdata"))
 save(design,data,file=file.path(out_dir,"submit","input","input.Rdata"))
 
+# append number of jobs etc to the HTCondor sub files
 csl.file <- file(file.path(script_dir,"condor_submit.local"))
 csl <- readLines(csl.file)
 close(csl.file)
@@ -105,13 +106,17 @@ sub.filenames <- list.files(path=file.path(out_dir,"submit"),pattern="*.sub")
 for (sub.filename in sub.filenames) {
   sub.file <- file(file.path(out_dir,"submit",sub.filename),open="at")
   writeLines(csl,sub.file)
-  if (grepl("^model\\.",sub.filename)) {
+  if (grepl("norm|model",sub.filename)) {
     writeLines(paste("queue",paste0(ifelse(np<50,np,50))),sub.file)   
     if (np>50) {
       writeLines("priority = -1",sub.file)          
       writeLines(paste("queue",np-50),sub.file)          
     }
-  } else {
+  } else if (grepl("exposures",sub.filename)) {
+    writeLines(paste0("transfer_input_files = ",paste0("../norm/",0:np-1,".Rdata",collapse=", "),", ../build/build.zip"),sub.file)  
+    writeLines("queue",sub.file)  
+  } else
+  {
     writeLines("queue",sub.file)  
   }
   close(sub.file)
@@ -120,7 +125,7 @@ for (sub.filename in sub.filenames) {
 wd <- getwd()
 setwd(file.path(wd,out_dir))
 zip("submit.zip","submit")
-#unlink("submit",recursive=T)
+unlink("submit",recursive=T)
 setwd(wd)
 message("")  
 

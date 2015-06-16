@@ -2,6 +2,7 @@
 
 # BAYESPROT MODEL
 norm <- function(parameters,dd,protein_id) { 
+  library(methods)
   library(MCMCglmm)
   
   # some tuning parameters
