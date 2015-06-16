@@ -113,7 +113,7 @@ for (sub.filename in sub.filenames) {
       writeLines(paste("queue",np-50),sub.file)          
     }
   } else if (grepl("exposures",sub.filename)) {
-    writeLines(paste0("transfer_input_files = ",paste0("../norm/",0:np-1,".Rdata",collapse=", "),", ../build/build.zip"),sub.file)  
+    writeLines(paste0("transfer_input_files = ",paste0("../norm/",0:(np-1),".Rdata",collapse=", "),", ../build/build.zip"),sub.file)  
     writeLines("queue",sub.file)  
   } else
   {
