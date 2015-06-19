@@ -1,7 +1,8 @@
 #! /usr/bin/Rscript 
 
 # BAYESPROT MODEL
-model <- function(parameters,dd,protein_id) { 
+model <- function(parameters,exposures,data,protein_id) { 
+  library(methods)
   library(MCMCglmm)
   library(foreach)
   library(reshape2)
@@ -13,7 +14,7 @@ model <- function(parameters,dd,protein_id) {
   options(max.print=9999999)
   options(width=160)
   
-  # some tuning parameters
+  # some tuning parameters (should come from parameters.Rdata with defaults given here)
   nsamps <- 10000
   maxsamps <- 320000
   thin <- 1
@@ -21,11 +22,23 @@ model <- function(parameters,dd,protein_id) {
   fc <- 1.05
   tol_sd <- 0.02
   
+  # order exposures so it matches the prior specification
+  dd <- data
+  dd$RunChannel <- as.factor(paste0('Run',dd$Run,':','Channel',dd$Channel))
+  ee <- data.frame(RunChannel=levels(dd$RunChannel))
+  ee <- merge(ee,exposures,all.x=T)
+  ee$mean[is.na(ee$mean)] <- 0.0
+  ee$var <- ee$sd * ee$sd
+  ee$var[is.na(ee$var)] <- 1e-6
+  
+  # number of factor levels
   nA <- length(levels(dd$Sample))
   nC <- length(levels(dd$Condition))
   nP <- length(levels(dd$Peptide))
   nS <- length(levels(dd$Spectrum))  
+  nRC <- length(levels(dd$RunChannel))  
   
+  # debug output
   results_file <- paste0(protein_id,'_results.txt')
   capture.output(cat(paste0(results_file,'\n')),file=results_file)
   debug_file <- paste0(protein_id,'_debug_')
@@ -39,58 +52,80 @@ model <- function(parameters,dd,protein_id) {
     
     results <- foreach(i=1:chains,.multicombine=T) %do% {
       capture.output(cat(paste0('\nnsamps=',chains*(nitt-burnin),' chains=',chains,' nitt=',nitt,' burnin=',burnin,' thin=',thin,'\n\n')),file=paste0(debug_file,i,'.txt'),append=T)
+           
+      # Explanation of integrating exposures into the model (RunChannel fixed effects)
+      # ------------------------------------------------------------------------------
+      # RunChannel fixed effect priors use mean/var calculated by exposures.R
+      # However, MCMCglmm doesn't really understand strong priors when it organises the fixed effects.
+      # For example, you have to use singular.ok=T because it doesn't take the prior into account
+      # when calculating if the fixed effect design matrix is full rank. Also, second level effects
+      # always have one level removed. So we can't make Spectrum a second level effect otherwise it
+      # misses the first spectrum! Luckily we can make RunChannel a second level effect because the first
+      # level is not important (as it is always mean 0, var 1e-6)
       
       if (nP == 1) {       
         if (nS == 1) {           
-          #model.fixed <- formula(Count~log(Exposure))
-          #if("fixed" %in% parameters$Key) model.fixed <- update(model.fixed,paste("~.+",parameters$Value[parameters$Key=="fixed"]))
-          #model.random <- NULL
-          #if("random" %in% parameters$Key) model.random <- formula("~",parameters$Value[parameters$Key=="random"]))
-          #model <- MCMCglmm(model.fixed,model.random,family='poisson',data=dd,nitt=nitt,burnin=burnin,thin=thin,pr=T,verbose=T)           
           
+          # one spectrum only for this protein (most basic model)
           prior <- list(
-            B = list(mu = matrix(0,1+nC,1),V = diag(1+nC) * 1e+6),
+            B = list(mu = matrix(0,nRC+nC-1,1),V = diag(nRC+nC-1) * 1e+6),
             G = list(G1 = list(V = diag(1), nu = 1, alpha.mu = rep(0,1),  alpha.V = diag(1000,1))),
             R = list(V = diag(1), nu = 0.002)
           )
-          prior$B$mu[2] <- 1
-          diag(prior$B$V)[2] <- 1e-6          
+          prior$B$mu[2:nRC] <- ee$mean[2:nRC]
+          diag(prior$B$V)[2:nRC] <- ee$var[2:nRC]             
+          model <- suppressWarnings(MCMCglmm(
+            Count ~ RunChannel + Condition,
+            random = ~ Sample,
+            family = 'poisson',
+            data = dd, prior=prior, nitt=nitt, burnin=burnin, thin=thin, pr=T, verbose=F, singular.ok=T
+          ))
+          
         } else {
+          
+          # one peptide only for this protein (multiple spectra)
           prior <- list(
-            B = list(mu = matrix(0,nS+nC,1),V = diag(nS+nC) * 1e+6),
+            B = list(mu = matrix(0,nRC+nS+nC-2,1),V = diag(nRC+nS+nC-2) * 1e+6),
             G = list(G1 = list(V = diag(1), nu = 1, alpha.mu = rep(0,1),  alpha.V = diag(1000,1))),
             R = list(V = diag(nS), nu = 0.002)
           )
-          prior$B$mu[1] <- 1
-          diag(prior$B$V)[1] <- 1e-6
+          prior$B$mu[(nS+1):(nS+nRC-1)] <- ee$mean[2:nRC]
+          diag(prior$B$V)[(nS+1):(nS+nRC-1)] <- ee$var[2:nRC]                      
           model <- suppressWarnings(MCMCglmm(
-            Count ~ log(Exposure) + Spectrum-1 + Condition,
+            Count ~ Spectrum-1 + RunChannel + Condition,
             random = ~ Sample,
             rcov = ~ idh(Spectrum):units,
             family = 'poisson',
-            data = dd, prior=prior, nitt=nitt, burnin=burnin, thin=thin, pr=T, verbose=F
+            data = dd, prior=prior, nitt=nitt, burnin=burnin, thin=thin, pr=T, verbose=F, singular.ok=T
           ))
+          
         }
+        
       } else {
+        
+        # multiple peptides for this protein (full model)
         prior <- list(
-          B = list(mu = matrix(0,nS+nC,1),V = diag(nS+nC) * 1e+6),
+          B = list(mu = matrix(0,nRC+nS+nC-2,1),V = diag(nRC+nS+nC-2) * 1e+6),
           G = list(G1 = list(V = diag(1), nu = 1, alpha.mu = rep(0,1),  alpha.V = diag(1000,1)),
                    G2 = list(V = diag(nP), nu = nP, alpha.mu = rep(0,nP),  alpha.V = diag(1000,nP))),
           R = list(V = diag(nS), nu = 0.002)
         )
-        prior$B$mu[1] <- 1
-        diag(prior$B$V)[1] <- 1e-6        
+        prior$B$mu[(nS+1):(nS+nRC-1)] <- ee$mean[2:nRC]
+        diag(prior$B$V)[(nS+1):(nS+nRC-1)] <- ee$var[2:nRC]              
         model <- suppressWarnings(MCMCglmm(
-          Count ~ log(Exposure) + Spectrum-1 + Condition,
+          Count ~ Spectrum-1 + RunChannel + Condition,
           random = ~ Sample + idh(Peptide):Sample,
           rcov = ~ idh(Spectrum):units,
           family = 'poisson',        
-          data = dd, prior=prior, nitt=nitt, burnin=burnin, thin=thin, pr=T, verbose=F
+          data = dd, prior=prior, nitt=nitt, burnin=burnin, thin=thin, pr=T, verbose=F, singular.ok=T
         ))
+        
       }     
       capture.output(summary(model),file=paste0(debug_file,i,'.txt'),append=T)
       model
-    }     
+    }  
+    
+    # check chain mixing on the results of our one-sided statistical tests
     freqs <- foreach(r=results,.combine='rbind') %do% {
       samps <- as.matrix(r$Sol[,grep('^Condition',colnames(r$Sol)),drop=F])
       c(colSums(samps > log2(fc)),
@@ -118,6 +153,8 @@ model <- function(parameters,dd,protein_id) {
       capture.output(print(paste(upper,lower,upper-lower)),file=results_file,append=T)
       upper-lower
     }
+    
+    # if not mixed, do it again
     print(sds)
     if (any(sds > tol_sd)) {
       nsamps <- nsamps * 2
@@ -137,11 +174,12 @@ model <- function(parameters,dd,protein_id) {
   samps.sqrtVCV <- foreach(r=results,.combine='mbind',.multicombine=T) %do% sqrt(r$VCV)
   samps.Sol <- foreach(r=results,.combine='mbind',.multicombine=T) %do% r$Sol    
   
+  # save Condition fixed effects samples
   samps <- dcast(rbind(
     melt(samps.Sol[,,grep('^Condition',colnames(results[[1]]$Sol),value=T),drop=F])
   ),...~Var3) 
   colnames(samps)[1:2] <- c('Iteration','Chain') 
-  write.csv(samps[,1:ncol(samps)], paste0(protein_id,'_condition.csv'),row.names=F)
+  save(samps,file=paste0(protein_id,'c.Rdata'))  
   
   #samps <- dcast(rbind(
   #  melt(samps.sqrtVCV[,,'Sample',drop=F]),
@@ -158,8 +196,8 @@ model <- function(parameters,dd,protein_id) {
   #  colnames(samps)[1:2] <- c('Iteration','Chain') 
   #  write.csv(samps[,1:ncol(samps)], paste0(protein_id,'_peptide.csv'),row.names=F)
   #}
-
   
+  # save statistics
   dd.stats <- as.data.frame(t(summary(proc.time() - ptm)))
   dd.stats$iterations <- nsamps * chains
   write.csv(dd.stats, paste0(protein_id,'_stats.csv'),row.names=F)
@@ -172,8 +210,10 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   .libPaths(c("Rpackages", .libPaths()))
   
   load("parameters.Rdata")  
+  load("exposures.Rdata")
   load(paste0(commandArgs(T)[3],".Rdata"))  
   
+  # set seed which determines if results are exactly reproducible
   if ("random_seed" %in% parameters$Key)
   {
     seed <- as.integer(parameters$Value[parameters$Key=="random_seed"])
@@ -181,6 +221,6 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
     seed <- as.integer(commandArgs(T)[2])
   }
   set.seed(seed)
-  model(parameters,data,commandArgs(T)[3])
+  model(parameters,exposures,data,commandArgs(T)[3])
 }
 

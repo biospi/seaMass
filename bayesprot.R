@@ -1,8 +1,8 @@
 #! /usr/bin/Rscript
 args <- commandArgs(T)
 script_dir <- dirname(strsplit(grep('^--file=',commandArgs(),value=T),'=')[[1]][2])
-args <- c("olly_sn.xlsx","PeptideSummary.txt")
-script_dir <- "~/Repositories/bayesprot"
+#args <- c("olly_sn.xlsx","PeptideSummary.txt")
+#script_dir <- "~/Repositories/bayesprot"
 
 suppressPackageStartupMessages(
   installed <- require("XLConnect")

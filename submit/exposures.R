@@ -21,29 +21,29 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   samps <- as.data.frame(rbind.fill(lapply(samps.files, load.samps)))
 
   # CALCULATE EXPOSURES (SIMPLE MEDIANS LIKE PROTEIN PILOT)
-  exposures <- melt(ddply(samps, .(RunChannel), function(x) sapply(x[,3:ncol(x)], median)))
+  medians <- melt(ddply(samps, .(RunChannel), function(x) sapply(x[,3:ncol(x)], median)))
 
   # EXTRACT SUMMARY STATISTICS AND OUTPUT TO DISK
-  summaries <- ddply(exposures, .(RunChannel), function(x) data.frame(mean=mean(x$value), sd=sd(x$value)))
-  save(summaries,file=paste0("exposures.Rdata"))
+  exposures <- ddply(medians, .(RunChannel), function(x) data.frame(mean=mean(x$value), sd=sd(x$value)))
+  save(exposures,file=paste0("exposures.Rdata"))
   
   # PLOTTING
-  densities <- ddply(exposures, .(RunChannel), function(x)
+  densities <- ddply(medians, .(RunChannel), function(x)
   {
     dens <- density(x$value, n=4096)
     data.frame(x=dens$x, y=dens$y)     
   })  
-  gaussians <- ddply(summaries, .(RunChannel), function(d)
+  gaussians <- ddply(exposures, .(RunChannel), function(d)
   {
     x <- d$mean + seq(-4,4,length=100)*d$sd
     y <- dnorm(x, d$mean, d$sd)
     data.frame(x=x, y=y)  
   })  
-  fcs <- ddply(summaries, .(RunChannel), function(x)
+  fcs <- ddply(exposures, .(RunChannel), function(x)
   {
     data.frame(mean=x$mean, fc=paste0("  ",ifelse(x$mean<0, format(2^x$mean,digits=3), format(2^x$mean,digits=4)),"fc"))
   })  
-  g <- ggplot(summaries, aes(x=mean))
+  g <- ggplot(exposures, aes(x=mean))
   g <- g + theme_bw()
   g <- g + theme(panel.margin=unit(0,"inches"),
                  panel.border=element_rect(colour="black",size=2),
@@ -60,8 +60,8 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   g <- g + geom_vline(aes(xintercept=mean),size=1,colour="blue") 
   g <- g + geom_text(data=fcs,aes(x=mean,label=fc),y=max(densities$y)*1.22,hjust=0,vjust=1,size=3,colour="blue")
   g
-  ggsave("medians_posterior.png", g, height=1*length(levels(exposures$RunChannel)), width=6)
+  ggsave("medians_posterior.png", g, height=1*length(levels(medians$RunChannel)), width=6)
   g <- g + geom_line(data=gaussians,aes(x=x,y=y),size=1,colour="blue") 
   g
-  ggsave("medians_gaussian.png", g, height=1*length(levels(exposures$RunChannel)), width=6)
+  ggsave("medians_gaussian.png", g, height=1*length(levels(medians$RunChannel)), width=6)
 }
