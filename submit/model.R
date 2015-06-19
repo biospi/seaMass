@@ -1,7 +1,7 @@
 #! /usr/bin/Rscript 
 
 # BAYESPROT MODEL
-model <- function(parameters,exposures,data,protein_id) { 
+model <- function(parameters,exposures,data,protein_id,fc,chains,nsamps,maxsamps,thin,tol_sd) { 
   library(methods)
   library(MCMCglmm)
   library(foreach)
@@ -13,15 +13,7 @@ model <- function(parameters,exposures,data,protein_id) {
   mbind <- function(...) aperm(abind(...,along=3),c(1,3,2))  
   options(max.print=9999999)
   options(width=160)
-  
-  # some tuning parameters (should come from parameters.Rdata with defaults given here)
-  nsamps <- 10000
-  maxsamps <- 320000
-  thin <- 1
-  chains <- 8
-  fc <- 1.05
-  tol_sd <- 0.02
-  
+    
   # order exposures so it matches the prior specification
   dd <- data
   dd$RunChannel <- as.factor(paste0('Run',dd$Run,':','Channel',dd$Channel))
@@ -43,15 +35,15 @@ model <- function(parameters,exposures,data,protein_id) {
   capture.output(cat(paste0(results_file,'\n')),file=results_file)
   debug_file <- paste0(protein_id,'_debug_')
   
-  burnin <- nsamps
-  nitt <- nsamps + nsamps
+  burnin <- nsamps/chains
+  nitt <- nsamps/chains + burnin
   
   repeat {
-    print(paste0('nsamps=',chains*(nitt-burnin),' chains=',chains,' nitt=',nitt,' burnin=',burnin,' thin=',thin))
-    capture.output(cat(paste0('\nnsamps=',chains*(nitt-burnin),' chains=',chains,' nitt=',nitt,' burnin=',burnin,' thin=',thin,'\n\n')),file=results_file,append=T)
+    print(paste0('chains=',chains,' nitt=',nitt,' burnin=',burnin,' thin=',thin))
+    capture.output(cat(paste0('\nchains=',chains,' nitt=',nitt,' burnin=',burnin,' thin=',thin,'\n\n')),file=results_file,append=T)
     
     results <- foreach(i=1:chains,.multicombine=T) %do% {
-      capture.output(cat(paste0('\nnsamps=',chains*(nitt-burnin),' chains=',chains,' nitt=',nitt,' burnin=',burnin,' thin=',thin,'\n\n')),file=paste0(debug_file,i,'.txt'),append=T)
+      capture.output(cat(paste0('\nchains=',chains,' nitt=',nitt,' burnin=',burnin,' thin=',thin,'\n\n')),file=paste0(debug_file,i,'.txt'),append=T)
            
       # Explanation of integrating exposures into the model (RunChannel fixed effects)
       # ------------------------------------------------------------------------------
@@ -132,7 +124,7 @@ model <- function(parameters,exposures,data,protein_id) {
         colSums(samps < -log2(fc)),
         colSums(samps >= -log2(fc) & samps <= log2(fc)))      
     }  
-    print(freqs) 
+    
     sds <- foreach(i=1:ncol(freqs),.combine=cbind) %do% {
       capture.output(print(freqs[,i]),file=results_file,append=T)
       
@@ -154,7 +146,7 @@ model <- function(parameters,exposures,data,protein_id) {
       upper-lower
     }
     
-    # if not mixed, do it again
+    # if not mixed, do it again with double the samples
     print(sds)
     if (any(sds > tol_sd)) {
       nsamps <- nsamps * 2
@@ -199,7 +191,7 @@ model <- function(parameters,exposures,data,protein_id) {
   
   # save statistics
   dd.stats <- as.data.frame(t(summary(proc.time() - ptm)))
-  dd.stats$iterations <- nsamps * chains
+  dd.stats$n_samps <- nsamps
   write.csv(dd.stats, paste0(protein_id,'_stats.csv'),row.names=F)
 }
 
@@ -213,6 +205,14 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   load("exposures.Rdata")
   load(paste0(commandArgs(T)[3],".Rdata"))  
   
+  # some tuning parameters (should come from parameters.Rdata with defaults given here)
+  fc <- ifelse("significant_fc" %in% parameters$Key,parameters$Value[parameters$Key=="significant_fc"],1.05)
+  chains <- ifelse("mcmc_chains" %in% parameters$Key,parameters$Value[parameters$Key=="mcmc_chains"],8)
+  nsamps <- ifelse("n_samps" %in% parameters$Key,parameters$Value[parameters$Key=="n_samps"],65536)
+  maxsamps <- ifelse("max_samps" %in% parameters$Key,parameters$Value[parameters$Key=="max_samps"],1048576)
+  thin <- ifelse("thin_samps" %in% parameters$Key,parameters$Value[parameters$Key=="thin_samps"],1)
+  tol_sd <- ifelse("sd_tolerance" %in% parameters$Key,parameters$Value[parameters$Key=="sd_tolerance"],0.02)  
+  
   # set seed which determines if results are exactly reproducible
   if ("random_seed" %in% parameters$Key)
   {
@@ -221,6 +221,6 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
     seed <- as.integer(commandArgs(T)[2])
   }
   set.seed(seed)
-  model(parameters,exposures,data,commandArgs(T)[3])
+  model(parameters,exposures,data,commandArgs(T)[3],fc,chains,nsamps,maxsamps,thin,tol_sd)
 }
 
