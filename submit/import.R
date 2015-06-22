@@ -41,7 +41,6 @@ import <- function(parameters,design,fractions,dd) {
       Count=as.integer(round(dd.tmp$Area))
     )
     data <- merge(design,dd.out,by=c('Run','Channel'),sort=F)
-    save(data,file=paste0(pid,'.Rdata'))
     
     dd.index <- data.frame(
       ProteinID=pid,      
@@ -52,6 +51,11 @@ import <- function(parameters,design,fractions,dd) {
       MinConf=min(data$Conf),
       MinPrecursorCount=min(data$PrecursorCount)
     )
+    meta <- dd.index  
+    
+    save(data,meta,file=paste0(pid,'.Rdata'))
+    
+    dd.index
   }
 }
 
