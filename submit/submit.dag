@@ -3,9 +3,11 @@ Job B build.sub
 Job C norm.sub
 Job D exposures.sub
 Job E model.sub
+Job F fdr.sub
 PARENT A B CHILD C
 PARENT C CHILD D
 PARENT D CHILD E
+PARENT E CHILD F
 
 
 

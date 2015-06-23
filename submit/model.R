@@ -182,7 +182,7 @@ model <- function(parameters,exposures,data,protein_id,fc,chains,nsamps,maxsamps
     melt(samps.Sol[,,grep('^Condition',colnames(results[[1]]$Sol),value=T),drop=F])
   ),...~Var3) 
   colnames(samps)[1:2] <- c('Iteration','Chain') 
-  save(samps,file=paste0(protein_id,'c.Rdata'))  
+  #save(samps,file=paste0(protein_id,'c.Rdata'))  
  
   # stats of Condition fixed effects samples
   condition <- data.frame(mean=colMeans(samps[,3:ncol(samps),drop=F]))
@@ -197,11 +197,10 @@ model <- function(parameters,exposures,data,protein_id,fc,chains,nsamps,maxsamps
     melt(samps.Sol[,,grep('^Sample\\.[0-9]+$',colnames(results[[1]]$Sol),value=T),drop=F])
   ),...~Var3)  
   colnames(samps)[1:2] <- c('Iteration','Chain') 
-  save(samps,file=paste0(protein_id,'pr.Rdata'))  
+  #save(samps,file=paste0(protein_id,'pr.Rdata'))  
   
   # stats of Sample random effects samples
   sample <- data.frame(mean=colMeans(samps[,3:ncol(samps),drop=F]))
-  save(condition,sample,file=paste0(protein_id,'.Rdata'))  
   
   # save Peptide random effects samples
   if (nP > 1) {
@@ -219,8 +218,9 @@ model <- function(parameters,exposures,data,protein_id,fc,chains,nsamps,maxsamps
   
   # save perf stats
   perf <- as.data.frame(t(summary(proc.time() - ptm)))
-  perf$n_samps <- nsamps
-  write.csv(perf, paste0(protein_id,'perf.csv'),row.names=F)
+  perf$nsamps <- nsamps
+  
+  save(condition,sample,perf,file=paste0(protein_id,'.Rdata'))    
 }
 
 # FOR EXECUTING UNDER HTCondor
