@@ -116,6 +116,9 @@ for (sub.filename in sub.filenames) {
     writeLines(paste0("transfer_input_files = ",paste0("../norm/",0:(np-1),".Rdata",collapse=", "),", ../build/build.zip"),sub.file)  
     writeLines("queue",sub.file)  
   } else if (grepl("fdr",sub.filename)) {
+    if("email" %in% parameters$Key) {
+      writeLines(paste0("notify_user = ",parameters$Value[parameters$Key=="email"]),sub.file) 
+    }
     writeLines(paste0("transfer_input_files = ",paste0("../model/",0:(np-1),".Rdata",collapse=", "),", ../import/index.Rdata, ../build/build.zip"),sub.file)  
     writeLines("queue",sub.file)  
   } else

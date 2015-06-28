@@ -64,12 +64,9 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   load("parameters.Rdata")  
   load(paste0(commandArgs(T)[3],".Rdata"))  
   
-  if ("random_seed" %in% parameters$Key)
-  {
-    seed <- as.integer(parameters$Value[parameters$Key=="random_seed"])
-  } else {
-    seed <- as.integer(commandArgs(T)[2])
-  }
-  set.seed(seed)
+  # if random_seed not set, make it 0 so results exactly reproducible. if -1 then set seed to cluster id to make it pseudo-truly random
+  seed <- ifelse("random_seed" %in% parameters$Key,as.integer(parameters$Value[parameters$Key=="random_seed"]),0)
+  set.seed(ifelse(seed>=0,seed,as.integer(commandArgs(T)[2])))
+           
   norm(parameters,data,commandArgs(T)[3])
 }

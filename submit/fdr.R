@@ -12,30 +12,50 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   # LOAD PROTEIN INDEX
   load('index.Rdata') 
   
-  # LOAD MODEL STATS
+  # LOAD MODEL SAMPLE AND PERF STATS AND MERGE WITH INDEX
   files = list.files(pattern="+[[:digit:]]\\.Rdata")
   load.stats <- function(file)
   {
     load(file)
     protein_id = as.integer(strsplit(file, ".", fixed=T)[[1]][1])
     
-    out.condition = cbind(data.frame(Condition=rownames(condition)),condition)
-    out.condition <- melt(out.condition,measure.vars=c("Up","Down","Same"),variable.name='Test',value.name='lFDR')
-    out.condition$gFDR.UD = NA
-    out.condition$gFDR.UDS = NA
-    out.condition <- melt(out.condition,measure.vars=c("lFDR","gFDR.UD","gFDR.UDS","mean","lower","upper"))
-    out.condition <- cbind(data.frame(ProteinID=protein_id),dcast(out.condition,Test~Condition+variable))
-    
     out.sample = cbind(data.frame(Sample=rownames(sample)),sample) 
     colnames(out.sample)[2] <- "sd"
     out.sample <- cbind(data.frame(ProteinID=protein_id),melt(out.sample,measure.vars=c("sd")))
     out.sample <- dcast(out.sample,ProteinID~Sample+variable)    
     
-    out = merge(out.condition, out.sample)
+    out = merge(perf[,3:4], out.sample)
   }
   stats <- as.data.frame(rbind.fill(lapply(files, load.stats)))
   stats <- merge(index,stats,all.x=T)
-  stats <- stats[order(stats$ProteinID),]
   
-  write.csv(stats, "results.csv",row.names=F)
+  # LOAD MODEL CONDITION STATS
+  load.condition <- function(file)
+  {
+    load(file)
+    protein_id = as.integer(strsplit(file, ".", fixed=T)[[1]][1])
+    out <- cbind(data.frame(ProteinID=protein_id,Condition=row.names(condition)),condition)
+  }
+  condition <- as.data.frame(rbind.fill(lapply(files, load.condition)))
+
+  for (c in levels(condition$Condition))
+  {
+    out <- melt(condition[condition$Condition==c,],id.vars=c("ProteinID","mean","lower","upper"),measure.vars=c("Up","Down"),variable.name='Test',value.name='localFDR')
+    out <- out[order(out$localFDR),]
+    out <- out[!duplicated(out$ProteinID),]
+    out$globalFDR <- cumsum(out$localFDR) / seq_len(nrow(out))
+    
+    out <- merge(stats,out,all.x=T)
+    out <- out[order(out$localFDR),]
+    write.csv(out, paste0(c,"_UpDown.csv"),row.names=F)
+    
+    out <- melt(condition[condition$Condition==c,],id.vars=c("ProteinID","mean","lower","upper"),measure.vars=c("Same"),variable.name='Test',value.name='localFDR')
+    out <- out[order(out$localFDR),]
+    out$globalFDR <- cumsum(out$localFDR) / seq_len(nrow(out))
+    
+    out <- merge(stats,out,all.x=T)
+    out <- out[order(out$localFDR),]
+    write.csv(out, paste0(c,"_Same.csv"),row.names=F)
+  }
+  
 }

@@ -40,17 +40,22 @@ model <- function(parameters,exposures,data,protein_id,fc,chains,nsamps,maxsamps
   results_file <- paste0(protein_id,'_results.txt')
   capture.output(cat(paste0(results_file,'\n')),file=results_file)
   debug_file <- paste0(protein_id,'_debug_')
+  for(i in 1:chains) {
+    capture.output(cat(paste0(debug_file,i,'.txt\n')),file=paste0(debug_file,i,'.txt'))
+  }
   
   burnin <- nsamps/chains
   nitt <- nsamps/chains + burnin
+  mixed <- F
   
   tryCatch({ 
     repeat {
-      print(paste0('chains=',chains,' nitt=',nitt,' burnin=',burnin,' thin=',thin))
-      capture.output(cat(paste0('\nchains=',chains,' nitt=',nitt,' burnin=',burnin,' thin=',thin,'\n\n')),file=results_file,append=T)
+      msg <- paste0('nsamps=',nsamps,' [chains=',chains,' nitt=',nitt,' burnin=',burnin,' thin=',thin,']')
+      print(msg)
+      capture.output(cat(paste0('\n',msg,'\n\n')),file=results_file,append=T)
       
       results <- foreach(i=1:chains,.multicombine=T) %do% {
-        capture.output(cat(paste0('\nchains=',chains,' nitt=',nitt,' burnin=',burnin,' thin=',thin,'\n\n')),file=paste0(debug_file,i,'.txt'),append=T)
+        capture.output(cat(paste0('\n',msg,'\n\n')),file=paste0(debug_file,i,'.txt'),append=T)
              
         # Explanation of integrating exposures into the model (RunChannel fixed effects)
         # ------------------------------------------------------------------------------
@@ -135,7 +140,7 @@ model <- function(parameters,exposures,data,protein_id,fc,chains,nsamps,maxsamps
       sds <- foreach(i=1:ncol(freqs),.combine=cbind) %do% {
         capture.output(print(freqs[,i]),file=results_file,append=T)
         
-        dd.model <- data.frame(Success=freqs[,i]+1,Fail=nsamps/thin-freqs[,i]+1)
+        dd.model <- data.frame(Success=freqs[,i],Fail=nsamps/chains/thin-freqs[,i])
         prior <- list(
           R = list(V = diag(1), nu = 0.002)
         )
@@ -149,23 +154,23 @@ model <- function(parameters,exposures,data,protein_id,fc,chains,nsamps,maxsamps
         
         upper <- plogis(s$solutions[,'u-95% CI'])
         lower <- plogis(s$solutions[,'l-95% CI'])
-        capture.output(print(paste(upper,lower,upper-lower)),file=results_file,append=T)
         upper-lower
       }
       
       # if not mixed, do it again with double the samples
       print(sds)
+      capture.output(print(paste0(sds,'\n')),file=results_file,append=T)
       if (any(sds > tol_sd)) {
         nsamps <- nsamps * 2
         burnin <- burnin * 2
         nitt <- nitt * 2
-        thin <- thin * 2      
+        thin <- thin * 2  
       } else {
+        mixed <- T
         break
       }
       
       if (nsamps > maxsamps) {
-        nsamps <- 0
         break;
       }
     }    
@@ -187,9 +192,9 @@ model <- function(parameters,exposures,data,protein_id,fc,chains,nsamps,maxsamps
   # stats of Condition fixed effects samples
   condition <- data.frame(mean=colMeans(samps[,3:ncol(samps),drop=F]))
   condition <- cbind(condition,HPDinterval(mcmc(samps[,3:ncol(samps),drop=F])))
-  condition$Up = 1 - colSums(samps[,3:ncol(samps),drop=F] > log2(fc)) / nsamps
-  condition$Down = 1 - colSums(samps[,3:ncol(samps),drop=F] < -log2(fc)) / nsamps
-  condition$Same = 1 - colSums(samps[,3:ncol(samps),drop=F] >= -log2(fc) & samps[,3:ncol(samps),drop=F] <= log2(fc)) / nsamps
+  condition$Up = 1 - colSums(samps[,3:ncol(samps),drop=F] > log2(fc)) / (nsamps/thin)
+  condition$Down = 1 - colSums(samps[,3:ncol(samps),drop=F] < -log2(fc)) / (nsamps/thin)
+  condition$Same = 1 - colSums(samps[,3:ncol(samps),drop=F] >= -log2(fc) & samps[,3:ncol(samps),drop=F] <= log2(fc)) / (nsamps/thin)
  
   # save Sample random effects samples
   samps <- dcast(rbind(
@@ -218,7 +223,7 @@ model <- function(parameters,exposures,data,protein_id,fc,chains,nsamps,maxsamps
   
   # save perf stats
   perf <- as.data.frame(t(summary(proc.time() - ptm)))
-  perf$nsamps <- nsamps
+  perf$nsamps <- ifelse(mixed,nsamps,-maxsamps)
   
   save(condition,sample,perf,file=paste0(protein_id,'.Rdata'))    
 }
@@ -232,24 +237,20 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   load("parameters.Rdata")  
   load("exposures.Rdata")
   load(paste0(commandArgs(T)[3],".Rdata"))  
+  protein_id = meta$ProteinID
   
   # some tuning parameters (should come from parameters.Rdata with defaults given here)
   fc <- as.double(ifelse("significant_fc" %in% parameters$Key,parameters$Value[parameters$Key=="significant_fc"],1.05))
-  chains <- as.integer(ifelse("mcmc_chains" %in% parameters$Key,parameters$Value[parameters$Key=="mcmc_chains"],8))
-  nsamps <- as.integer(ifelse("n_samps" %in% parameters$Key,parameters$Value[parameters$Key=="n_samps"],65536))
-  maxsamps <- as.integer(ifelse("max_samps" %in% parameters$Key,parameters$Value[parameters$Key=="max_samps"],1048576))
+  chains <- as.integer(ifelse("mcmc_chains" %in% parameters$Key,parameters$Value[parameters$Key=="mcmc_chains"],5))
+  nsamps <- as.integer(ifelse("n_samps" %in% parameters$Key,parameters$Value[parameters$Key=="n_samps"],10000))
+  maxsamps <- as.integer(ifelse("max_samps" %in% parameters$Key,parameters$Value[parameters$Key=="max_samps"],320000))
   thin <- as.integer(ifelse("thin_samps" %in% parameters$Key,parameters$Value[parameters$Key=="thin_samps"],1))
-  tol_sd <- as.double(ifelse("sd_tolerance" %in% parameters$Key,parameters$Value[parameters$Key=="sd_tolerance"],0.02))  
+  tol_sd <- as.double(ifelse("sd_tolerance" %in% parameters$Key,parameters$Value[parameters$Key=="sd_tolerance"],0.05))  
   
-  # set seed which determines if results are exactly reproducible
-  if ("random_seed" %in% parameters$Key)
-  {
-    seed <- as.integer(parameters$Value[parameters$Key=="random_seed"])
-  } else {
-    seed <- as.integer(commandArgs(T)[2])
-  }
-  set.seed(seed)
-  protein_id = meta$ProteinID
+  # if random_seed not set, make it 0 so results exactly reproducible. if -1 then set seed to cluster id to make it pseudo-truly random
+  seed <- ifelse("random_seed" %in% parameters$Key,as.integer(parameters$Value[parameters$Key=="random_seed"]),0)
+  set.seed(ifelse(seed>=0,seed,as.integer(commandArgs(T)[2])))
+  
   model(parameters,exposures,data,protein_id,fc,chains,nsamps,maxsamps,thin,tol_sd)
 }
 
