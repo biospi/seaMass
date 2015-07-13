@@ -1,8 +1,6 @@
 #! /usr/bin/Rscript
 args <- commandArgs(T)
 script_dir <- dirname(strsplit(grep('^--file=',commandArgs(),value=T),'=')[[1]][2])
-#args <- c("olly_sn.xlsx","PeptideSummary.txt")
-#script_dir <- "~/Repositories/bayesprot"
 
 suppressPackageStartupMessages(
   installed <- require("XLConnect")
@@ -28,11 +26,10 @@ parameters <- readWorksheet(metadata,1,header=F)
 colnames(parameters) <- c("Key","Value")
 design <- readWorksheet(metadata,2)
 design$Run <- factor(design$Run)
+design$Sample <- factor(design$Sample)
+design$Condition <- factor(design$Condition)
+design$Condition <- factor(sub('^+[[:digit:]]','',design$Condition), levels=sub('^+[[:digit:]]','',levels(design$Condition)))
 design$Channel <- factor(design$Channel)
-design <- data.frame(lapply(design, function (v) {
-  if (is.character(v)) factor(v)
-  else v
-}))
 fractions <- readWorksheet(metadata,3)  
 fractions$Run <- factor(fractions$Run)
 fractions$Fraction <- factor(fractions$Fraction)
@@ -95,8 +92,10 @@ out_dir <- paste("bayesprot",args[1],args[2],sep='_')
 message(paste0("writing: ",file.path(out_dir,"submit.zip"),"..."))
 dir.create(out_dir)
 file.copy(file.path(script_dir,"submit"),out_dir,recursive=T)
+parameters <- rbind(parameters, c("id",out_dir))
 save(parameters,file=file.path(out_dir,"submit","input","parameters.Rdata"))
-save(design,data,file=file.path(out_dir,"submit","input","input.Rdata"))
+save(design,file=file.path(out_dir,"submit","input","design.Rdata"))
+save(data,file=file.path(out_dir,"submit","input","data.Rdata"))
 
 # append number of jobs etc to the HTCondor sub files
 csl.file <- file(file.path(script_dir,"condor_submit.local"))
@@ -106,20 +105,28 @@ sub.filenames <- list.files(path=file.path(out_dir,"submit"),pattern="*.sub")
 for (sub.filename in sub.filenames) {
   sub.file <- file(file.path(out_dir,"submit",sub.filename),open="at")
   writeLines(csl,sub.file)
-  if (grepl("norm|model",sub.filename)) {
+  if (grepl("norm",sub.filename)) {
+    writeLines("priority = 2",sub.file)          
     writeLines(paste("queue",paste0(ifelse(np<50,np,50))),sub.file)   
     if (np>50) {
-      writeLines("priority = -1",sub.file)          
+      writeLines("priority = 1",sub.file)          
       writeLines(paste("queue",np-50),sub.file)          
     }
   } else if (grepl("exposures",sub.filename)) {
-    writeLines(paste0("transfer_input_files = ",paste0("../norm/",0:(np-1),".Rdata",collapse=", "),", ../build/build.zip"),sub.file)  
+    writeLines(paste0("transfer_input_files = ",paste0("../norm/",0:(np-1),".Rdata",collapse=", "),", ../input/parameters.Rdata, ../input/design.Rdata, ../build/build.zip"),sub.file)  
     writeLines("queue",sub.file)  
-  } else if (grepl("fdr",sub.filename)) {
+  } else if (grepl("model",sub.filename)) {
+    writeLines("priority = 5",sub.file)          
+    writeLines(paste("queue",paste0(ifelse(np<50,np,50))),sub.file)   
+    if (np>50) {
+      writeLines("priority = 4",sub.file)          
+      writeLines(paste("queue",np-50),sub.file)          
+    }
+  } else if (grepl("output",sub.filename)) {
     if("email" %in% parameters$Key) {
       writeLines(paste0("notify_user = ",parameters$Value[parameters$Key=="email"]),sub.file) 
     }
-    writeLines(paste0("transfer_input_files = ",paste0("../model/",0:(np-1),".Rdata",collapse=", "),", ../import/index.Rdata, ../build/build.zip"),sub.file)  
+    writeLines(paste0("transfer_input_files = ",paste0("../model/",0:(np-1),".Rdata",collapse=", "),", ../import/index.Rdata, ../input/parameters.Rdata, ../build/build.zip"),sub.file)  
     writeLines("queue",sub.file)  
   } else
   {

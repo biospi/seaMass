@@ -1,9 +1,9 @@
 #! /usr/bin/Rscript 
 
-source('plots.R')
-
 # BAYESPROT MODEL
-model <- function(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,tol_sd,use_exposure_sd) { 
+model <- function(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,tol_sd,use_exposure_sd,var_equal) { 
+  source('plots.R')
+  
   library(methods)
   library(MCMCglmm)
   library(foreach)
@@ -12,6 +12,8 @@ model <- function(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,
   library(plyr)
   library(ggplot2)
   library(grid)
+  library(rstan)
+  library(coda)
   
   ptm <- proc.time()
   
@@ -21,11 +23,12 @@ model <- function(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,
     
   # order exposures so it matches the prior specification
   dd <- data
-  dd$RunChannel <- as.factor(paste0('Run',dd$Run,':','Channel',dd$Channel))
+  
+  dd$RunChannel <- as.factor(paste0(dd$Run,dd$Channel))
   ee <- data.frame(RunChannel=levels(dd$RunChannel))
   ee <- merge(ee,exposures,all.x=T)
   ee$mean[is.na(ee$mean)] <- 0.0
-  ee$var <- ifelse(use_exposure_sd, ee$sd * ee$sd, NA)
+  ee$var <- ifelse(rep(use_exposure_sd,nrow(ee)), ee$sd * ee$sd, NA)
   ee$var[is.na(ee$var)] <- 1e-6
   
   # some runs, conditions or samples might not be represented for this protein. remove these
@@ -72,22 +75,23 @@ model <- function(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,
         # misses the first spectrum! Luckily we can make RunChannel a second level effect because the first
         # level is not important (as it is always mean 0, var 1e-6)
         
+        nG <- ifelse(var_equal,1,nC)
         if (nP == 1) {       
           if (nS == 1) {           
             
             # one spectrum only for this protein (most basic model)
             prior <- list(
               B = list(mu = matrix(0,nRC+nC-1,1),V = diag(nRC+nC-1) * 1e+6),
-              G = list(G1 = list(V = diag(1), nu = 1, alpha.mu = rep(0,1),  alpha.V = diag(1000,1))),
+              G = list(G1 = list(V = diag(nG), nu = nG, alpha.mu = rep(0,nG),  alpha.V = diag(1000,nG))),
               R = list(V = diag(1), nu = 0.002)
             )
             prior$B$mu[2:nRC] <- ee$mean[2:nRC]
             diag(prior$B$V)[2:nRC] <- ee$var[2:nRC]             
             model <- suppressWarnings(MCMCglmm(
               Count ~ RunChannel + Condition,
-              random = ~ Sample,
+              random = as.formula(ifelse(var_equal, "~ Sample", "~idh(Condition):Sample")),
               family = 'poisson',
-              data = dd, prior=prior, nitt=nitt, burnin=burnin, thin=thin, pr=T, verbose=F, singular.ok=T
+              data = dd, start=list(QUASI=F), prior=prior, nitt=nitt, burnin=burnin, thin=thin, pr=T, verbose=F, singular.ok=T
             ))
             
           } else {
@@ -95,17 +99,17 @@ model <- function(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,
             # one peptide only for this protein (multiple spectra)
             prior <- list(
               B = list(mu = matrix(0,nRC+nS+nC-2,1),V = diag(nRC+nS+nC-2) * 1e+6),
-              G = list(G1 = list(V = diag(1), nu = 1, alpha.mu = rep(0,1),  alpha.V = diag(1000,1))),
+              G = list(G1 = list(V = diag(nG), nu = nG, alpha.mu = rep(0,nG),  alpha.V = diag(1000,nG))),
               R = list(V = diag(nS), nu = 0.002)
             )
             prior$B$mu[(nS+1):(nS+nRC-1)] <- ee$mean[2:nRC]
             diag(prior$B$V)[(nS+1):(nS+nRC-1)] <- ee$var[2:nRC]                      
             model <- suppressWarnings(MCMCglmm(
               Count ~ Spectrum-1 + RunChannel + Condition,
-              random = ~ Sample,
+              random = as.formula(ifelse(var_equal, "~ Sample", "~ idh(Condition):Sample")),
               rcov = ~ idh(Spectrum):units,
               family = 'poisson',
-              data = dd, prior=prior, nitt=nitt, burnin=burnin, thin=thin, pr=T, verbose=F, singular.ok=T
+              data = dd, start=list(QUASI=F), prior=prior, nitt=nitt, burnin=burnin, thin=thin, pr=T, verbose=F, singular.ok=T
             ))
             
           }
@@ -115,7 +119,7 @@ model <- function(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,
           # multiple peptides for this protein (full model)
           prior <- list(
             B = list(mu = matrix(0,nRC+nS+nC-2,1),V = diag(nRC+nS+nC-2) * 1e+6),
-            G = list(G1 = list(V = diag(1), nu = 1, alpha.mu = rep(0,1),  alpha.V = diag(1000,1)),
+            G = list(G1 = list(V = diag(nG), nu = nG, alpha.mu = rep(0,nG),  alpha.V = diag(1000,nG)),
                      G2 = list(V = diag(nP), nu = nP, alpha.mu = rep(0,nP),  alpha.V = diag(1000,nP))),
             R = list(V = diag(nS), nu = 0.002)
           )
@@ -123,10 +127,10 @@ model <- function(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,
           diag(prior$B$V)[(nS+1):(nS+nRC-1)] <- ee$var[2:nRC]              
           model <- suppressWarnings(MCMCglmm(
             Count ~ Spectrum-1 + RunChannel + Condition,
-            random = ~ Sample + idh(Peptide):Sample,
+            random = as.formula(paste(ifelse(var_equal, "~ Sample +", "~ idh(Condition):Sample +"), "idh(Peptide):Sample")),
             rcov = ~ idh(Spectrum):units,
             family = 'poisson',        
-            data = dd, prior=prior, nitt=nitt, burnin=burnin, thin=thin, pr=T, verbose=F, singular.ok=T
+            data = dd, start=list(QUASI=F), prior=prior, nitt=nitt, burnin=burnin, thin=thin, pr=T, verbose=F, singular.ok=T
           ))
           
         }     
@@ -134,7 +138,18 @@ model <- function(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,
         model
       }  
       
-      # check chain mixing on the results of our one-sided statistical tests
+      # Gelman Rubin diagnostic
+      samps3D.Sol <- (foreach(r=results,.combine='mbind',.multicombine=T) %do% r$Sol)[,,,drop=F]
+      conditions3D.Sol <- samps3D.Sol[,,dimnames(samps3D.Sol)[[3]] %in% paste0('Condition', levels(dd$Condition)),drop=F]
+      
+      diags <- monitor(conditions3D.Sol, warmup=0, digits_summary=4)
+      capture.output(print(diags),file=results_file,append=T)
+      
+      # Raftert diagnostic
+      conditions.Sol <- dcast(melt(conditions3D.Sol),...~Var3) 
+      capture.output(print(raftery.diag(mcmc(conditions.Sol[3:ncol(conditions.Sol)]))),file=results_file,append=T)
+      
+      # check precision of the results of our one-sided statistical tests
       freqs <- foreach(r=results,.combine='rbind') %do% {
         samps <- as.matrix(r$Sol[,grep('^Condition',colnames(r$Sol)),drop=F])
         c(colSums(samps > log2(fc)),
@@ -190,31 +205,58 @@ model <- function(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,
   colnames(samps.Sol)[1:2] <- c('Iteration','Chain') 
   
   # Condition fixed effects
-  samps.condition <- samps.Sol[,colnames(samps.Sol) %in% paste0('Condition', levels(dd$Condition)),drop=F]
-  colnames(samps.condition) <- sub('Condition', '', colnames(samps.condition), fixed=T)  
+  samps.conditions <- samps.Sol[,colnames(samps.Sol) %in% paste0('Condition', levels(dd$Condition)),drop=F]
+  samps.baseline <- data.frame(x = rnorm(nrow(samps.conditions),1e-6,1e-6))
+  colnames(samps.baseline)[1] <- paste0('Condition',levels(dd$Condition)[1])
+  samps.conditions <- cbind(samps.baseline, samps.conditions)
+  colnames(samps.conditions) <- sub('Condition', '', colnames(samps.conditions), fixed=T)  
   # stats for plot and csv output
-  stats.condition <- data.frame(Up = 1 - colSums(samps.condition > log2(fc)) / (nsamps/thin),
-                                Down = 1 - colSums(samps.condition < -log2(fc)) / (nsamps/thin),
-                                Same = 1 - colSums(samps.condition >= -log2(fc) & samps.condition <= log2(fc)) / (nsamps/thin))
-  plot.condition(samps.condition, stats.condition, fc, meta, paste0(meta$ProteinID, '_condition.png'))
+  stats.conditions <- data.frame(variable = colnames(samps.conditions),
+                                 Up = 1 - colSums(samps.conditions > log2(fc)) / (nsamps/thin),
+                                 Down = 1 - colSums(samps.conditions < -log2(fc)) / (nsamps/thin),
+                                 Same = 1 - colSums(samps.conditions >= -log2(fc) & samps.conditions <= log2(fc)) / (nsamps/thin))
+  stats.conditions$mean = colMeans(samps.conditions)
+  stats.conditions <- cbind(stats.conditions, HPDinterval(mcmc(samps.conditions)))
+  plot.conditions(samps.conditions, stats.conditions, fc, meta, paste0(meta$ProteinID, '_conditions.png'))
+  stats.conditions <- stats.conditions[2:nrow(stats.conditions),]
   
   # Sample random effect
-  samps.samples_sd <- samps.sqrtVCV[,"Sample",drop=F]   
-  plot.samples_sd(samps.samples_sd, meta, paste0(meta$ProteinID,'_samples_sd.png')) 
+  if (var_equal) {
+    samps.conditions_sd <- samps.sqrtVCV[,"Sample",drop=F]
+  } else {
+    samps.conditions_sd <- samps.sqrtVCV[,colnames(samps.sqrtVCV) %in% paste0(levels(dd$Condition), ".Sample"),drop=F]
+    colnames(samps.conditions_sd) <- sub('\\.Sample$', '', colnames(samps.conditions_sd))    
+  }
+  # stats for plot and csv output
+  stats.conditions_sd <- data.frame(variable = colnames(samps.conditions_sd), mean = colMeans(samps.conditions_sd))
+  stats.conditions_sd <- cbind(stats.conditions_sd, HPDinterval(mcmc(samps.conditions_sd)))  
+  plot.conditions_sd(samps.conditions_sd, stats.conditions_sd, meta, paste0(meta$ProteinID,'_conditions_sd.png')) 
   
   # Sample latent effects
-  samps.samples <- samps.Sol[,colnames(samps.Sol) %in% paste0('Sample.', levels(dd$Sample))]
-  colnames(samps.samples) <- sub('Sample.', '', colnames(samps.samples), fixed=T)
+  if (var_equal) {
+    samples <- data.frame(Name=paste0('Sample.', levels(dd$Sample)),Sample=levels(dd$Sample))
+  } else {
+    samples <- mdply(levels(dd$Sample), function(i) data.frame(Name=paste0('Sample.', dd$Condition[dd$Sample==i][1], '.Sample.', i),Sample=i))
+  }
+  samps.samples <- samps.Sol[,colnames(samps.Sol) %in% samples$Name]
+  colnames(samps.samples) <- samples$Sample
   # add Condition fixed effects
+  samps.samples2 <- samps.samples
   for (i in colnames(samps.samples)) {
-    if(as.character(dd$Condition[dd$Sample==i][1]) %in% colnames(samps.condition))
+    if(as.character(dd$Condition[dd$Sample==i][1]) %in% colnames(samps.conditions))
     {
-      samps.samples[,i] <- samps.samples[,i] + samps.condition[,as.character(dd$Condition[dd$Sample==i][1])]
+      samps.samples2[,i] <- samps.samples[,i] + samps.conditions[,as.character(dd$Condition[dd$Sample==i][1])]
+    }
+  }
+  for (i in colnames(samps.samples)) {
+    if(as.character(dd$Condition[dd$Sample==i][1]) %in% colnames(samps.conditions))
+    {
+      samps.samples[,i] <- samps.samples[,i] + mean(samps.conditions[,as.character(dd$Condition[dd$Sample==i][1])])
     }
   }
   # plot
-  plot.samples(samps.samples, meta, dd, paste0(meta$ProteinID,'_samples.png'))
-   
+  plot.samples(samps.samples, samps.samples2, meta, dd, paste0(meta$ProteinID,'_samples.png'))
+  
   # Peptides
   if (nP > 1) {
     # Peptide random effects
@@ -232,11 +274,11 @@ model <- function(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,
                    Sample = j,
                    Condition = dd$Condition[dd$Sample==j][1],
                    N = length(unique(dd$Spectrum[dd$Peptide==i])),
-                   value = s[,j] + samps.samples[,j])
+                   value = s[,j])
       })
     })
     # plot
-    plot.peptides(samps.samples, samps.peptides.melted, meta, dd, paste0(meta$ProteinID,'_peptides.png'))
+    plot.peptides(samps.peptides.melted, meta, dd, paste0(meta$ProteinID,'_peptides.png'))
   } 
   
   # Spectra
@@ -244,32 +286,24 @@ model <- function(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,
     # Spectrum random effects
     samps.spectra_sd <- samps.sqrtVCV[,colnames(samps.sqrtVCV) %in% paste0(levels(dd$Spectrum), ".units"),drop=F]
     colnames(samps.spectra_sd) <- sub('\\.units$', '', colnames(samps.spectra_sd))    
-    plot.spectra_sd(samps.spectra_sd, meta, dd, paste0(meta$ProteinID, '_spectra_sd.png'))
-     
-    pred.null <- data.frame(predict(results[[1]],interval="confidence",marginal=NULL))
-    dd.plot <- cbind(dd,pred.null)
-    g <- ggplot(dd.plot, aes(x=Channel,y=Count))
-    g <- g + theme_bw()
-    g <- g + theme(panel.margin=unit(0,"inches"),
-                   panel.border=element_rect(colour="black",size=1.5),
-                   panel.grid.major=element_line(size=0.2),
-                   plot.title=element_text(size=10),
-                   strip.background=element_blank(),
-                   strip.text=element_text(colour="blue"))
-    g <- g + scale_y_continuous(trans="log2")
-    g <- g + facet_grid(Spectrum ~ Run)
-    g <- g + geom_errorbar(aes(ymin=lwr,ymax=upr,colour=Peptide), width=0.5) 
-    g <- g + geom_point(aes(y=fit,colour=Peptide), width=1.0) 
-    g <- g + geom_errorbar(aes(ymin=Count+0.5-sqrt(Count+0.25), ymax=Count+0.5+sqrt(Count+0.25)), width=0.1) 
-    g <- g + geom_errorbar(aes(ymin=Count, ymax=Count), width=0.05)
-    g
+    plot.spectra_sd(samps.spectra_sd, meta, dd, paste0(meta$ProteinID, '_spectra_sd.png'))     
   }  
+  # Spectrum predictions
+  preds <- data.frame(predict(results[[1]],interval="confidence"))
+  plot.spectra(preds, meta, dd, paste0(meta$ProteinID, '_spectra.png'))
+  if (nP > 1) {
+    preds <- data.frame(predict(results[[1]],interval="confidence",marginal=~idh(Peptide):Sample))
+    plot.spectra(preds, meta, dd, paste0(meta$ProteinID, '_spectra_marginal_peptides.png'))
+  }
+  preds <- data.frame(predict(results[[1]],interval="confidence",marginal=NULL))
+  plot.spectra(preds, meta, dd, paste0(meta$ProteinID, '_spectra_marginal_null.png'))
   
   # save perf stats
   perf <- as.data.frame(t(summary(proc.time() - ptm)))
   perf$nsamps <- ifelse(mixed,nsamps,-maxsamps)
+  perf$DIC <- results[[1]]$DIC
   
-  save(condition,sample,perf,file=paste0(meta$ProteinID,'.Rdata'))    
+  save(stats.conditions, stats.conditions_sd, perf, file=paste0(meta$ProteinID,'.Rdata'))    
 }
 
 # FOR EXECUTING UNDER HTCondor
@@ -289,12 +323,13 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   maxsamps <- as.integer(ifelse("max_samps" %in% parameters$Key,parameters$Value[parameters$Key=="max_samps"],640000))
   thin <- as.integer(ifelse("thin_samps" %in% parameters$Key,parameters$Value[parameters$Key=="thin_samps"],1))
   tol_sd <- as.double(ifelse("sd_tolerance" %in% parameters$Key,parameters$Value[parameters$Key=="sd_tolerance"],0.05))  
-  use_exposure_sd <- as.double(ifelse("use_exposure_sd" %in% parameters$Key,ifelse(parameters$Value[parameters$Key=="sd_tolerance"]>0,1,0),1))  
+  use_exposure_sd <- as.integer(ifelse("use_exposure_sd" %in% parameters$Key,ifelse(parameters$Value[parameters$Key=="use_exposure_sd"]>0,1,0),1))  
+  var_equal <- as.integer(ifelse("var_equal" %in% parameters$Key,ifelse(parameters$Value[parameters$Key=="var_equal"]>0,1,0),1))  
   
   # if random_seed not set, make it 0 so results exactly reproducible. if -1 then set seed to cluster id to make it pseudo-truly random
   seed <- ifelse("random_seed" %in% parameters$Key,as.integer(parameters$Value[parameters$Key=="random_seed"]),0)
   set.seed(ifelse(seed>=0,seed,as.integer(commandArgs(T)[2])))
   
-  model(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,tol_sd,use_exposure_sd)
+  model(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,tol_sd,use_exposure_sd,var_equal)
 }
 

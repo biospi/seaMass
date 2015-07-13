@@ -7,6 +7,6 @@ log = condor.log
 error = $(Process).err
 output = $(Process).out
 should_transfer_files = YES
-transfer_input_files = ../input/parameters.Rdata, ../import/$(Process).Rdata, ../exposures/exposures.Rdata, ../build/build.zip
+transfer_input_files = ../plots.R, ../input/parameters.Rdata, ../import/$(Process).Rdata, ../exposures/exposures.Rdata, ../build/build.zip
 when_to_transfer_output = ON_EXIT
 rank = kflops

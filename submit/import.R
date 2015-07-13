@@ -79,7 +79,8 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   if (!require("reshape2")) install.packages("reshape2",lib=libloc,repos=reposloc)
   
   load("parameters.Rdata")
-  load("input.Rdata")
+  load("data.Rdata")
+  load("design.Rdata")
   index <- import(parameters,design,fractions,data)
   save(index,file="index.Rdata")
 }

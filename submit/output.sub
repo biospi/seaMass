@@ -1,12 +1,13 @@
 getenv = true 
 universe = vanilla
-executable = fdr.R
+executable = output.R
 arguments = HTCondor
 initialdir = output
 log = condor.log
-error = fdr.err
-output = fdr.out
+error = output.err
+output = output.out
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
 rank = kflops
-notification = complete
+priority = 6
+notification = Always

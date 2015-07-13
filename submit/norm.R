@@ -1,72 +1,208 @@
 #! /usr/bin/Rscript 
 
 # BAYESPROT MODEL
-norm <- function(parameters,dd,protein_id) { 
+norm <- function(parameters,data,meta,chains,nsamps,maxsamps,thin) { 
+  source('plots.R')
+  
   library(methods)
   library(MCMCglmm)
+  library(foreach)
+  library(reshape2)
+  library(abind)
+  library(plyr)
+  library(rstan)
   
-  # some tuning parameters
-  nsamps <- 2^16
-  thin <- 2^6
-  burnin <- nsamps
-  nitt <- nsamps + nsamps  
-      
-  nP <- length(levels(dd$Peptide))
-  nS <- length(levels(dd$Spectrum))  
-  dd$Channel <- factor(dd$Channel,levels=rev(levels(dd$Channel)))  
+  mbind <- function(...) aperm(abind(...,along=3),c(1,3,2))  
+  options(max.print=9999999)
+  options(width=160)
+
+  dd <- data
   
-  if (nP == 1) {       
-    if (nS == 1) {           
-      prior <- list(
-        R = list(V=1,nu=0.002)
-      )          
-      model <- model <- suppressWarnings(MCMCglmm(
-        Count ~ Run:Channel,
-        family = 'poisson',
-        data = dd, prior=prior, nitt=nitt, burnin=burnin, thin=thin, verbose=F
-      ))           
-    } else {
-      prior <- list(
-        R = list(V=diag(nS),nu=0.002)
-      )
-      model <- suppressWarnings(MCMCglmm(
-        Count ~ Spectrum-1 + Run:Channel,
-        rcov = ~ idh(Spectrum):units,
-        family = 'poisson',
-        data = dd, prior=prior, nitt=nitt, burnin=burnin, thin=thin, verbose=F
-      ))
+  # The norm model needs each Channel to be reported at least twice per Run. If not, need to
+  # drop these runs
+  dd$RunChannel <- interaction(dd$Run, dd$Channel, sep='')
+  freq <- count(dd$RunChannel)
+  dd <- dd[dd$RunChannel %in% freq$x[freq$freq>1],]
+
+  print(paste(Sys.time(),"[norm() Initialised]"))
+  
+  if (nrow(dd) == 0) {
+    print(paste(Sys.time(),"[norm() nrow(dd)==0"))
+    samps.runchannels = data.frame()
+  } else {
+    print(paste(Sys.time(),"[norm() nrow(dd)>0"))
+    # some runs, conditions or samples might not be represented for this protein. remove these
+    # levels with zero values otherwise MCMCglmm breaks
+    dd$Run <- factor(dd$Run)
+    dd$Sample <- factor(dd$Sample)
+    dd$Spectrum <- factor(dd$Spectrum)
+    dd$Peptide <- factor(dd$Peptide)
+    dd$RunChannel <- factor(dd$RunChannel)
+    
+    # number of factor levels
+    nP <- length(levels(dd$Peptide))
+    nS <- length(levels(dd$Spectrum))  
+    nR <- length(levels(dd$Run))
+    
+    if (nR > 1) dd$Channel <- factor(dd$Channel,levels=rev(levels(dd$Channel)))  
+    
+    # debug output
+    results_file <- paste0(meta$ProteinID,'_results.txt')
+    capture.output(cat(paste0(results_file,'\n')),file=results_file)
+    debug_file <- paste0(meta$ProteinID,'_debug_')
+    for(i in 1:chains) {
+      capture.output(cat(paste0(debug_file,i,'.txt\n')),file=paste0(debug_file,i,'.txt'))
     }
-  } else {    
-    prior <- list(
-      G = list(G1=list(V=diag(nP),nu=nP,alpha.mu=rep(0,nP),alpha.V=diag(1000,nP))),
-      R = list(V=diag(nS),nu=0.002)
-    )
-    model <- suppressWarnings(MCMCglmm(          
-      Count ~ Spectrum-1 + Run:Channel,          
-      random = ~ idh(Peptide):Sample,
-      rcov = ~ idh(Spectrum):units,
-      family = 'poisson',        
-      data = dd, prior=prior, nitt=nitt, burnin=burnin, thin=thin, pr=T, verbose=F
-    ))
-  }
-  print(summary(model))
-  samps <- as.data.frame(model$Sol[,grep(paste0("^Run(",paste0(levels(dd$Run),collapse='|'),"):Channel(",
-                                                paste0(levels(dd$Channel),collapse='|'),")$"),colnames(model$Sol))])
-  save(samps,file=paste0(protein_id,".Rdata"))
+    
+    burnin <- nsamps/chains
+    nitt <- nsamps/chains + burnin
+    mixed <- F
+    
+    tryCatch({ 
+      repeat {
+        msg <- paste0('nsamps=',nsamps,' [chains=',chains,' nitt=',nitt,' burnin=',burnin,' thin=',thin,']')
+        print(msg)
+        capture.output(cat(paste0('\n',msg,'\n\n')),file=results_file,append=T)
+        
+        results <- foreach(i=1:chains,.multicombine=T) %do% {
+          capture.output(cat(paste0('\n',msg,'\n\n')),file=paste0(debug_file,i,'.txt'),append=T)
+          
+          if (nP == 1) {       
+            
+            # one peptide only for this protein
+            prior <- list(
+              R = list(V=diag(nS), nu=0.002)
+            )
+            model <- suppressWarnings(MCMCglmm(
+              as.formula(paste("Count ~", ifelse(nS==1, "", "Spectrum-1 +"), ifelse(nR==1, "Channel", "Run:Channel"))),          
+              rcov = as.formula(ifelse(nS==1,"~units", "~idh(Spectrum):units")),
+              family = 'poisson',
+              data = dd, start=list(QUASI=F), prior=prior, nitt=nitt, burnin=burnin, thin=thin, verbose=F
+            ))
+            
+          } else { 
+            
+            # multiple peptides for this protein (full model)
+            prior <- list(
+              G = list(G1=list(V=diag(nP), nu=nP, alpha.mu=rep(0, nP), alpha.V=diag(1000, nP))),
+              R = list(V=diag(nS), nu=0.002)
+            )
+            model <- suppressWarnings(MCMCglmm(          
+              as.formula(paste0("Count ~ Spectrum-1 + ", ifelse(nR==1, "Channel", "Run:Channel"))),          
+              random = ~ idh(Peptide):Sample,
+              rcov = as.formula(ifelse(nS==1,"~units", "~idh(Spectrum):units")),
+              family = 'poisson',        
+              data = dd, start=list(QUASI=F), prior=prior, nitt=nitt, burnin=burnin, thin=thin, pr=T, verbose=F
+            ))
+            
+          }        
+          
+          capture.output(summary(model),file=paste0(debug_file,i,'.txt'),append=T)
+          model
+        }  
+        
+        # todo: mixing test and rerun if not mixed
+        samps3D.Sol <- (foreach(r=results,.combine='mbind',.multicombine=T) %do% r$Sol)[,,,drop=F]
+        if (nR==1) {
+          runchannels3D.Sol <- dimnames(samps3D.Sol)[[3]] %in% c(maply(levels(dd$Run), function(x) paste0('Channel', levels(dd$Channel))))
+        } else {
+          runchannels3D.Sol <- dimnames(samps3D.Sol)[[3]] %in% c(maply(levels(dd$Run), function(x) paste0('Run', x, ':Channel', levels(dd$Channel))))
+        }
+        
+        # Gelman Rubin diagnostic
+        diags <- monitor(samps3D.Sol[,,runchannels3D.Sol,drop=F], warmup=0, digits_summary=4)
+        capture.output(print(diags),file=results_file,append=T)
+        
+        # if not mixed, do it again with double the samples
+        if (any(diags[,'Rhat'] > tol_rhat)) {
+          nsamps <- nsamps * 2
+          burnin <- burnin * 2
+          nitt <- nitt * 2
+          thin <- thin * 2  
+        } else {
+          mixed <- T
+          break
+        }
+        
+        if (nsamps > maxsamps) {
+          break;
+        }      
+      }    
+    }, error = function(err) {
+      warning(paste("ERROR:",err))
+      return
+    })
+    
+    print(paste(Sys.time(),"[norm() finished sampling]"))    
+    
+    samps.sqrtVCV <- dcast(melt((foreach(r=results,.combine='mbind',.multicombine=T) %do% sqrt(r$VCV))[,,,drop=F]),...~Var3) 
+    colnames(samps.sqrtVCV)[1:2] <- c('Iteration','Chain') 
+    samps.Sol <- dcast(melt(samps3D.Sol),...~Var3)  
+    colnames(samps.Sol)[1:2] <- c('Iteration','Chain') 
+    
+    # save Run:Channel fixed effects
+    if (nR==1) {
+      runchannels.Sol <- colnames(samps.Sol) %in% c(maply(levels(dd$Run), function(x) paste0('Channel', levels(dd$Channel))))
+      samps.runchannels <- samps.Sol[,runchannels.Sol,drop=F]
+      colnames(samps.runchannels) <- paste0(dd$Run[1], sub('Channel', '', colnames(samps.runchannels)))
+    } else {
+      runchannels.Sol <- colnames(samps.Sol) %in% c(maply(levels(dd$Run), function(x) paste0('Run', x, ':Channel', levels(dd$Channel))))
+      samps.runchannels <- samps.Sol[,runchannels.Sol,drop=F]
+      colnames(samps.runchannels) <- sub('^Run', '', colnames(samps.runchannels))  
+      colnames(samps.runchannels) <- sub(':Channel', '', colnames(samps.runchannels))  
+    }
+    plot.runchannels(samps.runchannels, meta, dd, paste0(meta$ProteinID,'_runchannels.png'))
+    
+    # Peptides
+    if (nP > 1) {
+      # Peptide random effects
+      samps.peptides_sd <- samps.sqrtVCV[,colnames(samps.sqrtVCV) %in% paste0(levels(dd$Peptide), ".Sample"),drop=F]
+      colnames(samps.peptides_sd) <- sub('\\.Sample$', '', colnames(samps.peptides_sd))    
+      plot.peptides_sd(samps.peptides_sd, meta, dd, paste0(meta$ProteinID, '_peptides_sd.png'))
+    } 
+    
+    # Spectra
+    if (nS > 1) {
+      # Spectrum random effects
+      samps.spectra_sd <- samps.sqrtVCV[,colnames(samps.sqrtVCV) %in% paste0(levels(dd$Spectrum), ".units"),drop=F]
+      colnames(samps.spectra_sd) <- sub('\\.units$', '', colnames(samps.spectra_sd))    
+      plot.spectra_sd(samps.spectra_sd, meta, dd, paste0(meta$ProteinID, '_spectra_sd.png'))
+    }
+    
+    print(paste(Sys.time(),"[norm() finished plotting]"))        
+  } 
+
+  # save samples for exposures.R
+  save(samps.runchannels, file=paste0(meta$ProteinID, ".Rdata"))
 }
 
 # FOR EXECUTING UNDER HTCondor
 if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
 {
+  print(paste(Sys.time(),"[Start]"))
   unzip("build.zip")
   .libPaths(c("Rpackages", .libPaths()))
+  print(paste(Sys.time(),"[Unzipped build.zip]"))
   
   load("parameters.Rdata")  
   load(paste0(commandArgs(T)[3],".Rdata"))  
+    
+  # some tuning parameters (should come from parameters.Rdata with defaults given here)
+  chains <- as.integer(ifelse("mcmc_chains" %in% parameters$Key,parameters$Value[parameters$Key=="mcmc_chains"],5))
+  nsamps <- as.integer(ifelse("n_samps" %in% parameters$Key,parameters$Value[parameters$Key=="n_samps"],10000))
+  maxsamps <- as.integer(ifelse("max_samps" %in% parameters$Key,parameters$Value[parameters$Key=="max_samps"],640000))
+  thin <- as.integer(ifelse("thin_samps" %in% parameters$Key,parameters$Value[parameters$Key=="thin_samps"],1))
+  tol_rhat <- as.double(ifelse("tol_rhat" %in% parameters$Key,parameters$Value[parameters$Key=="tol_rhat"],1.1))
   
   # if random_seed not set, make it 0 so results exactly reproducible. if -1 then set seed to cluster id to make it pseudo-truly random
   seed <- ifelse("random_seed" %in% parameters$Key,as.integer(parameters$Value[parameters$Key=="random_seed"]),0)
   set.seed(ifelse(seed>=0,seed,as.integer(commandArgs(T)[2])))
-           
-  norm(parameters,data,commandArgs(T)[3])
+
+  print(paste(Sys.time(),"[Entering norm()]"))
+  norm(parameters,data,meta,chains,nsamps,maxsamps,thin)
+  print(paste(Sys.time(),"[Left norm()]"))
+  
+  unlink("Rpackages",recursive=T)
+  print(paste(Sys.time(),"[Finish]"))
+  print(file.info(list.files(all.files=T,include.dirs=T)))
 }

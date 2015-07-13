@@ -8,4 +8,5 @@ error = build.err
 output = build.out
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
+priority = 0
 rank = kflops
