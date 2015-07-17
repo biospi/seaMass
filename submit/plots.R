@@ -148,40 +148,49 @@ plot.conditions_sd <- function(samps, stats, meta, filename) {
   ggsave(filename, g, height = 1 + 1*length(levels(stats$variable)), width=6, limitsize=F)
 }
 
-plot.samples <- function(samps1, samps2, meta, dd, filename) {  
-  samps1 <- mdply(colnames(samps1), function(i) {
-    data.frame(Sample = i, Condition = dd$Condition[dd$Sample==i][1], value = samps1[,i])
-  }) 
-  samps2 <- mdply(colnames(samps2), function(i) {
-    data.frame(Sample = i, Condition = dd$Condition[dd$Sample==i][1], value = samps2[,i])
-  })   
-  
-  stats1 <- ddply(samps1, .(Sample, Condition), function(x) {
-    s <- data.frame(mean = mean(x$value))
-    cbind(s, HPDinterval(mcmc(x$value)))
-  })
-  samps1.trunc <- ddply(samps1, .(Sample, Condition), function(x) {
-    lower = stats1$lower[stats1$Sample == x$Sample[1]]
-    upper = stats1$upper[stats1$Sample == x$Sample[1]]
-    x[x$value >= lower & x$value <= upper,]
-  })
-  
-  stats2 <- ddply(samps2, .(Sample, Condition), function(x) {
+plot.samples <- function(samps.samples_c_mean, samps.conditions, meta, dd, filename) {  
+  samps.samples_c_mean.melted <- mdply(colnames(samps.samples_c_mean), function(i) {
+    data.frame(Sample = i, Condition = dd$Condition[dd$Sample==i][1], value = samps.samples_c_mean[,i])
+  })  
+  stats.samples_c_mean <- ddply(samps.samples_c_mean.melted, .(Sample, Condition), function(x) {
     s <- data.frame(mean = mean(x$value), facet = ' ')
     cbind(s, HPDinterval(mcmc(x$value)))
   })
-  samps2.trunc <- ddply(samps2, .(Sample, Condition), function(x) {
-    lower = stats2$lower[stats2$Sample == x$Sample[1]]
-    upper = stats2$upper[stats2$Sample == x$Sample[1]]
+  samps.samples_c_mean.melted.trunc <- ddply(samps.samples_c_mean.melted, .(Sample, Condition), function(x) {
+    lower = stats.samples_c_mean$lower[stats.samples_c_mean$Sample == x$Sample[1]]
+    upper = stats.samples_c_mean$upper[stats.samples_c_mean$Sample == x$Sample[1]]
     x[x$value >= lower & x$value <= upper,]
+  })   
+  
+  samps.conditions.melted <- mdply(colnames(samps.conditions), function(i) {
+      data.frame(Condition = i, value = samps.conditions[,i])
   }) 
+  samps.conditions.melted <- merge(samps.conditions.melted, data.frame(Sample=dd$Sample, Condition=dd$Condition))
+  stats.conditions <- ddply(samps.conditions.melted, .(Sample, Condition), function(x) {
+    s <- data.frame(mean = mean(x$value), facet = ' ')
+    cbind(s, HPDinterval(mcmc(x$value)))
+  })
+  samps.conditions.melted.trunc <- ddply(samps.conditions.melted, .(Sample, Condition), function(x) {
+    lower = stats.conditions$lower[stats.conditions$Sample == x$Sample[1]]
+    upper = stats.conditions$upper[stats.conditions$Sample == x$Sample[1]]
+    x[x$value >= lower & x$value <= upper,]
+  })
   
-  stats1$Sample <- reorder(stats1$Sample,as.numeric(stats1$Condition))
-  samps1.trunc$Sample <- reorder(samps1.trunc$Sample,as.numeric(samps1.trunc$Condition))
-  stats2$Sample <- reorder(stats2$Sample,as.numeric(stats2$Condition))
-  samps2.trunc$Sample <- reorder(samps2.trunc$Sample,as.numeric(samps2.trunc$Condition))
+  stats.conditions$Sample <- reorder(stats.conditions$Sample,as.numeric(stats.conditions$Condition))
+  samps.conditions.melted.trunc$Sample <- reorder(samps.conditions.melted.trunc$Sample,as.numeric(samps.conditions.melted.trunc$Condition))
+  stats.samples_c_mean$Sample <- reorder(stats.samples_c_mean$Sample,as.numeric(stats.samples_c_mean$Condition))
+  samps.samples_c_mean.melted.trunc$Sample <- reorder(samps.samples_c_mean.melted.trunc$Sample,as.numeric(samps.samples_c_mean.melted.trunc$Condition))
   
-  g <- ggplot(stats2, aes(Sample, mean))
+  samps.conditions.melted.trunc$X1 <- 0
+  samps.samples_c_mean.melted.trunc$X1 <- 1
+  samps <- rbind(samps.conditions.melted.trunc, samps.samples_c_mean.melted.trunc)
+  samps$X1 <- factor(samps$X1)
+  
+  samps$value[samps$Condition==levels(samps$Condition)[1] & samps$X1=="0"] <- NA
+  
+  ylim <- c(min(samps$value,na.rm = T)*1.5, max(samps$value, na.rm = T)*1.5)
+  
+  g <- ggplot(stats.samples_c_mean, aes(Sample, mean))
   g <- g + theme_bw()
   g <- g + theme(panel.margin=unit(0,"inches"),
                  panel.border=element_rect(colour="black",size=1.5),
@@ -193,15 +202,87 @@ plot.samples <- function(samps1, samps2, meta, dd, filename) {
                  legend.position="none")
   g <- g + facet_wrap(~ facet, ncol=1)
   g <- g + ggtitle(title(meta))
+  g <- g + coord_cartesian(ylim=ylim)
   g <- g + ylab(expression('Log'[2]*' Ratio'))
-  g <- g + geom_hline(yintercept=0,size=2/3,colour="darkgrey")          
-  g <- g + geom_violin(data = samps2.trunc, aes(y = value), alpha = 0.3, size = 2/3)
-  g <- g + geom_segment(aes(x = as.integer(Sample)-0.5, xend = as.integer(Sample) + 0.5, mean, yend = mean),size = 2/3)
-  g <- g + geom_violin(data = samps1.trunc, aes(y = value, colour = Condition, fill = Condition), alpha = 0.3, size = 2/3)
-  g <- g + geom_segment(data = stats1, aes(x = as.integer(Sample)-0.5, xend = as.integer(Sample) + 0.5, y = mean, yend = mean, colour = Condition),size = 2/3)
+  g <- g + geom_hline(yintercept=0,size=1/2,colour="grey")          
+  g <- g + geom_violin(data = samps, aes(y = value, colour = X1, alpha = X1, fill = Condition), position="identity", trim=T, size = 1/2)
+  g <- g + geom_segment(data = stats.conditions, aes(x = as.integer(Sample)-0.5, xend = as.integer(Sample) + 0.5, y = mean, yend = mean),size = 1/2,colour="darkgrey")
+  g <- g + geom_violin(data = samps, aes(y = value, colour = X1, alpha = X1, fill = Condition), position="identity", trim=T, size = 1/2)
+  g <- g + geom_segment(data = stats.samples_c_mean, aes(x = as.integer(Sample)-0.45, xend = as.integer(Sample) + 0.45, y = mean, yend = mean),size = 1/2)
+  g <- g + scale_alpha_manual(values=c(0.0,1.0))
+  g <- g + scale_colour_manual(values=c("darkgrey","black"))
   g 
   ggsave(filename, g, height=2, width=6, limitsize=F)
+  
+  ylim
 }
+
+
+plot.peptides2 <- function(samps.peptides.melted, samps.samples_c_mean, meta, dd, ylim, filename) {  
+  N <- maply(levels(samps.peptides.melted$Peptide), function(i) length(unique(dd$Spectrum[dd$Peptide==i])))
+  levels(samps.peptides.melted$Peptide) <- paste0(levels(samps.peptides.melted$Peptide), ' [', N, ' spectr', ifelse(N==1,'um','a'), ']')      
+  
+  stats.peptides <- ddply(samps.peptides.melted, .(Peptide, Sample, Condition), function(x) {
+    s <- data.frame(mean = mean(x$value))
+    cbind(s, HPDinterval(mcmc(x$value)))
+  })
+  samps.peptides.melted <- ddply(samps.peptides.melted, .(Peptide, Sample, Condition), function(x) {
+    lower = stats.peptides$lower[stats.peptides$Sample == x$Sample[1] & stats.peptides$Peptide == x$Peptide[1]]
+    upper = stats.peptides$upper[stats.peptides$Sample == x$Sample[1] & stats.peptides$Peptide == x$Peptide[1]]
+    x[x$value >= lower & x$value <= upper,]
+  }) 
+  
+  samps.samples_c_mean.melted <-  mdply(colnames(samps.samples_c_mean), function(i) {
+    data.frame(Sample = i, Condition = dd$Condition[dd$Sample==i][1], value = samps.samples_c_mean[,i])
+  })   
+  stats.samples_c_mean <- ddply(samps.samples_c_mean.melted, .(Sample, Condition), function(x) {
+    s <- data.frame(mean = mean(x$value))
+    cbind(s, HPDinterval(mcmc(x$value)))
+  })
+  samps.samples_c_mean.melted <- ddply(samps.samples_c_mean.melted, .(Sample, Condition), function(x) {
+    lower = stats.samples_c_mean$lower[stats.samples_c_mean$Sample == x$Sample[1]]
+    upper = stats.samples_c_mean$upper[stats.samples_c_mean$Sample == x$Sample[1]]
+    x[x$value >= lower & x$value <= upper,]
+  })
+  samps.samples_c_mean.melted <- mdply(levels(samps.peptides.melted$Peptide), function(i) {
+    samps.samples_c_mean.melted$Peptide <- i
+    samps.samples_c_mean.melted
+  })
+  
+  stats.samples_c_mean$Sample <- reorder(stats.samples_c_mean$Sample,as.numeric(stats.samples_c_mean$Condition))
+  samps.samples_c_mean.melted$Sample <- reorder(samps.samples_c_mean.melted$Sample,as.numeric(samps.samples_c_mean.melted$Condition))  
+  stats.peptides$Sample <- reorder(stats.peptides$Sample,as.numeric(stats.peptides$Condition))
+  samps.peptides.melted$Sample <- reorder(samps.peptides.melted$Sample,as.numeric(samps.peptides.melted$Condition))  
+  
+  samps.samples_c_mean.melted$X1 <- 0
+  samps.peptides.melted$X1 <- 1
+  samps <- rbind(samps.samples_c_mean.melted, samps.peptides.melted)
+  samps$X1 <- factor(samps$X1)
+      
+  g <- ggplot(stats.peptides, aes(Sample, mean))
+  g <- g + theme_bw()
+  g <- g + theme(panel.margin=unit(0,"inches"),
+                 panel.border=element_rect(colour="black",size=1.5),
+                 panel.grid.major=element_line(size=0.2),
+                 axis.ticks=element_blank(),
+                 plot.title=element_text(size=10),
+                 strip.background=element_blank(),
+                 strip.text=element_text(size=6),
+                 legend.position="none")
+  g <- g + facet_wrap(~ Peptide, ncol=1)
+  g <- g + coord_cartesian(ylim=ylim)
+  g <- g + ggtitle(title(meta))
+  g <- g + ylab(expression('Log'[2]*' Ratio'))
+  g <- g + geom_violin(data = samps, aes(y = value, colour = X1, alpha = X1, fill = Condition), position="identity", trim=T, size = 1/2)
+  g <- g + geom_segment(data = stats.samples_c_mean, aes(x = as.integer(Sample)-0.5, xend = as.integer(Sample) + 0.5, y = mean, yend = mean),size = 1/2,colour="darkgrey")
+  g <- g + geom_violin(data = samps, aes(y = value, colour = X1, alpha = X1, fill = Condition), position="identity", trim=T, size = 1/2)
+  g <- g + geom_segment(data = stats.peptides, aes(x = as.integer(Sample)-0.45, xend = as.integer(Sample) + 0.45, y = mean, yend = mean),size = 1/2)
+  g <- g + scale_alpha_manual(values=c(0.0,1.0))
+  g <- g + scale_colour_manual(values=c("darkgrey","black"))
+  g 
+  ggsave(filename, g, height=1+1*length(levels(stats.peptides$Peptide)), width=6, limitsize=F)
+}
+
 
 plot.peptides_sd <- function(samps, meta, dd, filename) { 
   stats <- data.frame(variable = colnames(samps),
@@ -215,7 +296,7 @@ plot.peptides_sd <- function(samps, meta, dd, filename) {
     data.frame(x=dens$x, y=dens$y)     
   })   
   y_range <- max(densities$y)*1.4
-  x_range <- max(1,max(densities$x[densities$y>y_range/100]))
+  x_range <- 1
   
   stats$mean.text <- paste0(" ",sapply(stats$mean, function(x) format(ifelse(x<0,-1/2^x,2^x),digits=3,scientific=F)),"fc ")
   stats$mean.hjust <- ifelse(stats$mean<0,0,1)
@@ -304,7 +385,7 @@ plot.spectra_sd <- function(samps, meta, dd, filename) {
   })
 
   y_range <- max(densities$y)*1.4
-  x_range <- max(1,max(densities$x[densities$y>y_range/100]))
+  x_range <- 1
   
   stats$mean.text <- paste0(" ",sapply(stats$mean, function(x) format(ifelse(x<0,-1/2^x,2^x),digits=3,scientific=F)),"fc ")
   stats$mean.hjust <- ifelse(stats$mean<0,0,1)
@@ -364,8 +445,8 @@ plot.spectra <- function(preds, meta, dd, filename) {
   g <- g + ggtitle(title(meta))
   g <- g + ylab(expression('Ion Count'))
   g <- g + geom_crossbar(aes(ymin=lwr, y=fit, ymax=upr, colour=Peptide), width=0.7)
-  g <- g + geom_errorbar(aes(ymin=Count.min, ymax=Count.max), width=0.4) 
-  g <- g + geom_errorbar(aes(ymin=Count, ymax=Count), width=0.4) 
+  g <- g + geom_errorbar(aes(ymin=Count.min, ymax=Count.max, colour = Condition), width=0.4) 
+  g <- g + geom_errorbar(aes(ymin=Count, ymax=Count, colour = Condition), width=0.4) 
   g
   ggsave(filename, g, height=1+0.7*length(levels(dd.plot$Spectrum)), width=6, limitsize=F)
 }

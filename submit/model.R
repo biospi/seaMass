@@ -185,7 +185,7 @@ model <- function(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,
         burnin <- burnin * 2
         nitt <- nitt * 2
         thin <- thin * 2  
-      } else {
+      } else {  d
         mixed <- T
         break
       }
@@ -211,7 +211,7 @@ model <- function(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,
   samps.conditions <- cbind(samps.baseline, samps.conditions)
   colnames(samps.conditions) <- sub('Condition', '', colnames(samps.conditions), fixed=T)  
   # stats for plot and csv output
-  stats.conditions <- data.frame(variable = colnames(samps.conditions),
+  stats.conditions <- data.frame(variable = factor(colnames(samps.conditions), levels=levels(dd$Condition)),
                                  Up = 1 - colSums(samps.conditions > log2(fc)) / (nsamps/thin),
                                  Down = 1 - colSums(samps.conditions < -log2(fc)) / (nsamps/thin),
                                  Same = 1 - colSums(samps.conditions >= -log2(fc) & samps.conditions <= log2(fc)) / (nsamps/thin))
@@ -223,12 +223,13 @@ model <- function(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,
   # Sample random effect
   if (var_equal) {
     samps.conditions_sd <- samps.sqrtVCV[,"Sample",drop=F]
+    stats.conditions_sd <- data.frame(variable = "Sample", mean = colMeans(samps.conditions_sd))
   } else {
     samps.conditions_sd <- samps.sqrtVCV[,colnames(samps.sqrtVCV) %in% paste0(levels(dd$Condition), ".Sample"),drop=F]
     colnames(samps.conditions_sd) <- sub('\\.Sample$', '', colnames(samps.conditions_sd))    
+    stats.conditions_sd <- data.frame(variable = factor(colnames(samps.conditions_sd), levels=levels(dd$Condition_sd)), mean = colMeans(samps.conditions_sd))
   }
   # stats for plot and csv output
-  stats.conditions_sd <- data.frame(variable = colnames(samps.conditions_sd), mean = colMeans(samps.conditions_sd))
   stats.conditions_sd <- cbind(stats.conditions_sd, HPDinterval(mcmc(samps.conditions_sd)))  
   plot.conditions_sd(samps.conditions_sd, stats.conditions_sd, meta, paste0(meta$ProteinID,'_conditions_sd.png')) 
   
@@ -238,24 +239,18 @@ model <- function(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,
   } else {
     samples <- mdply(levels(dd$Sample), function(i) data.frame(Name=paste0('Sample.', dd$Condition[dd$Sample==i][1], '.Sample.', i),Sample=i))
   }
-  samps.samples <- samps.Sol[,colnames(samps.Sol) %in% samples$Name]
+  samps.samples <- samps.Sol[seq(1,nrow(samps.Sol),1),colnames(samps.Sol) %in% samples$Name]
+  samps.conditions <- samps.conditions[seq(1,nrow(samps.Sol),1),]
   colnames(samps.samples) <- samples$Sample
   # add Condition fixed effects
-  samps.samples2 <- samps.samples
+  samps.samples_c_mean <- samps.samples
   for (i in colnames(samps.samples)) {
     if(as.character(dd$Condition[dd$Sample==i][1]) %in% colnames(samps.conditions))
     {
-      samps.samples2[,i] <- samps.samples[,i] + samps.conditions[,as.character(dd$Condition[dd$Sample==i][1])]
+      samps.samples_c_mean[,i] <- samps.samples[,i] + mean(samps.conditions[,as.character(dd$Condition[dd$Sample==i][1])])
     }
   }
-  for (i in colnames(samps.samples)) {
-    if(as.character(dd$Condition[dd$Sample==i][1]) %in% colnames(samps.conditions))
-    {
-      samps.samples[,i] <- samps.samples[,i] + mean(samps.conditions[,as.character(dd$Condition[dd$Sample==i][1])])
-    }
-  }
-  # plot
-  plot.samples(samps.samples, samps.samples2, meta, dd, paste0(meta$ProteinID,'_samples.png'))
+  #ylim <- plot.samples(samps.samples_c_mean, samps.conditions, meta, dd, paste0(meta$ProteinID,'_samples.png'))
   
   # Peptides
   if (nP > 1) {
@@ -273,12 +268,11 @@ model <- function(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,
         data.frame(Peptide = i,
                    Sample = j,
                    Condition = dd$Condition[dd$Sample==j][1],
-                   N = length(unique(dd$Spectrum[dd$Peptide==i])),
-                   value = s[,j])
+                   value = s[,j] + mean(samps.samples_c_mean[,j]))
       })
     })
-    # plot
-    plot.peptides(samps.peptides.melted, meta, dd, paste0(meta$ProteinID,'_peptides.png'))
+    #plot.peptides(samps.peptides.melted, meta, dd, paste0(meta$ProteinID,'_peptides.png'))
+    #plot.peptides2(samps.peptides.melted, samps.samples_c_mean, meta, dd, ylim, paste0(meta$ProteinID,'_peptides2.png'))
   } 
   
   # Spectra
@@ -290,13 +284,16 @@ model <- function(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,
   }  
   # Spectrum predictions
   preds <- data.frame(predict(results[[1]],interval="confidence"))
-  plot.spectra(preds, meta, dd, paste0(meta$ProteinID, '_spectra.png'))
+  try(plot.spectra(preds, meta, dd, paste0(meta$ProteinID, '_spectra_to_condition.png')))
   if (nP > 1) {
-    preds <- data.frame(predict(results[[1]],interval="confidence",marginal=~idh(Peptide):Sample))
-    plot.spectra(preds, meta, dd, paste0(meta$ProteinID, '_spectra_marginal_peptides.png'))
+    preds.peptides <- data.frame(predict(results[[1]],interval="confidence",marginal=~idh(Peptide):Sample))
+    try(plot.spectra(preds.peptides, meta, dd, paste0(meta$ProteinID, '_spectra_to_protein.png')))
+  } else {
+    preds.peptides <- NA
   }
-  preds <- data.frame(predict(results[[1]],interval="confidence",marginal=NULL))
-  plot.spectra(preds, meta, dd, paste0(meta$ProteinID, '_spectra_marginal_null.png'))
+  preds.null <- data.frame(predict(results[[1]],interval="confidence",marginal=NULL))
+  try(plot.spectra(preds.null, meta, dd, paste0(meta$ProteinID, '_spectra_to_peptide.png')))
+  save(preds, preds.peptides, preds.null, file=paste0(meta$ProteinID,'_preds.Rdata'))    
   
   # save perf stats
   perf <- as.data.frame(t(summary(proc.time() - ptm)))

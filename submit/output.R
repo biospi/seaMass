@@ -20,7 +20,7 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
     load(f)
     colnames(stats.conditions_sd) <- c("sd", "sd_mean", "sd_lower", "sd_upper")
     out <- data.frame(ProteinID=as.integer(strsplit(f, ".", fixed=T)[[1]][1]))
-    if (nrow(out)>1) {
+    if (nrow(stats.conditions_sd) > 1) {
       out <- cbind(out, stats.conditions_sd)
       out <- merge(out[out$sd==levels(out$sd)[1],],
       out[out$sd!=levels(out$sd)[1],], by='ProteinID', suffixes = c(".baseline",".contrast"))
