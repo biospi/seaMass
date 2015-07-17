@@ -227,7 +227,7 @@ model <- function(parameters,exposures,data,meta,fc,chains,nsamps,maxsamps,thin,
   } else {
     samps.conditions_sd <- samps.sqrtVCV[,colnames(samps.sqrtVCV) %in% paste0(levels(dd$Condition), ".Sample"),drop=F]
     colnames(samps.conditions_sd) <- sub('\\.Sample$', '', colnames(samps.conditions_sd))    
-    stats.conditions_sd <- data.frame(variable = factor(colnames(samps.conditions_sd), levels=levels(dd$Condition_sd)), mean = colMeans(samps.conditions_sd))
+    stats.conditions_sd <- data.frame(variable = factor(colnames(samps.conditions_sd), levels=levels(dd$Condition)), mean = colMeans(samps.conditions_sd))
   }
   # stats for plot and csv output
   stats.conditions_sd <- cbind(stats.conditions_sd, HPDinterval(mcmc(samps.conditions_sd)))  
