@@ -1,2 +1,4 @@
-# bayesprot
-Bayesian linear mixed-effects model for protein quantification in proteomics
+# bayestraq
+Bayesian linear mixed-effects model for protein quantification in iTraq proteomics.
+
+Documentation coming soon!
