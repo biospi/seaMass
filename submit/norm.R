@@ -34,7 +34,7 @@ norm <- function(parameters,data,meta,chains,nsamps,maxsamps,thin) {
     # some runs, conditions or samples might not be represented for this protein. remove these
     # levels with zero values otherwise MCMCglmm breaks
     dd$Run <- factor(dd$Run)
-    dd$Sample <- factor(dd$Sample)
+    dd$Digest <- factor(dd$Digest)
     dd$Spectrum <- factor(dd$Spectrum)
     dd$Peptide <- factor(dd$Peptide)
     dd$RunChannel <- factor(dd$RunChannel)
@@ -89,7 +89,7 @@ norm <- function(parameters,data,meta,chains,nsamps,maxsamps,thin) {
             )
             model <- suppressWarnings(MCMCglmm(          
               as.formula(paste0("Count ~ Spectrum-1 + ", ifelse(nR==1, "Channel", "Run:Channel"))),          
-              random = ~ idh(Peptide):Sample,
+              random = ~ idh(Peptide):Digest,
               rcov = as.formula(ifelse(nS==1,"~units", "~idh(Spectrum):units")),
               family = 'poisson',        
               data = dd, start=list(QUASI=F), prior=prior, nitt=nitt, burnin=burnin, thin=thin, pr=T, verbose=F
@@ -140,41 +140,45 @@ norm <- function(parameters,data,meta,chains,nsamps,maxsamps,thin) {
     samps.Sol <- dcast(melt(samps3D.Sol),...~Var3)  
     colnames(samps.Sol)[1:2] <- c('Iteration','Chain') 
     
-    # save Run:Channel fixed effects
-    if (nR==1) {
-      runchannels.Sol <- colnames(samps.Sol) %in% c(maply(levels(dd$Run), function(x) paste0('Channel', levels(dd$Channel))))
-      samps.runchannels <- samps.Sol[,runchannels.Sol,drop=F]
-      colnames(samps.runchannels) <- paste0(dd$Run[1], sub('Channel', '', colnames(samps.runchannels)))
-    } else {
-      runchannels.Sol <- colnames(samps.Sol) %in% c(maply(levels(dd$Run), function(x) paste0('Run', x, ':Channel', levels(dd$Channel))))
-      samps.runchannels <- samps.Sol[,runchannels.Sol,drop=F]
-      colnames(samps.runchannels) <- sub('^Run', '', colnames(samps.runchannels))  
-      colnames(samps.runchannels) <- sub(':Channel', '', colnames(samps.runchannels))  
-    }
-    plot.runchannels(samps.runchannels, meta, dd, paste0(meta$ProteinID,'_runchannels.png'))
+    # Plot Run:Channel fixed effects
+    plot.norm.runchannels(samps.Sol, meta, dd, paste0(meta$ProteinID,'_runchannels.png'))
     
     # Peptides
     if (nP > 1) {
-      # Peptide random effects
-      samps.peptides_sd <- samps.sqrtVCV[,colnames(samps.sqrtVCV) %in% paste0(levels(dd$Peptide), ".Sample"),drop=F]
-      colnames(samps.peptides_sd) <- sub('\\.Sample$', '', colnames(samps.peptides_sd))    
-      plot.peptides_sd(samps.peptides_sd, meta, dd, paste0(meta$ProteinID, '_peptides_sd.png'))
+      # Plot idh(Peptide):Digest random effects
+      plot.peptides_sd(samps.sqrtVCV, meta, dd, paste0(meta$ProteinID, '_peptides_sd.png'))
+      
+      # Plot idh(Peptide):Digest latent effects
+      plot.norm.peptides(samps.Sol, meta, dd, paste0(meta$ProteinID,'_peptides.png'))
     } 
     
     # Spectra
     if (nS > 1) {
-      # Spectrum random effects
-      samps.spectra_sd <- samps.sqrtVCV[,colnames(samps.sqrtVCV) %in% paste0(levels(dd$Spectrum), ".units"),drop=F]
-      colnames(samps.spectra_sd) <- sub('\\.units$', '', colnames(samps.spectra_sd))    
-      plot.spectra_sd(samps.spectra_sd, meta, dd, paste0(meta$ProteinID, '_spectra_sd.png'))
+      # Plot idh(Spectrum):units residual effects
+      plot.spectra_sd(samps.sqrtVCV, meta, dd, paste0(meta$ProteinID, '_spectra_sd.png'))
+      
+      # Plot predictions
+      plot.spectra(results, NULL, meta, dd, paste0(meta$ProteinID, '_spectra_vs_peptide.png'))
+      if (nP > 1) plot.spectra(results, ~ idh(Peptide):Digest, meta, dd, paste0(meta$ProteinID, '_spectra_vs_protein.png'))
     }
     
-    print(paste(Sys.time(),"[norm() finished plotting]"))        
-  } 
-
-  # save samples for exposures.R
+    print(paste(Sys.time(),"[norm() finished plotting]"))    
+    
+    # save samples for exposures.R
+    if (nR==1) {
+      runchannels <- colnames(samps.Sol) %in% c(maply(levels(dd$Run), function(x) paste0('Channel', levels(dd$Channel))))
+      samps.runchannels <- samps.Sol[,runchannels,drop=F]
+      colnames(samps.runchannels) <- paste0(dd$Run[1], sub('Channel', '', colnames(samps.runchannels)))
+    } else {
+      runchannels <- colnames(samps.Sol) %in% c(maply(levels(dd$Run), function(x) paste0('Run', x, ':Channel', levels(dd$Channel))))
+      samps.runchannels <- samps.Sol[,runchannels,drop=F]
+      colnames(samps.runchannels) <- sub('^Run', '', colnames(samps.runchannels))  
+      colnames(samps.runchannels) <- sub(':Channel', '', colnames(samps.runchannels))  
+    } 
+  }   
   save(samps.runchannels, file=paste0(meta$ProteinID, ".Rdata"))
 }
+
 
 # FOR EXECUTING UNDER HTCondor
 if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
