@@ -9,5 +9,6 @@ output = import.out
 should_transfer_files = YES
 transfer_input_files = ../input/parameters.Rdata, ../input/data.Rdata, ../input/design.Rdata
 when_to_transfer_output = ON_EXIT
+on_exit_remove = (ExitBySignal == False) && (ExitCode == 0)
 priority = 0
 rank = kflops

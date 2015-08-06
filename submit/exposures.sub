@@ -8,5 +8,6 @@ error = exposures.err
 output = exposures.out
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
+on_exit_remove = (ExitBySignal == False) && (ExitCode == 0)
 priority = 3
 rank = kflops

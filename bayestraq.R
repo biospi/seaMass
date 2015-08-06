@@ -14,7 +14,7 @@ suppressPackageStartupMessages(
 )
 
 message("")
-message("BayesProt - Copyright (C) 2015 - biospi Laboratory, EEE, University of Liverpool, UK")
+message("BayesTraq - Copyright (C) 2015 - biospi Laboratory, EEE, University of Liverpool, UK")
 message("This program comes with ABSOLUTELY NO WARRANTY.")
 message("This is free software, and you are welcome to redistribute it under certain conditions.")
 message("")
@@ -27,8 +27,10 @@ colnames(parameters) <- c("Key","Value")
 design <- readWorksheet(metadata,2)
 design$Run <- factor(design$Run)
 design$Sample <- factor(design$Sample)
+design$Digest <- factor(design$Digest)
+design$Population <- factor(design$Population)
 design$Condition <- factor(design$Condition)
-design$Condition <- factor(sub('^+[[:digit:]]','',design$Condition), levels=sub('^+[[:digit:]]','',levels(design$Condition)))
+design$Condition <- factor(sub('^+[[:digit:]]\\.','',design$Condition), levels=sub('^+[[:digit:]]\\.','',levels(design$Condition)))
 design$Channel <- factor(design$Channel)
 fractions <- readWorksheet(metadata,3)  
 fractions$Run <- factor(fractions$Run)
@@ -38,11 +40,14 @@ fractions$Fraction <- factor(fractions$Fraction)
 message(paste0("reading: ",args[2],"..."))
 data <- read.table(args[2],header=T,sep='\t',quote='',strip.white=T)
 # we can only use those that ProteinPilot selects for its own quant
+data <- data[!is.na(data$Used),]
 data <- data[data$Used==1,]
 # filter out decoys
 data <- data[!grepl("^RRRRR.*",data$Accessions),]
 # sometimes there is more than one ID for a spectrum, just keep the most confident one
-data <- data[order(data$Conf,data$PrecursorSignal),]  
+# in PP5 PrecusorSignal column changed to PrecursorIntensityAcquisition
+precursorSignal <- colnames(data)[colnames(data) %in% c("PrecursorSignal", "PrecursorIntensityAcquisition")]
+data <- data[order(data$Conf,data[,precursorSignal]),]  
 data <- data[!duplicated(data[,"Spectrum"]),]
 # merge Fractions table
 data <- cbind(data, matrix(unlist(strsplit(as.character(data$Spectrum),'.',fixed=T)),ncol=5,byrow=T))
@@ -57,7 +62,7 @@ if (length(missing_fracs) > 0)
 }
 data <- merge(data, fractions, by="Fraction")
 # check Design table
-runchannels <- levels(interaction(levels(factor(design$Run)),substring(grep("^Area\\.",colnames(data),value=T),6)))
+runchannels <- as.vector(sapply(levels(factor(design$Run)), function (r) paste(r,substring(grep("^Area\\.",colnames(data),value=T),6),sep='.')))
 design_runchannels <- interaction(factor(design$Run),factor(design$Channel))
 missing_runchannels <- runchannels[!(runchannels %in% design_runchannels)]
 if (length(missing_runchannels) > 0)
@@ -88,11 +93,12 @@ data$ProteinID <- factor(as.integer(factor(data$N, levels = names(tb[order(tb,de
 np <- length(levels(data$ProteinID))
 
 # build HTCondor submission zip
-out_dir <- paste("bayesprot",args[1],args[2],sep='_')
+id <- sub("[.][^.]*$", "", basename(args[1]), perl=T)
+out_dir <- paste0(id, ".bayestraq")
 message(paste0("writing: ",file.path(out_dir,"submit.zip"),"..."))
 dir.create(out_dir)
 file.copy(file.path(script_dir,"submit"),out_dir,recursive=T)
-parameters <- rbind(parameters, c("id",out_dir))
+parameters <- rbind(parameters, c("id", id))
 save(parameters,file=file.path(out_dir,"submit","input","parameters.Rdata"))
 save(design,file=file.path(out_dir,"submit","input","design.Rdata"))
 save(data,file=file.path(out_dir,"submit","input","data.Rdata"))

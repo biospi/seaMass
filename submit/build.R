@@ -30,7 +30,7 @@ install_version <- function(package, version = NULL, repos = getOption("repos"),
   }
   
   url <- paste(repos, "/src/contrib/Archive/", package.path, sep = "")
-  install_url(url, ...)
+  install_url(url, type="source", ...)
 }
 
 package_find_repo <- function(package, repos) {
@@ -60,46 +60,48 @@ install_url <- function(url, subdir = NULL, config = list(), ...) {
 # FOR EXECUTING ON HTCondor
 if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
 {
+  repos <- "http://cran.rstudio.com/"
   libloc <- "Rpackages"
   dir.create(libloc)
   
   # Package list compatible with R 3.0.1 (latest version on Manchester Condor Cluster...)
   
-  install_version("lattice", "0.20-31", lib=libloc)
-  install_version("Matrix", "1.2-2", lib=libloc)
-  install_version("coda", "0.17-1", lib=libloc)
-  install_version("nlme", "3.1-121", lib=libloc)
-  install_version("ape", "3.3", lib=libloc)
-  install_version("corpcor", "1.6.7", lib=libloc)
-  install_version("tensorA", "0.36", lib=libloc)
-  install_version("MCMCglmm", "2.21", lib=libloc)
+  install_version("lattice", "0.20-31", lib=libloc, repos=repos, type="source")
+  install_version("Matrix", "1.2-2", lib=libloc, repos=repos, type="source")
+  install_version("coda", "0.17-1", lib=libloc, repos=repos, type="source")
+  install_version("mcgibbsit", "1.1.0", lib=libloc, repos=repos, type="source") 
+  install_version("nlme", "3.1-121", lib=libloc, repos=repos, type="source")
+  install_version("ape", "3.3", lib=libloc, repos=repos, type="source")
+  install_version("corpcor", "1.6.7", lib=libloc, repos=repos, type="source")
+  install_version("tensorA", "0.36", lib=libloc, repos=repos, type="source")
+  install_version("MCMCglmm", "2.21", lib=libloc, repos=repos, type="source")
   
-  install_version("codetools", "0.2-11", lib=libloc)
-  install_version("iterators", "1.0.7", lib=libloc)
-  install_version("foreach", "1.4.2", lib=libloc)
-  install_version("Rcpp", "0.11.6", lib=libloc)
-  install_version("plyr", "1.8.1", lib=libloc)
-  install_version("stringi", "0.5-5", lib=libloc)
-  install_version("magrittr", "1.5", lib=libloc)
-  install_version("stringr", "1.0.0", lib=libloc)
-  install_version("reshape2", "1.4.1", lib=libloc)
-  install_version("digest", "0.6.8", lib=libloc)
-  install_version("gtable", "0.1.2", lib=libloc)
-  install_version("RColorBrewer", "1.1-2", lib=libloc)
-  install_version("dichromat", "2.0-0", lib=libloc)
-  install_version("munsell", "0.4.2", lib=libloc)
-  install_version("labeling", "0.3", lib=libloc)
-  install_version("scales", "0.2.5", lib=libloc)
-  install_version("proto", "0.3-10", lib=libloc)
-  install_version("MASS", "7.3-38", lib=libloc)
-  install_version("ggplot2", "1.0.1", lib=libloc)
+  install_version("codetools", "0.2-11", lib=libloc, repos=repos, type="source")
+  install_version("iterators", "1.0.7", lib=libloc, repos=repos, type="source")
+  install_version("foreach", "1.4.2", lib=libloc, repos=repos, type="source")
+  install_version("Rcpp", "0.11.6", lib=libloc, repos=repos, type="source")
+  install_version("plyr", "1.8.1", lib=libloc, repos=repos, type="source")
+  install_version("stringi", "0.5-5", lib=libloc, repos=repos, type="source")
+  install_version("magrittr", "1.5", lib=libloc, repos=repos, type="source")
+  install_version("stringr", "1.0.0", lib=libloc, repos=repos, type="source")
+  install_version("reshape2", "1.4.1", lib=libloc, repos=repos, type="source")
+  install_version("digest", "0.6.8", lib=libloc, repos=repos, type="source")
+  install_version("gtable", "0.1.2", lib=libloc, repos=repos, type="source")
+  install_version("RColorBrewer", "1.1-2", lib=libloc, repos=repos, type="source")
+  install_version("dichromat", "2.0-0", lib=libloc, repos=repos, type="source")
+  install_version("munsell", "0.4.2", lib=libloc, repos=repos, type="source")
+  install_version("labeling", "0.3", lib=libloc, repos=repos, type="source")
+  install_version("scales", "0.2.5", lib=libloc, repos=repos, type="source")
+  install_version("proto", "0.3-10", lib=libloc, repos=repos, type="source")
+  install_version("MASS", "7.3-38", lib=libloc, repos=repos, type="source")
+  install_version("ggplot2", "1.0.1", lib=libloc, repos=repos, type="source")
   
-  install_version("abind", "1.4-3", lib=libloc)
+  install_version("abind", "1.4-3", lib=libloc, repos=repos, type="source")
   
-  install_version("inline", "0.3.14", lib=libloc)
-  install_version("BH", "1.55.0-3", lib=libloc)
-  install_version("RcppEigen", "0.3.2.4.0", lib=libloc)
-  install_url("http://rstan.org/repo/src/contrib/rstan_2.3.0.tar.gz", lib=libloc)
+  install_version("inline", "0.3.14", lib=libloc, repos=repos, type="source")
+  install_version("BH", "1.55.0-3", lib=libloc, repos=repos, type="source")
+  install_version("RcppEigen", "0.3.2.4.0", lib=libloc, repos=repos, type="source")
+  install_url("http://rstan.org/repo/src/contrib/rstan_2.3.0.tar.gz", lib=libloc, type="source")  
   
   zip("build.zip", libloc)
 }
