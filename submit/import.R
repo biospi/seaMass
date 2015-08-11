@@ -1,83 +1,143 @@
 #! /usr/bin/Rscript 
 
-# IMPORT PROTEINPILOT dd AND BAYESPROT METAdd, SPLIT INTO PROTEINS
-import <- function(parameters,design,fractions,dd) {
+# IMPORT PROTEINPILOT data AND BAYESPROT METAdata, SPLIT INTO PROTEINS
+import <- function(parameters,design,fractions,data) {
   library(foreach)
   library(iterators)
   library(reshape2)
+  
+  precursorSignal <- colnames(data)[colnames(data) %in% c("PrecursorSignal", "PrecursorIntensityAcquisition")]
+  acqTime <- colnames(data)[colnames(data) %in% c("Time", "Acq.Time")]
   
   max_spectra <- 0
   if("max_spectra" %in% parameters$Key) max_spectra <- as.integer(parameters$Value[parameters$Key=="max_spectra"])
   
   # create per protein input data
-  dd.index <- foreach(dd.one=isplit(dd,dd$ProteinID,drop=T),.combine='rbind') %do% {  
-    pid <- dd.one$key[[1]]
-    dd.one <- dd.one[[1]]
+  data.index <- foreach(data.one=isplit(data,data$ProteinID,drop=T),.combine='rbind') %do% {  
+    pid <- data.one$key[[1]]
+    data.one <- data.one[[1]]
     message(paste0('processing protein ',pid,'...'))  
     
     # filter by confidence and precursor signal
     if (max_spectra > 0)
     {
-      dd.one <- dd.one[order(-dd.one$Conf,-dd.one$PrecursorSignal),]      
-      dd.one <- dd.one[1:min(max_spectra,nrow(dd.one)),]      
+      data.one <- data.one[order(-data.one$Conf,-data.one[,precursorSignal]),]      
+      data.one <- data.one[1:min(max_spectra,nrow(data.one)),]      
     }
  
     # extract data for mixed model
-    dd.tmp <- melt(dd.one, variable.name='Channel', value.name='Area',
+    data.tmp <- melt(data.one, variable.name='Channel', value.name='Area',
                    measure.vars=c('Area.113','Area.114','Area.115','Area.116','Area.117','Area.118','Area.119','Area.121'))    
-    dd.tmp$Channel <- factor(substring(dd.tmp$Channel,6),levels=c(113,114,115,116,117,118,119,121))
+    data.tmp$Channel <- factor(substring(data.tmp$Channel,6),levels=c(113,114,115,116,117,118,119,121))
 
-    dd.out <- data.frame(
-      Peptide=factor(dd.tmp$Peptide),
-      Confidence=dd.tmp$Conf,        
-      PrecursorCount=dd.tmp$PrecursorSignal,        
-      Mass=dd.tmp$Theor.MW,
-      Charge=dd.tmp$Theor.z,
-      Run=factor(dd.tmp$Run),
-      Fraction=factor(dd.tmp$Fraction),
-      RetentionTime=dd.tmp$Time,
-      Spectrum=factor(dd.tmp$Spectrum),
-      Channel=factor(dd.tmp$Channel),
-      Count=as.integer(round(dd.tmp$Area))
+    data.out <- data.frame(
+      Peptide=factor(data.tmp$Peptide),
+      Confidence=data.tmp$Conf,        
+      PrecursorCount=data.tmp[,precursorSignal],        
+      Mass=data.tmp$Theor.MW,
+      Charge=data.tmp$Theor.z,
+      Run=factor(data.tmp$Run),
+      Fraction=factor(data.tmp$Fraction),
+      RetentionTime=data.tmp[,acqTime],
+      Spectrum=factor(data.tmp$Spectrum),
+      Channel=factor(data.tmp$Channel),
+      Count=as.integer(round(data.tmp$Area))
     )
-    data <- merge(design,dd.out,by=c('Run','Channel'),sort=F)
+    data <- merge(design,data.out,by=c('Run','Channel'),sort=F)
     
-    dd.index <- data.frame(
+    data.index <- data.frame(
       ProteinID=pid,      
-      N=dd.one$N[1],
-      Protein=paste0(dd.one$Accessions[1],': ',dd.one$Names[1]),
+      N=data.one$N[1],
+      Protein=paste0(data.one$Accessions[1],': ',data.one$Names[1]),
       Peptides=length(levels(factor(data$Peptide))),
       Spectra=length(levels(factor(data$Spectrum))),
       MinConf=min(data$Conf),
       MinPrecursorCount=min(data$PrecursorCount)
     )
-    meta <- dd.index  
+    meta <- data.index  
     
     save(data,meta,file=paste0(pid,'.Rdata'))
     
-    dd.index
+    data.index
   }
+}
+
+# these two functions from https://github.com/hadley/devtools/blob/master/R/install-version.r
+
+install_version <- function(package, version = NULL, repos = getOption("repos"), type = getOption("pkgType"), ...) {
+  
+  contriburl <- contrib.url(repos, type)
+  available <- available.packages(contriburl)
+  
+  if (package %in% row.names(available)) {
+    current.version <- available[package, 'Version']
+    if (is.null(version) || version == current.version) {
+      return(install.packages(package, repos = repos, contriburl = contriburl,
+                              type = type, ...))
+    }
+  }
+  
+  info <- package_find_repo(package, repos)
+  
+  if (is.null(version)) {
+    # Grab the latest one: only happens if pulled from CRAN
+    package.path <- info[length(info)]
+  } else {
+    package.path <- paste(package, "/", package, "_", version, ".tar.gz",
+                          sep = "")
+    if (!(package.path %in% row.names(info))) {
+      stop(sprintf("version '%s' is invalid for package '%s'", version,
+                   package))
+    }
+  }
+  
+  url <- paste(repos, "/src/contrib/Archive/", package.path, sep = "")
+  install_url(url, type="source", ...)
+}
+
+package_find_repo <- function(package, repos) {
+  for (repo in repos) {
+    if (length(repos) > 1)
+      message("Trying ", repo)
+    
+    con <- gzcon(url(sprintf("%s/src/contrib/Meta/archive.rds", repo), "rb"))
+    on.exit(close(con))
+    archive <- readRDS(con)
+    
+    info <- archive[[package]]
+    if (!is.null(info))
+      return(info)
+  }
+  
+  stop(sprintf("couldn't find package '%s'", package))
+}
+
+install_url <- function(url, subdir = NULL, config = list(), ...) {
+  file <- tempfile()
+  download.file(url, file)
+  install.packages(file, repos=NULL, ...)
+  file.remove(file)
 }
 
 # FOR EXECUTING UNDER HTCondor
 if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
 {
-  reposloc <- "http://mirrors.ebi.ac.uk/CRAN/"
+  repos <- "http://cran.rstudio.com/"
   libloc <- "Rpackages"
   dir.create(libloc)
+  
+  # Package list compatible with R 3.0.1 (latest version on Manchester Condor Cluster...)
+  install_version("Rcpp", "0.11.6", lib=libloc, repos=repos, type="source")
+  install_version("plyr", "1.8.1", lib=libloc, repos=repos, type="source")
+  install_version("codetools", "0.2-11", lib=libloc, repos=repos, type="source")
+  install_version("iterators", "1.0.7", lib=libloc, repos=repos, type="source")
+  install_version("foreach", "1.4.2", lib=libloc, repos=repos, type="source")
+  install_version("stringi", "0.5-5", lib=libloc, repos=repos, type="source")
+  install_version("magrittr", "1.5", lib=libloc, repos=repos, type="source")
+  install_version("stringr", "1.0.0", lib=libloc, repos=repos, type="source")
+  install_version("reshape2", "1.4.1", lib=libloc, repos=repos, type="source")
+
   .libPaths(c(libloc, .libPaths()))
-  
-  if (!require("Rcpp")) install.packages("Rcpp",type="source",lib=libloc,repos=reposloc)
-  # have to use old version of plyr as Manchester Condor cluster only has R 3.0.1
-  if (!require("plyr"))
-  {
-    download.file("http://cran.r-project.org/src/contrib/Archive/plyr/plyr_1.8.1.tar.gz","/tmp/plyr_1.8.1_tar.gz")
-    install.packages("/tmp/plyr_1.8.1_tar.gz",repos=NULL,type='source',lib=libloc)
-  }
-  if (!require("foreach")) install.packages("foreach",lib=libloc,repos=reposloc)
-  if (!require("iterators")) install.packages("iterators",lib=libloc,repos=reposloc)
-  if (!require("reshape2")) install.packages("reshape2",lib=libloc,repos=reposloc)
-  
   load("parameters.Rdata")
   load("data.Rdata")
   load("design.Rdata")

@@ -1,7 +1,7 @@
 #! /usr/bin/Rscript 
 
 # BAYESPROT MODEL
-norm <- function(parameters,data,meta,chains,nsamps,maxsamps,thin) { 
+norm <- function(parameters,data,meta,chains,nsamps,maxsamps,tol_rhat) { 
   source('plots.R')
   
   library(methods)
@@ -54,8 +54,9 @@ norm <- function(parameters,data,meta,chains,nsamps,maxsamps,thin) {
       capture.output(cat(paste0(debug_file,i,'.txt\n')),file=paste0(debug_file,i,'.txt'))
     }
     
-    burnin <- nsamps/chains
-    nitt <- nsamps/chains + burnin
+    burnin <- ceiling(nsamps/chains/10)
+    nitt <- ceiling(nsamps/chains) + burnin
+    thin <- 1
     mixed <- F
     
     tryCatch({ 
@@ -193,9 +194,8 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
     
   # some tuning parameters (should come from parameters.Rdata with defaults given here)
   chains <- as.integer(ifelse("mcmc_chains" %in% parameters$Key,parameters$Value[parameters$Key=="mcmc_chains"],5))
-  nsamps <- as.integer(ifelse("n_samps" %in% parameters$Key,parameters$Value[parameters$Key=="n_samps"],10000))
-  maxsamps <- as.integer(ifelse("max_samps" %in% parameters$Key,parameters$Value[parameters$Key=="max_samps"],640000))
-  thin <- as.integer(ifelse("thin_samps" %in% parameters$Key,parameters$Value[parameters$Key=="thin_samps"],1))
+  nsamps <- as.integer(ifelse("mcmc_min_samps" %in% parameters$Key,parameters$Value[parameters$Key=="mcmc_min_samps"],10000))
+  maxsamps <- as.integer(ifelse("mcmc_max_itts" %in% parameters$Key,parameters$Value[parameters$Key=="mcmc_max_itts"],640000))
   tol_rhat <- as.double(ifelse("tol_rhat" %in% parameters$Key,parameters$Value[parameters$Key=="tol_rhat"],1.1))
   
   # if random_seed not set, make it 0 so results exactly reproducible. if -1 then set seed to cluster id to make it pseudo-truly random
@@ -203,7 +203,7 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   set.seed(ifelse(seed>=0,seed,as.integer(commandArgs(T)[2])))
 
   print(paste(Sys.time(),"[Entering norm()]"))
-  norm(parameters,data,meta,chains,nsamps,maxsamps,thin)
+  norm(parameters,data,meta,chains,nsamps,maxsamps,tol_rhat)
   print(paste(Sys.time(),"[Left norm()]"))
   
   unlink("Rpackages",recursive=T)

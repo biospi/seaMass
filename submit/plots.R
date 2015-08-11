@@ -125,6 +125,9 @@ plot.peptides_sd <- function(samps.sqrtVCV, meta, dd, filename) {
   g <- g + geom_vline(aes(xintercept=upper, colour=variable),size=1/2,lty=2)   
   g <- g + geom_text(aes(x=mean,label=mean.text),y=y_range*0.9,hjust=0,vjust=1,size=3)
   ggsave(filename, g, height=1+1*length(levels(stats$variable)), width=3.5, limitsize=F)
+  
+  # save samples for mining
+  save(samps, file=paste0(meta$ProteinID,'_peptides_sd.Rdata'))    
 }
 
 
@@ -231,6 +234,9 @@ plot.spectra_sd <- function(samps.sqrtVCV, meta, dd, filename) {
   g <- g + geom_text(aes(x=mean,label=mean.text),y=y_range*0.9,hjust=0,vjust=1,size=3)
   g
   ggsave(filename, g, height=1+1*length(levels(stats$Spectrum)), width=3.5, limitsize=F)
+  
+  # save samples for mining
+  save(samps, file=paste0(meta$ProteinID,'_spectra_sd.Rdata'))    
 }
 
   
@@ -340,18 +346,22 @@ plot.conditions <- function(samps.Sol, fc, meta, dd, filename) {
   g <- g + geom_text(aes(label=Down.text),x=-x_range*0.98,y=y_range*0.94,hjust=0,vjust=1,,size=2.5,colour='black')    
   g <- g + geom_text(aes(x=mean,label=mean.text,hjust=mean.hjust,colour=variable),y=y_range*0.7,vjust=1,size=2.5)
   ggsave(filename, g, height = 1+ 1*length(levels(stats$variable)), width = 6, limitsize = F)
+  
+  # save samples for mining
+  save(samps, file=paste0(meta$ProteinID,'_conditions.Rdata'))    
 }
 
 
 plot.conditions_sd <- function(samps.sqrtVCV, meta, dd, filename) {   
-  #if (var_equal) {
-  #  samps <- samps.sqrtVCV[,"Sample",drop=F]
-  #  stats <- data.frame(variable = "Sample", mean = colMeans(samps))
-  #} else {
+  if (length(levels(dd$Population))==1) {
+    samps <- samps.sqrtVCV[,"Sample",drop=F]
+    colnames(samps) <- levels(dd$Population)
+    stats <- data.frame(variable = levels(dd$Population), mean = colMeans(samps))
+  } else {
     samps <- samps.sqrtVCV[,colnames(samps.sqrtVCV) %in% paste0(levels(dd$Population), ".Sample"),drop=F]
     colnames(samps) <- sub('\\.Sample$', '', colnames(samps))    
     stats <- data.frame(variable = factor(colnames(samps), levels=levels(dd$Population)), mean = colMeans(samps))
-  #}
+  }
   stats <- cbind(stats, HPDinterval(mcmc(samps)))  
   
   densities <- ddply(melt(samps), .(variable), function(x)
@@ -391,6 +401,9 @@ plot.conditions_sd <- function(samps.sqrtVCV, meta, dd, filename) {
   g <- g + geom_vline(aes(xintercept=upper),size=1/2,lty=2)   
   g <- g + geom_text(aes(x=mean,label=mean.text,colour=variable),y=y_range*0.9,hjust=0,vjust=1,size=3)
   ggsave(filename, g, height = 1 + 1*length(levels(stats$variable)), width=3.5, limitsize=F)
+  
+  # save samples for mining
+  save(samps, file=paste0(meta$ProteinID,'_conditions_sd.Rdata'))    
 }
 
 
@@ -401,11 +414,11 @@ plot.samples <- function(samps.Sol, meta, dd, filename) {
   samps.conditions <- cbind(samps.baseline, samps.conditions)
   colnames(samps.conditions) <- sub('Condition', '', colnames(samps.conditions), fixed=T)    
   
-  #if (var_equal) {
-  #  samples <- data.frame(Name=paste0('Sample.', levels(dd$Sample)),Sample=levels(dd$Sample))
-  #} else {
-    samples <- mdply(levels(dd$Sample), function(i) data.frame(Name=paste0('Sample.', dd$Condition[dd$Sample==i][1], '.Sample.', i),Sample=i))
-  #}
+  if (length(levels(dd$Population))==1) {
+    samples <- data.frame(Name=paste0('Sample.', levels(dd$Sample)),Sample=levels(dd$Sample))
+  } else {
+    samples <- mdply(levels(dd$Sample), function(i) data.frame(Name=paste0('Sample.', dd$Population[dd$Sample==i][1], '.Sample.', i),Sample=i))
+  }
   samps.samples <- samps.Sol[seq(1,nrow(samps.Sol),1),colnames(samps.Sol) %in% samples$Name]
   samps.conditions <- samps.conditions[seq(1,nrow(samps.Sol),1),]
   colnames(samps.samples) <- samples$Sample[match(colnames(samps.samples), samples$Name)]

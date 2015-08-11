@@ -68,8 +68,9 @@ model <- function(parameters,exposures,design,data,meta,fc,min_samps,max_itts,ch
   }
   
   mixed <- F  
-  nitt <- min_samps/chains
-  burnin <- 0
+  nsamps <- as.integer(mcgibbsit(0,0.5,tol)$resmatrix[2]) # mcgibbsit might need a minimum number of samples
+  nitt <- max(ceiling(nsamps/chains)) 
+  burnin <- ceiling(nsamps/chains/10)
   thin <- 1
   tryCatch({ 
     repeat {
@@ -89,67 +90,24 @@ model <- function(parameters,exposures,design,data,meta,fc,min_samps,max_itts,ch
         # always have one level removed. So we can't make Spectrum a second level effect otherwise it
         # misses the first spectrum! Luckily we can make RunChannel a second level effect because the first
         # level is not important (as it is always mean 0, var 1e-6)
-        
-        if (nP == 1) {       
-          if (nS == 1) {           
-            
-            # one spectrum only for this protein (most basic model)
-            prior <- list(
-              B = list(mu = matrix(0,nRC+nC-1,1),V = diag(nRC+nC-1) * 1e+6),
-              G = list(G1 = list(V = diag(population.vars), nu = nO, alpha.mu = rep(0,nO),  alpha.V = diag(1000,nO)),
-                       G2 = list(V = 1, nu = 1, alpha.mu = 0,  alpha.V = 1000)),
-              R = list(V = diag(1), nu = 0.002)
-            )
-            prior$B$mu[2:nRC] <- ee$mean[2:nRC]
-            diag(prior$B$V)[2:nRC] <- ee$var[2:nRC]             
-            model <- suppressWarnings(MCMCglmm(
-              Count ~ RunChannel + Condition,
-              random = ~idh(Population):Sample + Digest,
-              family = 'poisson',
-              data = dd, start=list(QUASI=F), prior=prior, nitt=nitt, burnin=burnin, thin=thin, pr=T, verbose=F, singular.ok=T
-            ))
-            
-          } else {
-            
-            # one peptide only for this protein (multiple spectra)
-            prior <- list(
-              B = list(mu = matrix(0,nRC+nS+nC-2,1),V = diag(nRC+nS+nC-2) * 1e+6),
-              G = list(G1 = list(V = diag(population.vars), nu = nO, alpha.mu = rep(0,nO),  alpha.V = diag(1000,nO)),
-                       G2 = list(V = 1, nu = 1, alpha.mu = 0,  alpha.V = 1000)),
-              R = list(V = diag(nS), nu = 0.002)
-            )
-            prior$B$mu[(nS+1):(nS+nRC-1)] <- ee$mean[2:nRC]
-            diag(prior$B$V)[(nS+1):(nS+nRC-1)] <- ee$var[2:nRC]                      
-            model <- suppressWarnings(MCMCglmm(
-              Count ~ Spectrum-1 + RunChannel + Condition,
-              random = ~ idh(Population):Sample + Digest,
-              rcov = ~ idh(Spectrum):units,
-              family = 'poisson',
-              data = dd, start=list(QUASI=F), prior=prior, nitt=nitt, burnin=burnin, thin=thin, pr=T, verbose=F, singular.ok=T
-            ))
-            
-          }
           
-        } else {
-          
-          # multiple peptides for this protein (full model)
-          prior <- list(
-            B = list(mu = matrix(0,nRC+nS+nC-2,1),V = diag(nRC+nS+nC-2) * 1e+6),
-            G = list(G1 = list(V = diag(population.vars), nu = nO, alpha.mu = rep(0,nO),  alpha.V = diag(1000,nO)),
-                     G2 = list(V = diag(nP), nu = nP, alpha.mu = rep(0,nP),  alpha.V = diag(1000,nP))),
-            R = list(V = diag(nS), nu = 0.002)
-          )
-          prior$B$mu[(nS+1):(nS+nRC-1)] <- ee$mean[2:nRC]
-          diag(prior$B$V)[(nS+1):(nS+nRC-1)] <- ee$var[2:nRC]              
-          model <- suppressWarnings(MCMCglmm(
-            Count ~ Spectrum-1 + RunChannel + Condition,
-            random = ~ idh(Population):Sample + idh(Peptide):Digest,
-            rcov = ~ idh(Spectrum):units,
-            family = 'poisson',        
-            data = dd, start=list(QUASI=F), prior=prior, nitt=nitt, burnin=0, thin=thin, pr=T, verbose=F, singular.ok=T
-          ))
-          
-        }     
+        # multiple peptides for this protein (full model)
+        prior <- list(
+          B = list(mu = matrix(0,nRC+nS+nC-2,1),V = diag(nRC+nS+nC-2) * 1e+6),
+          G = list(G1 = list(V = diag(population.vars), nu = nO, alpha.mu = rep(0,nO),  alpha.V = diag(1000,nO)),
+                   G2 = list(V = diag(nP), nu = nP, alpha.mu = rep(0,nP),  alpha.V = diag(1000,nP))),
+          R = list(V = diag(nS), nu = 0.002)
+        )
+        prior$B$mu[(nS+1):(nS+nRC-1)] <- ee$mean[2:nRC]
+        diag(prior$B$V)[(nS+1):(nS+nRC-1)] <- ee$var[2:nRC]              
+        model <- suppressWarnings(MCMCglmm(
+          as.formula(paste0("Count ~ ", ifelse(nS==1, "", "Spectrum-1 + "), "RunChannel + Condition")),
+          random = as.formula(paste0(ifelse(nO==1, "~ Sample", "~idh(Population):Sample"), ifelse(nP==1, " + Digest", " + idh(Peptide):Digest"))),
+          rcov = as.formula(ifelse(nS==1, "~ units", "~ idh(Spectrum):units")),
+          family = 'poisson',        
+          data = dd, start=list(QUASI=F), prior=prior, nitt=nitt, burnin=0, thin=thin, pr=T, verbose=F, singular.ok=T
+        ))
+    
         capture.output(summary(model),file=paste0(debug_file,i,'.txt'),append=T)
         model
       }  
@@ -161,21 +119,21 @@ model <- function(parameters,exposures,design,data,meta,fc,min_samps,max_itts,ch
         s <- samps.Sol[,paste0("Condition",c)]
         qs <- c(sum(s > log2(fc))/length(s), sum(s < -log2(fc))/length(s), sum(s >= -log2(fc) & s <= log2(fc))/length(s))        
         b <- mdply(qs, function(q) {
-          c <- mcgibbsit(mcmc.list(llply(results, function(x) x$Sol[,paste0('Condition', c), drop=F])),q,tol,correct.cor=F)
-          capture.output(print(c),file=results_file,append=T)          
-          data.frame(burnin=c$resmatrix[,'M'], nitt=c$resmatrix[,'Total'])
+          res <- mcgibbsit(mcmc.list(llply(results, function(x) x$Sol[,paste0('Condition', c), drop=F])),q,tol)
+          capture.output(print(res),file=results_file,append=T)          
+          data.frame(burnin=res$resmatrix[,'M'], nitt=res$resmatrix[,'Total'])
         })
         b
       })  
-      burnin.pred <- max(a[,2]) / chains
-      nitt.pred <- max(a[,3]) / chains
+      burnin.pred <- ceiling(max(a[,2]) / chains)
+      nitt.pred <- ceiling(max(a[,3]) / chains)
       
       # if not enough, do it again with the predicted burnin/nitt
-      if (nitt >= max_itts %/% chains) break
+      if (nitt >= ceiling(max_itts/chains)) break
       if (burnin < burnin.pred | nitt < nitt.pred) {
-        burnin <- 2*burnin.pred
-        nitt <- min(max(2*nitt.pred, burnin + min_samps/chains), max_itts)
-        thin <- max((nitt - burnin) %/% (min_samps/chains), 1)
+        burnin <- max(2*burnin.pred, ceiling(nsamps/chains/10))
+        nitt <- min(max(2*nitt.pred, burnin + ceiling(nsamps/chains)), ceiling(max_itts/chains))
+        thin <- max((nitt - burnin) %/% ceiling(nsamps/chains), 1)
        } else {
         mixed <- T
         break
@@ -226,18 +184,20 @@ model <- function(parameters,exposures,design,data,meta,fc,min_samps,max_itts,ch
   stats.conditions <- cbind(stats.conditions, HPDinterval(mcmc(samps.conditions)))
   
   # save stats.conditions_sd
-  #if (var_equal) {
-  #  samps.conditions_sd <- samps.sqrtVCV[,"Sample",drop=F]
-  #  stats.conditions_sd <- data.frame(variable = "Sample", mean = colMeans(samps.conditions_sd))
-  #} else {
-    samps.conditions_sd <- samps.sqrtVCV[,colnames(samps.sqrtVCV) %in% paste0(levels(dd$Condition), ".Sample"),drop=F]
+  if (nO==1) {
+    samps.conditions_sd <- samps.sqrtVCV[,"Sample",drop=F]
+    colnames(samps.conditions_sd) <- levels(dd$Population)   
+    stats.conditions_sd <- data.frame(variable = levels(dd$Population), mean = colMeans(samps.conditions_sd))
+  } else {
+    samps.conditions_sd <- samps.sqrtVCV[,colnames(samps.sqrtVCV) %in% paste0(levels(dd$Population), ".Sample"),drop=F]
     colnames(samps.conditions_sd) <- sub('\\.Sample$', '', colnames(samps.conditions_sd))    
-    stats.conditions_sd <- data.frame(variable = factor(colnames(samps.conditions_sd), levels=levels(dd$Condition)), mean = colMeans(samps.conditions_sd))
-  #}
+    stats.conditions_sd <- data.frame(variable = factor(colnames(samps.conditions_sd), levels=levels(dd$Population)), mean = colMeans(samps.conditions_sd))
+  }
   stats.conditions_sd <- cbind(stats.conditions_sd, HPDinterval(mcmc(samps.conditions_sd)))  
  
   # save perf stats
   perf <- as.data.frame(t(summary(proc.time() - ptm)))
+  perf$burnin <- burnin * chains
   perf$itts <- nitt * chains
   if (!mixed) perf$itts <- -perf$itts
   perf$DIC <- results[[1]]$DIC  
@@ -258,10 +218,10 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   
   # some tuning parameters (should come from parameters.Rdata with defaults given here)
   fc <- as.double(ifelse("significant_fc" %in% parameters$Key,parameters$Value[parameters$Key=="significant_fc"],1.05))
-  min_samps <- as.integer(ifelse("mcmc_min_samps" %in% parameters$Key,parameters$Value[parameters$Key=="mcmc_min_samps"],10000))
-  max_itts <- as.integer(ifelse("mcmc_max_itts" %in% parameters$Key,parameters$Value[parameters$Key=="mcmc_max_itts"],1000000))
+  min_samps <- as.integer(ifelse("mcmc_samps" %in% parameters$Key,parameters$Value[parameters$Key=="mcmc_samps"],10000))
+  max_itts <- as.integer(ifelse("mcmc_max_itts" %in% parameters$Key,parameters$Value[parameters$Key=="mcmc_max_itts"],5000000))
   chains <- as.integer(ifelse("mcmc_chains" %in% parameters$Key,parameters$Value[parameters$Key=="mcmc_chains"],10))
-  tol <- as.double(ifelse("mcmc_tolerance" %in% parameters$Key,parameters$Value[parameters$Key=="mcmc_tolerance"],0.05))  
+  tol <- as.double(ifelse("mcmc_tolerance" %in% parameters$Key,parameters$Value[parameters$Key=="mcmc_tolerance"],0.0125))  
   use_exposure_sd <- as.integer(ifelse("use_exposure_sd" %in% parameters$Key,ifelse(parameters$Value[parameters$Key=="use_exposure_sd"]>0,1,0),1))  
   
   # if random_seed not set, make it 0 so results exactly reproducible. if -1 then set seed to cluster id to make it pseudo-truly random
@@ -270,8 +230,3 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   
   model(parameters,exposures,design,data,meta,fc,min_samps,max_itts,chains,tol,use_exposure_sd)
 }
-
-#load("~/Scratch/bayestraq/jingshu/JXU AD Group 1 unequal_var seed0.bayestraq/submit/input/parameters.Rdata")
-#load("~/Scratch/bayestraq/jingshu/JXU AD Group 1 unequal_var seed0.bayestraq/submit/input/design.Rdata")
-#load("~/Scratch/bayestraq/jingshu/JXU AD Group 1 unequal_var seed0.bayestraq/submit/exposures/exposures.Rdata")
-#load("~/Scratch/bayestraq/jingshu/JXU AD Group 1 unequal_var seed0.bayestraq/submit/import/4000.Rdata")
