@@ -10,6 +10,7 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   library(reshape2)
   
   # LOAD PROTEIN INDEX
+  load('design.Rdata') 
   load('index.Rdata') 
   load('parameters.Rdata') 
   
@@ -19,18 +20,9 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   {
     load(f)
     colnames(stats.conditions_sd) <- c("sd", "sd_mean", "sd_lower", "sd_upper")
-    out <- data.frame(ProteinID=as.integer(strsplit(f, ".", fixed=T)[[1]][1]))
-    if (nrow(stats.conditions_sd) > 1) {
-      out <- cbind(out, stats.conditions_sd)
-      out <- merge(out[out$sd==levels(out$sd)[1],],
-      out[out$sd!=levels(out$sd)[1],], by='ProteinID', suffixes = c(".baseline",".contrast"))
-    } else {
-      out <- cbind(out, stats.conditions_sd[,2:ncol(stats.conditions_sd)])
-    }
-    out <- merge(out, perf[,3:ncol(perf)])
+    out <- cbind(data.frame(ProteinID=as.integer(strsplit(f, ".", fixed=T)[[1]][1])), stats.conditions_sd)
   }
-  stats <- as.data.frame(rbind.fill(lapply(files, load.stats)))
-  stats <- merge(index,stats,all.x=T)
+  conditions_sd <- as.data.frame(rbind.fill(lapply(files, load.stats)))
   
   # LOAD MODEL CONDITION STATS
   load.condition <- function(file)
@@ -40,38 +32,46 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
     out <- data.frame(ProteinID=protein_id, stats.conditions)
   }
   conditions <- as.data.frame(rbind.fill(lapply(files, load.condition)))
-    
+
+  # LOAD PERFORMANCE STATS
+  load.perf <- function(file)
+  {
+    load(file)
+    protein_id = as.integer(strsplit(file, ".", fixed=T)[[1]][1])
+    out <- data.frame(ProteinID=protein_id, perf[,3:ncol(perf)])
+  }
+  perf <- as.data.frame(rbind.fill(lapply(files, load.perf)))
+  
+  # Link Population with respective Condition
+  pops <- data.frame(Condition=factor(levels(design$Condition), levels=levels(design$Condition)),
+                     Population=sapply(levels(design$Condition), function(c) design$Population[c==design$Condition][1]))
+  
   for (c in levels(conditions$variable))
   {
-    if (c %in% conditions$variable)
+    if (c %in% conditions$variable && c != tolower(c))
     {
       # Up/Down
-      out <- melt(conditions[conditions$variable==c,],id.vars=c("ProteinID","mean","lower","upper"),measure.vars=c("Up","Down"),variable.name='Test',value.name='localFDR')    
+      out <- melt(conditions[c==conditions$variable,],id.vars=c("ProteinID","mean","lower","upper"),measure.vars=c("Up","Down"),variable.name='Test',value.name='localFDR')    
       out <- out[order(out$localFDR),]
       out <- out[!duplicated(out$ProteinID),]
       out$globalFDR <- cumsum(out$localFDR) / seq_len(nrow(out))
       
-      if ("sd.contrast" %in% colnames(stats)) {
-        out <- merge(stats[stats$sd.contrast==c,], out, by="ProteinID")
-      } else {
-        out <- merge(stats, out, by="ProteinID")      
-      }
+      sds <- merge(conditions_sd[pops$Population[1]==conditions_sd$sd,], conditions_sd[pops$Population[pops$Condition==c]==conditions_sd$sd,], by="ProteinID", suffixes=c(".baseline",".contrast"))
+      out <- merge(index, merge(perf, merge(sds, out)))
+      
       out <- out[order(out$localFDR),]
       write.csv(out, paste0(parameters$Value[parameters$Key=="id"],"_",c,"_UpDown.csv"),row.names=F)
       
       # Same
-      out <- melt(conditions[conditions$variable==c,],id.vars=c("ProteinID","mean","lower","upper"),measure.vars=c("Same"),variable.name='Test',value.name='localFDR')    
+      out <- melt(conditions[c==conditions$variable,],id.vars=c("ProteinID","mean","lower","upper"),measure.vars=c("Same"),variable.name='Test',value.name='localFDR')    
       out <- out[order(out$localFDR),]
       out$globalFDR <- cumsum(out$localFDR) / seq_len(nrow(out))
       
-      if ("sd.contrast" %in% colnames(stats)) {
-        out <- merge(stats[stats$sd.contrast==c,], out, by="ProteinID")
-      } else {
-        out <- merge(stats, out, by="ProteinID")      
-      }
-      out <- out[order(out$localFDR),]
-      write.csv(out, paste0(parameters$Value[parameters$Key=="id"],"_",c,"_Same.csv"),row.names=F)
+      sds <- merge(conditions_sd[pops$Population[1]==conditions_sd$sd,], conditions_sd[pops$Population[pops$Condition==c]==conditions_sd$sd,], by="ProteinID", suffixes=c(".baseline",".contrast"))
+      out <- merge(index, merge(sds, out))
       
+      out <- out[order(out$localFDR),]
+      write.csv(out, paste0(parameters$Value[parameters$Key=="id"],"_",c,"_Same.csv"),row.names=F)      
     }
   }
 }

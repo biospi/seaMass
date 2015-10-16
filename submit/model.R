@@ -150,26 +150,26 @@ model <- function(parameters,exposures,design,data,meta,fc,min_samps,max_itts,ch
   colnames(samps.Sol)[1:2] <- c('Iteration','Chain') 
   
   # Plot Condition fixed effects
-  plot.conditions(samps.Sol, fc, meta, dd, paste0(meta$ProteinID, '_conditions.png'))
+  #try(plot.conditions(samps.Sol, fc, meta, dd, paste0(meta$ProteinID, '_conditions.png')))
   
   # Plot idh(Condition):Sample random effects
-  plot.conditions_sd(samps.sqrtVCV, meta, dd, paste0(meta$ProteinID,'_conditions_sd.png')) 
+  #try(plot.conditions_sd(samps.sqrtVCV, meta, dd, paste0(meta$ProteinID,'_conditions_sd.png')))
   
   # Plot idh(Condition):Sample latent effects behind Condition fixed effects
-  plot.samples(samps.Sol, meta, dd, paste0(meta$ProteinID,'_samples.png'))
+  #try(plot.samples(samps.Sol, meta, dd, paste0(meta$ProteinID,'_samples.png')))
   
   # Plot idh(Peptide):Sample random effects
-  plot.peptides_sd(samps.sqrtVCV, meta, dd, paste0(meta$ProteinID, '_peptides_sd.png'))
+  #try(plot.peptides_sd(samps.sqrtVCV, meta, dd, paste0(meta$ProteinID, '_peptides_sd.png')))
     
   # Plot idh(Peptide):Sample latent effects
-  plot.model.peptides(samps.Sol, meta, dd, paste0(meta$ProteinID,'_peptides.png'))
+  #try(plot.model.peptides(samps.Sol, meta, dd, paste0(meta$ProteinID,'_peptides.png')))
   
   # Plot idh(Spectrum):units residual effects
-  plot.spectra_sd(samps.sqrtVCV, meta, dd, paste0(meta$ProteinID, '_spectra_sd.png'))
+  #try(plot.spectra_sd(samps.sqrtVCV, meta, dd, paste0(meta$ProteinID, '_spectra_sd.png')))
     
   # Plot predictions
-  plot.spectra(results, NULL, meta, dd, paste0(meta$ProteinID, '_spectra_vs_peptide.png'))
-  plot.spectra(results, as.formula(ifelse(nP > 1, "~ idh(Peptide):Digest", "~ Digest")), meta, dd, paste0(meta$ProteinID, '_spectra_vs_protein.png'))
+  #try(plot.spectra(results, NULL, meta, dd, paste0(meta$ProteinID, '_spectra_vs_peptide.png')))
+  #try(plot.spectra(results, as.formula(ifelse(nP > 1, "~ idh(Peptide):Digest", "~ Digest")), meta, dd, paste0(meta$ProteinID, '_spectra_vs_protein.png')))
   
   # save stats.conditions
   samps.conditions <- samps.Sol[,colnames(samps.Sol) %in% paste0('Condition', levels(dd$Condition)),drop=F]
@@ -219,7 +219,7 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   # some tuning parameters (should come from parameters.Rdata with defaults given here)
   fc <- as.double(ifelse("significant_fc" %in% parameters$Key,parameters$Value[parameters$Key=="significant_fc"],1.05))
   min_samps <- as.integer(ifelse("mcmc_samps" %in% parameters$Key,parameters$Value[parameters$Key=="mcmc_samps"],10000))
-  max_itts <- as.integer(ifelse("mcmc_max_itts" %in% parameters$Key,parameters$Value[parameters$Key=="mcmc_max_itts"],5000000))
+  max_itts <- as.integer(ifelse("mcmc_max_itts" %in% parameters$Key,parameters$Value[parameters$Key=="mcmc_max_itts"],1000000))
   chains <- as.integer(ifelse("mcmc_chains" %in% parameters$Key,parameters$Value[parameters$Key=="mcmc_chains"],10))
   tol <- as.double(ifelse("mcmc_tolerance" %in% parameters$Key,parameters$Value[parameters$Key=="mcmc_tolerance"],0.0125))  
   use_exposure_sd <- as.integer(ifelse("use_exposure_sd" %in% parameters$Key,ifelse(parameters$Value[parameters$Key=="use_exposure_sd"]>0,1,0),1))  

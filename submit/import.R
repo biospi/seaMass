@@ -1,6 +1,6 @@
 #! /usr/bin/Rscript 
 
-# IMPORT PROTEINPILOT data AND BAYESPROT METAdata, SPLIT INTO PROTEINS
+# IMPORT PROTEINPILOT DATA AND BAYESPROT METADATA, SPLIT INTO PROTEINS
 import <- function(parameters,design,fractions,data) {
   library(foreach)
   library(iterators)
@@ -9,21 +9,11 @@ import <- function(parameters,design,fractions,data) {
   precursorSignal <- colnames(data)[colnames(data) %in% c("PrecursorSignal", "PrecursorIntensityAcquisition")]
   acqTime <- colnames(data)[colnames(data) %in% c("Time", "Acq.Time")]
   
-  max_spectra <- 0
-  if("max_spectra" %in% parameters$Key) max_spectra <- as.integer(parameters$Value[parameters$Key=="max_spectra"])
-  
   # create per protein input data
   data.index <- foreach(data.one=isplit(data,data$ProteinID,drop=T),.combine='rbind') %do% {  
     pid <- data.one$key[[1]]
     data.one <- data.one[[1]]
     message(paste0('processing protein ',pid,'...'))  
-    
-    # filter by confidence and precursor signal
-    if (max_spectra > 0)
-    {
-      data.one <- data.one[order(-data.one$Conf,-data.one[,precursorSignal]),]      
-      data.one <- data.one[1:min(max_spectra,nrow(data.one)),]      
-    }
  
     # extract data for mixed model
     data.tmp <- melt(data.one, variable.name='Channel', value.name='Area',

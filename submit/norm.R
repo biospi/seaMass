@@ -142,25 +142,25 @@ norm <- function(parameters,data,meta,chains,nsamps,maxsamps,tol_rhat) {
     colnames(samps.Sol)[1:2] <- c('Iteration','Chain') 
     
     # Plot Run:Channel fixed effects
-    plot.norm.runchannels(samps.Sol, meta, dd, paste0(meta$ProteinID,'_runchannels.png'))
+    #try(plot.norm.runchannels(samps.Sol, meta, dd, paste0(meta$ProteinID,'_runchannels.png')))
     
     # Peptides
     if (nP > 1) {
       # Plot idh(Peptide):Digest random effects
-      plot.peptides_sd(samps.sqrtVCV, meta, dd, paste0(meta$ProteinID, '_peptides_sd.png'))
+      #try(plot.peptides_sd(samps.sqrtVCV, meta, dd, paste0(meta$ProteinID, '_peptides_sd.png')))
       
       # Plot idh(Peptide):Digest latent effects
-      plot.norm.peptides(samps.Sol, meta, dd, paste0(meta$ProteinID,'_peptides.png'))
+      #try(plot.norm.peptides(samps.Sol, meta, dd, paste0(meta$ProteinID,'_peptides.png')))
     } 
     
     # Spectra
     if (nS > 1) {
       # Plot idh(Spectrum):units residual effects
-      plot.spectra_sd(samps.sqrtVCV, meta, dd, paste0(meta$ProteinID, '_spectra_sd.png'))
+      #try(plot.spectra_sd(samps.sqrtVCV, meta, dd, paste0(meta$ProteinID, '_spectra_sd.png')))
       
       # Plot predictions
-      plot.spectra(results, NULL, meta, dd, paste0(meta$ProteinID, '_spectra_vs_peptide.png'))
-      if (nP > 1) plot.spectra(results, ~ idh(Peptide):Digest, meta, dd, paste0(meta$ProteinID, '_spectra_vs_protein.png'))
+      #try(plot.spectra(results, NULL, meta, dd, paste0(meta$ProteinID, '_spectra_vs_peptide.png')))
+      #if (nP > 1) try(plot.spectra(results, ~ idh(Peptide):Digest, meta, dd, paste0(meta$ProteinID, '_spectra_vs_protein.png')))
     }
     
     print(paste(Sys.time(),"[norm() finished plotting]"))    

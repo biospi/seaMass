@@ -61,6 +61,7 @@ if (length(missing_fracs) > 0)
   message("")  
 }
 data <- merge(data, fractions, by="Fraction")
+data$Fraction <- factor(data$Fraction)
 # check Design table
 runchannels <- as.vector(sapply(levels(factor(design$Run)), function (r) paste(r,substring(grep("^Area\\.",colnames(data),value=T),6),sep='.')))
 design_runchannels <- interaction(factor(design$Run),factor(design$Channel))
@@ -72,7 +73,7 @@ if (length(missing_runchannels) > 0)
   message("")  
 }
 
-# filter
+# filter by min_spectra and min_peptides
 if("min_spectra" %in% parameters$Key)
 {
   data$N <- factor(data$N)  
@@ -90,7 +91,24 @@ if("min_peptides" %in% parameters$Key)
 data$N <- factor(data$N)  
 tb <- table(data$N)  
 data$ProteinID <- factor(as.integer(factor(data$N, levels = names(tb[order(tb,decreasing=T)]))) - 1)
-np <- length(levels(data$ProteinID))
+
+# filter by max_spectra_per_peptide
+if("max_spectra_per_peptide" %in% parameters$Key)
+{
+  precursorSignal <- colnames(data)[colnames(data) %in% c("PrecursorSignal", "PrecursorIntensityAcquisition")]
+  # order by ident confidence then precursor signal
+  data <- data[order(-data$Conf,-data[,precursorSignal]),] 
+  # now order so that each protein/peptide/run/fraction/charge state will be represented
+  data$split <- factor(paste(data$ProteinID, data$Peptide, data$Run, data$Fraction, data$Theor.z, sep=":"))
+  data$priority <- ave(seq_along(data$split), data$split, FUN=seq_along)
+  data <- data[order(data$priority),]
+  # select top n per peptide
+  data$split <- factor(paste(data$ProteinID, data$Peptide, data$Run,sep=":"))
+  data$priority2 <- ave(seq_along(data$split), data$split, FUN=seq_along)
+  data <- data[data$priority2 <= as.integer(parameters$Value[parameters$Key=="max_spectra_per_peptide"]),]
+  data <- data[order(data$ProteinID, data$Peptide, data$Run, data$Fraction, data$Theor.z),]
+}
+data <- data[order(data$ProteinID, data$Peptide, data$Run, data$Fraction, data$Theor.z),]
 
 # build HTCondor submission zip
 id <- sub("[.][^.]*$", "", basename(args[1]), perl=T)
@@ -108,6 +126,7 @@ csl.file <- file(file.path(script_dir,"condor_submit.local"))
 csl <- readLines(csl.file)
 close(csl.file)
 sub.filenames <- list.files(path=file.path(out_dir,"submit"),pattern="*.sub")
+np <- length(levels(data$ProteinID))
 for (sub.filename in sub.filenames) {
   sub.file <- file(file.path(out_dir,"submit",sub.filename),open="at")
   writeLines(csl,sub.file)
@@ -132,7 +151,7 @@ for (sub.filename in sub.filenames) {
     if("email" %in% parameters$Key) {
       writeLines(paste0("notify_user = ",parameters$Value[parameters$Key=="email"]),sub.file) 
     }
-    writeLines(paste0("transfer_input_files = ",paste0("../model/",0:(np-1),".Rdata",collapse=", "),", ../import/index.Rdata, ../input/parameters.Rdata, ../build/build.zip"),sub.file)  
+    writeLines(paste0("transfer_input_files = ",paste0("../model/",0:(np-1),".Rdata",collapse=", "),", ../import/index.Rdata, ../input/design.Rdata, ../input/parameters.Rdata, ../build/build.zip"),sub.file)  
     writeLines("queue",sub.file)  
   } else
   {
