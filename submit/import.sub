@@ -1,13 +1,13 @@
 getenv = true 
 universe = vanilla
-executable = import.R
-arguments = HTCondor
-initialdir = import
-log = condor.log
-error = import.err
-output = import.out
+executable = ../bayestraq_R.sh
+arguments = import.R HTCondor
+initialdir = import/results
+log = ../import.log
+error = ../import.err
+output = ../import.out
 should_transfer_files = YES
-transfer_input_files = ../input/parameters.Rdata, ../input/data.Rdata, ../input/design.Rdata
+transfer_input_files = ../../../bayestraq_R.sh, ../../../bayestraq_R.zip, ../../import.R, ../../input/parameters.Rdata, ../../input/data.Rdata, ../../input/design.Rdata
 when_to_transfer_output = ON_EXIT
 on_exit_remove = (ExitBySignal == False) && (ExitCode == 0)
 priority = 0

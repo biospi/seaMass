@@ -1,30 +1,37 @@
-#! /usr/bin/Rscript 
-
 # FOR EXECUTING UNDER HTCondor
 if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
 {
-  unzip("build.zip")
-  .libPaths(c("Rpackages", .libPaths()))
+  print(paste(Sys.time(),"[Starting]"))
   
-  library(plyr)
-  library(ggplot2)
-  library(grid)
-  library(reshape2)
-  
+  load('index.Rdata')  
   load('parameters.Rdata')  
   load('design.Rdata')
-  nsamps <- as.integer(ifelse("n_samps" %in% parameters$Key,parameters$Value[parameters$Key=="n_samps"],10000))
-  files = list.files(pattern="+[[:digit:]]\\.Rdata")
+  nsamp <- as.integer(ifelse("norm_nsamp" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nsamp"],1000))
+  files = list.files(path="results",pattern="^[0-9]+\\.[0-9]+\\.Rdata")
 
+  library(MCMCglmm)
+  library(plyr)
+  library(reshape2)
+  library(ggplot2)
+  
   # read norm samples and calculate exposures (simple medians like protein pilot)
   samps <- mdply(levels(design$Run), function(r) {
     samps <- mdply(levels(design$Channel)[2:length(levels(design$Channel))], function(c) {
       runchannel <- paste0(r,c)
-      message(paste0('Reading ', runchannel, '...'))
-      samps <- matrix(NA, length(files), nsamps) 
-      for (i in 1:length(files)) {
-        load(files[i])
-        if (runchannel %in% colnames(samps.runchannels)) samps[i,] <- samps.runchannels[,runchannel]
+      print(paste(Sys.time(),paste0("[Processing RunChannel ",runchannel,"]")))
+      samps <- matrix(NA, nrow(data.index), nsamp) 
+      for (f in files) {
+        load(paste0("results/",f))
+        
+        if (runchannel %in% colnames(samps.runchannels)) {
+          protein_id <- as.integer(gsub("\\.[0-9]+\\.Rdata$","",f))
+          chain <- as.integer(gsub("\\.Rdata$","",gsub("^[0-9]+\\.","",f)))
+          nchain <- as.integer(thin(samps.runchannels))
+          begin <- floor((chain-1)/nchain * nsamp) + 1
+          rc.samps <- rev(samps.runchannels[max(1,nrow(samps.runchannels)-ceiling(nsamp/nchain)+1):nrow(samps.runchannels),runchannel])
+          end <- min(begin+length(rc.samps)-1, nsamp)
+          samps[protein_id+1,begin:end] <- rc.samps[1:(end-begin+1)]
+        }
       }
       samps <- data.frame(value=aaply(samps, 2, function(x) median(x, na.rm=T)))
       samps$RunChannel <- runchannel
@@ -78,9 +85,9 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   g <- g + geom_line(data=densities,aes(x=x,y=y),size=1/2,colour="red") 
   g <- g + geom_vline(aes(xintercept=mean),size=2/3,colour="red") 
   g <- g + geom_text(data=fcs,aes(x=mean,label=fc),y=max(densities$y)*1.22,hjust=0,vjust=1,size=3,colour="red")
-  g
-  ggsave("medians_posterior.png", g, height=1*length(levels(samps$Channel)), width=6)
+  ggsave("medians_posterior.pdf", g, height=1*length(levels(samps$Channel)), width=6)
   g <- g + geom_line(data=gaussians,aes(x=x,y=y),size=1/2,colour="black") 
-  g
-  ggsave("medians_gaussian.png", g, height=1*length(levels(samps$Channel)), width=6)
+  ggsave("medians_gaussian.pdf", g, height=1*length(levels(samps$Channel)), width=6)
+  
+  print(paste(Sys.time(),"[Finished]"))
 }

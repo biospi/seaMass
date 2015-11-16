@@ -1,13 +1,14 @@
 getenv = true 
 universe = vanilla
-executable = exposures.R
-arguments = HTCondor
-initialdir = exposures
-log = condor.log
-error = exposures.err
-output = exposures.out
+executable = ../bayestraq_R.sh
+arguments = exposures.R HTCondor
+initialdir = exposures/results
+log = ../exposures.log
+error = ../exposures.err
+output = ../exposures.out
+transfer_input_files = ../../../bayestraq_R.sh, ../../../bayestraq_R.zip, ../../exposures.R, ../../input/parameters.Rdata, ../../input/design.Rdata, ../../import/results/index.Rdata, ../../norm/results
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
 on_exit_remove = (ExitBySignal == False) && (ExitCode == 0)
-priority = 3
+priority = 2
 rank = kflops

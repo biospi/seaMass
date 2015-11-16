@@ -1,4 +1,3 @@
-#! /usr/bin/Rscript
 args <- commandArgs(T)
 script_dir <- dirname(strsplit(grep('^--file=',commandArgs(),value=T),'=')[[1]][2])
 
@@ -90,7 +89,7 @@ if("min_peptides" %in% parameters$Key)
 }
 data$N <- factor(data$N)  
 tb <- table(data$N)  
-data$ProteinID <- factor(as.integer(factor(data$N, levels = names(tb[order(tb,decreasing=T)]))) - 1)
+data$ProteinID <- factor(as.integer(factor(data$N, levels = names(tb[order(tb,decreasing=T)])))-1)
 
 # filter by max_spectra_per_peptide
 if("max_spectra_per_peptide" %in% parameters$Key)
@@ -127,31 +126,41 @@ csl <- readLines(csl.file)
 close(csl.file)
 sub.filenames <- list.files(path=file.path(out_dir,"submit"),pattern="*.sub")
 np <- length(levels(data$ProteinID))
+
+# for each protein we will run n mcmc chains, where n is the number of peptides
+#freqs <- table(unique(data.frame(data$ProteinID, data$Peptide))$data.ProteinID)
+#freqs <- pmax(freqs,100)
+#ids <- unlist(sapply(seq_along(chains), function(x) paste0(names(chains)[x],":",chains[[x]],"/",freqs[names(chains)[x]])))
+# never mind, just run same number of chains for each
+norm_nchain <- as.integer(ifelse("norm_nchain" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nchain"],10))
+model_nchain <- as.integer(ifelse("model_nchain" %in% parameters$Key,parameters$Value[parameters$Key=="model_nchain"],100))
+nworker <- as.integer(ifelse("nworker" %in% parameters$Key,parameters$Value[parameters$Key=="nworker"],1000))
+
 for (sub.filename in sub.filenames) {
   sub.file <- file(file.path(out_dir,"submit",sub.filename),open="at")
   writeLines(csl,sub.file)
   if (grepl("norm",sub.filename)) {
-    writeLines("priority = 2",sub.file)          
-    writeLines(paste("queue",paste0(ifelse(np<50,np,50))),sub.file)   
-    if (np>50) {
-      writeLines("priority = 1",sub.file)          
-      writeLines(paste("queue",np-50),sub.file)          
+    ids <- as.vector(sapply(levels(data$ProteinID), function(i) { paste0(i,":",seq(norm_nchain),"/",norm_nchain) }))
+    for (i in seq(1, nworker))
+    {
+      is <- ids[seq(i, length(ids), nworker)]
+      writeLines(paste0("arguments = norm.R HTCondor $(Cluster) ", paste0(is, collapse = ' ')),sub.file)
+      writeLines(paste0("transfer_input_files = ../../norm.R, ../../../bayestraq_R.sh, ../../../bayestraq_R.zip, ../../input/parameters.Rdata, ", paste0('../../import/results/',paste0(unique(gsub(":[0-9]+/[0-9]+$","",is)), '.Rdata'), collapse=', ')),sub.file)
+      writeLines('queue',sub.file)
     }
-  } else if (grepl("exposures",sub.filename)) {
-    writeLines(paste0("transfer_input_files = ",paste0("../norm/",0:(np-1),".Rdata",collapse=", "),", ../input/parameters.Rdata, ../input/design.Rdata, ../build/build.zip"),sub.file)  
-    writeLines("queue",sub.file)  
   } else if (grepl("model",sub.filename)) {
-    writeLines("priority = 5",sub.file)          
-    writeLines(paste("queue",paste0(ifelse(np<50,np,50))),sub.file)   
-    if (np>50) {
-      writeLines("priority = 4",sub.file)          
-      writeLines(paste("queue",np-50),sub.file)          
+    ids <- as.vector(sapply(levels(data$ProteinID), function(i) { paste0(i,":",seq(model_nchain),"/",model_nchain) }))
+    for (i in seq(1, nworker))
+    {
+      is <- ids[seq(i, length(ids), nworker)]
+      writeLines(paste0("arguments = model.R HTCondor $(Cluster) ", paste0(is, collapse = ' ')),sub.file)
+      writeLines(paste0("transfer_input_files = ../../model.R, ../../../bayestraq_R.sh, ../../../bayestraq_R.zip, ../../input/parameters.Rdata, ../../input/design.Rdata, ../../exposures/results/exposures.Rdata, ", paste0('../../import/results/',paste0(unique(gsub(":[0-9]+/[0-9]+$","",is)), '.Rdata'), collapse=', ')),sub.file)
+      writeLines('queue',sub.file)
     }
   } else if (grepl("output",sub.filename)) {
     if("email" %in% parameters$Key) {
       writeLines(paste0("notify_user = ",parameters$Value[parameters$Key=="email"]),sub.file) 
     }
-    writeLines(paste0("transfer_input_files = ",paste0("../model/",0:(np-1),".Rdata",collapse=", "),", ../import/index.Rdata, ../input/design.Rdata, ../input/parameters.Rdata, ../build/build.zip"),sub.file)  
     writeLines("queue",sub.file)  
   } else
   {

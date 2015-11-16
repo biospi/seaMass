@@ -1,13 +1,12 @@
 getenv = true 
 universe = vanilla
-executable = norm.R
-arguments = HTCondor $(Cluster) $(Process)
-initialdir = norm
-log = condor.log
-error = $(Process).err
-output = $(Process).out
+executable = ../bayestraq_R.sh
+initialdir = norm/results
+log = ../$(Process).log
+output = ../$(Process).out
+error = ../$(Process).err
 should_transfer_files = YES
-transfer_input_files = ../plots.R, ../input/parameters.Rdata, ../import/$(Process).Rdata, ../build/build.zip
 when_to_transfer_output = ON_EXIT
 on_exit_remove = (ExitBySignal == False) && (ExitCode == 0)
+priority = 1
 rank = kflops

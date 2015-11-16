@@ -1,13 +1,9 @@
 Job A import.sub
-Job B build.sub
-Job C norm.sub
-Job D exposures.sub
-Job E model.sub
-Job F output.sub
-PARENT A B CHILD C
+Job B norm.sub
+Job C exposures.sub
+Job D model.sub
+Job E output.sub
+PARENT A CHILD B
+PARENT B CHILD C
 PARENT C CHILD D
 PARENT D CHILD E
-PARENT E CHILD F
-
-
-
