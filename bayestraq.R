@@ -155,6 +155,16 @@ for (sub.filename in sub.filenames) {
       is <- ids[seq(i, length(ids), nworker)]
       writeLines(paste0("arguments = model.R HTCondor $(Cluster) ", paste0(is, collapse = ' ')),sub.file)
       writeLines(paste0("transfer_input_files = ../../model.R, ../../../bayestraq_R.sh, ../../../bayestraq_R.zip, ../../input/parameters.Rdata, ../../input/design.Rdata, ../../exposures/results/exposures.Rdata, ", paste0('../../import/results/',paste0(unique(gsub(":[0-9]+/[0-9]+$","",is)), '.Rdata'), collapse=', ')),sub.file)
+      writeLines(paste0("transfer_output_files = ", paste0(unique(gsub(":[0-9]+/[0-9]+$","",is)), collapse=', ')),sub.file)
+      writeLines('queue',sub.file)
+    }
+  } else if (grepl("plots",sub.filename)) {
+    ids <- levels(data$ProteinID)
+    for (i in seq(1, nworker))
+    {
+      is <- ids[seq(i, length(ids), nworker)]
+      writeLines(paste0("arguments = plots.R HTCondor $(Cluster) ", paste0(is, collapse=' ')),sub.file)
+      writeLines(paste0("transfer_input_files = ../../plots.R, ../../../bayestraq_R.sh, ../../../bayestraq_R.zip, ../../input/parameters.Rdata, ../../input/design.Rdata, ", paste0('../../model/results/', is, collapse=', ')),sub.file)
       writeLines('queue',sub.file)
     }
   } else if (grepl("output",sub.filename)) {

@@ -6,9 +6,9 @@ initialdir = output/results
 log = ../output.log
 error = ../output.err
 output = ../output.out
-transfer_input_files = ../../../bayestraq_R.sh, ../../../bayestraq_R.zip, ../../output.R, ../../input/parameters.Rdata, ../../input/design.Rdata, ../../import/results/index.Rdata, ../../model/results
+transfer_input_files = ../../../bayestraq_R.sh, ../../../bayestraq_R.zip, ../../output.R, ../../input/parameters.Rdata, ../../import/results/index.Rdata, ../../plots/results/stats
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
 on_exit_remove = (ExitBySignal == False) && (ExitCode == 0)
-priority = 4
+priority = 5
 rank = kflops
