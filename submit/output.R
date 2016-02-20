@@ -10,14 +10,15 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   load('parameters.Rdata')  
 
   files = list.files(path="stats",pattern="^[0-9]+\\.Rdata")
-  stats <- mdply(files, function(f) {
+  stats <- mdply(files, .id=NULL, function(f) {
     load(paste0("stats/",f))
     stats$ProteinID <- as.integer(gsub("\\.Rdata","",f))
     stats
   })
+  stats$Condition <- factor(stats$Condition)
   
   results <- merge(data.index, stats)
-  for (con in test_conditions)
+  for (con in levels(stats$Condition))
   {
     out <- results[results$Condition == con & (results$Test == "Up" | results$Test == "Down"),]
     out <- out[order(out$localFDR),]

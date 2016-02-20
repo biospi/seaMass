@@ -1,3 +1,3 @@
 request_memory = 1500 
 request_disk = 350000
-requirements = (opsys == "LINUX") && (arch == "X86_64")
+requirements = (opsys == "LINUX") && (arch == "X86_64") && (Machine =!= "schroedinger.mib.man.ac.uk") && (Machine =!= "htc3.eps.manchester.ac.uk") && (Machine =!= "htc6.eps.manchester.ac.uk") && (Machine =!= "htc11.eps.manchester.ac.uk") && (Machine =!= "htc13.eps.manchester.ac.uk") && (Machine =!= "htc15.eps.manchester.ac.uk") && (Machine =!= "e-c07atg101001.it.manchester.ac.uk") && (Machine =!= "e-c07pib30020.it.manchester.ac.uk")  && (Machine =!= "e-c07bwcx1010.it.manchester.ac.uk")

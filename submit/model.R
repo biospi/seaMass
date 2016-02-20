@@ -1,5 +1,5 @@
 # BAYESPROT MODEL
-model <- function(protein_id,design,exposures,use_exposure_sd,chain,nchain,seed,nburnin,nsamp,thin) { 
+model <- function(protein_id,design,exposures,use_exposure_sd,chain,nchain,seed,nitt,thin) { 
   library(methods)
   library(MCMCglmm)
   library(reshape2)
@@ -67,7 +67,7 @@ model <- function(protein_id,design,exposures,use_exposure_sd,chain,nchain,seed,
     random = as.formula(paste0(ifelse(nO==1, "~ Sample", "~idh(Population):Sample"), ifelse(nP==1, " + Digest", " + idh(Peptide):Digest"))),
     rcov = as.formula(ifelse(nS==1, "~ units", "~ idh(Spectrum):units")),
     family = 'poisson',        
-    data=data, start=list(QUASI=F), prior=prior, nitt=ceiling(nburnin/nchain)+ceiling(nsamp/nchain), burnin=0, thin=thin, pr=T, verbose=F, singular.ok=T
+    data=data, prior=prior, nitt=nitt, burnin=0, thin=thin, pr=T, verbose=F, singular.ok=T
   ))
   
   dic <- model$DIC
@@ -86,9 +86,9 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
 
   # some tuning parameters (should come from parameters.Rdata with defaults given here)
   load("parameters.Rdata")  
-  nburnin <- as.integer(ifelse("model_nburnin" %in% parameters$Key,parameters$Value[parameters$Key=="model_nburnin"],1000000))
-  nsamp <- as.integer(ifelse("model_nsamp" %in% parameters$Key,parameters$Value[parameters$Key=="model_nsamp"],1000000))
-  thin <- as.integer(ifelse("model_thin" %in% parameters$Key,parameters$Value[parameters$Key=="model_thin"],10))
+  nitt <- as.integer(ifelse("model_nitt" %in% parameters$Key,parameters$Value[parameters$Key=="model_nitt"],13000))
+  nburnin <- as.integer(ifelse("model_nburnin" %in% parameters$Key,parameters$Value[parameters$Key=="model_nburnin"],3000))
+  nsamp <- as.integer(ifelse("model_nsamp" %in% parameters$Key,parameters$Value[parameters$Key=="model_nsamp"],10000))
   use_exposure_sd <- as.integer(ifelse("use_exposure_sd" %in% parameters$Key,ifelse(parameters$Value[parameters$Key=="use_exposure_sd"]>0,1,0),1))  
   
   # random seed
@@ -100,12 +100,12 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   protein_ids <- gsub(":[0-9]+/[0-9]+$","",ids)
   chains <- as.integer(gsub("/[0-9]+$", "", gsub("^[0-9]+:","",ids)))
   nchains <- as.integer(gsub("^[0-9]+:[0-9]+/","",ids))
-  
+
   load("design.Rdata")  
   load("exposures.Rdata")
   devnull <- sapply(seq_along(protein_ids), function(i) {
     print(paste(Sys.time(),paste0("[Processing job ",ids[i],"]")))
-    model(protein_ids[i],design,exposures,use_exposure_sd,chains[i],nchains[i],seed,nburnin,nsamp,thin)
+    model(protein_ids[i],design,exposures,use_exposure_sd,chains[i],nchains[i],seed,nitt,ceiling((nitt-nburnin)*nchains[i]/nsamp))
   })
   
   print(paste(Sys.time(),"[Finished]"))  

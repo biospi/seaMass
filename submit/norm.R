@@ -1,5 +1,5 @@
 # BAYESPROT MODEL
-norm <- function(protein_id,chain,nchain,seed,nburnin,nsamp,thin) { 
+norm <- function(protein_id,chain,nchain,seed,nitt,thin) { 
   library(methods)
   library(MCMCglmm)
   library(reshape2)
@@ -45,7 +45,7 @@ norm <- function(protein_id,chain,nchain,seed,nburnin,nsamp,thin) {
         as.formula(paste("Count ~", ifelse(nS==1, "", "Spectrum-1 +"), ifelse(nR==1, "Channel", "Run:Channel"))),          
         rcov = as.formula(ifelse(nS==1,"~units", "~idh(Spectrum):units")),
         family = 'poisson',
-        data=data, start=list(QUASI=F), prior=prior, nitt=ceiling(nburnin/nchain)+ceiling(nsamp/nchain), burnin=0, thin=thin, verbose=F
+        data=data, prior=prior, nitt=nitt, burnin=0, thin=thin, verbose=F
       ))
       
     } else { 
@@ -60,7 +60,7 @@ norm <- function(protein_id,chain,nchain,seed,nburnin,nsamp,thin) {
         random = ~ idh(Peptide):Digest,
         rcov = as.formula(ifelse(nS==1,"~units", "~idh(Spectrum):units")),
         family = 'poisson',        
-        data=data, start=list(QUASI=F), prior=prior, nitt=ceiling(nburnin/nchain)+ceiling(nsamp/nchain), burnin=0, thin=thin, verbose=F
+        data=data, prior=prior, nitt=nitt, burnin=0, thin=thin, verbose=F
       ))
       
     }
@@ -90,10 +90,10 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
 
   # some tuning parameters (should come from parameters.Rdata with defaults given here)
   load("parameters.Rdata")  
-  nburnin <- as.integer(ifelse("norm_nburnin" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nburnin"],30000))
-  nsamp <- as.integer(ifelse("norm_nsamp" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nsamp"],100000))
-  thin <- as.integer(ifelse("norm_thin" %in% parameters$Key,parameters$Value[parameters$Key=="norm_thin"],10))
-  
+  nitt <- as.integer(ifelse("norm_nitt" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nitt"],13000))
+  nburnin <- as.integer(ifelse("norm_nburnin" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nburnin"],3000))
+  nsamp <- as.integer(ifelse("norm_nsamp" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nsamp"],1000))
+
   # random seed
   seed <- ifelse("random_seed" %in% parameters$Key,as.integer(parameters$Value[parameters$Key=="random_seed"]),0)
   seed <- ifelse(seed>=0,seed,as.integer(commandArgs(T)[2]))
@@ -106,7 +106,7 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   
   devnull <- sapply(seq_along(protein_ids), function(i) {
     print(paste(Sys.time(),paste0("[Processing job ",ids[i],"]")))
-    norm(protein_ids[i],chains[i],nchains[i],seed,nburnin,nsamp,thin)
+    norm(protein_ids[i],chains[i],nchains[i],seed,nitt,ceiling((nitt-nburnin)*nchains[i]/nsamp))
   })
   
   print(paste(Sys.time(),"[Finished]"))

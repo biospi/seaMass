@@ -1,4 +1,140 @@
-plot.samples <- function(s.Sol, meta, design, filename) {  
+plot.conditions <- function(s.Sol, design, fc, filename) {
+  library(plyr)
+  library(ggplot2)
+  
+  test_conditions <- levels(design$Condition)[levels(design$Condition) != tolower(levels(design$Condition))]
+  test_conditions <- test_conditions[2:length(test_conditions)]
+  
+  samps <- s.Sol[,colnames(s.Sol) %in% paste0('Condition', levels(design$Condition)),drop=F]
+  samps.baseline <- data.frame(x = rnorm(nrow(samps),1e-6,1e-6))
+  colnames(samps.baseline)[1] <- paste0('Condition',levels(design$Condition)[1])
+  samps <- cbind(samps.baseline, samps)
+  colnames(samps) <- sub('Condition', '', colnames(samps), fixed=T)    
+  for (i in colnames(samps)) {
+    if (!(i %in% test_conditions))
+    {
+      samps[,i] <- rnorm(nrow(samps),1e-6,1e-6)
+    }
+  } 
+
+  densities <- ddply(melt(samps, variable.name="Condition"), .(Condition), function(x)
+  {
+    dens <- density(x$value, n=65536)
+    data.frame(x=dens$x, y=dens$y)     
+  })   
+  densities$lower <- ifelse(densities$x<=log2(1/fc),densities$y,0) 
+  densities$upper <- ifelse(densities$x>=log2(fc),densities$y,0) 
+  y_range <- max(densities$y[densities$Condition %in% test_conditions])*1.9
+  x_range <- max(1.0,max(-min(densities$x[densities$y>y_range/100]),max(densities$x[densities$y>y_range/100])))
+
+  stats <- data.frame(Condition = factor(colnames(samps), levels=levels(densities$Condition)),
+                      Up0 = 1 - colSums(samps > 0) / nrow(samps),
+                      Down0 = 1 - colSums(samps < 0) / nrow(samps),
+                      Up = 1 - colSums(samps > log2(fc)) / nrow(samps),
+                      Down = 1 - colSums(samps < -log2(fc)) / nrow(samps),
+                      Same = 1 - colSums(samps >= -log2(fc) & samps <= log2(fc)) / nrow(samps))
+  stats$mean = colMeans(samps)
+  stats <- cbind(stats, HPDinterval(mcmc(samps)))
+  stats$Up.text <- ifelse(stats$Condition %in% test_conditions, paste0("localFDR(up) = ",sapply(stats$Up, function(x) format(x,digits=2,scientific=F))), "") 
+  stats$Down.text <- ifelse(stats$Condition %in% test_conditions, paste0("localFDR(down) = ",sapply(stats$Down, function(x) format(x,digits=2,scientific=F))), "") 
+  stats$mean.text <- ifelse(stats$Condition %in% test_conditions, paste0(" ",sapply(stats$mean, function(x) format(ifelse(x<0,-1/2^x,2^x),digits=3,scientific=F)),"fc "), "") 
+  stats$mean.hjust <- ifelse(stats$mean<0,0,1)
+  
+  g <- ggplot(stats,aes(mean,fill=Condition))
+  g <- g + theme_bw()
+  g <- g + theme(panel.border=element_rect(colour="black",size=1.5),
+                 panel.grid.major=element_line(size=0.2),
+                 axis.ticks=element_blank(),
+                 axis.text.y=element_blank(),
+                 plot.title=element_text(size=10),
+                 plot.margin = unit(c(0.2,0.5,0.2,0.2), "cm"),
+                 strip.background=element_blank(),
+                 strip.text=element_text(size=10),
+                 legend.position="none")
+  g <- g + scale_x_continuous(expand = c(0,0))
+  g <- g + scale_y_continuous(expand = c(0,0))
+  g <- g + coord_cartesian(xlim=c(-x_range, x_range),ylim=c(-0.0,y_range))
+  g <- g + facet_wrap(~ Condition, ncol=1)
+  g <- g + xlab(expression('Log'[2]*' Ratio'))
+  g <- g + ylab("Probability Density")
+  g <- g + geom_rect(xmin=log2(1/fc),xmax=log2(fc),ymin=-2^32,ymax=2^32,alpha=0.15,colour="lightgrey",fill="lightgrey") 
+  g <- g + geom_vline(xintercept=0,size=2/3,colour="darkgrey")          
+  g <- g + geom_ribbon(data=densities,aes(x=x,ymax=lower),ymin=0)    
+  g <- g + geom_ribbon(data=densities,aes(x=x,ymax=upper),ymin=0)    
+  g <- g + geom_line(data=densities,aes(x=x,y=y),size=2/3) 
+  g <- g + geom_vline(aes(xintercept=mean),size=2/3) 
+  g <- g + geom_linerange(aes(x=lower),ymin=0,ymax=y_range*0.7,size=2/3,lty=2)      
+  g <- g + geom_linerange(aes(x=upper),ymin=0,ymax=y_range*0.7,size=2/3,lty=2)   
+  g <- g + geom_text(aes(label=Up.text),x=x_range*0.98,y=y_range*0.94,hjust=1,vjust=1,size=3.5,colour='black')
+  g <- g + geom_text(aes(label=Down.text),x=-x_range*0.98,y=y_range*0.94,hjust=0,vjust=1,size=3.5,colour='black')    
+  g <- g + geom_text(aes(x=mean,label=mean.text,hjust=mean.hjust,colour=Condition),y=y_range*0.7,vjust=1,size=3.5)
+  ggsave(filename, g, height = 1+ 1*length(levels(stats$Condition)), width = 6, limitsize = F)
+}
+
+
+plot.conditions_sd <- function(s.VCV, design, filename) {   
+  library(plyr)
+  library(ggplot2)
+  
+  test_populations <- levels(design$Population)[levels(design$Population) != tolower(levels(design$Population))]
+  nsample <- count(design[!duplicated(design$Sample),]$Population)
+  test_populations <- test_populations[test_populations %in% nsample$x[nsample$freq>1]]
+  
+  if (length(levels(design$Population))==1) {
+    samps <- sqrt(s.VCV[,"Sample",drop=F])
+    colnames(samps) <- levels(design$Population)
+    stats <- data.frame(Population = levels(design$Population), mean = colMeans(samps))
+  } else {
+    samps <- sqrt(s.VCV[,colnames(s.VCV) %in% paste0("Population", levels(design$Population), ".Sample"),drop=F])
+    colnames(samps) <- sub('\\.Sample$', '', colnames(samps))    
+    colnames(samps) <- sub('Population', '', colnames(samps))    
+    stats <- data.frame(Population = factor(colnames(samps), levels=levels(design$Population)), mean = colMeans(samps))
+  }
+  stats <- cbind(stats, HPDinterval(mcmc(samps)))  
+  
+  densities <- ddply(melt(data.frame(samps), variable.name="Population"), .(Population), function(x)
+  {
+    dens <- density(x$value, n=65536)
+    data.frame(x=dens$x, y=dens$y)     
+  })   
+  y_range <- max(densities$y[densities$Population %in% test_populations])*1.4
+  x_range <- max(1,max(densities$x[densities$y>y_range/100]))
+  
+  stats$mean.text <- ifelse(stats$Population %in% test_populations, paste0(" ",sapply(stats$mean, function(x) format(ifelse(x<0,-1/2^x,2^x),digits=3,scientific=F)),"fc"), "") 
+  stats$mean.hjust <- ifelse(stats$mean<0,0,1)
+  
+  levels(stats$Population) = sub('^[0-9]+', '', levels(stats$Population))
+  levels(densities$Population) = sub('^[0-9]+', '', levels(densities$Population))
+  
+  g <- ggplot(stats, aes(x=mean, fill=Population))
+  g <- g + theme_bw()
+  g <- g + theme(panel.border=element_rect(colour="black",size=1.5),
+                 panel.grid.major=element_line(size=0.2),
+                 axis.ticks=element_blank(),
+                 axis.text.y=element_blank(),
+                 plot.title=element_text(size=10),
+                 plot.margin = unit(c(0.2,0.5,0.2,0.2), "cm"),
+                 strip.background=element_blank(),
+                 strip.text=element_text(size=10),
+                 legend.position="none")
+  g <- g + scale_x_continuous(expand = c(0,0))
+  g <- g + scale_y_continuous(expand = c(0,0))
+  g <- g + facet_wrap(~ Population, ncol=1)
+  g <- g + coord_cartesian(xlim=c(0,x_range),ylim=c(-0.0,y_range))
+  g <- g + xlab(expression('Log'[2]*' Standard Deviation'))
+  g <- g + ylab("Probability Density")
+  g <- g + geom_vline(xintercept=0,size=2/3)          
+  g <- g + geom_ribbon(data=densities,aes(x=x,ymax=y),ymin=0)    
+  g <- g + geom_line(data=densities,aes(x=x,y=y),size=2/3) 
+  g <- g + geom_vline(aes(xintercept=mean),size=2/3) 
+  g <- g + geom_vline(aes(xintercept=lower),size=1/2,lty=2)      
+  g <- g + geom_vline(aes(xintercept=upper),size=1/2,lty=2)   
+  g <- g + geom_text(aes(x=mean,label=mean.text,colour=Population),y=y_range*0.9,hjust=0,vjust=1,size=3)
+  ggsave(filename, g, height = 1 + 1*length(levels(stats$Population)), width=3.5, limitsize=F)
+}
+
+
+plot.samples <- function(s.Sol, design, filename) {  
   library(plyr)
   library(ggplot2)
   
@@ -9,7 +145,7 @@ plot.samples <- function(s.Sol, meta, design, filename) {
   colnames(samps.conditions) <- sub('Condition', '', colnames(samps.conditions), fixed=T)    
   
   if (length(levels(design$Population))==1) {
-    samples <- data.frame(Name=paste0('Population', levels(design$Sample)),Sample=levels(design$Sample))
+    samples <- data.frame(Name=paste0('Sample.', levels(design$Sample)),Sample=levels(design$Sample))
   } else {
     samples <- mdply(levels(design$Sample), function(i) data.frame(Name=paste0('Population', design$Population[design$Sample==i][1], '.Sample.', i),Sample=i))
   }
@@ -39,41 +175,13 @@ plot.samples <- function(s.Sol, meta, design, filename) {
     x[x$value >= lower & x$value <= upper,]
   })   
   
-  samps.conditions.melted <- mdply(colnames(samps.conditions), function(i) {
-    data.frame(Condition = i, value = samps.conditions[,i])
-  }) 
-  samps.conditions.melted <- merge(samps.conditions.melted, data.frame(Sample=design$Sample, Condition=design$Condition))
-  stats.conditions <- ddply(samps.conditions.melted, .(Sample, Condition), function(x) {
-    s <- data.frame(mean = mean(x$value), facet = ' ')
-    cbind(s, HPDinterval(mcmc(x$value)))
-  })
-  samps.conditions.melted.trunc <- ddply(samps.conditions.melted, .(Sample, Condition), function(x) {
-    lower = stats.conditions$lower[stats.conditions$Sample == x$Sample[1]]
-    upper = stats.conditions$upper[stats.conditions$Sample == x$Sample[1]]
-    x[x$value >= lower & x$value <= upper,]
-  })
-  
-  stats.conditions$Sample <- reorder(stats.conditions$Sample,as.numeric(stats.conditions$Condition))
-  samps.conditions.melted.trunc$Sample <- reorder(samps.conditions.melted.trunc$Sample,as.numeric(samps.conditions.melted.trunc$Condition))
   stats.samples_plus_conditions$Sample <- reorder(stats.samples_plus_conditions$Sample,as.numeric(stats.samples_plus_conditions$Condition))
   samps.samples_plus_conditions.melted.trunc$Sample <- reorder(samps.samples_plus_conditions.melted.trunc$Sample,as.numeric(samps.samples_plus_conditions.melted.trunc$Condition))
   
-  samps.conditions.melted.trunc$X1 <- 1
-  samps.samples_plus_conditions.melted.trunc$X1 <- 0
-  samps <- rbind(samps.conditions.melted.trunc, samps.samples_plus_conditions.melted.trunc)
-  samps$X1 <- factor(samps$X1)
-  
-  for (i in colnames(samps.conditions)) {
-    if (i == tolower(i))
-    {
-      samps.conditions[,i] <- mean(samps.conditions[,i]) + rnorm(nrow(samps.conditions),1e-6,1e-6)
-    }
-  }   
   test_conditions <- levels(design$Condition)[levels(design$Condition) != tolower(levels(design$Condition))]
   test_conditions <- test_conditions[2:length(test_conditions)]
-  samps$value[!(samps$Condition %in% test_conditions) & samps$X1=="1"] <- NA
-  
-  ylim <- c(min(samps$value,na.rm = T)*1.5, max(samps$value, na.rm = T)*1.5)
+
+  ylim <- c(min(samps.samples_plus_conditions.melted.trunc$value,na.rm = T)*1.5, max(samps.samples_plus_conditions.melted.trunc$value, na.rm = T)*1.5)
   
   g <- ggplot(stats.samples_plus_conditions, aes(Sample, mean))
   g <- g + theme_bw()
@@ -81,30 +189,83 @@ plot.samples <- function(s.Sol, meta, design, filename) {
                  panel.grid.major=element_line(size=0.2),
                  axis.ticks=element_blank(),
                  plot.title=element_text(size=10),
+                 plot.margin = unit(c(0.2,0.5,0.2,0.2), "cm"),
                  strip.background=element_blank(),
                  strip.text=element_text(size=6),
                  axis.text.x=element_text(size=6),
                  legend.position="none")
   g <- g + facet_wrap(~ facet, ncol=1)
-  g <- g + ggtitle(meta)
   g <- g + coord_cartesian(ylim=ylim)
   g <- g + ylab(expression('Log'[2]*' Ratio'))
-  g <- g + geom_boxplot(data = samps, aes(y = value), alpha = 0.0, weight = 0, colour = "white", size = 0, outlier.size = 0)
+  g <- g + geom_boxplot(data = samps.samples_plus_conditions.melted.trunc, aes(y = value), alpha = 0.0, weight = 0, colour = "white", size = 0, outlier.size = 0)
   g <- g + geom_hline(yintercept=0,size=1/2,colour="darkgrey")          
-  g <- g + geom_segment(data = stats.samples_plus_conditions, aes(x = as.integer(Sample)-0.45, xend = as.integer(Sample) + 0.45, y = mean, yend = mean),size = 1/2,colour="darkgrey")
-  g <- g + geom_violin(data = samps, aes(y = value, colour = X1, alpha = X1, fill = Condition), position="identity", trim=T, size = 1/2)
-  g <- g + geom_segment(data = stats.conditions, aes(x = as.integer(Sample)-0.5, xend = as.integer(Sample) + 0.5, y = mean, yend = mean),size = 1/2)
-  g <- g + scale_alpha_manual(values=c(0.0,1.0))
-  g <- g + scale_colour_manual(values=c("darkgrey","black"))
+  g <- g + geom_violin(data = samps.samples_plus_conditions.melted.trunc, aes(y = value, fill = Condition), position="identity", trim=T, size = 1/2)
+  g <- g + geom_segment(data = stats.samples_plus_conditions, aes(x = as.integer(Sample)-0.45, xend = as.integer(Sample) + 0.45, y = mean, yend = mean),size = 1/2)
   ggsave(filename, g, height=2, width=6, limitsize=F)
-  
-  ylim
+
 }
 
 
-plots <- function(protein_id,design,nburnin,nsamp,nchain,thin,fc,tol) { 
-  print(paste(Sys.time(),"[Starting]"))
-  
+plot.peptides_sd <- function(s.VCV, design, filename) {   
+  if (sum(grepl("^Peptide.*\\.Digest$", colnames(s.VCV))) > 0) {
+    library(plyr)
+    library(ggplot2)
+    
+    samps <- sqrt(s.VCV[,grepl("^Peptide.*\\.Digest$", colnames(s.VCV)),drop=F])
+    colnames(samps) <- sub("^Peptide", '', colnames(samps))      
+    colnames(samps) <- sub("\\.Digest$", '', colnames(samps))      
+    
+    stats <- data.frame(Peptide = colnames(samps), mean = colMeans(samps))
+    stats <- cbind(stats, HPDinterval(mcmc(samps)))    
+    
+    densities <- ddply(melt(data.frame(samps), variable.name="Peptide"), .(Peptide), function(x)
+    {
+      dens <- density(x$value, n=4096)
+      data.frame(x=dens$x, y=dens$y)     
+    })   
+    levels(densities$Peptide) <- colnames(samps)
+    y_range <- max(densities$y)*1.4
+    
+    stats$mean.text <- paste0(" ",sapply(stats$mean, function(x) format(ifelse(x<0,-1/2^x,2^x),digits=3,scientific=F)),"fc ")
+    stats$mean.hjust <- ifelse(stats$mean<0,0,1)
+    
+    #stats$Peptide <- sub(":.*:","",stats$Peptide)
+    #densities$Peptide <- sub(":.*:","",densities$Peptide)
+    #stats$Peptide <- factor(stats$Peptide)
+    #densities$Peptide <- factor(densities$Peptide)
+    #levels(stats$Peptide) <- paste0(levels(stats$Peptide), ' []')
+    #levels(densities$Peptide) <- paste0(levels(densities$Peptide), ' []')
+    
+    g <- ggplot(stats, aes(x=mean, colour=Peptide, fill=Peptide))
+    g <- g + theme_bw()
+    g <- g + theme(panel.border=element_rect(colour="black",size=1.5),
+                   panel.grid.major=element_line(size=0.2),
+                   axis.ticks=element_blank(),
+                   axis.text.y=element_blank(),
+                   plot.title=element_text(size=10),
+                   plot.margin = unit(c(0.2,0.5,0.2,0.2), "cm"),
+                   strip.background=element_blank(),
+                   strip.text=element_text(size=4),
+                   legend.position="none")
+    g <- g + scale_x_continuous(expand = c(0,0))
+    g <- g + scale_y_continuous(expand = c(0,0))
+    g <- g + facet_wrap(~ Peptide, ncol=1)
+    g <- g + coord_cartesian(xlim=c(0,1),ylim=c(-0.0,y_range))
+    g <- g + xlab(expression('Log'[2]*' Standard Deviation'))
+    g <- g + ylab("Probability Density")
+    g <- g + geom_vline(xintercept=0,size=2/3,colour="darkgrey")          
+    g <- g + geom_line(data=densities,aes(x=x,y=y),size=2/3) 
+    g <- g + geom_ribbon(data=densities,aes(x=x,ymax=y),ymin=0,alpha=0.3)    
+    g <- g + geom_vline(aes(xintercept=mean),size=2/3) 
+    g <- g + geom_vline(aes(xintercept=lower),size=1/2,lty=2)      
+    g <- g + geom_vline(aes(xintercept=upper),size=1/2,lty=2)   
+    g <- g + geom_text(aes(x=mean,label=mean.text),y=y_range*0.9,hjust=0,vjust=1,size=3)
+    ggsave(filename, g, height=1+1*length(levels(stats$Peptide)), width=3.5, limitsize=F)  
+  }
+}
+
+
+plots <- function(protein_id,design,nitt,nburnin,nchain,fc,tol) { 
   library(coda)
   library(mcgibbsit)
   library(plyr)
@@ -122,12 +283,12 @@ plots <- function(protein_id,design,nburnin,nsamp,nchain,thin,fc,tol) {
     samps.Sol
   }))
   end <- summary(samps.Sol[[1]])$end
-  s.Sol <- as.matrix(window(samps.Sol,end-nsamp/nchain,end))
+  s.Sol <- as.matrix(window(samps.Sol,nburnin+1,end))
   samps.VCV <- mcmc.list(mlply(files, function(f) {
     load(paste0(protein_id,"/",f))
     samps.VCV
   }))
-  s.VCV <- as.matrix(window(samps.VCV,end-nsamp/nchain,end))
+  s.VCV <- as.matrix(window(samps.VCV,nburnin+1,end))
   dics <- mdply(files, function(f) {
     load(paste0(protein_id,"/",f))
     dic
@@ -135,35 +296,43 @@ plots <- function(protein_id,design,nburnin,nsamp,nchain,thin,fc,tol) {
     
   # one-sided statistical tests, checking precision
   stats <- mdply(test_conditions, function(con) {
-    samps <- samps.Sol[,paste0('Condition', con)]
-    s <- s.Sol[,paste0('Condition', con)]
-    s.mean <- mean(s)
-    s.hpdi <- HPDinterval(mcmc(s))
-    
-    qs <- c(sum(s > log2(fc)), sum(s < -log2(fc)), sum(s >= -log2(fc) & s <= log2(fc)))  
-    qs <- pmin(pmax(qs,1),length(s)-1) / length(s)
-    
-    b <- mdply(qs, function(q) {
-      res <- mcgibbsit(samps,q,tol)
+    if (paste0('Condition', con) %in% names(s.Sol[1,]))
+    {
+      names(s.Sol[1,]) %in% paste0('Condition', con)
+      samps <- samps.Sol[,paste0('Condition', con)]
+      s <- s.Sol[,paste0('Condition', con)]
+      s.mean <- mean(s)
+      s.hpdi <- HPDinterval(mcmc(s))
+
+      qs <- c(sum(s > log2(fc)), sum(s < -log2(fc)), sum(s >= -log2(fc) & s <= log2(fc)))  
+      qs <- pmin(pmax(qs,1),length(s)-1) / length(s)
       
-      nburnin_pred <- NA
-      try(nburnin_pred <- ceiling(res$resmatrix[,'M']/thin(samps)), silent=T)
-      nsamp_pred <- NA
-      try(nsamp_pred <- ceiling(res$resmatrix[,'N']/thin(samps)), silent=T)
-      
-      data.frame(burnin_pred=nburnin_pred,
-                 burnin_ok=ifelse(nburnin>=nburnin_pred,"Yes","No"),
-                 samp_pred=nsamp_pred,
-                 samp_ok=ifelse(nsamp>=nsamp_pred,"Yes","No"),
-                 dic=mean(dics$V1),
-                 mean=s.mean,
-                 lower=s.hpdi[1],
-                 upper=s.hpdi[2],
-                 localFDR=1-q)
-    })
-    b$X1 <- c("Up","Down","Same")
-    colnames(b)[1] <- "Test"
-    b
+      b <- mdply(qs, function(q) {
+        res <- mcgibbsit(samps,q,tol)
+        
+        nitt_pred <- NA
+        try(nitt_pred <- max(ceiling(res$resmatrix[,'Total'] / nchain),1), silent=T)
+        nburnin_pred <- NA
+        try(nburnin_pred <- max(ceiling(res$resmatrix[,'M'] / nchain),1), silent=T)
+        
+        data.frame(itt_pred=nitt_pred,
+                   itt_ok=ifelse(nitt>=nitt_pred,"Yes","No"),
+                   burnin_pred=nburnin_pred,
+                   burnin_ok=ifelse(nburnin>=nburnin_pred,"Yes","No"),
+                   dic=mean(dics$V1),
+                   mean=s.mean,
+                   lower=s.hpdi[1],
+                   upper=s.hpdi[2],
+                   localFDR=1-q)
+      })
+      b$X1 <- c("Up","Down","Same")
+      colnames(b)[1] <- "Test"
+      b         
+    }
+    else
+    {
+      NULL
+    }
   })  
   stats$X1 <- test_conditions[stats$X1]
   colnames(stats)[1] <- "Condition"
@@ -173,7 +342,14 @@ plots <- function(protein_id,design,nburnin,nsamp,nchain,thin,fc,tol) {
   save(stats, dic, file=paste0("stats/",protein_id,".Rdata"))   
   
   # plots
-  plot.samples(s.Sol, protein_id, design, paste0("samples/",protein_id,".pdf"))
+  print(paste0(Sys.time()," [plots() Plotting conditions for protein ",protein_id,"]"))    
+  plot.conditions(s.Sol, design, fc, paste0("conditions/",protein_id,".pdf"))
+  print(paste0(Sys.time()," [plots() Plotting conditions sd for protein ",protein_id,"]"))    
+  plot.conditions_sd(s.VCV, design, paste0("conditions_sd/",protein_id,".pdf"))
+  print(paste0(Sys.time()," [plots() Plotting samples for protein ",protein_id,"]"))    
+  plot.samples(s.Sol, design, paste0("samples/",protein_id,".pdf"))
+  print(paste0(Sys.time()," [plots() Plotting peptides sd for protein ",protein_id,"]"))    
+  plot.peptides_sd(s.VCV, design, paste0("peptides_sd/",protein_id,".pdf"))
 }
 
 
@@ -183,24 +359,27 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   print(paste(Sys.time(),"[Starting]"))
 
   # some tuning parameters (should come from parameters.Rdata with defaults given here)
+  load("design.Rdata")  
   load("parameters.Rdata")  
-  nburnin <- as.integer(ifelse("model_nburnin" %in% parameters$Key,parameters$Value[parameters$Key=="model_nburnin"],1000000))
-  nsamp <- as.integer(ifelse("model_nsamp" %in% parameters$Key,parameters$Value[parameters$Key=="model_nsamp"],1000000))
+  nitt <- as.integer(ifelse("model_nitt" %in% parameters$Key,parameters$Value[parameters$Key=="model_nitt"],13000))
+  nburnin <- as.integer(ifelse("model_nburnin" %in% parameters$Key,parameters$Value[parameters$Key=="model_nburnin"],3000))
   nchain <- as.integer(ifelse("model_nchain" %in% parameters$Key,parameters$Value[parameters$Key=="model_nchain"],100))
-  thin <- as.integer(ifelse("model_thin" %in% parameters$Key,parameters$Value[parameters$Key=="model_thin"],10))
   fc <- as.double(ifelse("model_fc" %in% parameters$Key,parameters$Value[parameters$Key=="model_fc"],1.05))
-  tol <- as.double(ifelse("model_tol" %in% parameters$Key,parameters$Value[parameters$Key=="model_tol"],0.025))
+  tol <- as.double(ifelse("model_tol" %in% parameters$Key,parameters$Value[parameters$Key=="model_tol"],0.0125))
 
   dir.create("stats")
+  dir.create("conditions")
+  dir.create("conditions_sd")
   dir.create("samples")
+  #dir.create("peptides")
+  dir.create("peptides_sd")
   
   # run jobs
   protein_ids <- commandArgs(T)[3:length(commandArgs(T))]
   
-  load("design.Rdata")  
   devnull <- sapply(protein_ids, function(protein_id) {
     print(paste(Sys.time(),paste0("[Processing job ",protein_id,"]")))
-    plots(protein_id,design,nburnin,nsamp,nchain,thin,fc,tol)
+    plots(protein_id,design,nitt,nburnin,nchain,fc,tol)
   })
   
   print(paste(Sys.time(),"[Finished]"))  
