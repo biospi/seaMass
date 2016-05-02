@@ -265,6 +265,54 @@ plot.peptides_sd <- function(s.VCV, design, filename) {
 }
 
 
+plot.digests_sd <- function(s.VCV, design, filename) {   
+  if (sum(grepl("^Digest.*\\.Peptide$", colnames(s.VCV))) > 0) {
+    library(plyr)
+    library(ggplot2)
+    
+    samps <- sqrt(s.VCV[,grepl("^Digest.*\\.Peptide$", colnames(s.VCV)),drop=F])
+    colnames(samps) <- sub("^Digest", '', colnames(samps))      
+    colnames(samps) <- sub("\\.Peptide$", '', colnames(samps))      
+    
+    samps.melted <- mdply(colnames(samps), function(i) {
+      data.frame(Digest = i, Condition = design$Condition[design$Digest==i][1], value = samps[,i])
+    })  
+    stats <- ddply(samps.melted, .(Digest, Condition), function(x) {
+      s <- data.frame(mean = mean(x$value), facet = ' ')
+      cbind(s, HPDinterval(mcmc(x$value)))
+    })
+    samps.melted.trunc <- ddply(samps.melted, .(Digest, Condition), function(x) {
+      lower = stats$lower[stats$Digest == x$Digest[1]]
+      upper = stats$upper[stats$Digest == x$Digest[1]]
+      x[x$value >= lower & x$value <= upper,]
+    })  
+ 
+    stats$Digest <- reorder(stats$Digest,as.numeric(stats$Condition))
+    samps.melted.trunc$Digest <- reorder(samps.melted.trunc$Digest,as.numeric(samps.melted.trunc$Condition))
+    
+    g <- ggplot(stats, aes(Digest, mean))
+    g <- g + theme_bw()
+    g <- g + theme(panel.border=element_rect(colour="black",size=1.5),
+                   panel.grid.major=element_line(size=0.2),
+                   axis.ticks=element_blank(),
+                   plot.title=element_text(size=10),
+                   plot.margin = unit(c(0.2,0.5,0.2,0.2), "cm"),
+                   strip.background=element_blank(),
+                   strip.text=element_text(size=6),
+                   axis.text.x=element_text(size=6),
+                   legend.position="none")
+    g <- g + facet_wrap(~ facet, ncol=1)
+    g <- g + scale_y_continuous(expand = c(0,0))
+    g <- g + ylab(expression('Log'[2]*' Std Dev'))
+    g <- g + geom_boxplot(data = samps.melted.trunc, aes(y = value), alpha = 0.0, weight = 0, colour = "white", size = 0, outlier.size = 0)
+    g <- g + geom_hline(yintercept=0,size=1/2,colour="darkgrey")          
+    g <- g + geom_violin(data = samps.melted.trunc, aes(y = value, fill = Condition), position="identity", trim=T, size = 1/2)
+    g <- g + geom_segment(aes(x = as.integer(Digest)-0.45, xend = as.integer(Digest) + 0.45, y = mean, yend = mean),size = 1/2)
+    ggsave(filename, g, height=2, width=6, limitsize=F)
+  }
+}
+
+
 plots <- function(protein_id,design,nitt,nburnin,nchain,fc,tol) { 
   library(coda)
   library(mcgibbsit)
@@ -337,10 +385,6 @@ plots <- function(protein_id,design,nitt,nburnin,nchain,fc,tol) {
   stats$X1 <- test_conditions[stats$X1]
   colnames(stats)[1] <- "Condition"
   
-  # save stats
-  dic <- mean(dics$V1)
-  save(stats, dic, file=paste0("stats/",protein_id,".Rdata"))   
-  
   # plots
   print(paste0(Sys.time()," [plots() Plotting conditions for protein ",protein_id,"]"))    
   plot.conditions(s.Sol, design, fc, paste0("conditions/",protein_id,".pdf"))
@@ -350,6 +394,15 @@ plots <- function(protein_id,design,nitt,nburnin,nchain,fc,tol) {
   plot.samples(s.Sol, design, paste0("samples/",protein_id,".pdf"))
   print(paste0(Sys.time()," [plots() Plotting peptides sd for protein ",protein_id,"]"))    
   plot.peptides_sd(s.VCV, design, paste0("peptides_sd/",protein_id,".pdf"))
+  #print(paste0(Sys.time()," [plots() Plotting digests sd for protein ",protein_id,"]"))    
+  #plot.digests_sd(s.VCV, design, paste0("digests_sd/",protein_id,".pdf"))
+  
+  # save stats, and 1000 samps for study-wide plots
+  if (nrow(s.Sol) > 1000) s.Sol <- s.Sol[seq(1,nrow(s.Sol),length=1000),]
+  s.Sol <- s.Sol[,colnames(s.Sol) %in% paste0('Condition', test_conditions),drop=F]
+  if (nrow(s.VCV) > 1000) s.VCV <- s.VCV[seq(1,nrow(s.VCV),length=1000),]
+  dic <- mean(dics$V1)
+  save(stats, dic, s.Sol, s.VCV, file=paste0("stats/",protein_id,".Rdata"))   
 }
 
 
@@ -371,8 +424,8 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
   dir.create("conditions")
   dir.create("conditions_sd")
   dir.create("samples")
-  #dir.create("peptides")
   dir.create("peptides_sd")
+  dir.create("digests_sd")
   
   # run jobs
   protein_ids <- commandArgs(T)[3:length(commandArgs(T))]

@@ -32,38 +32,24 @@ norm <- function(protein_id,chain,nchain,seed,nitt,thin) {
     nP <- length(levels(data$Peptide))
     nS <- length(levels(data$Spectrum))  
     nR <- length(levels(data$Run))
+    nD <- length(levels(data$Digest))
     
     if (nR > 1) data$Channel <- factor(data$Channel,levels=rev(levels(data$Channel)))  
     
-    if (nP == 1) {       
-      
-      # one peptide only for this protein
-      prior <- list(
-        R = list(V=diag(nS), nu=0.002)
-      )
-      model <- suppressWarnings(MCMCglmm(
-        as.formula(paste("Count ~", ifelse(nS==1, "", "Spectrum-1 +"), ifelse(nR==1, "Channel", "Run:Channel"))),          
-        rcov = as.formula(ifelse(nS==1,"~units", "~idh(Spectrum):units")),
-        family = 'poisson',
-        data=data, prior=prior, nitt=nitt, burnin=0, thin=thin, verbose=F
-      ))
-      
-    } else { 
-      
-      # multiple peptides for this protein (full model)
-      prior <- list(
-        G = list(G1=list(V=diag(nP), nu=nP, alpha.mu=rep(0, nP), alpha.V=diag(1000, nP))),
-        R = list(V=diag(nS), nu=0.002)
-      )
-      model <- suppressWarnings(MCMCglmm(          
-        as.formula(paste0("Count ~ Spectrum-1 + ", ifelse(nR==1, "Channel", "Run:Channel"))),          
-        random = ~ idh(Peptide):Digest,
-        rcov = as.formula(ifelse(nS==1,"~units", "~idh(Spectrum):units")),
-        family = 'poisson',        
-        data=data, prior=prior, nitt=nitt, burnin=0, thin=thin, verbose=F
-      ))
-      
-    }
+    # model
+    prior <- list(
+      G = list(G1 = list(V = diag(nD), nu = nD, alpha.mu = rep(0, nD),alpha.V = diag(1000, nD)),
+               G2 = list(V = diag(nP), nu = nP, alpha.mu = rep(0, nP), alpha.V = diag(1000, nP))),
+      R = list(V = diag(nS), nu=0.002)
+    )
+    model <- suppressWarnings(MCMCglmm(          
+      as.formula(paste0("Count ~ Spectrum-1 + ", ifelse(nR==1, "Channel", "Run:Channel"))),          
+      random = as.formula(paste0("~ idh(Digest):Peptide + ", ifelse(nP==1, "Digest", "idh(Peptide):Digest"))),
+      rcov = as.formula(ifelse(nS==1,"~units", "~idh(Spectrum):units")),
+      family = 'poisson',        
+      data=data, prior=prior, nitt=nitt, burnin=0, thin=thin
+    ))
+    print(summary(model))
 
     # save samples for exposures.R
     if (nR==1) {
