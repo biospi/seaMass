@@ -38,16 +38,15 @@ norm <- function(protein_id,chain,nchain,seed,nitt,thin) {
     
     # model
     prior <- list(
-      G = list(G1 = list(V = diag(nD), nu = nD, alpha.mu = rep(0, nD),alpha.V = diag(1000, nD)),
-               G2 = list(V = diag(nP), nu = nP, alpha.mu = rep(0, nP), alpha.V = diag(1000, nP))),
+      G = list(G1 = list(V = diag(nP), nu = nP, alpha.mu = rep(0, nP), alpha.V = diag(1000, nP))),
       R = list(V = diag(nS), nu=0.002)
     )
     model <- suppressWarnings(MCMCglmm(          
       as.formula(paste0("Count ~ Spectrum-1 + ", ifelse(nR==1, "Channel", "Run:Channel"))),          
-      random = as.formula(paste0("~ idh(Digest):Peptide + ", ifelse(nP==1, "Digest", "idh(Peptide):Digest"))),
+      random = as.formula(paste0("~ ", ifelse(nP==1, "Digest", "idh(Peptide):Digest"))),
       rcov = as.formula(ifelse(nS==1,"~units", "~idh(Spectrum):units")),
       family = 'poisson',        
-      data=data, prior=prior, nitt=nitt, burnin=0, thin=thin
+      data=data, prior=prior, nitt=nitt, burnin=0, thin=thin, verbose=F
     ))
     print(summary(model))
 
