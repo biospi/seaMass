@@ -82,8 +82,8 @@ model <- function(protein_id,design,exposures,use_exposure_sd,chain,nchain,seed,
 }
 
 
-# FOR EXECUTING UNDER HTCondor
-if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HTCondor")
+# FOR EXECUTING UNDER HPC
+if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
 {
   print(paste(Sys.time(),"[Starting]"))
 

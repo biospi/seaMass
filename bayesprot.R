@@ -13,7 +13,7 @@ suppressPackageStartupMessages(
 )
 
 message("")
-message("BayesTraq - Copyright (C) 2015 - biospi Laboratory, EEE, University of Liverpool, UK")
+message("BayesProt - Copyright (C) 2015 - biospi Laboratory, EEE, University of Liverpool, UK")
 message("This program comes with ABSOLUTELY NO WARRANTY.")
 message("This is free software, and you are welcome to redistribute it under certain conditions.")
 message("")
@@ -109,9 +109,9 @@ if("max_spectra_per_peptide" %in% parameters$Key)
 }
 data <- data[order(data$ProteinID, data$Peptide, data$Run, data$Fraction, data$Theor.z),]
 
-# build HTCondor submission zip
+# build HPC submission zip
 id <- sub("[.][^.]*$", "", basename(args[1]), perl=T)
-out_dir <- paste0(id, ".bayestraq")
+out_dir <- paste0(id, ".bayesprot")
 message(paste0("writing: ",file.path(out_dir,"submit.zip"),"..."))
 dir.create(out_dir)
 file.copy(file.path(script_dir,"submit"),out_dir,recursive=T)
@@ -120,7 +120,7 @@ save(parameters,file=file.path(out_dir,"submit","input","parameters.Rdata"))
 save(design,file=file.path(out_dir,"submit","input","design.Rdata"))
 save(data,file=file.path(out_dir,"submit","input","data.Rdata"))
 
-# append number of jobs etc to the HTCondor sub files
+# append number of jobs etc to the HPC sub files
 csl.file <- file(file.path(script_dir,"condor_submit.local"))
 csl <- readLines(csl.file)
 close(csl.file)
@@ -144,8 +144,8 @@ for (sub.filename in sub.filenames) {
     for (i in seq(1, min(nworker,length(ids))))
     {
       is <- ids[seq(i, length(ids), nworker)]
-      writeLines(paste0("arguments = norm.R HTCondor $(Cluster) ", paste0(is, collapse = ' ')),sub.file)
-      writeLines(paste0("transfer_input_files = ../../norm.R, ../../../bayestraq_R.sh, ../../../bayestraq_R.zip, ../../input/parameters.Rdata, ", paste0('../../import/results/',paste0(unique(gsub(":[0-9]+/[0-9]+$","",is)), '.Rdata'), collapse=', ')),sub.file)
+      writeLines(paste0("arguments = norm.R HPC $(Cluster) ", paste0(is, collapse = ' ')),sub.file)
+      writeLines(paste0("transfer_input_files = ../../norm.R, ../../../bayesprot_R.sh, ../../../bayesprot_R.zip, ../../input/parameters.Rdata, ", paste0('../../import/results/',paste0(unique(gsub(":[0-9]+/[0-9]+$","",is)), '.Rdata'), collapse=', ')),sub.file)
       writeLines('queue',sub.file)
     }
   } else if (grepl("model",sub.filename)) {
@@ -153,8 +153,8 @@ for (sub.filename in sub.filenames) {
     for (i in seq(1, min(nworker,length(ids))))
     {
       is <- ids[seq(i, length(ids), nworker)]
-      writeLines(paste0("arguments = model.R HTCondor $(Cluster) ", paste0(is, collapse = ' ')),sub.file)
-      writeLines(paste0("transfer_input_files = ../../model.R, ../../../bayestraq_R.sh, ../../../bayestraq_R.zip, ../../input/parameters.Rdata, ../../input/design.Rdata, ../../exposures/results/exposures.Rdata, ", paste0('../../import/results/',paste0(unique(gsub(":[0-9]+/[0-9]+$","",is)), '.Rdata'), collapse=', ')),sub.file)
+      writeLines(paste0("arguments = model.R HPC $(Cluster) ", paste0(is, collapse = ' ')),sub.file)
+      writeLines(paste0("transfer_input_files = ../../model.R, ../../../bayesprot_R.sh, ../../../bayesprot_R.zip, ../../input/parameters.Rdata, ../../input/design.Rdata, ../../exposures/results/exposures.Rdata, ", paste0('../../import/results/',paste0(unique(gsub(":[0-9]+/[0-9]+$","",is)), '.Rdata'), collapse=', ')),sub.file)
       writeLines(paste0("transfer_output_files = ", paste0(unique(gsub(":[0-9]+/[0-9]+$","",is)), collapse=', ')),sub.file)
       writeLines('queue',sub.file)
     }
@@ -163,8 +163,8 @@ for (sub.filename in sub.filenames) {
     for (i in seq(1, min(nworker,length(ids))))
     {
       is <- ids[seq(i, length(ids), nworker)]
-      writeLines(paste0("arguments = plots.R HTCondor $(Cluster) ", paste0(is, collapse=' ')),sub.file)
-      writeLines(paste0("transfer_input_files = ../../plots.R, ../../../bayestraq_R.sh, ../../../bayestraq_R.zip, ../../input/parameters.Rdata, ../../input/design.Rdata, ", paste0('../../model/results/', is, collapse=', '), ", ", paste0('../../import/results/', is, '.Rdata', collapse=', ')),sub.file)
+      writeLines(paste0("arguments = plots.R HPC $(Cluster) ", paste0(is, collapse=' ')),sub.file)
+      writeLines(paste0("transfer_input_files = ../../plots.R, ../../../bayesprot_R.sh, ../../../bayesprot_R.zip, ../../input/parameters.Rdata, ../../input/design.Rdata, ", paste0('../../model/results/', is, collapse=', '), ", ", paste0('../../import/results/', is, '.Rdata', collapse=', ')),sub.file)
       writeLines('queue',sub.file)
     }
   } else if (grepl("output",sub.filename)) {

@@ -1,11 +1,11 @@
 getenv = true 
 universe = vanilla
-executable = bayestraq_Rsetup.sh
-log = bayestraq_Rsetup.log
-error = bayestraq_Rsetup.err
-output = bayestraq_Rsetup.out
+executable = bayesprot_Rsetup.sh
+log = bayesprot_Rsetup.log
+error = bayesprot_Rsetup.err
+output = bayesprot_Rsetup.out
 should_transfer_files = YES
-transfer_input_files = bayestraq_Rsetup.R
+transfer_input_files = bayesprot_Rsetup.R
 periodic_release = True
 on_exit_remove = (ExitBySignal == False) && (ExitCode == 0)
 priority = 10

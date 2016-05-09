@@ -1,14 +1,14 @@
 getenv = true 
 universe = vanilla
-executable = ../bayestraq_R.sh
-arguments = exposures.R HTCondor
+executable = ../bayesprot_R.sh
+arguments = exposures.R HPC
 initialdir = exposures/results
 log = ../exposures.log
 error = ../exposures.err
 output = ../exposures.out
 stream_error = True
 stream_output = True
-transfer_input_files = ../../../bayestraq_R.sh, ../../../bayestraq_R.zip, ../../exposures.R, ../../input/parameters.Rdata, ../../input/design.Rdata, ../../import/results/index.Rdata, ../../norm/results
+transfer_input_files = ../../../bayesprot_R.sh, ../../../bayesprot_R.zip, ../../exposures.R, ../../input/parameters.Rdata, ../../input/design.Rdata, ../../import/results/index.Rdata, ../../norm/results
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
 periodic_release = True
