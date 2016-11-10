@@ -10,7 +10,7 @@ normJobs = 1000
 modelChains = 100
 modelJobs = 1000
 
-plotJobs = 1000
+plotsJobs = 1000
 
 #########################################
 # Import Setup
@@ -162,7 +162,7 @@ open("bayesprot-plots.sh","w") do f
 end
 
 qsubReturn = readall(`qsub -hold_jid $plotsSetupJobID -t 1-$plotsJobs bayesprot-plots.sh`)
-plotsJobID = parse(Int,match(r"(?<= job )\d+",qsubReturn).match)
+plotsJobID = parse(Int,match(r"(?<= job-array )\d+",qsubReturn).match)
 
 #########################################
 # Output Setup
