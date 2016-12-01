@@ -203,6 +203,7 @@ plot.samples <- function(s.Sol, design, filename) {
   g <- g + geom_segment(data = stats.samples_plus_conditions, aes(x = as.integer(Sample)-0.45, xend = as.integer(Sample) + 0.45, y = mean, yend = mean),size = 1/2)
   ggsave(filename, g, height=2, width=6, limitsize=F)
 
+  ylim
 }
 
 
@@ -261,6 +262,62 @@ plot.peptides_sd <- function(s.VCV, design, filename) {
     g <- g + geom_vline(aes(xintercept=upper),size=1/2,lty=2)   
     g <- g + geom_text(aes(x=mean,label=mean.text),y=y_range*0.9,hjust=0,vjust=1,size=3)
     ggsave(filename, g, height=1+1*length(levels(stats$Peptide)), width=3.5, limitsize=F)  
+  }
+}
+
+
+plot.peptides <- function(s.Sol, design, filename, ylim) { 
+  if(sum(grepl("^Peptide.*\\.Digest.*$", colnames(s.Sol))) > 0) {
+    library(plyr)
+    library(ggplot2)
+    
+    samps.Sol <- as.data.frame(s.Sol[,grepl("^Peptide.*\\.Digest.*$", colnames(s.Sol)),drop=F])
+    samps <- mdply(colnames(samps.Sol), function(s) {
+      s2 <- sub("^Peptide", '', s) 
+      peptide <- sub("\\.Digest.*$", '', s2)   
+      digest <- sub("^.*\\.Digest.", '', s2)   
+      data.frame(
+        Peptide = peptide,
+        Digest = digest,
+        Condition = design$Condition[design$Digest==digest][1],
+        value = samps.Sol[,s]
+      )
+    })
+  
+    stats <- ddply(samps, .(Peptide, Digest, Condition), function(x) {
+      s <- data.frame(mean = mean(x$value))
+      cbind(s, HPDinterval(mcmc(x$value)))
+    })
+    
+    samps.trunc <- ddply(samps, .(Peptide, Digest, Condition), function(s) {
+      lower = stats$lower[stats$Digest == s$Digest[1] & stats$Peptide == s$Peptide[1]]
+      upper = stats$upper[stats$Digest == s$Digest[1] & stats$Peptide == s$Peptide[1]]
+      s[s$value >= lower & s$value <= upper,]
+    })  
+    
+    stats$Digest <- reorder(stats$Digest,as.numeric(stats$Condition))
+    samps.trunc$Digest <- reorder(samps.trunc$Digest,as.numeric(samps.trunc$Condition))
+    stats$Peptide <- factor(stats$Peptide, levels=levels(samps$Peptide)[order(levels(samps$Peptide))])
+    
+    g <- ggplot(stats, aes(Digest, mean))
+    g <- g + theme_bw()
+    g <- g + theme(panel.border=element_rect(colour="black",size=1.5),
+                   panel.grid.major=element_line(size=0.2),
+                   axis.ticks=element_blank(),
+                   plot.title=element_text(size=10),
+                   plot.margin = unit(c(0.2,0.5,0.2,0.2), "cm"),
+                   strip.background=element_blank(),
+                   strip.text=element_text(size=6),
+                   axis.text.x=element_text(size=6),
+                   legend.position="none")
+    g <- g + coord_cartesian(ylim=ylim)
+    g <- g + facet_wrap(~Peptide,drop=F,ncol=1)
+    g <- g + ylab(expression('Log'[2]*' Ratio'))
+    g <- g + geom_boxplot(data = samps.trunc, aes(y = value), alpha = 0.0, weight = 0, colour = "white", size = 0, outlier.size = 0)
+    g <- g + geom_hline(yintercept=0,size=1/2,colour="darkgrey")          
+    g <- g + geom_violin(data = samps.trunc, aes(y = value, fill = Condition), position="identity", size = 1/2, trim=T)
+    g <- g + geom_segment(aes(x = as.integer(Digest)-0.45, xend = as.integer(Digest) + 0.45, mean, yend = mean),size = 1/2) 
+    ggsave(filename, g, height=1+1*length(levels(stats$Peptide)), width=6, limitsize=F)
   }
 }
 
@@ -341,6 +398,7 @@ plots <- function(protein_id,design,nitt,nburnin,nchain,fc,tol) {
     load(paste0(protein_id,"/",f))
     dic
   })
+  
     
   # one-sided statistical tests, checking precision
   stats <- mdply(test_conditions, function(con) {
@@ -391,7 +449,9 @@ plots <- function(protein_id,design,nitt,nburnin,nchain,fc,tol) {
   print(paste0(Sys.time()," [plots() Plotting conditions sd for protein ",protein_id,"]"))    
   plot.conditions_sd(s.VCV, design, paste0("conditions_sd/",protein_id,".pdf"))
   print(paste0(Sys.time()," [plots() Plotting samples for protein ",protein_id,"]"))    
-  plot.samples(s.Sol, design, paste0("samples/",protein_id,".pdf"))
+  ylim <- plot.samples(s.Sol, design, paste0("samples/",protein_id,".pdf"))
+  print(paste0(Sys.time()," [plots() Plotting peptides for protein ",protein_id,"]"))    
+  plot.peptides(s.Sol, design, paste0("peptides/",protein_id,".pdf"), ylim)
   print(paste0(Sys.time()," [plots() Plotting peptides sd for protein ",protein_id,"]"))    
   plot.peptides_sd(s.VCV, design, paste0("peptides_sd/",protein_id,".pdf"))
   #print(paste0(Sys.time()," [plots() Plotting digests sd for protein ",protein_id,"]"))    
@@ -424,6 +484,7 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
   dir.create("conditions")
   dir.create("conditions_sd")
   dir.create("samples")
+  dir.create("peptides")
   dir.create("peptides_sd")
   dir.create("digests_sd")
   
