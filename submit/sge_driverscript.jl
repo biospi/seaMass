@@ -10,7 +10,7 @@ normJobs = 1000
 modelChains = 100
 modelJobs = 1000
 
-plotJobs = 1000
+plotsJobs = 1000
 
 #########################################
 # Import Setup
@@ -38,7 +38,7 @@ open("bayesprot-import.sh","w") do f
   write(f,"#\$ -m bes\n")
   write(f,"#\$ -l h_vmem=8G,h_rt=01:00:00\n")
   write(f,"cd import/results\n")
-  write(f,"../../../bin/Rscript ../../import.R HPC")
+  write(f,"Rscript ../../import.R HPC")
 end
 
 qsubReturn = readall(`qsub -hold_jid $importSetupJobID bayesprot-import.sh`)
@@ -100,7 +100,7 @@ open("bayesprot-exposures.sh","w") do f
   write(f,"#\$ -m bes\n")
   write(f,"#\$ -l h_vmem=8G,h_rt=01:00:00\n")
   write(f,"cd exposures/results\n")
-  write(f,"../../../bin/Rscript ../../exposures.R HPC")
+  write(f,"Rscript ../../exposures.R HPC")
 end
 
 qsubReturn  = readall(`qsub -hold_jid $exposuresSetupJobID bayesprot-exposures.sh`)
@@ -158,11 +158,11 @@ open("bayesprot-plots.sh","w") do f
   write(f,"#\$ -o plots/out\n")
   write(f,"#\$ -e plots/error\n")
   write(f,"#\$ -l h_vmem=8G,h_rt=01:00:00\n")
-  write(f,"sh plots-job\$SGE_TASK_ID.sh")
+  write(f,"sh plots/plots-job\$SGE_TASK_ID.sh")
 end
 
 qsubReturn = readall(`qsub -hold_jid $plotsSetupJobID -t 1-$plotsJobs bayesprot-plots.sh`)
-plotsJobID = parse(Int,match(r"(?<= job )\d+",qsubReturn).match)
+plotsJobID = parse(Int,match(r"(?<= job-array )\d+",qsubReturn).match)
 
 #########################################
 # Output Setup
@@ -190,7 +190,7 @@ open("bayesprot-output.sh","w") do f
   write(f,"#\$ -m bes\n")
   write(f,"#\$ -l h_vmem=8G,h_rt=01:00:00\n")
   write(f,"cd output/results\n")
-  write(f,"../../../bin/Rscript ../../output.R HPC")
+  write(f,"Rscript ../../output.R HPC")
 end
 
 run(`qsub -hold_jid $outputSetupJobID bayesprot-output.sh`)

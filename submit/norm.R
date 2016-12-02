@@ -43,6 +43,7 @@ norm <- function(protein_id,chain,nchain,seed,nitt,thin) {
     )
     model <- suppressWarnings(MCMCglmm(          
       as.formula(paste0("Count ~ Spectrum-1 + ", ifelse(nR==1, "Channel", "Run:Channel"))),          
+      #random = as.formula(paste0("~ ", ifelse(nP==1, "Digest", "idh(Peptide):Digest"), "idh(Digest):Peptide")),
       random = as.formula(paste0("~ ", ifelse(nP==1, "Digest", "idh(Peptide):Digest"))),
       rcov = as.formula(ifelse(nS==1,"~units", "~idh(Spectrum):units")),
       family = 'poisson',        
