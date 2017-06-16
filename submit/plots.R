@@ -92,8 +92,10 @@ plot.conditions_sd <- function(s.VCV, design, filename) {
     colnames(samps) <- sub('Population', '', colnames(samps))    
     stats <- data.frame(Population = factor(colnames(samps), levels=levels(design$Population)), mean = colMeans(samps))
   }
-  stats <- cbind(stats, HPDinterval(mcmc(samps)))  
-  
+  stats <- cbind(stats, HPDinterval(mcmc(samps)))
+
+  stats <- stats[stats$Population %in% test_populations,]
+
   densities <- ddply(melt(data.frame(samps), variable.name="Population"), .(Population), function(x)
   {
     dens <- density(x$value, n=65536)
@@ -183,8 +185,12 @@ plot.samples <- function(s.Sol, design, filename) {
   test_conditions <- levels(design$Condition)[levels(design$Condition) != tolower(levels(design$Condition))]
   test_conditions <- test_conditions[2:length(test_conditions)]
 
-  ylim <- c(min(samps.samples_plus_conditions.melted.trunc$value,na.rm = T)*1.5, max(samps.samples_plus_conditions.melted.trunc$value, na.rm = T)*1.5)
-  
+  ymin <- min(samps.samples_plus_conditions.melted.trunc$value, na.rm = T)
+  ymax <- max(samps.samples_plus_conditions.melted.trunc$value, na.rm = T)
+  mid <- ymax - (ymax-ymin)/2
+  d <- (ymax-mid)*1.5
+  ylim <- c(mid+d,mid-d)
+
   g <- ggplot(stats.samples_plus_conditions, aes(Sample, mean))
   g <- g + theme_bw()
   g <- g + theme(panel.border=element_rect(colour="black",size=1.5),
