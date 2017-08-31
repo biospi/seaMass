@@ -1,3 +1,5 @@
+Sys.setlocale("LC_COLLATE","C")
+
 # FOR EXECUTING UNDER HPC
 if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
 {

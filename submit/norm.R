@@ -1,3 +1,5 @@
+Sys.setlocale("LC_COLLATE","C")
+
 # BAYESPROT MODEL
 norm <- function(protein_id,chain,nchain,seed,nitt,thin) { 
   library(methods)

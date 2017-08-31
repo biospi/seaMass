@@ -1,3 +1,5 @@
+Sys.setlocale("LC_COLLATE","C")
+
 # BAYESPROT MODEL
 model <- function(protein_id,design,exposures,use_exposure_sd,chain,nchain,seed,nitt,thin) { 
   library(methods)

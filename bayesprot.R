@@ -18,6 +18,8 @@ message("This program comes with ABSOLUTELY NO WARRANTY.")
 message("This is free software, and you are welcome to redistribute it under certain conditions.")
 message("")
 
+Sys.setlocale("LC_COLLATE","C")
+
 # read bayesprot metadata
 message(paste0("reading: ",args[1],"..."))
 metadata <- loadWorkbook(args[1])
