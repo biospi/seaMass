@@ -1,6 +1,8 @@
 # BayesProt
 Bayesian linear mixed-effects model for protein-level quantification and study-level statistical testing in proteomics.
 
+Contact: Al Phillips - A.M.Phillips@liverpool.ac.uk
+
 ## Usage
 
 For Protein Pilot iTRAQ data:
