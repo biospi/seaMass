@@ -19,7 +19,7 @@ plot.conditions <- function(s.Sol, design, fc, filename) {
     }
   }
 
-  samps <- samps[,colnames(samps) %in% test_conditions] 
+  samps <- samps[,colnames(samps) %in% test_conditions,drop=FALSE] 
 
   densities <- ddply(melt(samps, variable.name="Condition"), .(Condition), function(x)
   {
