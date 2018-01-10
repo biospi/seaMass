@@ -20,10 +20,11 @@ open("bayesprot-import-setup.sh","w") do f
   write(f,"#\$PBS -M "*email*"\n")
   write(f,"#\$PBS -m bes\n")
   write(f,"#\$PBS -V\n")
-  write(f,"cd $PBS_O_WORKDIR\n")
+  write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"julia bayesprot-import-setup.jl")
 end
 
+run(`chmod u+x bayesprot-import-setup.sh`)
 qsubReturn = readstring(`qsub bayesprot-import-setup.sh`)
 importSetupJobID = parse(Int,match(r"(?<= job )\d+",qsubReturn).match)
 
@@ -39,12 +40,12 @@ open("bayesprot-import.sh","w") do f
   write(f,"#\$PBS -m bes\n")
   write(f,"#\$PBS -l mem=8gb")
   write(f,"#\$PBS -l walltime=01:00:00\n")
-  write(f,"cd $PBS_O_WORKDIR\n")
+  write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"cd import/results\n")
   write(f,"Rscript ../../import.R HPC")
 end
 
-#qsubReturn = readstring(`qsub -hold_jid $importSetupJobID bayesprot-import.sh`)
+run(`chmod u+x bayesprot-import.sh`)
 qsubReturn = readstring(`qsub -W depend=afterok:$importSetupJobID bayesprot-import.sh`)
 importJobID = parse(Int,match(r"(?<= job )\d+",qsubReturn).match)
 
@@ -56,11 +57,11 @@ open("bayesprot-norm-setup.sh","w") do f
   write(f,"#\$PBS -M "*email*"\n")
   write(f,"#\$PBS -m bes\n")
   write(f,"#\$PBS -V\n")
-  write(f,"cd $PBS_O_WORKDIR\n")
+  write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"julia bayesprot-norm-setup.jl $normChains $normJobs")
 end
 
-#qsubReturn = readstring(`qsub -hold_jid $importJobID bayesprot-norm-setup.sh`)
+run(`chmod u+x bayesprot-norm-setup.sh`)
 qsubReturn = readstring(`qsub -W depend=afterok:$importJobID bayesprot-norm-setup.sh`)
 normSetupJobID = parse(Int,match(r"(?<= job )\d+",qsubReturn).match)
 
@@ -74,11 +75,11 @@ open("bayesprot-norm.sh","w") do f
   write(f,"#\$PBS -e norm/error\n")
   write(f,"#\$PBS -l mem=8gb")
   write(f,"#\$PBS -l walltime=01:00:00\n")
-  write(f,"cd $PBS_O_WORKDIR\n")
+  write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"sh norm/norm-job\$SGE_TASK_ID.sh")
 end
 
-#qsubReturn = readstring(`qsub -hold_jid $normSetupJobID -t 1-$normJobs bayesprot-norm.sh`)
+run(`chmod u+x bayesprot-norm.sh`)
 qsubReturn = readstring(`qsub -W depend=afterok:$normSetupJobID -t 1-$normJobs bayesprot-norm.sh`)
 normJobID = parse(Int,match(r"(?<= job-array )\d+",qsubReturn).match)
 
@@ -90,11 +91,11 @@ open("bayesprot-exposures-setup.sh","w") do f
   write(f,"#\$PBS -M "*email*"\n")
   write(f,"#\$PBS -m bes\n")
   write(f,"#\$PBS -V\n")
-  write(f,"cd $PBS_O_WORKDIR\n")
+  write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"julia bayesprot-exposures-setup.jl")
 end
 
-#qsubReturn = readstring(`qsub -hold_jid $normJobID bayesprot-exposures-setup.sh`)
+run(`chmod u+x bayesprot-exposures-setup.sh`)
 qsubReturn = readstring(`qsub -W depend=afterok:$normJobID bayesprot-exposures-setup.sh`)
 exposuresSetupJobID = parse(Int,match(r"(?<= job )\d+",qsubReturn).match)
 
@@ -110,12 +111,12 @@ open("bayesprot-exposures.sh","w") do f
   write(f,"#\$PBS -m bes\n")
   write(f,"#\$PBS -l mem=8gb")
   write(f,"#\$PBS -l walltime=01:00:00\n")
-  write(f,"cd $PBS_O_WORKDIR\n")
+  write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"cd exposures/results\n")
   write(f,"Rscript ../../exposures.R HPC")
 end
 
-#qsubReturn  = readstring(`qsub -hold_jid $exposuresSetupJobID bayesprot-exposures.sh`)
+run(`chmod u+x bayesprot-exposures.sh`)
 qsubReturn  = readstring(`qsub -W depend=afterok:$exposuresSetupJobID bayesprot-exposures.sh`)
 exposuresJobID = parse(Int,match(r"(?<= job )\d+",qsubReturn).match)
 
@@ -127,11 +128,11 @@ open("bayesprot-model-setup.sh","w") do f
   write(f,"#\$PBS -M "*email*"\n")
   write(f,"#\$PBS -m bes\n")
   write(f,"#\$PBS -V\n")
-  write(f,"cd $PBS_O_WORKDIR\n")
+  write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"julia bayesprot-model-setup.jl $modelChains $modelJobs")
 end
 
-#qsubReturn = readstring(`qsub -hold_jid $exposuresJobID bayesprot-model-setup.sh`)
+run(`chmod u+x bayesprot-model-setup.sh`)
 qsubReturn = readstring(`qsub -W depend=afterok:$exposuresJobID bayesprot-model-setup.sh`)
 modelSetupJobID = parse(Int,match(r"(?<= job )\d+",qsubReturn).match)
 
@@ -145,11 +146,11 @@ open("bayesprot-model.sh","w") do f
   write(f,"#\$PBS -e model/error\n")
   write(f,"#\$PBS -l mem=8gb")
   write(f,"#\$PBS -l walltime=01:00:00\n")
-  write(f,"cd $PBS_O_WORKDIR\n")
+  write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"sh model/model-job\$SGE_TASK_ID.sh")
 end
 
-#qsubReturn = readstring(`qsub -hold_jid $modelSetupJobID -t 1-$modelJobs bayesprot-model.sh`)
+run(`chmod u+x bayesprot-model.sh`)
 qsubReturn = readstring(`qsub -W depend=afterok:$modelSetupJobID -t 1-$modelJobs bayesprot-model.sh`)
 modelJobID = parse(Int,match(r"(?<= job-array )\d+",qsubReturn).match)
 
@@ -161,11 +162,11 @@ open("bayesprot-plots-setup.sh","w") do f
   write(f,"#\$PBS -M "*email*"\n")
   write(f,"#\$PBS -m bes\n")
   write(f,"#\$PBS -V\n")
-  write(f,"cd $PBS_O_WORKDIR\n")
+  write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"julia bayesprot-plots-setup.jl $plotsJobs")
 end
 
-#qsubReturn = readstring(`qsub -hold_jid $modelJobID bayesprot-plots-setup.sh`)
+run(`chmod u+x bayesprot-plots-setup.sh`)
 qsubReturn = readstring(`qsub -W depend=afterok:$modelJobID bayesprot-plots-setup.sh`)
 plotsSetupJobID = parse(Int,match(r"(?<= job )\d+",qsubReturn).match)
 
@@ -179,11 +180,11 @@ open("bayesprot-plots.sh","w") do f
   write(f,"#\$PBS -e plots/error\n")
   write(f,"#\$PBS -l mem=8gb")
   write(f,"#\$PBS -l walltime=01:00:00\n")
-  write(f,"cd $PBS_O_WORKDIR\n")
+  write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"sh plots/plots-job\$SGE_TASK_ID.sh")
 end
 
-#qsubReturn = readstring(`qsub -hold_jid $plotsSetupJobID -t 1-$plotsJobs bayesprot-plots.sh`)
+run(`chmod u+x bayesprot-plots.sh`)
 qsubReturn = readstring(`qsub -W depend=afterok:$plotsSetupJobID -t 1-$plotsJobs bayesprot-plots.sh`)
 plotsJobID = parse(Int,match(r"(?<= job-array )\d+",qsubReturn).match)
 
@@ -195,11 +196,11 @@ open("bayesprot-output-setup.sh","w") do f
   write(f,"#\$PBS -M "*email*"\n")
   write(f,"#\$PBS -m bes\n")
   write(f,"#\$PBS -V\n")
-  write(f,"cd $PBS_O_WORKDIR\n")
+  write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"julia bayesprot-output-setup.jl")
 end
 
-#qsubReturn = readstring(`qsub -hold_jid $plotsJobID bayesprot-output-setup.sh`)
+run(`chmod u+x bayesprot-output-setup.sh`)
 qsubReturn = readstring(`qsub -W depend=afterok:$plotsJobID bayesprot-output-setup.sh`)
 outputSetupJobID = parse(Int,match(r"(?<= job )\d+",qsubReturn).match)
 
@@ -215,10 +216,10 @@ open("bayesprot-output.sh","w") do f
   write(f,"#\$PBS -m bes\n")
   write(f,"#\$PBS -l mem=8gb")
   write(f,"#\$PBS -l walltime=01:00:00\n")
-  write(f,"cd $PBS_O_WORKDIR\n")
+  write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"cd output/results\n")
   write(f,"Rscript ../../output.R HPC")
 end
 
-#run(`qsub -hold_jid $outputSetupJobID bayesprot-output.sh`)
+run(`chmod u+x bayesprot-output.sh`)
 run(`qsub -W depend=afterok:$outputSetupJobID bayesprot-output.sh`)
