@@ -42,6 +42,7 @@ open("bayesprot-import.sh","w") do f
   write(f,"#\$PBS -l walltime=01:00:00\n")
   write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"cd import/results\n")
+  write(f,"module add languages/R-3.4.1-ATLAS")
   write(f,"Rscript ../../import.R HPC")
 end
 
@@ -113,6 +114,7 @@ open("bayesprot-exposures.sh","w") do f
   write(f,"#\$PBS -l walltime=01:00:00\n")
   write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"cd exposures/results\n")
+  write(f,"module add languages/R-3.4.1-ATLAS")
   write(f,"Rscript ../../exposures.R HPC")
 end
 
@@ -218,6 +220,7 @@ open("bayesprot-output.sh","w") do f
   write(f,"#\$PBS -l walltime=01:00:00\n")
   write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"cd output/results\n")
+  write(f,"module add languages/R-3.4.1-ATLAS")
   write(f,"Rscript ../../output.R HPC")
 end
 
