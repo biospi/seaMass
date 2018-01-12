@@ -4,21 +4,21 @@
 #Hence why I've not done so for the norm, model and plots jobs
 email = "send.me.email@Uni.ac.uk"
 
-normChains = 10
-normJobs = 1000
+normChains = 10 # Number of chains to run on each protein
+normJobs = 1000 # Total number of jobs to run on HPC queing system
 
-modelChains = 100
-modelJobs = 1000
+modelChains = 100 # Number of chains to run on each protein
+modelJobs = 1000  # Total number of jobs to run on HPC queing system
 
-plotsJobs = 1000
+plotsJobs = 1000 # Total number of jobs to run on HPC queing system
 
 #########################################
 # Import Setup
 #########################################
 open("bayesprot-import-setup.sh","w") do f
   write(f,"#!/bin/bash\n")
-  write(f,"#\$PBS -M "*email*"\n")
-  write(f,"#\$PBS -m bes\n")
+#  write(f,"#\$PBS -M "*email*"\n")
+#  write(f,"#\$PBS -m bes\n")
   write(f,"#\$PBS -V\n")
   write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"julia bayesprot-import-setup.jl")
@@ -36,8 +36,8 @@ open("bayesprot-import.sh","w") do f
   write(f,"#\$PBS -V\n")
   write(f,"#\$PBS -o import/out\n")
   write(f,"#\$PBS -e import/error\n")
-  write(f,"#\$PBS -M "*email*"\n")
-  write(f,"#\$PBS -m bes\n")
+#  write(f,"#\$PBS -M "*email*"\n")
+#  write(f,"#\$PBS -m bes\n")
   write(f,"#\$PBS -l mem=8gb")
   write(f,"#\$PBS -l walltime=01:00:00\n")
   write(f,"cd \$PBS_O_WORKDIR\n")
@@ -55,8 +55,8 @@ importJobID = parse(Int,match(r"(?<= job )\d+",qsubReturn).match)
 #########################################
 open("bayesprot-norm-setup.sh","w") do f
   write(f,"#!/bin/bash\n")
-  write(f,"#\$PBS -M "*email*"\n")
-  write(f,"#\$PBS -m bes\n")
+#  write(f,"#\$PBS -M "*email*"\n")
+#  write(f,"#\$PBS -m bes\n")
   write(f,"#\$PBS -V\n")
   write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"julia bayesprot-norm-setup.jl $normChains $normJobs")
@@ -75,7 +75,7 @@ open("bayesprot-norm.sh","w") do f
   write(f,"#\$PBS -o norm/out\n")
   write(f,"#\$PBS -e norm/error\n")
   write(f,"#\$PBS -l mem=8gb")
-  write(f,"#\$PBS -l walltime=01:00:00\n")
+  write(f,"#\$PBS -l walltime=24:00:00\n")
   write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"sh norm/norm-job\$SGE_TASK_ID.sh")
 end
@@ -89,8 +89,8 @@ normJobID = parse(Int,match(r"(?<= job-array )\d+",qsubReturn).match)
 #########################################
 open("bayesprot-exposures-setup.sh","w") do f
   write(f,"#!/bin/bash\n")
-  write(f,"#\$PBS -M "*email*"\n")
-  write(f,"#\$PBS -m bes\n")
+#  write(f,"#\$PBS -M "*email*"\n")
+#  write(f,"#\$PBS -m bes\n")
   write(f,"#\$PBS -V\n")
   write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"julia bayesprot-exposures-setup.jl")
@@ -108,10 +108,10 @@ open("bayesprot-exposures.sh","w") do f
   write(f,"#\$PBS -V\n")
   write(f,"#\$PBS -o exposures/out\n")
   write(f,"#\$PBS -e exposures/error\n")
-  write(f,"#\$PBS -M "*email*"\n")
-  write(f,"#\$PBS -m bes\n")
+#  write(f,"#\$PBS -M "*email*"\n")
+#  write(f,"#\$PBS -m bes\n")
   write(f,"#\$PBS -l mem=8gb")
-  write(f,"#\$PBS -l walltime=01:00:00\n")
+  write(f,"#\$PBS -l walltime=12:00:00\n")
   write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"cd exposures/results\n")
   write(f,"module add languages/R-3.4.1-ATLAS")
@@ -127,8 +127,8 @@ exposuresJobID = parse(Int,match(r"(?<= job )\d+",qsubReturn).match)
 #########################################
 open("bayesprot-model-setup.sh","w") do f
   write(f,"#!/bin/bash\n")
-  write(f,"#\$PBS -M "*email*"\n")
-  write(f,"#\$PBS -m bes\n")
+#  write(f,"#\$PBS -M "*email*"\n")
+#  write(f,"#\$PBS -m bes\n")
   write(f,"#\$PBS -V\n")
   write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"julia bayesprot-model-setup.jl $modelChains $modelJobs")
@@ -146,8 +146,8 @@ open("bayesprot-model.sh","w") do f
   write(f,"#\$PBS -V\n")
   write(f,"#\$PBS -o model/out\n")
   write(f,"#\$PBS -e model/error\n")
-  write(f,"#\$PBS -l mem=8gb")
-  write(f,"#\$PBS -l walltime=01:00:00\n")
+  write(f,"#\$PBS -l mem=16gb")
+  write(f,"#\$PBS -l walltime=48:00:00\n")
   write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"sh model/model-job\$SGE_TASK_ID.sh")
 end
@@ -161,8 +161,8 @@ modelJobID = parse(Int,match(r"(?<= job-array )\d+",qsubReturn).match)
 #########################################
 open("bayesprot-plots-setup.sh","w") do f
   write(f,"#!/bin/bash\n")
-  write(f,"#\$PBS -M "*email*"\n")
-  write(f,"#\$PBS -m bes\n")
+#  write(f,"#\$PBS -M "*email*"\n")
+#  write(f,"#\$PBS -m bes\n")
   write(f,"#\$PBS -V\n")
   write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"julia bayesprot-plots-setup.jl $plotsJobs")
@@ -180,8 +180,8 @@ open("bayesprot-plots.sh","w") do f
   write(f,"#\$PBS -V\n")
   write(f,"#\$PBS -o plots/out\n")
   write(f,"#\$PBS -e plots/error\n")
-  write(f,"#\$PBS -l mem=8gb")
-  write(f,"#\$PBS -l walltime=01:00:00\n")
+  write(f,"#\$PBS -l mem=16gb")
+  write(f,"#\$PBS -l walltime=12:00:00\n")
   write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"sh plots/plots-job\$SGE_TASK_ID.sh")
 end
@@ -195,8 +195,8 @@ plotsJobID = parse(Int,match(r"(?<= job-array )\d+",qsubReturn).match)
 #########################################
 open("bayesprot-output-setup.sh","w") do f
   write(f,"#!/bin/bash\n")
-  write(f,"#\$PBS -M "*email*"\n")
-  write(f,"#\$PBS -m bes\n")
+#  write(f,"#\$PBS -M "*email*"\n")
+#  write(f,"#\$PBS -m bes\n")
   write(f,"#\$PBS -V\n")
   write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"julia bayesprot-output-setup.jl")
@@ -214,8 +214,8 @@ open("bayesprot-output.sh","w") do f
   write(f,"#\$PBS -V\n")
   write(f,"#\$PBS -o output/out\n")
   write(f,"#\$PBS -e output/error\n")
-  write(f,"#\$PBS -M "*email*"\n")
-  write(f,"#\$PBS -m bes\n")
+#  write(f,"#\$PBS -M "*email*"\n")
+#  write(f,"#\$PBS -m bes\n")
   write(f,"#\$PBS -l mem=8gb")
   write(f,"#\$PBS -l walltime=01:00:00\n")
   write(f,"cd \$PBS_O_WORKDIR\n")

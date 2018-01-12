@@ -24,6 +24,7 @@ jobs = [all_tasks[collect(i:njobs:length(all_tasks))] for i in 1:njobs]
 for i in 1:njobs
   open("model/model-job$i.sh","w") do f
     write(f,"cd model/results\n")
+    write(f,"module add languages/R-3.4.1-ATLAS")
     write(f,"exec Rscript ../../model.R HPC 0")
     for t in jobs[i]
       write(f," $t")

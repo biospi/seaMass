@@ -4,13 +4,13 @@
 #Hence why I've not done so for the norm, model and plots jobs
 email = "A.M.Phillips@liverpool.ac.uk"
 
-normChains = 10
-normJobs = 1000
+normChains = 10 # Number of chains to run on each protein
+normJobs = 1000 # Total number of jobs to run on HPC queing system
 
-modelChains = 100
-modelJobs = 1000
+modelChains = 100 # Number of chains to run on each protein
+modelJobs = 1000  # Total number of jobs to run on HPC queing system
 
-plotsJobs = 1000
+plotsJobs = 1000 # Total number of jobs to run on HPC queing system
 
 #########################################
 # Import Setup
@@ -66,7 +66,7 @@ open("bayesprot-norm.sh","w") do f
   write(f,"#\$ -V -cwd\n")
   write(f,"#\$ -o norm/out\n")
   write(f,"#\$ -e norm/error\n")
-  write(f,"#\$ -l h_vmem=8G,h_rt=01:00:00\n")
+  write(f,"#\$ -l h_vmem=8G,h_rt=24:00:00\n")
   write(f,"sh norm/norm-job\$SGE_TASK_ID.sh")
 end
 
@@ -98,7 +98,7 @@ open("bayesprot-exposures.sh","w") do f
   write(f,"#\$ -e exposures/error\n")
   write(f,"#\$ -M "*email*"\n")
   write(f,"#\$ -m bes\n")
-  write(f,"#\$ -l h_vmem=8G,h_rt=01:00:00\n")
+  write(f,"#\$ -l h_vmem=8G,h_rt=12:00:00\n")
   write(f,"cd exposures/results\n")
   write(f,"Rscript ../../exposures.R HPC")
 end
@@ -128,7 +128,7 @@ open("bayesprot-model.sh","w") do f
   write(f,"#\$ -V -cwd\n")
   write(f,"#\$ -o model/out\n")
   write(f,"#\$ -e model/error\n")
-  write(f,"#\$ -l h_vmem=8G,h_rt=01:00:00\n")
+  write(f,"#\$ -l h_vmem=16G,h_rt=48:00:00\n")
   write(f,"sh model/model-job\$SGE_TASK_ID.sh")
 end
 
@@ -157,7 +157,7 @@ open("bayesprot-plots.sh","w") do f
   write(f,"#\$ -V -cwd\n")
   write(f,"#\$ -o plots/out\n")
   write(f,"#\$ -e plots/error\n")
-  write(f,"#\$ -l h_vmem=8G,h_rt=01:00:00\n")
+  write(f,"#\$ -l h_vmem=16G,h_rt=12:00:00\n")
   write(f,"sh plots/plots-job\$SGE_TASK_ID.sh")
 end
 
