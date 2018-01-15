@@ -25,7 +25,7 @@ jobs = [all_tasks[collect(i:njobs:length(all_tasks))] for i in 1:njobs]
 for i in 1:njobs
   open("plots/plots-job$i.sh","w") do f
     write(f,"cd plots/results\n")
-    write(f,"module add languages/R-3.4.1-ATLAS")
+    write(f,"module add languages/R-3.4.1-ATLAS\n")
     write(f,"exec Rscript ../../plots.R HPC 0")
     for t in jobs[i]
       write(f," $t")

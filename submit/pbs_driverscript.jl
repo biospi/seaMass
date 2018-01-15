@@ -4,13 +4,21 @@
 #Hence why I've not done so for the norm, model and plots jobs
 email = "send.me.email@Uni.ac.uk"
 
-normChains = 10 # Number of chains to run on each protein
-normJobs = 1000 # Total number of jobs to run on HPC queing system
+# normChains = 10 # Number of chains to run on each protein
+# normJobs = 1000 # Total number of jobs to run on HPC queing system
 
-modelChains = 100 # Number of chains to run on each protein
-modelJobs = 1000  # Total number of jobs to run on HPC queing system
+# modelChains = 100 # Number of chains to run on each protein
+# modelJobs = 1000  # Total number of jobs to run on HPC queing system
 
-plotsJobs = 1000 # Total number of jobs to run on HPC queing system
+# plotsJobs = 1000 # Total number of jobs to run on HPC queing system
+
+normChains = 5 # Number of chains to run on each protein
+normJobs = 20 # Total number of jobs to run on HPC queing system
+
+modelChains = 10 # Number of chains to run on each protein
+modelJobs = 20  # Total number of jobs to run on HPC queing system
+
+plotsJobs = 20 # Total number of jobs to run on HPC queing system
 
 #########################################
 # Import Setup
@@ -25,8 +33,8 @@ open("bayesprot-import-setup.sh","w") do f
 end
 
 run(`chmod u+x bayesprot-import-setup.sh`)
-qsubReturn = readstring(`qsub bayesprot-import-setup.sh`)
-importSetupJobID = parse(Int,match(r"(?<= job )\d+",qsubReturn).match)
+#qsubReturn = readstring(`qsub bayesprot-import-setup.sh`)
+#importSetupJobID = qsubReturn
 
 #########################################
 # Import
@@ -47,8 +55,9 @@ open("bayesprot-import.sh","w") do f
 end
 
 run(`chmod u+x bayesprot-import.sh`)
-qsubReturn = readstring(`qsub -W depend=afterok:$importSetupJobID bayesprot-import.sh`)
-importJobID = parse(Int,match(r"(?<= job )\d+",qsubReturn).match)
+#qsubReturn = readstring(`qsub -W depend=afterok:$importSetupJobID bayesprot-import.sh`)
+#importJobID = parse(Int,match(r"([\d.]*\d+)",qsubReturn).match)
+#importJobID = qsubReturn
 
 #########################################
 # Norm Setup
@@ -63,8 +72,10 @@ open("bayesprot-norm-setup.sh","w") do f
 end
 
 run(`chmod u+x bayesprot-norm-setup.sh`)
-qsubReturn = readstring(`qsub -W depend=afterok:$importJobID bayesprot-norm-setup.sh`)
-normSetupJobID = parse(Int,match(r"(?<= job )\d+",qsubReturn).match)
+#qsubReturn = readstring(`qsub -W depend=afterok:$importJobID bayesprot-norm-setup.sh`)
+qsubReturn = readstring(`qsub bayesprot-norm-setup.sh`)
+#normSetupJobID = parse(Int,match(r"([\d.]*\d+)",qsubReturn).match)
+normSetupJobID = qsubReturn
 
 #########################################
 # Norm
@@ -82,7 +93,8 @@ end
 
 run(`chmod u+x bayesprot-norm.sh`)
 qsubReturn = readstring(`qsub -W depend=afterok:$normSetupJobID -t 1-$normJobs bayesprot-norm.sh`)
-normJobID = parse(Int,match(r"(?<= job-array )\d+",qsubReturn).match)
+#normJobID = parse(Int,match(r"([\d.]*\d+)",qsubReturn).match)
+normJobID = qsubReturn
 
 #########################################
 # Exposures Setup
@@ -98,7 +110,8 @@ end
 
 run(`chmod u+x bayesprot-exposures-setup.sh`)
 qsubReturn = readstring(`qsub -W depend=afterok:$normJobID bayesprot-exposures-setup.sh`)
-exposuresSetupJobID = parse(Int,match(r"(?<= job )\d+",qsubReturn).match)
+#exposuresSetupJobID = parse(Int,match(r"([\d.]*\d+)",qsubReturn).match)
+exposuresSetupJobID = qsubReturn
 
 #########################################
 # Exposures
@@ -120,7 +133,8 @@ end
 
 run(`chmod u+x bayesprot-exposures.sh`)
 qsubReturn  = readstring(`qsub -W depend=afterok:$exposuresSetupJobID bayesprot-exposures.sh`)
-exposuresJobID = parse(Int,match(r"(?<= job )\d+",qsubReturn).match)
+#exposuresJobID = parse(Int,match(r"([\d.]*\d+)",qsubReturn).match)
+exposuresJobID = qsubReturn
 
 #########################################
 # Model Setup
@@ -136,7 +150,8 @@ end
 
 run(`chmod u+x bayesprot-model-setup.sh`)
 qsubReturn = readstring(`qsub -W depend=afterok:$exposuresJobID bayesprot-model-setup.sh`)
-modelSetupJobID = parse(Int,match(r"(?<= job )\d+",qsubReturn).match)
+#modelSetupJobID = parse(Int,match(r"([\d.]*\d+)",qsubReturn).match)
+modelSetupJobID = parse(Int,match(r"([\d.]*\d+)",qsubReturn).match)
 
 #########################################
 # Model
@@ -154,7 +169,8 @@ end
 
 run(`chmod u+x bayesprot-model.sh`)
 qsubReturn = readstring(`qsub -W depend=afterok:$modelSetupJobID -t 1-$modelJobs bayesprot-model.sh`)
-modelJobID = parse(Int,match(r"(?<= job-array )\d+",qsubReturn).match)
+#modelJobID = parse(Int,match(r"([\d.]*\d+)",qsubReturn).match)
+modelJobID = qsubReturn
 
 #########################################
 # Plots Setup
@@ -170,7 +186,8 @@ end
 
 run(`chmod u+x bayesprot-plots-setup.sh`)
 qsubReturn = readstring(`qsub -W depend=afterok:$modelJobID bayesprot-plots-setup.sh`)
-plotsSetupJobID = parse(Int,match(r"(?<= job )\d+",qsubReturn).match)
+#plotsSetupJobID = parse(Int,match(r"([\d.]*\d+)",qsubReturn).match)
+plotsSetupJobID = qsubReturn
 
 #########################################
 # Plots
@@ -188,7 +205,8 @@ end
 
 run(`chmod u+x bayesprot-plots.sh`)
 qsubReturn = readstring(`qsub -W depend=afterok:$plotsSetupJobID -t 1-$plotsJobs bayesprot-plots.sh`)
-plotsJobID = parse(Int,match(r"(?<= job-array )\d+",qsubReturn).match)
+#plotsJobID = parse(Int,match(r"([\d.]*\d+)",qsubReturn).match)
+plotsJobID = qsubReturn
 
 #########################################
 # Output Setup
@@ -204,7 +222,8 @@ end
 
 run(`chmod u+x bayesprot-output-setup.sh`)
 qsubReturn = readstring(`qsub -W depend=afterok:$plotsJobID bayesprot-output-setup.sh`)
-outputSetupJobID = parse(Int,match(r"(?<= job )\d+",qsubReturn).match)
+#outputSetupJobID = parse(Int,match(r"([\d.]*\d+)",qsubReturn).match)
+outputSetupJobID = qsubReturn
 
 #########################################
 # Output
