@@ -85,7 +85,8 @@ data$Spectrum <- factor(data$Spectrum)
 
 data$Fraction <- data$Spectrum.File
 data$Fraction <- factor(data$Fraction)
-data$Run <- regmatches(data$Fraction, regexpr("Set[0-9]+", data$Fraction, perl=T))
+data <- merge(data, fractions, by="Fraction")
+data$Run <- factor(data$Run)
 
 data <- data[,!(names(data) %in% c("Spectrum.File"))]
 
@@ -115,12 +116,13 @@ if (!"N" %in% colnames(data))
 }
 
 #Remove spectra with NA values
-isiTraq = length(grep('Area',colnames(data),value=T)) > 1
+channels <- levels(factor(design$Channel))
+isiTraq = "113" %in% channels
 mvars = c()
 if (isiTraq) {
   mvars = c('Area.113', 'Area.114', 'Area.115', 'Area.116', 'Area.117','Area.118','Area.119','Area.121')
 } else {
-  mvars = c('X126', 'X127N', 'X127C', 'X128N', 'X128C', 'X129N', 'X129C', 'X130N', 'X130C', 'X131')
+  mvars = sapply(channels, function(x){paste0("X",toString(x))})
 }
 
 data <- data[complete.cases(data[,mvars]),]

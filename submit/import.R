@@ -35,24 +35,19 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
         data.one <- data.one[data.one$Peptide %in% names(tb[order(tb, decreasing=T)])[1:as.integer(parameters$Value[parameters$Key=="max_peptides"])],]
     }
 
-    isiTraq = length(grep('Area',colnames(data.one),value=T)) > 1
+    channels = levels(factor(design$Channel))
+    isiTraq = "113" %in% channels
     mvars = c()
     if (isiTraq) {
       mvars = c('Area.113', 'Area.114', 'Area.115', 'Area.116', 'Area.117','Area.118','Area.119','Area.121')
     } else {
-      mvars = c('X126', 'X127N', 'X127C', 'X128N', 'X128C', 'X129N', 'X129C', 'X130N', 'X130C', 'X131')
-    }
-    channelNames = c()
-    if (isiTraq) {
-      channelNames = c(113,114,115,116,117,118,119,121)
-    }else {
-      channelNames = c('126', '127N', '127C', '128N', '128C', '129N', '129C', '130N', '130C', '131')
+      mvars = sapply(channels, function(x){paste0("X",toString(x))})
     }
     
     # extract data for mixed model
     data.tmp <- melt(data.one, variable.name='Channel', value.name='Area',measure.vars=mvars)
 
-    data.tmp$Channel <- factor(substring(data.tmp$Channel,ifelse(isiTraq,6,2)),levels=channelNames)
+    data.tmp$Channel <- factor(substring(data.tmp$Channel,ifelse(isiTraq,6,2)),levels=channels)
 
     data.out <- data.frame(
       Peptide=factor(data.tmp$Peptide),
