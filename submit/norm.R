@@ -1,3 +1,5 @@
+Sys.setlocale("LC_COLLATE","C")
+
 # BAYESPROT MODEL
 norm <- function(protein_id,chain,nchain,seed,nitt,thin) { 
   library(methods)
@@ -35,21 +37,35 @@ norm <- function(protein_id,chain,nchain,seed,nitt,thin) {
     nD <- length(levels(data$Digest))
     
     if (nR > 1) data$Channel <- factor(data$Channel,levels=rev(levels(data$Channel)))  
-    
-    # model
-    prior <- list(
-      G = list(G1 = list(V = diag(nP), nu = nP, alpha.mu = rep(0, nP), alpha.V = diag(1000, nP))),
-      R = list(V = diag(nS), nu=0.002)
-    )
-    model <- suppressWarnings(MCMCglmm(          
-      as.formula(paste0("Count ~ Spectrum-1 + ", ifelse(nR==1, "Channel", "Run:Channel"))),          
-      #random = as.formula(paste0("~ ", ifelse(nP==1, "Digest", "idh(Peptide):Digest"), "idh(Digest):Peptide")),
-      random = as.formula(paste0("~ ", ifelse(nP==1, "Digest", "idh(Peptide):Digest"))),
-      rcov = as.formula(ifelse(nS==1,"~units", "~idh(Spectrum):units")),
-      family = 'poisson',        
-      data=data, prior=prior, nitt=nitt, burnin=0, thin=thin, verbose=F
-    ))
-    print(summary(model))
+
+    if (nP == 1) {
+      # one peptide only for this protein
+      prior <- list(
+        R = list(V=diag(nS), nu=0.002)
+      )
+      model <- suppressWarnings(MCMCglmm(
+        as.formula(paste("Count ~", ifelse(nS==1, "", "Spectrum-1 +"), ifelse(nR==1, "Channel", "Run:Channel"))),
+        rcov = as.formula(ifelse(nS==1,"~units", "~idh(Spectrum):units")),
+        family = 'poisson',
+        data=data, prior=prior, nitt=nitt, burnin=0, thin=thin, verbose=F
+      ))
+      
+    } else {
+      
+      # multiple peptides for this protein (full model)
+      prior <- list(
+        G = list(G1=list(V=diag(nP), nu=nP, alpha.mu=rep(0, nP), alpha.V=diag(1000, nP))),
+        R = list(V=diag(nS), nu=0.002)
+      )
+      model <- suppressWarnings(MCMCglmm(
+        as.formula(paste0("Count ~ Spectrum-1 + ", ifelse(nR==1, "Channel", "Run:Channel"))),
+        random = ~ idh(Peptide):Digest,
+        rcov = as.formula(ifelse(nS==1,"~units", "~idh(Spectrum):units")),
+        family = 'poisson',
+        data=data, prior=prior, nitt=nitt, burnin=0, thin=thin, verbose=F
+      ))
+      
+    }
 
     # save samples for exposures.R
     if (nR==1) {
