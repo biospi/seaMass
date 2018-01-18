@@ -1,3 +1,5 @@
+Sys.setlocale("LC_COLLATE","C")
+
 plot.conditions <- function(s.Sol, design, fc, filename) {
   library(plyr)
   library(ggplot2)
@@ -15,7 +17,9 @@ plot.conditions <- function(s.Sol, design, fc, filename) {
     {
       samps[,i] <- rnorm(nrow(samps),1e-6,1e-6)
     }
-  } 
+  }
+
+  samps <- samps[,colnames(samps) %in% test_conditions] 
 
   densities <- ddply(melt(samps, variable.name="Condition"), .(Condition), function(x)
   {
@@ -68,7 +72,7 @@ plot.conditions <- function(s.Sol, design, fc, filename) {
   g <- g + geom_text(aes(label=Up.text),x=x_range*0.98,y=y_range*0.94,hjust=1,vjust=1,size=3.5,colour='black')
   g <- g + geom_text(aes(label=Down.text),x=-x_range*0.98,y=y_range*0.94,hjust=0,vjust=1,size=3.5,colour='black')    
   g <- g + geom_text(aes(x=mean,label=mean.text,hjust=mean.hjust,colour=Condition),y=y_range*0.7,vjust=1,size=3.5)
-  ggsave(filename, g, height = 1+ 1*length(levels(stats$Condition)), width = 6, limitsize = F)
+  ggsave(filename, g, height = 1+ 1*length(levels(stats$Condition)), width = 6, limitsize = F,device="png")
 }
 
 
@@ -90,8 +94,10 @@ plot.conditions_sd <- function(s.VCV, design, filename) {
     colnames(samps) <- sub('Population', '', colnames(samps))    
     stats <- data.frame(Population = factor(colnames(samps), levels=levels(design$Population)), mean = colMeans(samps))
   }
-  stats <- cbind(stats, HPDinterval(mcmc(samps)))  
-  
+  stats <- cbind(stats, HPDinterval(mcmc(samps)))
+
+  stats <- stats[stats$Population %in% test_populations,]
+
   densities <- ddply(melt(data.frame(samps), variable.name="Population"), .(Population), function(x)
   {
     dens <- density(x$value, n=65536)
@@ -130,7 +136,7 @@ plot.conditions_sd <- function(s.VCV, design, filename) {
   g <- g + geom_vline(aes(xintercept=lower),size=1/2,lty=2)      
   g <- g + geom_vline(aes(xintercept=upper),size=1/2,lty=2)   
   g <- g + geom_text(aes(x=mean,label=mean.text,colour=Population),y=y_range*0.9,hjust=0,vjust=1,size=3)
-  ggsave(filename, g, height = 1 + 1*length(levels(stats$Population)), width=3.5, limitsize=F)
+  ggsave(filename, g, height = 1 + 1*length(levels(stats$Population)), width=3.5, limitsize=F,device="png")
 }
 
 
@@ -181,8 +187,12 @@ plot.samples <- function(s.Sol, design, filename) {
   test_conditions <- levels(design$Condition)[levels(design$Condition) != tolower(levels(design$Condition))]
   test_conditions <- test_conditions[2:length(test_conditions)]
 
-  ylim <- c(min(samps.samples_plus_conditions.melted.trunc$value,na.rm = T)*1.5, max(samps.samples_plus_conditions.melted.trunc$value, na.rm = T)*1.5)
-  
+  ymin <- min(samps.samples_plus_conditions.melted.trunc$value, na.rm = T)
+  ymax <- max(samps.samples_plus_conditions.melted.trunc$value, na.rm = T)
+  mid <- ymax - (ymax-ymin)/2
+  d <- (ymax-mid)*1.5
+  ylim <- c(mid+d,mid-d)
+
   g <- ggplot(stats.samples_plus_conditions, aes(Sample, mean))
   g <- g + theme_bw()
   g <- g + theme(panel.border=element_rect(colour="black",size=1.5),
@@ -192,8 +202,8 @@ plot.samples <- function(s.Sol, design, filename) {
                  plot.margin = unit(c(0.2,0.5,0.2,0.2), "cm"),
                  strip.background=element_blank(),
                  strip.text=element_text(size=6),
-                 axis.text.x=element_text(size=6),
-                 legend.position="none")
+                 axis.text.x=element_text(size=6,angle = 90, hjust = 1),
+                 legend.position="right")
   g <- g + facet_wrap(~ facet, ncol=1)
   g <- g + coord_cartesian(ylim=ylim)
   g <- g + ylab(expression('Log'[2]*' Ratio'))
@@ -201,7 +211,7 @@ plot.samples <- function(s.Sol, design, filename) {
   g <- g + geom_hline(yintercept=0,size=1/2,colour="darkgrey")          
   g <- g + geom_violin(data = samps.samples_plus_conditions.melted.trunc, aes(y = value, fill = Condition), position="identity", trim=T, size = 1/2)
   g <- g + geom_segment(data = stats.samples_plus_conditions, aes(x = as.integer(Sample)-0.45, xend = as.integer(Sample) + 0.45, y = mean, yend = mean),size = 1/2)
-  ggsave(filename, g, height=2, width=6, limitsize=F)
+  ggsave(filename, g, height=2, width=8, limitsize=F,device="png")
 
   ylim
 }
@@ -261,7 +271,7 @@ plot.peptides_sd <- function(s.VCV, design, filename) {
     g <- g + geom_vline(aes(xintercept=lower),size=1/2,lty=2)      
     g <- g + geom_vline(aes(xintercept=upper),size=1/2,lty=2)   
     g <- g + geom_text(aes(x=mean,label=mean.text),y=y_range*0.9,hjust=0,vjust=1,size=3)
-    ggsave(filename, g, height=1+1*length(levels(stats$Peptide)), width=3.5, limitsize=F)  
+    ggsave(filename, g, height=1+1*length(levels(stats$Peptide)), width=3.5, limitsize=F,device="png")  
   }
 }
 
@@ -308,8 +318,8 @@ plot.peptides <- function(s.Sol, design, filename, ylim) {
                    plot.margin = unit(c(0.2,0.5,0.2,0.2), "cm"),
                    strip.background=element_blank(),
                    strip.text=element_text(size=6),
-                   axis.text.x=element_text(size=6),
-                   legend.position="none")
+                   axis.text.x=element_text(size=6,angle = 90, hjust = 1),
+                   legend.position="right")
     g <- g + coord_cartesian(ylim=ylim)
     g <- g + facet_wrap(~Peptide,drop=F,ncol=1)
     g <- g + ylab(expression('Log'[2]*' Ratio'))
@@ -317,7 +327,7 @@ plot.peptides <- function(s.Sol, design, filename, ylim) {
     g <- g + geom_hline(yintercept=0,size=1/2,colour="darkgrey")          
     g <- g + geom_violin(data = samps.trunc, aes(y = value, fill = Condition), position="identity", size = 1/2, trim=T)
     g <- g + geom_segment(aes(x = as.integer(Digest)-0.45, xend = as.integer(Digest) + 0.45, mean, yend = mean),size = 1/2) 
-    ggsave(filename, g, height=1+1*length(levels(stats$Peptide)), width=6, limitsize=F)
+    ggsave(filename, g, height=1+1*length(levels(stats$Peptide)), width=8, limitsize=F,device="png")
   }
 }
 
@@ -365,7 +375,7 @@ plot.digests_sd <- function(s.VCV, design, filename) {
     g <- g + geom_hline(yintercept=0,size=1/2,colour="darkgrey")          
     g <- g + geom_violin(data = samps.melted.trunc, aes(y = value, fill = Condition), position="identity", trim=T, size = 1/2)
     g <- g + geom_segment(aes(x = as.integer(Digest)-0.45, xend = as.integer(Digest) + 0.45, y = mean, yend = mean),size = 1/2)
-    ggsave(filename, g, height=2, width=6, limitsize=F)
+    ggsave(filename, g, height=2, width=6, limitsize=F,device="png")
   }
 }
 
@@ -445,17 +455,17 @@ plots <- function(protein_id,design,nitt,nburnin,nchain,fc,tol) {
   
   # plots
   print(paste0(Sys.time()," [plots() Plotting conditions for protein ",protein_id,"]"))    
-  plot.conditions(s.Sol, design, fc, paste0("conditions/",protein_id,".pdf"))
+  plot.conditions(s.Sol, design, fc, paste0("conditions/",protein_id,".png"))
   print(paste0(Sys.time()," [plots() Plotting conditions sd for protein ",protein_id,"]"))    
-  plot.conditions_sd(s.VCV, design, paste0("conditions_sd/",protein_id,".pdf"))
+  plot.conditions_sd(s.VCV, design, paste0("conditions_sd/",protein_id,".png"))
   print(paste0(Sys.time()," [plots() Plotting samples for protein ",protein_id,"]"))    
-  ylim <- plot.samples(s.Sol, design, paste0("samples/",protein_id,".pdf"))
+  ylim <- plot.samples(s.Sol, design, paste0("samples/",protein_id,".png"))
   print(paste0(Sys.time()," [plots() Plotting peptides for protein ",protein_id,"]"))    
-  plot.peptides(s.Sol, design, paste0("peptides/",protein_id,".pdf"), ylim)
+  plot.peptides(s.Sol, design, paste0("peptides/",protein_id,".png"), ylim)
   print(paste0(Sys.time()," [plots() Plotting peptides sd for protein ",protein_id,"]"))    
-  plot.peptides_sd(s.VCV, design, paste0("peptides_sd/",protein_id,".pdf"))
+  plot.peptides_sd(s.VCV, design, paste0("peptides_sd/",protein_id,".png"))
   #print(paste0(Sys.time()," [plots() Plotting digests sd for protein ",protein_id,"]"))    
-  #plot.digests_sd(s.VCV, design, paste0("digests_sd/",protein_id,".pdf"))
+  #plot.digests_sd(s.VCV, design, paste0("digests_sd/",protein_id,".png"))
   
   # save stats, and 1000 samps for study-wide plots
   if (nrow(s.Sol) > 1000) s.Sol <- s.Sol[seq(1,nrow(s.Sol),length=1000),]

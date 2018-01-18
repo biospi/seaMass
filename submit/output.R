@@ -1,3 +1,5 @@
+Sys.setlocale("LC_COLLATE","C")
+
 # FOR EXECUTING UNDER HPC
 if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
 {
@@ -56,7 +58,7 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
   g <- g + geom_vline(xintercept=0,size=2/3)          
   g <- g + geom_ribbon(aes(x=x,ymax=y),ymin=0,alpha=0.3)    
   g <- g + geom_line(aes(x=x,y=y),size=2/3) 
-  ggsave("study_conditions.pdf", g, height = 1 + 1*length(levels(densities$Condition)), width=6, limitsize=F)
+  ggsave("study_conditions.png", g, height = 1 + 1*length(levels(densities$Condition)), width=6, limitsize=F, device="png")
  
   
   
@@ -79,7 +81,9 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
     }
     samps
   }) 
-  
+
+  samps <- samps[,test_populations,drop=F]
+ 
   if (length(levels(design$Population))==1) {
     stats <- data.frame(Population = levels(design$Population), mean = colMeans(samps))
   } else {
@@ -120,7 +124,7 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
   #g <- g + geom_vline(aes(xintercept=mean),size=2/3) 
   #g <- g + geom_vline(aes(xintercept=lower),size=1/2,lty=2)      
   #g <- g + geom_vline(aes(xintercept=upper),size=1/2,lty=2)   
-  ggsave("study_populations.pdf", g, height = 1 + 1*length(levels(densities$Population)), width=6, limitsize=F)
+  ggsave("study_populations.png", g, height = 1 + 1*length(levels(densities$Population)), width=6, limitsize=F, device="png")
   
   
   # peptide sd
@@ -159,7 +163,7 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
   g <- g + geom_vline(xintercept=0,size=2/3)          
   g <- g + geom_ribbon(data=densities,aes(x=x,ymax=y),ymin=0,alpha=0.3)    
   g <- g + geom_line(data=densities,aes(x=x,y=y),size=2/3) 
-  ggsave("study_peptides.pdf", g, height = 2, width=6, limitsize=F)
+  ggsave("study_peptides.png", g, height = 2, width=6, limitsize=F,device="png")
   
   
   # output csv
