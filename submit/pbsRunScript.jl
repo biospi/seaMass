@@ -12,9 +12,9 @@ normChains = 10 # Number of chains to run on each protein
 normJobs = 10 # Total number of jobs to run on HPC queing system
 
 modelChains = 10 # Number of chains to run on each protein
-modelJobs = 20  # Total number of jobs to run on HPC queing system
+modelJobs = 10  # Total number of jobs to run on HPC queing system
 
-plotsJobs = 20 # Total number of jobs to run on HPC queing system
+plotsJobs = 10 # Total number of jobs to run on HPC queing system
 
 #importJobID = parse(Int,match(r"([\d.]*\d+)",qsubReturn).match)
 #importSetupJobID = qsubReturn[1:end-1]

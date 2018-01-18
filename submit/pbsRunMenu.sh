@@ -65,7 +65,7 @@ exposures() {
 #########################################
 modelSetup() {
 	qsubReturn=$(qsub bayesprot-model-setup.sh)
-	echo qsub -W depend=afterany:$exposuresJobID bayesprot-model-setup.sh
+	echo qsub  bayesprot-model-setup.sh
 	modelSetupJobID=$qsubReturn
 	echo Model Setup Submitted: $qsubReturn
 }
