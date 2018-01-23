@@ -2,21 +2,22 @@
 
 email = "send.me.email@Uni.ac.uk"
 
-# normChains = 10 # Number of chains to run on each protein
-# normJobs = 1000 # Total number of jobs to run on HPC queing system
-
-# modelChains = 100 # Number of chains to run on each protein
-# modelJobs = 1000  # Total number of jobs to run on HPC queing system
-
-# plotsJobs = 1000 # Total number of jobs to run on HPC queing system
-
 normChains = 10 # Number of chains to run on each protein
-normJobs = 10 # Total number of jobs to run on HPC queing system
+normJobs = 150 # Total number of jobs to run on HPC queing system
 
-modelChains = 10 # Number of chains to run on each protein
-modelJobs = 20  # Total number of jobs to run on HPC queing system
+modelChains = 100 # Number of chains to run on each protein
+modelJobs = 150  # Total number of jobs to run on HPC queing system
 
-plotsJobs = 20 # Total number of jobs to run on HPC queing system
+plotsJobs = 150 # Total number of jobs to run on HPC queing system
+
+# Testing Prameters
+#normChains = 10 # Number of chains to run on each protein
+#normJobs = 10 # Total number of jobs to run on HPC queing system
+
+#modelChains = 10 # Number of chains to run on each protein
+#modelJobs = 20  # Total number of jobs to run on HPC queing system
+
+#plotsJobs = 20 # Total number of jobs to run on HPC queing system
 
 #  write(f,"#PBS -M "*email*"\n")
 #  write(f,"#PBS -m bes\n")
@@ -81,7 +82,7 @@ open("bayesprot-norm.sh","w") do f
   write(f,"#PBS -l mem=8gb\n")
   write(f,"#PBS -l nodes=1:ppn=1\n")
   write(f,"#PBS -q medium\n")
-  write(f,"#PBS -t 1-$normJobs\n")
+  write(f,"#PBS -t 1-$normJobs%50\n")
   write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"sh norm/norm-job\$PBS_ARRAYID.sh\n")
 end
@@ -145,7 +146,7 @@ open("bayesprot-model.sh","w") do f
   write(f,"#PBS -l mem=16gb\n")
   write(f,"#PBS -l nodes=1:ppn=1\n")
   write(f,"#PBS -q medium\n")
-  write(f,"#PBS -t 1-$modelJobs\n")
+  write(f,"#PBS -t 1-$modelJobs%50\n")
   write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"sh model/model-job\$PBS_ARRAYID.sh\n")
 end
@@ -177,7 +178,7 @@ open("bayesprot-plots.sh","w") do f
   write(f,"#PBS -l mem=16gb\n")
   write(f,"#PBS -l nodes=1:ppn=1\n")
   write(f,"#PBS -q medium\n")
-  write(f,"#PBS -t 1-$plotsJobs\n")
+  write(f,"#PBS -t 1-$plotsJobs%50\n")
   write(f,"cd \$PBS_O_WORKDIR\n")
   write(f,"sh plots/plots-job\$PBS_ARRAYID.sh\n")
 end
