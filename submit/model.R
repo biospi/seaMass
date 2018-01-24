@@ -44,7 +44,8 @@ model <- function(protein_id,design,exposures,use_exposure_sd,chain,nchain,seed,
   nRC <- length(levels(data$RunChannel)) 
   
   # If a Population level only has 1 Sample, fix its variance to ~0 [this is to support a pooled reference sample]
-  population.vars <- ifelse(count(design[!duplicated(design$Sample),], "Population")$freq > 1, 1, 1e-10) 
+  freqTable <- count(design[!duplicated(design$Sample),], "Population")
+  population.vars <- ifelse(freqTable[freqTable$Population %in% levels(data$Population),]$freq > 1, 1, 1e-10)
   
   # Explanation of integrating exposures into the model (RunChannel fixed effects)
   # ------------------------------------------------------------------------------
