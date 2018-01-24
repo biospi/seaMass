@@ -73,7 +73,7 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
       Protein=paste0(data.one[,accessions][1],': ',data.one[,names][1]),
       Peptides=length(levels(factor(data$Peptide))),
       Spectra=length(levels(factor(data$Spectrum))),
-      MinConf=ifelse(!is.factor(data[,conf]),min(data[,conf]),data[,conf][1]),
+      MinConf=ifelse(!is.factor(data$Confidence),min(data$Confidence),data$Confidence[1]),
       MinPrecursorCount=min(data$PrecursorCount)
     )
     meta <- data.index
