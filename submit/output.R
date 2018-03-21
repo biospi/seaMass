@@ -28,14 +28,16 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
   
   samps <- mdply(files, .id=NULL, function(f) {
     load(paste0("stats/",f))
-    samps <- data.frame(t(colMeans(s.Sol[,colnames(s.Sol) %in% paste0('Condition', levels(design$Condition)),drop=F])))
+    tmp <- colMeans(s.Sol[,colnames(s.Sol) %in% paste0('Condition', levels(design$Condition)),drop=F])
+    samps <- data.frame(t(tmp))
+    colnames(samps) <- names(tmp)
     colnames(samps) <- sub('Condition', '', colnames(samps))    
     samps$ProteinID <- factor(as.integer(gsub("\\.Rdata","",f)))
     #samps$itt <- seq(1,nrow(samps))
     samps
   }) 
   
-  densities <- ddply(melt(data.frame(samps), variable.name="Condition"), .(Condition), function(x)
+  densities <- ddply(melt(samps, variable.name="Condition"), .(Condition), function(x)
   {
     dens <- density(x$value, n=65536, na.rm=T)
     data.frame(x=dens$x, y=dens$y)     
