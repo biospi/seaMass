@@ -3,8 +3,13 @@ Sys.setlocale("LC_COLLATE","C")
 plot.conditions <- function(s.Sol, design, fc, filename) {
   library(plyr)
   library(ggplot2)
-  
-  test_conditions <- levels(design$Condition)[levels(design$Condition) != tolower(levels(design$Condition))]
+
+  test_conditions <- levels(design$Condition)[
+    xor(
+      levels(design$Condition) != tolower(levels(design$Condition)),
+      levels(design$Condition) == toupper(levels(design$Condition))
+    )
+  ]
   test_conditions <- test_conditions[2:length(test_conditions)]
   
   samps <- s.Sol[,colnames(s.Sol) %in% paste0('Condition', levels(design$Condition)),drop=F]
@@ -183,8 +188,13 @@ plot.samples <- function(s.Sol, design, filename) {
   
   stats.samples_plus_conditions$Sample <- reorder(stats.samples_plus_conditions$Sample,as.numeric(stats.samples_plus_conditions$Condition))
   samps.samples_plus_conditions.melted.trunc$Sample <- reorder(samps.samples_plus_conditions.melted.trunc$Sample,as.numeric(samps.samples_plus_conditions.melted.trunc$Condition))
-  
-  test_conditions <- levels(design$Condition)[levels(design$Condition) != tolower(levels(design$Condition))]
+
+  test_conditions <- levels(design$Condition)[
+    xor(
+      levels(design$Condition) != tolower(levels(design$Condition)),
+      levels(design$Condition) == toupper(levels(design$Condition))
+    )
+  ]
   test_conditions <- test_conditions[2:length(test_conditions)]
 
   ymin <- min(samps.samples_plus_conditions.melted.trunc$value, na.rm = T)
@@ -386,7 +396,12 @@ plots <- function(protein_id,design,nitt,nburnin,nchain,fc,tol,do_plots) {
   library(plyr)
   library(reshape2)
 
-  test_conditions <- levels(design$Condition)[levels(design$Condition) != tolower(levels(design$Condition))]
+  test_conditions <- levels(design$Condition)[
+    xor(
+      levels(design$Condition) != tolower(levels(design$Condition)),
+      levels(design$Condition) == toupper(levels(design$Condition))
+    )
+  ]
   test_conditions <- test_conditions[2:length(test_conditions)]
   
   print(paste0(Sys.time()," [output() Processing protein ",protein_id,"]"))    
