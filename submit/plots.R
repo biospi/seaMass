@@ -212,6 +212,9 @@ plot.samples <- function(s.Sol, design, filename) {
   g <- g + geom_violin(data = samps.samples_plus_conditions.melted.trunc, aes(y = value, fill = Condition), position="identity", trim=T, size = 1/2)
   g <- g + geom_segment(data = stats.samples_plus_conditions, aes(x = as.integer(Sample)-0.45, xend = as.integer(Sample) + 0.45, y = mean, yend = mean),size = 1/2)
   ggsave(filename, g, height=2, width=8, limitsize=F,device="png")
+  
+  f = gsub("samples\\/","",gsub("\\.png","",filename))
+  save(stats.samples_plus_conditions, file=paste0("samplestats/",f,".Rdata"))  
 
   ylim
 }
@@ -494,6 +497,7 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
   do_plots <- as.integer(ifelse("do_plots" %in% parameters$Key,parameters$Value[parameters$Key=="do_plots"],1))
 
   dir.create("stats")
+  dir.create("samplestats")
   dir.create("conditions")
   dir.create("conditions_sd")
   dir.create("samples")

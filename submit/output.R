@@ -193,5 +193,38 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
     write.csv(out, paste0(parameters$Value[parameters$Key=="id"],"_",con,"_Same.csv"), row.names=F)
   }
 
+  files = list.files(path="samplestats",pattern="^[0-9]+\\.Rdata") 
+
+  samplestats <- mdply(files, .id=NULL, function(f){
+    load(paste0("samplestats/",f))
+    stats.samples_plus_conditions$ProteinID <- as.integer(gsub("\\.Rdata","",f))
+    stats.samples_plus_conditions
+  })
+  samplestats$Sample <- factor(samplestats$Sample)
+  nSamples <- nlevels(samplestats$Sample)
+  samplestats <- samplestats[,c(7,1,5,6,3)]
+
+  results <- results[!duplicated(results$ProteinID),c(1:7,14)]
+  results <- merge(results,samplestats)
+  results<-melt(results,measure.vars=c("lower","upper","mean"))
+  results$variable <- paste0(results$Sample,"-",results$variable)
+  results <- results[,c(1:8,10:11)]
+
+  results$variable <- factor(results$variable)
+  results <- dcast(results, ...~variable)
+
+  #order of columns so that all the lowers, uppers and means are together respectively
+  cols <- c(
+    c(1:8),
+    seq(from=9,by=3,length.out=nSamples),
+    seq(from=11,by=3,length.out=nSamples),
+    seq(from=10,by=3,length.out=nSamples)
+  )
+
+  results <- results[,cols]
+  results <- results[order(as.numeric(results$ProteinID)),]
+
+  write.csv(results,paste0(parameters$Value[parameters$Key=="id"],"_SampleQuants.csv"),row.names=F,na="")
+
   print(paste(Sys.time(),"[Finished]"))
 }
