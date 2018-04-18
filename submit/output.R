@@ -18,12 +18,7 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
   
   # conditions
   
-  test_conditions <- levels(design$Condition)[
-    xor(
-      levels(design$Condition) != tolower(levels(design$Condition)),
-      levels(design$Condition) == toupper(levels(design$Condition))
-    )
-  ]
+  test_conditions <- levels(design$Condition)[levels(design$Condition) != tolower(levels(design$Condition))]
   test_conditions <- test_conditions[2:length(test_conditions)]
   
   samps <- mdply(files, .id=NULL, function(f) {
