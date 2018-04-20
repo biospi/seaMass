@@ -52,6 +52,10 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
   exposures <- ddply(samps, .(Run, Channel), function(x) data.frame(mean=mean(x$value), sd=sd(x$value)))
   save(exposures,file=paste0("exposures.Rdata"))
   
+  samps <- samps/log(2)
+  exposures$mean <- exposures$mean/log(2)
+  exposures$sd <- exposures$sd/log(2)
+
   # PLOTTING
   densities <- ddply(samps, .(Run, Channel), function(x)
   {

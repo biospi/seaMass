@@ -402,11 +402,13 @@ plots <- function(protein_id,design,nitt,nburnin,nchain,fc,tol,do_plots) {
   }))
   end <- summary(samps.Sol[[1]])$end
   s.Sol <- as.matrix(window(samps.Sol,nburnin+1,end))
+  s.Sol <- s.Sol/log(2) #transforming to log2
   samps.VCV <- mcmc.list(mlply(files, function(f) {
     load(paste0(protein_id,"/",f))
     samps.VCV
   }))
   s.VCV <- as.matrix(window(samps.VCV,nburnin+1,end))
+  s.VCV <- s.VCV/log(2) #transforming to log2
   dics <- mdply(files, function(f) {
     load(paste0(protein_id,"/",f))
     dic
