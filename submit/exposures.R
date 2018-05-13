@@ -52,11 +52,13 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
   exposures <- ddply(samps, .(Run, Channel), function(x) data.frame(mean=mean(x$value), sd=sd(x$value)))
   save(exposures,file=paste0("exposures.Rdata"))
   
-  samps <- samps/log(2)
+  # PLOTTING
+  
+  # we plot log2, not ln
+  samps$value <- samps$value/log(2)
   exposures$mean <- exposures$mean/log(2)
   exposures$sd <- exposures$sd/log(2)
-
-  # PLOTTING
+  
   densities <- ddply(samps, .(Run, Channel), function(x)
   {
     dens <- density(x$value, n=4096)
@@ -75,6 +77,8 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
   {
     data.frame(mean=x$mean, fc=paste0("  ",ifelse(x$mean<0, format(2^x$mean,digits=3), format(2^x$mean,digits=4)),"fc"))
   })
+  
+  
   g <- ggplot(exposures, aes(x=mean))
   g <- g + theme_bw()
   g <- g + theme(panel.border=element_rect(colour="black",size=2),
