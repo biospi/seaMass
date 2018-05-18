@@ -212,6 +212,9 @@ plot.samples <- function(s.Sol, design, filename) {
   g <- g + geom_violin(data = samps.samples_plus_conditions.melted.trunc, aes(y = value, fill = Condition), position="identity", trim=T, size = 1/2)
   g <- g + geom_segment(data = stats.samples_plus_conditions, aes(x = as.integer(Sample)-0.45, xend = as.integer(Sample) + 0.45, y = mean, yend = mean),size = 1/2)
   ggsave(filename, g, height=2, width=8, limitsize=F,device="png")
+  
+  f = gsub("samples\\/","",gsub("\\.png","",filename))
+  save(stats.samples_plus_conditions, file=paste0("samplestats/",f,".Rdata"))  
 
   ylim
 }
@@ -380,7 +383,7 @@ plot.digests_sd <- function(s.VCV, design, filename) {
 }
 
 
-plots <- function(protein_id,design,nitt,nburnin,nchain,fc,tol) { 
+plots <- function(protein_id,design,nitt,nburnin,nchain,fc,tol,do_plots) { 
   library(coda)
   library(mcgibbsit)
   library(plyr)
@@ -399,11 +402,13 @@ plots <- function(protein_id,design,nitt,nburnin,nchain,fc,tol) {
   }))
   end <- summary(samps.Sol[[1]])$end
   s.Sol <- as.matrix(window(samps.Sol,nburnin+1,end))
+  s.Sol <- s.Sol/log(2) #transforming to log2
   samps.VCV <- mcmc.list(mlply(files, function(f) {
     load(paste0(protein_id,"/",f))
     samps.VCV
   }))
   s.VCV <- as.matrix(window(samps.VCV,nburnin+1,end))
+  s.VCV <- s.VCV/log(2) #transforming to log2
   dics <- mdply(files, function(f) {
     load(paste0(protein_id,"/",f))
     dic
@@ -452,20 +457,22 @@ plots <- function(protein_id,design,nitt,nburnin,nchain,fc,tol) {
   })  
   stats$X1 <- test_conditions[stats$X1]
   colnames(stats)[1] <- "Condition"
-  
-  # plots
-  print(paste0(Sys.time()," [plots() Plotting conditions for protein ",protein_id,"]"))    
-  plot.conditions(s.Sol, design, fc, paste0("conditions/",protein_id,".png"))
-  print(paste0(Sys.time()," [plots() Plotting conditions sd for protein ",protein_id,"]"))    
-  plot.conditions_sd(s.VCV, design, paste0("conditions_sd/",protein_id,".png"))
-  print(paste0(Sys.time()," [plots() Plotting samples for protein ",protein_id,"]"))    
-  ylim <- plot.samples(s.Sol, design, paste0("samples/",protein_id,".png"))
-  print(paste0(Sys.time()," [plots() Plotting peptides for protein ",protein_id,"]"))    
-  plot.peptides(s.Sol, design, paste0("peptides/",protein_id,".png"), ylim)
-  print(paste0(Sys.time()," [plots() Plotting peptides sd for protein ",protein_id,"]"))    
-  plot.peptides_sd(s.VCV, design, paste0("peptides_sd/",protein_id,".png"))
-  #print(paste0(Sys.time()," [plots() Plotting digests sd for protein ",protein_id,"]"))    
-  #plot.digests_sd(s.VCV, design, paste0("digests_sd/",protein_id,".png"))
+ 
+  if(do_plots) { 
+    # plots
+    print(paste0(Sys.time()," [plots() Plotting conditions for protein ",protein_id,"]"))    
+    plot.conditions(s.Sol, design, fc, paste0("conditions/",protein_id,".png"))
+    print(paste0(Sys.time()," [plots() Plotting conditions sd for protein ",protein_id,"]"))    
+    plot.conditions_sd(s.VCV, design, paste0("conditions_sd/",protein_id,".png"))
+    print(paste0(Sys.time()," [plots() Plotting samples for protein ",protein_id,"]"))    
+    ylim <- plot.samples(s.Sol, design, paste0("samples/",protein_id,".png"))
+    print(paste0(Sys.time()," [plots() Plotting peptides for protein ",protein_id,"]"))    
+    plot.peptides(s.Sol, design, paste0("peptides/",protein_id,".png"), ylim)
+    print(paste0(Sys.time()," [plots() Plotting peptides sd for protein ",protein_id,"]"))    
+    plot.peptides_sd(s.VCV, design, paste0("peptides_sd/",protein_id,".png"))
+    #print(paste0(Sys.time()," [plots() Plotting digests sd for protein ",protein_id,"]"))    
+    #plot.digests_sd(s.VCV, design, paste0("digests_sd/",protein_id,".png"))
+  }
   
   # save stats, and 1000 samps for study-wide plots
   if (nrow(s.Sol) > 1000) s.Sol <- s.Sol[seq(1,nrow(s.Sol),length=1000),]
@@ -489,8 +496,10 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
   nchain <- as.integer(ifelse("model_nchain" %in% parameters$Key,parameters$Value[parameters$Key=="model_nchain"],100))
   fc <- as.double(ifelse("model_fc" %in% parameters$Key,parameters$Value[parameters$Key=="model_fc"],1.05))
   tol <- as.double(ifelse("model_tol" %in% parameters$Key,parameters$Value[parameters$Key=="model_tol"],0.0125))
+  do_plots <- as.integer(ifelse("do_plots" %in% parameters$Key,parameters$Value[parameters$Key=="do_plots"],1))
 
   dir.create("stats")
+  dir.create("samplestats")
   dir.create("conditions")
   dir.create("conditions_sd")
   dir.create("samples")
@@ -503,7 +512,7 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
   
   devnull <- sapply(protein_ids, function(protein_id) {
     print(paste(Sys.time(),paste0("[Processing job ",protein_id,"]")))
-    plots(protein_id,design,nitt,nburnin,nchain,fc,tol)
+    plots(protein_id,design,nitt,nburnin,nchain,fc,tol,do_plots)
   })
   
   print(paste(Sys.time(),"[Finished]"))  
