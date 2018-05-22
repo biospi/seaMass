@@ -33,6 +33,8 @@ open("bayesprot-import-setup.sh","w") do f
   write(f,"#!/bin/bash\n")
   write(f,"#SBATCH --partition=veryshort\n")
   write(f,"#SBATCH --export=all\n")
+  write(f,"#SBATCH -o import/out\n")
+  write(f,"#SBATCH -e import/error\n")
   write(f,"#SBATCH --ntasks=1\n")
   write(f,"cd \$SLURM_SUBMIT_DIR\n")
   write(f,"julia bayesprot-import-setup.jl\n")
