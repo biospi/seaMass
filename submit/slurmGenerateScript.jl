@@ -24,7 +24,7 @@ plotsJobs = 150 # Total number of jobs to run on HPC queing system
 #  write(f,"#SBATCH -l walltime=01:00:00\n")
 
 shortqueue="veryshort"
-longqueue="cpu"
+longqueue="serial"
 
 #########################################
 # Import Setup

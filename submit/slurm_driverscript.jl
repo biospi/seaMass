@@ -21,7 +21,7 @@ modelJobs = 20  # Total number of jobs to run on HPC queing system
 plotsJobs = 20 # Total number of jobs to run on HPC queing system
 
 shortqueue="veryshort"
-longqueue="cpu"
+longqueue="serial"
 
 #########################################
 # Import Setup
