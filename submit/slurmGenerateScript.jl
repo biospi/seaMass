@@ -1,6 +1,4 @@
-#sge_driverscript.jl
-
-email = "send.me.email@Uni.ac.uk"
+# slurmGenerateScript.jl
 
 normChains = 10 # Number of chains to run on each protein
 normJobs = 150 # Total number of jobs to run on HPC queing system
@@ -9,23 +7,6 @@ modelChains = 100 # Number of chains to run on each protein
 modelJobs = 150  # Total number of jobs to run on HPC queing system
 
 plotsJobs = 150 # Total number of jobs to run on HPC queing system
-
-# Testing Prameters
-#normChains = 10 # Number of chains to run on each protein
-#normJobs = 10 # Total number of jobs to run on HPC queing system
-
-#modelChains = 10 # Number of chains to run on each protein
-#modelJobs = 20  # Total number of jobs to run on HPC queing system
-
-#plotsJobs = 20 # Total number of jobs to run on HPC queing system
-
-#  write(f,"#SBATCH -M "*email*"\n")
-#  write(f,"#SBATCH -m bes\n")
-#  write(f,"#SBATCH -l walltime=01:00:00\n")
-
-shortqueue="veryshort"
-longqueue="serial"
-
 
 try mkdir("import/out") end
 try mkdir("import/error") end
@@ -46,22 +27,36 @@ try mkdir("output/out") end
 try mkdir("output/error") end
 
 
+#########################################
 # Script Parameters
+#########################################
 
-himem=20
-lomem=16
+shortqueue = "veryshort"
+normalqueue = "serial"
+longqueue = "cpu"
+
+# limited to 128G per Node hence only run 7 or 6 jobs at once.
+
+cpuNode = 7
+cpuMax = 7
+cpuMin = 6
+
+himem = "125G" #(7*20)
+lomem = "125G" #(6*16)
+
+arrayBatch = 50
 
 #########################################
 # Import Setup
 #########################################
 open("bayesprot-import-setup.sh","w") do f
   write(f,"#!/bin/bash\n")
+  write(f,"#SBATCH -J SetImport\n")
   write(f,"#SBATCH -p $shortqueue\n")
   write(f,"#SBATCH --export=all\n")
   write(f,"#SBATCH -o import/out/out-%A.out\n")
   write(f,"#SBATCH -e import/error/error-%A.out\n")
   write(f,"#SBATCH --ntasks=1\n")
-  #write(f,"echo \$SLURM_JOB_ID\n")
   write(f,"srun julia bayesprot-import-setup.jl\n")
   write(f,"srun sleep 10\n")
 end
@@ -73,14 +68,14 @@ run(`chmod u+x bayesprot-import-setup.sh`)
 #########################################
 open("bayesprot-import.sh","w") do f
   write(f,"#!/bin/bash\n")
+  write(f,"#SBATCH -J Import\n")
   write(f,"#SBATCH --export=all\n")
   write(f,"#SBATCH -o import/out/out-%A.out\n")
   write(f,"#SBATCH -e import/error/error-%A.out\n")
-  write(f,"#SBATCH --mem=30gb\n")
-  write(f,"#SBATCH -p $shortqueue\n")
+  write(f,"#SBATCH --mem=$himem\n")
+  write(f,"#SBATCH -p $normalqueue\n")
   write(f,"#SBATCH --ntasks=1\n")
   write(f,"cd import/results\n")
-  #write(f,"echo \$SLURM_JOB_ID\n")
   write(f,"srun Rscript ../../import.R HPC\n")
 end
 
@@ -91,13 +86,14 @@ run(`chmod u+x bayesprot-import.sh`)
 #########################################
 open("bayesprot-norm-setup.sh","w") do f
   write(f,"#!/bin/bash\n")
+  write(f,"#SBATCH -J SetNorm\n")
   write(f,"#SBATCH -p $shortqueue\n")
   write(f,"#SBATCH --export=all\n")
   write(f,"#SBATCH -o norm/out/out-%A.out\n")
   write(f,"#SBATCH -e norm/error/error-%A.out\n")
   write(f,"#SBATCH --ntasks=1\n")
-  #write(f,"echo \$SLURM_JOB_ID\n")
-  write(f,"srun julia bayesprot-norm-setup.jl $normChains $normJobs\n")
+  #write(f,"srun julia bayesprot-norm-setup.jl $normChains $normJobs\n")
+  write(f,"srun julia bayesprot-norm-setup.jl $normChains $normJobs $cpuMin\n")
   write(f,"srun sleep 10\n")
 end
 
@@ -108,15 +104,17 @@ run(`chmod u+x bayesprot-norm-setup.sh`)
 #########################################
 open("bayesprot-norm.sh","w") do f
   write(f,"#!/bin/bash\n")
+  write(f,"#SBATCH -J Norm\n")
   write(f,"#SBATCH --export=all\n")
   write(f,"#SBATCH -o norm/out/out-%A.out\n")
   write(f,"#SBATCH -e norm/error/error-%A.out\n")
-  write(f,"#SBATCH --mem=30gb\n")
-  write(f,"#SBATCH --ntasks=1\n")
+  write(f,"#SBATCH --mem=$lomem\n")
   write(f,"#SBATCH -p $longqueue\n")
-  write(f,"#SBATCH --array=1-$normJobs%50\n")
-  #write(f,"echo \$SLURM_JOB_ID\n")
-  write(f,"srun sh norm/norm-job\$PBS_ARRAYID.sh\n")
+  write(f,"#SBATCH -N 1 \n")
+  write(f,"#SBATCH -c 14\n")
+  #write(f,"#SBATCH --array=1-$normJobs%$arrayBatch\n")
+  write(f,"#SBATCH --array=1-$normJobs\n")
+  write(f,"srun sh norm/norm-job\$SLURM_ARRAY_TASK_ID.sh\n")
 end
 
 run(`chmod u+x bayesprot-norm.sh`)
@@ -126,12 +124,12 @@ run(`chmod u+x bayesprot-norm.sh`)
 #########################################
 open("bayesprot-exposures-setup.sh","w") do f
   write(f,"#!/bin/bash\n")
+  write(f,"#SBATCH -J SetExposures\n")
   write(f,"#SBATCH --export=all\n")
-  write(f,"#SBATCH -p $longqueue\n")
+  write(f,"#SBATCH -p $shortqueue\n")
   write(f,"#SBATCH -o exposures/out/out-%A.out\n")
   write(f,"#SBATCH -e exposures/error/error-%A.out\n")
   write(f,"#SBATCH --ntasks=1\n")
-  #write(f,"echo \$SLURM_JOB_ID\n")
   write(f,"srun julia bayesprot-exposures-setup.jl\n")
   write(f,"srun sleep 10\n")
 end
@@ -143,14 +141,14 @@ run(`chmod u+x bayesprot-exposures-setup.sh`)
 #########################################
 open("bayesprot-exposures.sh","w") do f
   write(f,"#!/bin/bash\n")
+  write(f,"#SBATCH -J Exposures\n")
   write(f,"#SBATCH --export=all\n")
   write(f,"#SBATCH -o exposures/out/out-%A.out\n")
   write(f,"#SBATCH -e exposures/error/error-%A.out\n")
-  write(f,"#SBATCH --mem=30gb\n")
+  write(f,"#SBATCH --mem=lomem\n")
   write(f,"#SBATCH --ntasks=1\n")
-  write(f,"#SBATCH -p $longqueue\n")
+  write(f,"#SBATCH -p $normalqueue\n")
   write(f,"cd exposures/results\n")
-  #write(f,"echo \$SLURM_JOB_ID\n")
   write(f,"srun Rscript ../../exposures.R HPC\n")
 end
 
@@ -161,13 +159,13 @@ run(`chmod u+x bayesprot-exposures.sh`)
 #########################################
 open("bayesprot-model-setup.sh","w") do f
   write(f,"#!/bin/bash\n")
+  write(f,"#SBATCH -J SetModel\n")
   write(f,"#SBATCH --export=all\n")
-  write(f,"#SBATCH -p $longqueue\n")
+  write(f,"#SBATCH -p $shortqueue\n")
   write(f,"#SBATCH -o model/out/out-%A.out\n")
   write(f,"#SBATCH -e model/error/error-%A.out\n")
   write(f,"#SBATCH --ntasks=1\n")
-  #write(f,"echo \$SLURM_JOB_ID\n")
-  write(f,"srun julia bayesprot-model-setup.jl $modelChains $modelJobs\n")
+  write(f,"srun julia bayesprot-model-setup.jl $modelChains $modelJobs $cpuMin\n")
   write(f,"srun sleep 10\n")
 end
 
@@ -178,15 +176,17 @@ run(`chmod u+x bayesprot-model-setup.sh`)
 #########################################
 open("bayesprot-model.sh","w") do f
   write(f,"#!/bin/bash\n")
+  write(f,"#SBATCH -J Model\n")
   write(f,"#SBATCH --export=all\n")
   write(f,"#SBATCH -o model/out/out-%A.out\n")
   write(f,"#SBATCH -e model/error/error-%A.out\n")
-  write(f,"#SBATCH --mem=32gb\n")
-  write(f,"#SBATCH --ntasks=1\n")
+  write(f,"#SBATCH --mem=himem\n")
   write(f,"#SBATCH -p $longqueue\n")
-  write(f,"#SBATCH --array=1-$modelJobs%50\n")
-  #write(f,"echo \$SLURM_JOB_ID\n")
-  write(f,"srun sh model/model-job\$PBS_ARRAYID.sh\n")
+  write(f,"#SBATCH -N 1 \n")
+  write(f,"#SBATCH -c 14\n")
+  #write(f,"#SBATCH --array=1-$modelJobs%$arrayBatch\n")
+  write(f,"#SBATCH --array=1-$modelJobs\n")
+  write(f,"srun sh model/model-job\$SLURM_ARRAY_TASK_ID.sh\n")
 end
 
 run(`chmod u+x bayesprot-model.sh`)
@@ -196,13 +196,13 @@ run(`chmod u+x bayesprot-model.sh`)
 #########################################
 open("bayesprot-plots-setup.sh","w") do f
   write(f,"#!/bin/bash\n")
+  write(f,"#SBATCH -J SetPlots\n")
   write(f,"#SBATCH --export=all\n")
-  write(f,"#SBATCH -p $longqueue\n")
+  write(f,"#SBATCH -p $shortqueue\n")
   write(f,"#SBATCH -o plots/out/out-%A.out\n")
   write(f,"#SBATCH -e plots/error/error-%A.out\n")
   write(f,"#SBATCH --ntasks=1\n")
-  #write(f,"echo \$SLURM_JOB_ID\n")
-  write(f,"srun julia bayesprot-plots-setup.jl $plotsJobs\n")
+  write(f,"srun julia bayesprot-plots-setup.jl $plotsJobs $cpuMax\n")
   write(f,"srun sleep 10\n")
 end
 
@@ -213,15 +213,17 @@ run(`chmod u+x bayesprot-plots-setup.sh`)
 #########################################
 open("bayesprot-plots.sh","w") do f
   write(f,"#!/bin/bash\n")
+  write(f,"#SBATCH -J Plots\n")
   write(f,"#SBATCH --export=all\n")
   write(f,"#SBATCH -o plots/out/out-%A.out\n")
   write(f,"#SBATCH -e plots/error/error-%A.out\n")
-  write(f,"#SBATCH --mem=32gb\n")
-  write(f,"#SBATCH --ntasks=1\n")
+  write(f,"#SBATCH --mem=lomem\n")
   write(f,"#SBATCH -p $longqueue\n")
-  write(f,"#SBATCH --array=1-$plotsJobs%50\n")
-  #write(f,"echo \$SLURM_JOB_ID\n")
-  write(f,"srun sh plots/plots-job\$PBS_ARRAYID.sh\n")
+  write(f,"#SBATCH -N 1 \n")
+  write(f,"#SBATCH -c 14\n")
+  #write(f,"#SBATCH --array=1-$plotsJobs%$arrayBatch\n")
+  write(f,"#SBATCH --array=1-$plotsJobs\n")
+  write(f,"srun sh plots/plots-job\$SLURM_ARRAY_TASK_ID.sh\n")
 end
 
 run(`chmod u+x bayesprot-plots.sh`)
@@ -231,12 +233,12 @@ run(`chmod u+x bayesprot-plots.sh`)
 #########################################
 open("bayesprot-output-setup.sh","w") do f
   write(f,"#!/bin/bash\n")
+  write(f,"#SBATCH -J SetOutput\n")
   write(f,"#SBATCH --export=all\n")
-  write(f,"#SBATCH -p $longqueue\n")
+  write(f,"#SBATCH -p $shortqueue\n")
   write(f,"#SBATCH -o plots/out/out-%A.out\n")
   write(f,"#SBATCH -e plots/error/error-%A.out\n")
   write(f,"#SBATCH --ntasks=1\n")
-  #write(f,"echo \$SLURM_JOB_ID\n")
   write(f,"srun julia bayesprot-output-setup.jl")
   write(f,"srun sleep 10\n")
 end
@@ -248,15 +250,16 @@ run(`chmod u+x bayesprot-output-setup.sh`)
 #########################################
 open("bayesprot-output.sh","w") do f
   write(f,"#!/bin/bash\n")
+  write(f,"#SBATCH -J Output\n")
   write(f,"#SBATCH --export=all\n")
   write(f,"#SBATCH -o output/out/out-%A.out\n")
   write(f,"#SBATCH -e output/error/error-%A.out\n")
-  write(f,"#SBATCH --mem=30gb\n")
+  write(f,"#SBATCH --mem=32G\n")
   write(f,"#SBATCH --ntasks=1\n")
-  write(f,"#SBATCH -p $longqueue\n")
+  write(f,"#SBATCH -p $normalqueue\n")
   write(f,"cd output/results\n")
-  #write(f,"echo \$SLURM_JOB_ID\n")
   write(f,"srun Rscript ../../output.R HPC")
 end
 
 run(`chmod u+x bayesprot-output.sh`)
+
