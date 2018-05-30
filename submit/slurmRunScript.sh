@@ -1,8 +1,6 @@
 #!/bin/bash
 # slurmRunScript.sh
 
-
-
 #########################################
 # Generate Scripts...
 #########################################
@@ -11,95 +9,95 @@ julia slurmGenerateScript.jl
 #########################################
 # Import Setup
 #########################################
-srunReturn=$(srun bayesprot-import-setup.sh)
-echo srun bayesprot-import-setup.sh
-importSetupJobID=$srunReturn
+sbatchReturn=$(sbatch bayesprot-import-setup.sh)
+echo sbatch bayesprot-import-setup.sh
+importSetupJobID=$sbatchReturn
 echo Import Setup Submitted: $importSetupJobID
 
 #########################################
 # Import
 #########################################
-srunReturn=$(srun -W depend=afterany:$importSetupJobID bayesprot-import.sh)
-echo srun -W depend=afterany:$importSetupJobID bayesprot-import.sh
-importJobID=$srunReturn
+sbatchReturn=$(sbatch --dependency=afterok:$importSetupJobID bayesprot-import.sh)
+echo sbatch --dependency=afterok:$importSetupJobID bayesprot-import.sh
+importJobID=$sbatchReturn
 echo Import Submitted: $importJobID
 
 #########################################
 # Norm Setup
 #########################################
-srunReturn=$(srun -W depend=afterany:$importJobID bayesprot-norm-setup.sh)
-echo srun -W depend=afterany:$importJobID bayesprot-norm-setup.sh
-normSetupJobID=$srunReturn
+sbatchReturn=$(sbatch --dependency=afterok:$importJobID bayesprot-norm-setup.sh)
+echo sbatch --dependency=afterok:$importJobID bayesprot-norm-setup.sh
+normSetupJobID=$sbatchReturn
 echo Norm Setup Submitted: $normSetupJobID
 
 #########################################
 # Norm Array Job
 #########################################
-srunReturn=$(srun -W depend=afterany:$normSetupJobID bayesprot-norm.sh)
-echo srun -W depend=afterany:$normSetupJobID bayesprot-norm.sh
-normJobID=$srunReturn
+sbatchReturn=$(sbatch --dependency=afterok:$normSetupJobID bayesprot-norm.sh)
+echo sbatch --dependency=afterok:$normSetupJobID bayesprot-norm.sh
+normJobID=$sbatchReturn
 echo Norm Job Array Submitted: $normJobID
 
 #########################################
 # Exposures Setup
 #########################################
-srunReturn=$(srun -W depend=afteranyarray:$normJobID bayesprot-exposures-setup.sh)
-echo srun -W depend=afteranyarray:$normJobID bayesprot-exposures-setup.sh
-exposuresSetupJobID=$srunReturn
+sbatchReturn=$(sbatch --dependency=afterokarray:$normJobID bayesprot-exposures-setup.sh)
+echo sbatch --dependency=afterokarray:$normJobID bayesprot-exposures-setup.sh
+exposuresSetupJobID=$sbatchReturn
 echo Exposures Setup Submitted: $exposuresSetupJobID
 
 #########################################
 # Exposures
 #########################################
-srunReturn=$(srun -W depend=afterany:$exposuresSetupJobID bayesprot-exposures.sh)
-echo srun -W depend=afterany:$exposuresSetupJobID bayesprot-exposures.sh
-exposuresJobID=$srunReturn
+sbatchReturn=$(sbatch --dependency=afterok:$exposuresSetupJobID bayesprot-exposures.sh)
+echo sbatch --dependency=afterok:$exposuresSetupJobID bayesprot-exposures.sh
+exposuresJobID=$sbatchReturn
 echo Exposures Submitted: $exposuresJobID
 
 #########################################
 # Model Setup
 #########################################
-srunReturn=$(srun -W depend=afterany:$exposuresJobID bayesprot-model-setup.sh)
-echo srun -W depend=afterany:$exposuresJobID bayesprot-model-setup.sh
-modelSetupJobID=$srunReturn
+sbatchReturn=$(sbatch --dependency=afterok:$exposuresJobID bayesprot-model-setup.sh)
+echo sbatch --dependency=afterok:$exposuresJobID bayesprot-model-setup.sh
+modelSetupJobID=$sbatchReturn
 echo Model Setup Submitted: $modelSetupJobID
 
 #########################################
 # Model Array Job
 #########################################
-srunReturn=$(srun -W depend=afterany:$modelSetupJobID bayesprot-model.sh)
-echo srun -W depend=afterany:$modelSetupJobID bayesprot-model.sh
-modelJobID=$srunReturn
+sbatchReturn=$(sbatch --dependency=afterok:$modelSetupJobID bayesprot-model.sh)
+echo sbatch --dependency=afterok:$modelSetupJobID bayesprot-model.sh
+modelJobID=$sbatchReturn
 echo Model Array Job Submitted: $modelJobID
 
 #########################################
 # Plots Setup
 #########################################
-srunReturn=$(srun -W depend=afteranyarray:$modelJobID bayesprot-plots-setup.sh)
-echo srun -W depend=afteranyarray:$modelJobID bayesprot-plots-setup.sh
-plotsSetupJobID=$srunReturn
+sbatchReturn=$(sbatch --dependency=afterokarray:$modelJobID bayesprot-plots-setup.sh)
+echo sbatch --dependency=afterokarray:$modelJobID bayesprot-plots-setup.sh
+plotsSetupJobID=$sbatchReturn
 echo Plots Setup Submitted: $plotsSetupJobID
 
 #########################################
 # Plots Array Job
 #########################################
-srunReturn=$(srun -W depend=afterany:$plotsSetupJobID bayesprot-plots.sh)
-echo srun -W depend=afterany:$plotsSetupJobID bayesprot-plots.sh
-plotsJobID=$srunReturn
+sbatchReturn=$(sbatch --dependency=afterok:$plotsSetupJobID bayesprot-plots.sh)
+echo sbatch --dependency=afterok:$plotsSetupJobID bayesprot-plots.sh
+plotsJobID=$sbatchReturn
 echo Plots Array Job Submitted: $plotsJobID
 
 #########################################
 # Output Setup
 #########################################
-srunReturn=$(srun -W depend=afteranyarray:$plotsJobID bayesprot-output-setup.sh)
-echo srun -W depend=afteranyarray:$plotsJobID bayesprot-output-setup.sh
-outputSetupJobID=$srunReturn
+sbatchReturn=$(sbatch --dependency=afterokarray:$plotsJobID bayesprot-output-setup.sh)
+echo sbatch --dependency=afterokarray:$plotsJobID bayesprot-output-setup.sh
+outputSetupJobID=$sbatchReturn
 echo Output Setup Submitted: $outputSetupJobID
 
 #########################################
 # Output
 #########################################
-outputID=$(srun -W depend=afterany:$outputSetupJobID bayesprot-output.sh)
-echo srun -W depend=afterany:$outputSetupJobID bayesprot-output.sh
+outputID=$(sbatch --dependency=afterok:$outputSetupJobID bayesprot-output.sh)
+echo sbatch --dependency=afterok:$outputSetupJobID bayesprot-output.sh
 echo Output Submitted: $outputID
 
