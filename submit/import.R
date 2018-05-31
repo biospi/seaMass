@@ -64,6 +64,9 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
     )
     data <- merge(design,data.out,by=c('Run','Channel'),sort=F)
 
+    data$Peptide <- factor(data$Peptide)
+    data$Spectrum <- factor(data$Spectrum)
+
     accessions = colnames(data.one)[colnames(data.one) %in% c("Accessions","Master.Protein.Accessions")]
     names = colnames(data.one)[colnames(data.one) %in% c("Names","Protein.Descriptions")]
 
