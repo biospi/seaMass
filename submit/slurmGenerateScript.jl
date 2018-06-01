@@ -46,6 +46,9 @@ lomem = "16G"
 
 arrayBatch = 50
 
+numNode = 1
+#numNode = 10
+
 #########################################
 # Import Setup
 #########################################
@@ -102,21 +105,39 @@ run(`chmod u+x bayesprot-norm-setup.sh`)
 #########################################
 # Norm
 #########################################
-open("bayesprot-norm.sh","w") do f
-  write(f,"#!/bin/bash\n")
-  write(f,"#SBATCH -J Norm\n")
-  write(f,"#SBATCH --export=all\n")
-  write(f,"#SBATCH -o norm/out/out-%A_TaskID_%a.out\n")
-  write(f,"#SBATCH -e norm/error/error-%A_TaskID_%a.out\n")
-  write(f,"#SBATCH --mem=$himem\n")
-  write(f,"#SBATCH -p $longqueue\n")
-  write(f,"#SBATCH -N 1 \n")
-  write(f,"#SBATCH -c 14\n")
-  #write(f,"#SBATCH --array=1-$normJobs%$arrayBatch\n")
-  write(f,"#SBATCH --array=1-$normJobs\n")
-  write(f,"srun sh norm/norm-job\$SLURM_ARRAY_TASK_ID.sh\n")
+if numNode == 1
+  open("bayesprot-norm.sh","w") do f
+    write(f,"#!/bin/bash\n")
+    write(f,"#SBATCH -J Norm\n")
+    write(f,"#SBATCH --export=all\n")
+    write(f,"#SBATCH -o norm/out/out-%A_TaskID_%a.out\n")
+    write(f,"#SBATCH -e norm/error/error-%A_TaskID_%a.out\n")
+    write(f,"#SBATCH --mem=$himem\n")
+    write(f,"#SBATCH -p $longqueue\n")
+    write(f,"#SBATCH -N 1 \n")
+    write(f,"#SBATCH -c 14\n")
+    #write(f,"#SBATCH --array=1-$normJobs%$arrayBatch\n")
+    write(f,"#SBATCH --array=1-$normJobs\n")
+    write(f,"srun sh norm/norm-job\$SLURM_ARRAY_TASK_ID.sh\n")
+  end
+elseif numNode > 1
+  open("bayesprot-norm.sh","w") do f
+    write(f,"#!/bin/bash\n")
+    write(f,"#SBATCH -J Norm\n")
+    write(f,"#SBATCH --export=all\n")
+    write(f,"#SBATCH -o norm/out/out-%A_TaskID_%a.out\n")
+    write(f,"#SBATCH -e norm/error/error-%A_TaskID_%a.out\n")
+    write(f,"#SBATCH --mem=$himem\n")
+    write(f,"#SBATCH -p $longqueue\n")
+    write(f,"#SBATCH -N $numNode \n")
+    write(f,"#SBATCH -c 14\n")
+    write(f,"#SBATCH --ntasks-per-node=1\n")
+    write(f,"#SBATCH --array=1-$normJobs:$numNode\n")
+    for i in 0:numNode-1
+      write(f,"srun sh norm/norm-job\$((SLURM_ARRAY_TASK_ID.sh+$i)) &\n")
+    end
+      write(f,"wait\n")  end
 end
-
 run(`chmod u+x bayesprot-norm.sh`)
 
 #########################################
@@ -174,19 +195,39 @@ run(`chmod u+x bayesprot-model-setup.sh`)
 #########################################
 # Model
 #########################################
-open("bayesprot-model.sh","w") do f
-  write(f,"#!/bin/bash\n")
-  write(f,"#SBATCH -J Model\n")
-  write(f,"#SBATCH --export=all\n")
-  write(f,"#SBATCH -o model/out/out-%A_TaskID_%a.out\n")
-  write(f,"#SBATCH -e model/error/error-%A_TaskID_%a.out\n")
-  write(f,"#SBATCH --mem=$himem\n")
-  write(f,"#SBATCH -p $longqueue\n")
-  write(f,"#SBATCH -N 1 \n")
-  write(f,"#SBATCH -c 14\n")
-  #write(f,"#SBATCH --array=1-$modelJobs%$arrayBatch\n")
-  write(f,"#SBATCH --array=1-$modelJobs\n")
-  write(f,"srun sh model/model-job\$SLURM_ARRAY_TASK_ID.sh\n")
+if numNode == 1
+  open("bayesprot-model.sh","w") do f
+    write(f,"#!/bin/bash\n")
+    write(f,"#SBATCH -J Model\n")
+    write(f,"#SBATCH --export=all\n")
+    write(f,"#SBATCH -o model/out/out-%A_TaskID_%a.out\n")
+    write(f,"#SBATCH -e model/error/error-%A_TaskID_%a.out\n")
+    write(f,"#SBATCH --mem=$himem\n")
+    write(f,"#SBATCH -p $longqueue\n")
+    write(f,"#SBATCH -N 1 \n")
+    write(f,"#SBATCH -c 14\n")
+    #write(f,"#SBATCH --array=1-$modelJobs%$arrayBatch\n")
+    write(f,"#SBATCH --array=1-$modelJobs\n")
+    write(f,"srun sh model/model-job\$SLURM_ARRAY_TASK_ID.sh\n")
+  end
+elseif numNode > 1
+  open("bayesprot-model.sh","w") do f
+    write(f,"#!/bin/bash\n")
+    write(f,"#SBATCH -J Model\n")
+    write(f,"#SBATCH --export=all\n")
+    write(f,"#SBATCH -o model/out/out-%A_TaskID_%a.out\n")
+    write(f,"#SBATCH -e model/error/error-%A_TaskID_%a.out\n")
+    write(f,"#SBATCH --mem=$himem\n")
+    write(f,"#SBATCH -p $longqueue\n")
+    write(f,"#SBATCH -N $numNode\n")
+    write(f,"#SBATCH -c 14\n")
+    write(f,"#SBATCH --ntasks-per-node=1\n")
+    write(f,"#SBATCH --array=1-$modelJobs:$numNode\n")
+    for i in 0:numNode-1
+      write(f,"srun sh model/model-job\$((SLURM_ARRAY_TASK_ID.sh+$i)) &\n")
+    end
+      write(f,"wait\n")
+  end
 end
 
 run(`chmod u+x bayesprot-model.sh`)
@@ -211,19 +252,39 @@ run(`chmod u+x bayesprot-plots-setup.sh`)
 #########################################
 # Plots
 #########################################
-open("bayesprot-plots.sh","w") do f
-  write(f,"#!/bin/bash\n")
-  write(f,"#SBATCH -J Plots\n")
-  write(f,"#SBATCH --export=all\n")
-  write(f,"#SBATCH -o plots/out/out-%A_TaskID_%a.out\n")
-  write(f,"#SBATCH -e plots/error/error-%A_TaskID_%a.out\n")
-  write(f,"#SBATCH --mem=$himem\n")
-  write(f,"#SBATCH -p $longqueue\n")
-  write(f,"#SBATCH -N 1 \n")
-  write(f,"#SBATCH -c 14\n")
-  #write(f,"#SBATCH --array=1-$plotsJobs%$arrayBatch\n")
-  write(f,"#SBATCH --array=1-$plotsJobs\n")
-  write(f,"srun sh plots/plots-job\$SLURM_ARRAY_TASK_ID.sh\n")
+if numNode == 1
+  open("bayesprot-plots.sh","w") do f
+    write(f,"#!/bin/bash\n")
+    write(f,"#SBATCH -J Plots\n")
+    write(f,"#SBATCH --export=all\n")
+    write(f,"#SBATCH -o plots/out/out-%A_TaskID_%a.out\n")
+    write(f,"#SBATCH -e plots/error/error-%A_TaskID_%a.out\n")
+    write(f,"#SBATCH --mem=$himem\n")
+    write(f,"#SBATCH -p $longqueue\n")
+    write(f,"#SBATCH -N 1 \n")
+    write(f,"#SBATCH -c 14\n")
+    #write(f,"#SBATCH --array=1-$plotsJobs%$arrayBatch\n")
+    write(f,"#SBATCH --array=1-$plotsJobs\n")
+    write(f,"srun sh plots/plots-job\$SLURM_ARRAY_TASK_ID.sh\n")
+  end
+elseif numNode > 1
+  open("bayesprot-plots.sh","w") do f
+    write(f,"#!/bin/bash\n")
+    write(f,"#SBATCH -J Plots\n")
+    write(f,"#SBATCH --export=all\n")
+    write(f,"#SBATCH -o plots/out/out-%A_TaskID_%a.out\n")
+    write(f,"#SBATCH -e plots/error/error-%A_TaskID_%a.out\n")
+    write(f,"#SBATCH --mem=$himem\n")
+    write(f,"#SBATCH -p $longqueue\n")
+    write(f,"#SBATCH -N $numNode \n")
+    write(f,"#SBATCH -c 14\n")
+    write(f,"#SBATCH --ntasks-per-node=1\n")
+    write(f,"#SBATCH --array=1-$plotsJobs:$numNode\n")
+    for i in 0:numNode-1
+      write(f,"srun sh plots/plots-job\$((SLURM_ARRAY_TASK_ID.sh+$i)) &\n")
+    end
+      write(f,"wait\n")
+  end
 end
 
 run(`chmod u+x bayesprot-plots.sh`)
