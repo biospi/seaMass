@@ -395,6 +395,9 @@ plots <- function(protein_id,design,nitt,nburnin,nchain,fc,tol,do_plots) {
   print(paste0(Sys.time()," [output() Processing protein ",protein_id,"]"))    
     
   files = list.files(path=paste0(protein_id),pattern=paste0("^[0-9]+\\.Rdata"))
+  if (length(files) < nchain){
+    error(paste0('Found less MCMC chains than expected. Expected:',nchain,' Found: ',length(files)))
+  }
   dics <- rep(NA,length(files))
   samps.Sol <- mcmc.list(mlply(files, function(f) {
     load(paste0(protein_id,"/",f))
