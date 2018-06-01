@@ -12,6 +12,13 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
   nchain <- as.integer(ifelse("norm_nchain" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nchain"],10))
   files = list.files(path="results",pattern="^[0-9]+\\.[0-9]+\\.Rdata")
 
+  nProteins <- nrow(data.index)
+  nExpectedChains <- nProteins*nchain
+  if (length(files) < nExpectedChains){
+    error(paste0('Found less MCMC chains than expected. Expected: ',nExpectedChains,' Found:', length(files)))
+  }
+  
+
   library(MCMCglmm)
   library(plyr)
   library(reshape2)
