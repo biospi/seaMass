@@ -30,10 +30,10 @@ println(normSetupJobID)
 
 #########################################
 # Norm ***Array Job***
-#########################################
+##########################################
 srunReturn = readstring(`sbatch --dependency=afterok:$normSetupJobID bayesprot-norm.sh`)
 println("sbatch --dependency=afterok:$normSetupJobID bayesprot-norm.sh")
-normJobID = string(parse(Int,match(r"([\d.]*\d+)",srunReturn).match),"[]")
+normJobID = parse(Int,match(r"([\d.]*\d+)",srunReturn).match)
 println(normJobID)
 
 #########################################
@@ -48,7 +48,7 @@ println(exposuresSetupJobID)
 # Exposures
 #########################################
 srunReturn  = readstring(`sbatch --dependency=afterok:$exposuresSetupJobID bayesprot-exposures.sh`)
-rintln("sbatch --dependency=afterok:$exposuresSetupJobID bayesprot-exposures.sh")
+println("sbatch --dependency=afterok:$exposuresSetupJobID bayesprot-exposures.sh")
 exposuresJobID = parse(Int,match(r"([\d.]*\d+)",srunReturn).match)
 println(exposuresJobID)
 
@@ -65,7 +65,7 @@ println(modelSetupJobID)
 #########################################
 srunReturn = readstring(`sbatch --dependency=afterok:$modelSetupJobID bayesprot-model.sh`)
 println("sbatch --dependency=afterok:$modelSetupJobID bayesprot-model.sh")
-modelJobID = string(parse(Int,match(r"([\d.]*\d+)",srunReturn).match),"[]")
+modelJobID = parse(Int,match(r"([\d.]*\d+)",srunReturn).match)
 println(modelJobID)
 
 #########################################
@@ -81,7 +81,7 @@ println(plotsSetupJobID)
 #########################################
 srunReturn = readstring(`sbatch --dependency=afterok:$plotsSetupJobID bayesprot-plots.sh`)
 println("sbatch --dependency=afterok:$plotsSetupJobID bayesprot-plots.sh")
-plotsJobID = string(parse(Int,match(r"([\d.]*\d+)",srunReturn).match),"[]")
+plotsJobID = parse(Int,match(r"([\d.]*\d+)",srunReturn).match)
 println(plotsJobID)
 
 #########################################
