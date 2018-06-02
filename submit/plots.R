@@ -1,3 +1,5 @@
+stop("not updated for v1.1 yet")
+
 Sys.setlocale("LC_COLLATE","C")
 
 plot.conditions <- function(s.Sol, design, fc, filename) {

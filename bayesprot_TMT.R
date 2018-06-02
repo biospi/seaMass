@@ -1,10 +1,31 @@
+#!/usr/bin/Rscript
+
+invisible(Sys.setlocale("LC_COLLATE","C"))
+
+message("")
+message("BayesProt v1.1 (Thermo ProteomeDiscoverer import) | © 2015-2018 BIOSP👁  Laboratory")
+message("This program comes with ABSOLUTELY NO WARRANTY.")
+message("This is free software, and you are welcome to redistribute it under certain conditions.")
+message("")
+
+# check for required package
+suppressPackageStartupMessages(
+  readxl.installed <- require("data.table")
+)
+if (!readxl.installed) { 
+  install.packages("data.table",dependencies=T,repos="http://mirrors.ebi.ac.uk/CRAN/")
+  library(data.table)
+}
+
+stop("not updated for v1.1 yet")
+
 args <- commandArgs(T)
 script_dir <- dirname(strsplit(grep('^--file=',commandArgs(),value=T),'=')[[1]][2])
 
 suppressPackageStartupMessages(
   installed <- require("XLConnect")
 )
-if (!installed) { 
+if (!installed) {
   install.packages("XLConnect",repos="http://cran.fhcrc.org")
   library(XLConnect)
 }
@@ -23,7 +44,7 @@ Sys.setlocale("LC_COLLATE","C")
 # read bayesprot metadata
 message(paste0("reading: ",args[1],"..."))
 metadata <- loadWorkbook(args[1])
-parameters <- readWorksheet(metadata,1,header=F)  
+parameters <- readWorksheet(metadata,1,header=F)
 colnames(parameters) <- c("Key","Value")
 design <- readWorksheet(metadata,2)
 design$Run <- factor(design$Run)
@@ -33,83 +54,150 @@ design$Population <- factor(design$Population)
 design$Condition <- factor(design$Condition)
 design$Condition <- factor(sub('^[[:digit:]]+\\.','',design$Condition), levels=sub('^[[:digit:]]+\\.','',levels(design$Condition)))
 design$Channel <- factor(design$Channel)
-fractions <- readWorksheet(metadata,3)  
+fractions <- readWorksheet(metadata,3)
 fractions$Run <- factor(fractions$Run)
 fractions$Fraction <- factor(fractions$Fraction)
 
-# read ProteinPilot peptide summary
+### read ProteinPilot peptide summary
+
+# read ProteomeDiscoverer PSMs
+
 message(paste0("reading: ",args[2],"..."))
-data <- read.table(args[2],header=T,sep='\t',quote='',strip.white=T)
+data <- read.table(args[2],header=T,sep='\t',quote='"',comment.char='',strip.white=T,check.names=T)
 # we can only use those that ProteinPilot selects for its own quant
-data <- data[!is.na(data$Used),]
-data <- data[data$Used==1,]
+#data <- data[!is.na(data$Used),]
+#data <- data[data$Used==1,]
+
+data <- data[data$Peptide.Quan.Usage=="Use",]
+data <- data[data$Quan.Info=="Unique",]
+
 # filter out decoys
-data <- data[!grepl("^RRRRR.*",data$Accessions),]
+#data <- data[!grepl("^RRRRR.*",data$Accessions),]
 # sometimes there is more than one ID for a spectrum, just keep the most confident one
+
+#############
+#I can't see anything to indicate which spectrum a row is from and all results have "HIGH" confidence, can only assume all but most confident for each spectrum have already been discarded
+#############
+
 # in PP5 PrecusorSignal column changed to PrecursorIntensityAcquisition
-precursorSignal <- colnames(data)[colnames(data) %in% c("PrecursorSignal", "PrecursorIntensityAcquisition")]
-data <- data[order(data$Conf,data[,precursorSignal]),]  
-data <- data[!duplicated(data[,"Spectrum"]),]
+#precursorSignal <- colnames(data)[colnames(data) %in% c("PrecursorSignal", "PrecursorIntensityAcquisition")]
+#data <- data[order(data$Conf,data[,precursorSignal]),]
+#data <- data[!duplicated(data[,"Spectrum"]),]
+
+data$Spectrum <- seq.int(nrow(data))
+data$Spectrum <- factor(data$Spectrum)
+
+######################
+#Fractions have already been handled it seems
+######################
 # merge Fractions table
-data <- cbind(data, matrix(unlist(strsplit(as.character(data$Spectrum),'.',fixed=T)),ncol=5,byrow=T))
-data$Fraction <- as.integer(as.character(data[,"1"]))  
-fracs <- unique(data$Fraction)
-missing_fracs <- sort(fracs[!(fracs %in% fractions$Fraction)])
-if (length(missing_fracs) > 0)
-{
-  message("")
-  message(paste("WARNING: NO RUN SPECIFIED FOR FRACTIONS",paste(missing_fracs,collapse=", "),": FRACTIONS WILL BE DISCARDED"))    
-  message("")  
-}
-data <- merge(data, fractions, by="Fraction")
+#data <- cbind(data, matrix(unlist(strsplit(as.character(data$Spectrum),'.',fixed=T)),ncol=5,byrow=T))
+#data$Fraction <- as.integer(as.character(data[,"1"]))
+#fracs <- unique(data$Fraction)
+#missing_fracs <- sort(fracs[!(fracs %in% fractions$Fraction)])
+#if (length(missing_fracs) > 0)
+#{
+#  message("")
+#  message(paste("WARNING: NO RUN SPECIFIED FOR FRACTIONS",paste(missing_fracs,collapse=", "),": FRACTIONS WILL BE DISCARDED"))
+#  message("")
+#}
+#data <- merge(data, fractions, by="Fraction")
+#data$Fraction <- factor(data$Fraction)
+
+data$Fraction <- data$Spectrum.File
 data$Fraction <- factor(data$Fraction)
+data <- merge(data, fractions, by="Fraction")
+data$Run <- factor(data$Run)
+
+data <- data[,!(names(data) %in% c("Spectrum.File"))]
+
 # check Design table
-runchannels <- as.vector(sapply(levels(factor(design$Run)), function (r) paste(r,substring(grep("^Area\\.",colnames(data),value=T),6),sep='.')))
+#(?<=X)\d{3}N?
+#runchannels <- as.vector(sapply(levels(factor(design$Run)), function (r) paste(r,substring(grep("^Area\\.",colnames(data),value=T),6),sep='.')))
+
+runchannels <- as.vector(sapply(levels(factor(design$Run)), function (r) paste(r,substring(grep("[0-9]{3}N?",colnames(data),value=T),2),sep='.')))
+
+
 design_runchannels <- interaction(factor(design$Run),factor(design$Channel))
 missing_runchannels <- runchannels[!(runchannels %in% design_runchannels)]
 if (length(missing_runchannels) > 0)
 {
   message("")
-  message(paste0("WARNING: NO SAMPLE SPECIFIED FOR CHANNELS ",paste(missing_runchannels,collapse=", "),": CHANNELS WILL BE DISCARDED"))    
-  message("")  
+  message(paste0("WARNING: NO SAMPLE SPECIFIED FOR CHANNELS ",paste(missing_runchannels,collapse=", "),": CHANNELS WILL BE DISCARDED"))
+  message("")
 }
+
+##Create "N" parameter
+if (!"N" %in% colnames(data))
+{
+  data.tmp <- data[!duplicated(data[,"Master.Protein.Accessions"]),"Master.Protein.Accessions",drop=F]
+  data.tmp$N <- seq.int(nrow(data.tmp))
+
+  data<-merge(data,data.tmp, by = "Master.Protein.Accessions")
+}
+
+#Remove spectra with NA values
+channels <- levels(factor(design$Channel))
+isiTraq = "113" %in% channels
+mvars = c()
+if (isiTraq) {
+  mvars = c('Area.113', 'Area.114', 'Area.115', 'Area.116', 'Area.117','Area.118','Area.119','Area.121')
+} else {
+  mvars = sapply(channels, function(x){paste0("X",toString(x))})
+}
+
+data <- data[complete.cases(data[,mvars]),]
+
 
 # filter by min_spectra and min_peptides
 if("min_spectra" %in% parameters$Key)
 {
-  data$N <- factor(data$N)  
-  tb <- table(data$N)  
+  data$N <- factor(data$N)
+  tb <- table(data$N)
   data <- data[data$N %in% names(tb[tb>=as.integer(parameters$Value[parameters$Key=="min_spectra"])]),]
 }
-data$Peptide <- factor(paste0(data$Sequence,': ',data$Modifications,': ',data$Cleavages))
+
+#Build peptides
+if ("Cleavages" %in% colnames(data))
+{
+  data$Peptide <- factor(paste0(data$Sequence,': ',data$Modifications,': ', data$Cleavages))
+} else {
+  data$Peptide <- factor(paste0(data$Sequence,': ',data$Modifications))
+}
+
+
+#########################################################################
+
 if("min_peptides" %in% parameters$Key)
 {
   data.u <- data[!duplicated(data$Peptide),]
-  data.u$N <- factor(data.u$N)  
-  tb <- table(data.u$N)  
+  data.u$N <- factor(data.u$N)
+  tb <- table(data.u$N)
   data <- data[data$N %in% names(tb[tb>=as.integer(parameters$Value[parameters$Key=="min_peptides"])]),]
 }
-data$N <- factor(data$N)  
-tb <- table(data$N)  
+data$N <- factor(data$N)
+tb <- table(data$N)
 data$ProteinID <- factor(as.integer(factor(data$N, levels = names(tb[order(tb,decreasing=T)])))-1)
 
+charge <-colnames(data)[colnames(data) %in% c("Theor.z","Charge")]
 # filter by max_spectra_per_peptide
 if("max_spectra_per_peptide" %in% parameters$Key)
 {
-  precursorSignal <- colnames(data)[colnames(data) %in% c("PrecursorSignal", "PrecursorIntensityAcquisition")]
+  precursorSignal <- colnames(data)[colnames(data) %in% c("PrecursorSignal", "PrecursorIntensityAcquisition","Intensity")]
+  conf <-colnames(data)[colnames(data) %in% c("Conf","Confidence")]
   # order by ident confidence then precursor signal
-  data <- data[order(-data$Conf,-data[,precursorSignal]),] 
+  data <- data[order(-data[,conf],-data[,precursorSignal]),]
   # now order so that each protein/peptide/run/fraction/charge state will be represented
-  data$split <- factor(paste(data$ProteinID, data$Peptide, data$Run, data$Fraction, data$Theor.z, sep=":"))
+  data$split <- factor(paste(data$ProteinID, data$Peptide, data$Run, data$Fraction, data[,charge], sep=":"))
   data$priority <- ave(seq_along(data$split), data$split, FUN=seq_along)
   data <- data[order(data$priority),]
   # select top n per peptide
   data$split <- factor(paste(data$ProteinID, data$Peptide, data$Run,sep=":"))
   data$priority2 <- ave(seq_along(data$split), data$split, FUN=seq_along)
   data <- data[data$priority2 <= as.integer(parameters$Value[parameters$Key=="max_spectra_per_peptide"]),]
-  data <- data[order(data$ProteinID, data$Peptide, data$Run, data$Fraction, data$Theor.z),]
+  data <- data[order(data$ProteinID, data$Peptide, data$Run, data$Fraction, data$Charge),]
 }
-data <- data[order(data$ProteinID, data$Peptide, data$Run, data$Fraction, data$Theor.z),]
+data <- data[order(data$ProteinID, data$Peptide, data$Run, data$Fraction, data[,charge]),]
 
 # build HPC submission zip
 id <- sub("[.][^.]*$", "", basename(args[1]), perl=T)
@@ -171,12 +259,11 @@ for (sub.filename in sub.filenames) {
     }
   } else if (grepl("output",sub.filename)) {
     if("email" %in% parameters$Key) {
-      writeLines(paste0("notify_user = ",parameters$Value[parameters$Key=="email"]),sub.file) 
+      writeLines(paste0("notify_user = ",parameters$Value[parameters$Key=="email"]),sub.file)
     }
-    writeLines("queue",sub.file)  
-  } else
-  {
-    writeLines("queue",sub.file)  
+    writeLines("queue",sub.file)
+  } else {
+    writeLines("queue",sub.file)
   }
   close(sub.file)
 }
@@ -186,5 +273,4 @@ setwd(file.path(wd,out_dir))
 zip("submit.zip","submit")
 unlink("submit",recursive=T)
 setwd(wd)
-message("")  
-
+message("")

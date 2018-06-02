@@ -1,37 +1,46 @@
-Sys.setlocale("LC_COLLATE","C")
+stop("not updated for v1.1 yet")
+
+invisible(Sys.setlocale("LC_COLLATE","C"))
 
 # FOR EXECUTING UNDER HPC
 if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
 {
-  print(paste(Sys.time(),"[Starting]"))
+  message(paste(Sys.time(),"[Starting]"))
   
-  load('index.Rdata')  
-  load('parameters.Rdata')  
-  load('design.Rdata')
-  nsamp <- as.integer(ifelse("norm_nsamp" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nsamp"],1000))
-  nchain <- as.integer(ifelse("norm_nchain" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nchain"],10))
-  files = list.files(path="results",pattern="^[0-9]+\\.[0-9]+\\.Rdata")
-
-  nProteins <- nrow(data.index)
-  nExpectedChains <- nProteins*nchain
-  if (length(files) < nExpectedChains){
-    error(paste0('Found less MCMC chains than expected. Expected: ',nExpectedChains,' Found:', length(files)))
-  }
-  
-
   library(MCMCglmm)
   library(plyr)
   library(reshape2)
   library(ggplot2)
   
+  prefix <- ifelse(file.exists("parameters.Rdata"),".",file.path("..","..","input"))
+  load(file.path(prefix,"parameters.Rdata"))
+  load(file.path(prefix,"design.Rdata"))
+  
+  nsamp <- as.integer(ifelse("norm_nsamp" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nsamp"],1000))
+  nchain <- as.integer(ifelse("norm_nchain" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nchain"],10))
+
+  prefix <- ifelse(file.exists("index.Rdata"),".",file.path("..","..","import","results"))
+  load(file.path(prefix,"index.Rdata"))
+  nProteins <- nrow(data.index)
+  nExpectedChains <- nProteins*nchain
+  
+  prefix <- "results"
+  files <- list.files(path=prefix,pattern="^[0-9]+\\.[0-9]+\\.Rdata")
+  if (length(files) < nExpectedChains) {
+    prefix <- file.path("..","..","norm","results")
+    files <- list.files(path=file.path("..","..","norm","results"),pattern="^[0-9]+\\.[0-9]+\\.Rdata")
+    
+    if (length(files) < nExpectedChains) stop(paste0('Found less MCMC chains than expected. Expected: ',nExpectedChains,' Found:', length(files)))
+  }
+  
   # read norm samples and calculate exposures (simple medians like protein pilot)
   samps <- mdply(levels(design$Run), function(r) {
     samps <- mdply(levels(design$Channel)[2:length(levels(design$Channel))], function(c) {
       runchannel <- paste0(r,c)
-      print(paste(Sys.time(),paste0("[Processing RunChannel ",runchannel,"]")))
+      message(paste(Sys.time(),paste0("[Processing RunChannel ",runchannel,"]")))
       samps <- matrix(NA, nrow(data.index), nsamp) 
       for (f in files) {
-        load(paste0("results/",f))
+        load(file.path(prefix,f))
         
         if (runchannel %in% colnames(samps.runchannels)) {
           protein_id <- as.integer(gsub("\\.[0-9]+\\.Rdata$","",f))
@@ -109,5 +118,5 @@ if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
   g <- g + geom_line(data=gaussians,aes(x=x,y=y),size=1/2,colour="black")
   ggsave("medians_gaussian.pdf", g, height=2*length(levels(samps$Channel)), width=6)
   
-  print(paste(Sys.time(),"[Finished]"))
+  message(paste(Sys.time(),"[Finished]"))
 }
