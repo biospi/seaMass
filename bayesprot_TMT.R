@@ -17,8 +17,6 @@ if (!readxl.installed) {
   library(data.table)
 }
 
-#stop("not updated for v1.1 yet")
-
 # arguments and script directory
 args <- commandArgs(T)
 script_dir <- dirname(strsplit(grep('^--file=',commandArgs(),value=T),'=')[[1]][2])

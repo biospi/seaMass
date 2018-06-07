@@ -19,9 +19,9 @@ if (!readxl.installed) {
 
 # arguments and script directory
 args <- commandArgs(T)
-args <- c("DigestSpikeIn_exploratory.xlsx", "20180420_AT_Full Bayes Spiking Experiment_PeptideSummary.txt")
+#args <- c("DigestSpikeIn_exploratory.xlsx", "20180420_AT_Full Bayes Spiking Experiment_PeptideSummary.txt")
 script_dir <- dirname(strsplit(grep('^--file=',commandArgs(),value=T),'=')[[1]][2])
-script_dir <- "/home/awd/Repositories/bayesprot"
+#script_dir <- "/home/awd/Repositories/bayesprot"
 
 # read ProteinPilot peptide summary
 message(paste0("reading: ",args[2],"..."))

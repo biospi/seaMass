@@ -7,9 +7,9 @@ library(MCMCglmm)
 library(methods)
 
 # BAYESPROT NORM MODEL
-norm <- function(dd, seed, chain, nitt, thin) { 
+norm <- function(dd, seed, nitt, thin) { 
   
-  set.seed(seed + chain)
+  set.seed(seed)
 
   # The norm model needs each Channel to be reported at least twice per Run. If not, need to
   # drop these runs
@@ -52,8 +52,9 @@ norm <- function(dd, seed, chain, nitt, thin) {
         random = ~ idh(Peptide):Digest,
         rcov = as.formula(ifelse(nS==1,"~units", "~idh(Spectrum):units")),
         family = 'poisson',
-        data=dd, prior=prior, nitt=nitt, burnin=0, thin=thin, verbose=T
+        data=dd, prior=prior, nitt=nitt, burnin=0, thin=thin, verbose=F
       ))
+      summary(model)
       
       # save samples for exposures.R
       if (nR==1) {
@@ -77,6 +78,9 @@ norm <- function(dd, seed, chain, nitt, thin) {
   samps.runchannels
 }
 
+options(max.print=99999)
+args <- commandArgs(T)
+#args <- c("99", "10", "10")
 
 # some tuning parameters (should come from parameters.Rdata with defaults given here)
 prefix <- ifelse(file.exists("parameters.Rdata"),".",file.path("..","..","input"))
@@ -84,12 +88,12 @@ load(file.path(prefix,"parameters.Rdata"))
 nitt <- as.integer(ifelse("norm_nitt" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nitt"],13000))
 nburnin <- as.integer(ifelse("norm_nburnin" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nburnin"],3000))
 nsamp <- as.integer(ifelse("norm_nsamp" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nsamp"],1000))
-seed <- ifelse("random_seed" %in% parameters$Key,as.integer(parameters$Value[parameters$Key=="random_seed"]),0)
+random_seed <- ifelse("random_seed" %in% parameters$Key,as.integer(parameters$Value[parameters$Key=="random_seed"]),0)
 
 # which batch and chain are we processing?
-batch <- as.integer(commandArgs(T)[2])
-chain <- as.integer(commandArgs(T)[3])
-nchain <- as.integer(commandArgs(T)[4])
+batch <- as.integer(args[1])
+chain <- as.integer(args[2])
+nchain <- as.integer(args[3])
 
 # load batch
 prefix <- ifelse(file.exists(paste0(batch,".Rdata")),".",file.path("..","..","input"))
@@ -100,7 +104,11 @@ samps.runchannels <- vector("list", length(dds))
 names(samps.runchannels) <- names(dds)
 for (i in names(dds)) {
   message(paste(Sys.time(),paste0("[Processing job ",i,"]")))
-  samps.runchannels[[i]] <- norm(dds[[i]],seed,chain,nitt,ceiling((nitt-nburnin)*nchain/nsamp))
+  
+  dd <- dds[[i]]
+  seed <- random_seed + chain
+  thin <- ceiling((nitt-nburnin)*nchain/nsamp)
+  samps.runchannels[[i]] <- norm(dd,seed,nitt,thin)
 }
 save(samps.runchannels, file=paste0(batch,".",chain,".Rdata"))
 
