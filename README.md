@@ -75,7 +75,7 @@ Pilot data, the fraction number should be used. For Proteome Discoverer TMT
 data, values from the "Spectrum File" column of *PSMs.txt should be used.
 
 
-####Protein Pilot
+#### Protein Pilot
 Fraction | Run
 ---------|-----
 1        |  A 
@@ -85,7 +85,7 @@ Fraction | Run
 5        |  B 
 6        |  B  
 
-####Proteome Discoverer
+#### Proteome Discoverer
 Fraction | Run
 ---------|-----
 file1.raw|  A 
