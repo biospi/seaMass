@@ -146,7 +146,7 @@ save(parameters,file=file.path(out_dir,"submit","input","parameters.Rdata"))
 save(design,file=file.path(out_dir,"submit","input","design.Rdata"))
 
 # this is where the SLURM/PBS scripts should be generated 
-nbatch <- as.integer(ifelse("nbatch" %in% parameters$Key,parameters$Value[parameters$Key=="nbatch"],100))
+nbatch <- as.integer(ifelse("nbatch" %in% parameters$Key,parameters$Value[parameters$Key=="nbatch"],12))
 norm_nchain <- as.integer(ifelse("norm_nchain" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nchain"],10))
 model_nchain <- as.integer(ifelse("model_nchain" %in% parameters$Key,parameters$Value[parameters$Key=="model_nchain"],100))
 # Norm: 'Rscript norm.R <batch> <norm_chain> <norm_nchain>' where <batch> is from 0 to nbatch-1 and <norm_chain> is from 0 to norm_nchain-1 
