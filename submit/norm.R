@@ -3,7 +3,7 @@ invisible(Sys.setlocale("LC_COLLATE","C"))
 message(paste(Sys.time(),"[Starting]"))
 
 library(data.table)
-library(MCMCglmm)
+suppressMessages(library(MCMCglmm))
 library(methods)
 
 # BAYESPROT NORM MODEL
@@ -101,6 +101,7 @@ load(file.path(prefix,paste0(batch,".Rdata")))
 
 # run norm model!
 samps.runchannels <- vector("list", length(dds))
+timings <- vector("list", length(dds))
 names(samps.runchannels) <- names(dds)
 for (i in names(dds)) {
   message(paste(Sys.time(),paste0("[Processing job ",i,"]")))
@@ -108,8 +109,8 @@ for (i in names(dds)) {
   dd <- dds[[i]]
   seed <- random_seed + chain
   thin <- ceiling((nitt-nburnin)*nchain/nsamp)
-  samps.runchannels[[i]] <- norm(dd,seed,nitt,thin)
+  timings[[i]] <- system.time(samps.runchannels[[i]] <- norm(dd,seed,nitt,thin))
 }
-save(samps.runchannels, file=paste0(batch,".",chain,".Rdata"))
+save(samps.runchannels, timings, file=paste0(batch,".",chain,".Rdata"))
 
 message(paste(Sys.time(),"[Finished]"))
