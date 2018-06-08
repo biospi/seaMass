@@ -1,6 +1,6 @@
 invisible(Sys.setlocale("LC_COLLATE","C"))
 
-message(paste(Sys.time(),"[Starting]"))
+message(paste0("[",Sys.time(), " Starting]"))
 
 library(data.table)
 suppressMessages(library(MCMCglmm))
@@ -19,7 +19,7 @@ norm <- function(dd, seed, nitt, thin) {
   
   if (nrow(dd) == 0) {
     
-    samps.runchannels = data.table()
+    samples = data.table()
     
   } else {
     
@@ -54,28 +54,29 @@ norm <- function(dd, seed, nitt, thin) {
         family = 'poisson',
         data=dd, prior=prior, nitt=nitt, burnin=0, thin=thin, verbose=F
       ))
-      summary(model)
+      print(summary(model))
+      message("")
       
       # save samples for exposures.R
       if (nR==1) {
         runchannels <- colnames(model$Sol) %in% c(sapply(levels(dd$Run), function(x) paste0('Channel', levels(dd$Channel))))
-        samps.runchannels <- model$Sol[,runchannels,drop=F]
-        colnames(samps.runchannels) <- paste0(dd$Run[1], sub('Channel', '', colnames(samps.runchannels)))
+        samples <- model$Sol[,runchannels,drop=F]
+        colnames(samples) <- paste0(dd$Run[1], sub('Channel', '', colnames(samples)))
       } else {
         runchannels <- colnames(model$Sol) %in% c(sapply(levels(dd$Run), function(x) paste0('Run', x, ':Channel', levels(dd$Channel))))
-        samps.runchannels <- model$Sol[,runchannels,drop=F]
-        colnames(samps.runchannels) <- sub('^Run', '', colnames(samps.runchannels))  
-        colnames(samps.runchannels) <- sub(':Channel', '', colnames(samps.runchannels))  
+        samples <- model$Sol[,runchannels,drop=F]
+        colnames(samples) <- sub('^Run', '', colnames(samples))  
+        colnames(samples) <- sub(':Channel', '', colnames(samples))  
       } 
       
     } else {
       
-      samps.runchannels = data.table()
+      samples = data.table()
       
     }
   }
   
-  samps.runchannels
+  samples
 }
 
 options(max.print=99999)
@@ -85,32 +86,32 @@ args <- commandArgs(T)
 # some tuning parameters (should come from parameters.Rdata with defaults given here)
 prefix <- ifelse(file.exists("parameters.Rdata"),".",file.path("..","..","input"))
 load(file.path(prefix,"parameters.Rdata"))
-nitt <- as.integer(ifelse("norm_nitt" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nitt"],13000))
-nburnin <- as.integer(ifelse("norm_nburnin" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nburnin"],3000))
-nsamp <- as.integer(ifelse("norm_nsamp" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nsamp"],1000))
+nitt <- as.integer(ifelse("norm_iterations" %in% parameters$Key,parameters$Value[parameters$Key=="norm_iterations"],13000))
+nburnin <- as.integer(ifelse("norm_warmup" %in% parameters$Key,parameters$Value[parameters$Key=="norm_warmup"],3000))
+nsamp <- as.integer(ifelse("norm_samples" %in% parameters$Key,parameters$Value[parameters$Key=="norm_samples"],1000))
+nchain <- as.integer(ifelse("norm_chains" %in% parameters$Key,parameters$Value[parameters$Key=="norm_chains"],10))
 random_seed <- ifelse("random_seed" %in% parameters$Key,as.integer(parameters$Value[parameters$Key=="random_seed"]),0)
 
 # which batch and chain are we processing?
 batch <- as.integer(args[1])
 chain <- as.integer(args[2])
-nchain <- as.integer(args[3])
 
 # load batch
 prefix <- ifelse(file.exists(paste0(batch,".Rdata")),".",file.path("..","..","input"))
 load(file.path(prefix,paste0(batch,".Rdata")))
 
 # run norm model!
-samps.runchannels <- vector("list", length(dds))
-timings <- vector("list", length(dds))
-names(samps.runchannels) <- names(dds)
+samples <- vector("list", length(dds))
+time <- vector("list", length(dds))
+names(samples) <- names(dds)
 for (i in names(dds)) {
-  message(paste(Sys.time(),paste0("[Processing job ",i,"]")))
+  message(paste0("[",Sys.time(),paste0(" Processing job ",i,"...]")))
   
   dd <- dds[[i]]
   seed <- random_seed + chain
   thin <- ceiling((nitt-nburnin)*nchain/nsamp)
-  timings[[i]] <- system.time(samps.runchannels[[i]] <- norm(dd,seed,nitt,thin))
+  time[[i]] <- system.time(samples[[i]] <- norm(dd,seed,nitt,thin))
 }
-save(samps.runchannels, timings, file=paste0(batch,".",chain,".Rdata"))
+save(samples, time, file=paste0(batch,".",chain,".Rdata"))
 
-message(paste(Sys.time(),"[Finished]"))
+message(paste0("[",Sys.time()," Finished]"))

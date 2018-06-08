@@ -93,14 +93,14 @@ dd <- dd[order(dd$ProteinID, dd$Peptide, dd$Run, dd$Fraction, dd$Charge),]
 setkey(dd, ProteinID)
 
 # split and save data in batches of proteins for norm.R and model.R
-nbatch <- as.integer(ifelse("nbatch" %in% parameters$Key,parameters$Value[parameters$Key=="nbatch"],100))
-ids <- split(freq$ProteinID, freq$ProteinID %% nbatch)
+batches <- as.integer(ifelse("batches" %in% parameters$Key,parameters$Value[parameters$Key=="batches"],100))
+ids <- split(freq$ProteinID, freq$ProteinID %% batches)
 
 dd.index <- vector("list", length(ids))
 names(dd.index) <- names(ids)
 
 for (i in names(ids)) {
-  message(paste0("batching proteins: ",as.numeric(i)+1,"/",nbatch,"..."))
+  message(paste0("batching proteins: ",as.numeric(i)+1,"/",batches,"..."))
   
   dds <- vector("list", length(ids[[i]]))
   names(dds) <- as.character(ids[[i]])
@@ -140,18 +140,17 @@ for (i in names(ids)) {
 # save metadata
 dd.index <- rbindlist(dd.index)
 levels(dd.index$ProteinID) <- levels(dd$ProteinID)
-dd.index <- dd.index[order(dd.index$ProteinID),]
+dd.index <- dd.index[order(as.integer(dd.index$ProteinID)),]
 save(dd.index,file=file.path(out_dir,"submit","input","index.Rdata"))
 save(parameters,file=file.path(out_dir,"submit","input","parameters.Rdata"))
 save(design,file=file.path(out_dir,"submit","input","design.Rdata"))
 
 # this is where the SLURM/PBS scripts should be generated 
-nbatch <- as.integer(ifelse("nbatch" %in% parameters$Key,parameters$Value[parameters$Key=="nbatch"],12))
-norm_nchain <- as.integer(ifelse("norm_nchain" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nchain"],10))
-model_nchain <- as.integer(ifelse("model_nchain" %in% parameters$Key,parameters$Value[parameters$Key=="model_nchain"],100))
-# Norm: 'Rscript norm.R <batch> <norm_chain> <norm_nchain>' where <batch> is from 0 to nbatch-1 and <norm_chain> is from 0 to norm_nchain-1 
-# Model: 'Rscript nmodel.R <batch> <model_chain> <model_nchain>' where <batch> is from 0 to nbatch-1 and <model_chain> is from 0 to model_nchain-1 
-# Plots: 'Rscript plots.R <batch>' where <batch> is from 0 to nbatch-1
+norm_chains <- as.integer(ifelse("norm_chains" %in% parameters$Key,parameters$Value[parameters$Key=="norm_chains"],10))
+model_chains <- as.integer(ifelse("model_chains" %in% parameters$Key,parameters$Value[parameters$Key=="model_chains"],100))
+# Norm: 'Rscript norm.R <batch> <norm_chain> <norm_chains>' where <batch> is from 0 to batches-1 and <norm_chain> is from 0 to norm_chaines-1 
+# Model: 'Rscript nmodel.R <batch> <model_chain> <model_chains>' where <batch> is from 0 to batches-1 and <model_chain> is from 0 to model_chains-1 
+# Plots: 'Rscript plots.R <batch>' where <batch> is from 0 to batches-1
 # Output: 'Rscript output.R'
 
 # create zip file and clean up
