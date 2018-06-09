@@ -46,34 +46,34 @@ if (length(missing_runchannels) > 0)
 # filter by min_spectra
 if("min_spectra" %in% parameters$Key)
 {
-  dd$N <- factor(dd$N)  
-  tb <- table(dd$N)  
-  dd <- dd[dd$N %in% names(tb[tb>=as.integer(parameters$Value[parameters$Key=="min_spectra"])]),]
+  min_spectra <- as.integer(parameters$Value[parameters$Key=="min_spectra"])
+  
+  freq <- dd[, .(count=.N), by=ForeignKey]
+  dd <- dd[dd$ForeignKey %in% freq$ForeignKey[freq$count>=min_spectra],]
 }
 
 # filter by min_peptides
-#if("min_peptides" %in% parameters$Key)
-#{
-#  dd.u <- dd[!duplicated(dd$Peptide),]
-#  dd.u$N <- factor(dd.u$N)  
-#  tb <- table(dd.u$N)  
-#  dd <- dd[dd$N %in% names(tb[tb>=as.integer(parameters$Value[parameters$Key=="min_peptides"])]),]
-#}
-
-# filter by max_spectra_per_peptide (todo: maybe quicker data.table way)
-if("max_spectra_per_peptide" %in% parameters$Key)
+if("min_peptides" %in% parameters$Key)
 {
+  min_peptides <- as.integer(parameters$Value[parameters$Key=="min_peptides"])
+  
+  freq <- dd[, .(count=length(levels(factor(Peptide)))), by=ForeignKey]
+  dd <- dd[dd$ForeignKey %in% freq$ForeignKey[freq$count>=min_peptides],]
+}
+
+# filter by max_spectra_per_peptide_per_run
+if("max_spectra_per_peptide_per_run" %in% parameters$Key)
+{
+  max_spectra_per_peptide_per_run <- as.integer(parameters$Value[parameters$Key=="max_spectra_per_peptide_per_run"])
+  
   # order by ident confidence then precursor signal
-  dd <- dd[order(-dd$Conf,-dd$PrecursorCount)] 
-  # now order so that each protein/peptide/run/fraction/charge state will be represented
-  dd$split <- paste(dd$ProteinID, dd$Peptide, dd$Run, dd$Fraction, dd$Charge, sep=":")
-  dd$priority <- ave(seq_along(dd$split), dd$split, FUN=seq_along)
-  dd <- dd[order(dd$priority),]
-  # select top n per peptide
-  dd$split <- paste(dd$N, dd$Peptide, dd$Run,sep=":")
-  dd$priority2 <- ave(seq_along(dd$split), dd$split, FUN=seq_along)
-  dd <- dd[dd$priority2 <= as.integer(parameters$Value[parameters$Key=="max_spectra_per_peptide"]),]
-  dd <- dd[, !c("split","priority","priority2"),with=F]
+  dd <- dd[order(-dd$Conf,-dd$PrecursorCount),] 
+  # prioritise spectra within ForeignKey:Peptide:Run:Fraction:Charge subgroups
+  dd[, priority := seq_len(.N), by = list(ForeignKey, Peptide, Run, Fraction, Charge)]
+  dd <- dd[order(priority),]
+  # now select max_spectra_per_peptide_per_run from each ForeignKey:Peptide:Run subgroup (this is somewhat slow)
+  dd <- dd[, .SD[1:max_spectra_per_peptide_per_run], by = list(ForeignKey, Peptide, Run)]
+  dd[, priority := NULL]
 }
 
 # build HPC submission zip
@@ -85,10 +85,10 @@ invisible(file.copy(file.path(script_dir,"submit"),out_dir,recursive=T))
 parameters <- rbind(parameters, data.table(Key="id", Value=id))
 
 # add our ProteinID to dd
-freq <- dd[, .(count=.N), by=N]
+freq <- dd[, .(count=.N), by=ForeignKey]
 freq <- freq[order(-count),]
 freq$ProteinID <- 0:(nrow(freq)-1)
-dd <- merge(freq[,c("ProteinID","N")], dd, by="N")
+dd <- merge(freq[,c("ProteinID","ForeignKey")], dd, by="ForeignKey")
 dd <- dd[order(dd$ProteinID, dd$Peptide, dd$Run, dd$Fraction, dd$Charge),]
 setkey(dd, ProteinID)
 
@@ -116,19 +116,29 @@ for (i in names(ids)) {
     dds[[idc]] <- melt(dds[[idc]], variable.name='Channel', value.name='Count', measure.vars=channels)
     levels(dds[[idc]]$Channel) <- substring(levels(dds[[idc]]$Channel), 9)
     dds[[idc]] <- merge(design,dds[[idc]],by=c('Run','Channel'),sort=F)
+    
+    # now convert to factors
     dds[[idc]]$Run <- factor(dds[[idc]]$Run)
+    dds[[idc]]$Channel <- factor(dds[[idc]]$Channel)
+    dds[[idc]]$Sample <- factor(dds[[idc]]$Sample)
+    dds[[idc]]$Digest <- factor(dds[[idc]]$Digest)
+    dds[[idc]]$Population <- factor(dds[[idc]]$Population)
+    dds[[idc]]$Condition <- factor(dds[[idc]]$Condition)
+    dds[[idc]]$ForeignKey <- factor(dds[[idc]]$ForeignKey)
     dds[[idc]]$ProteinID <- factor(dds[[idc]]$ProteinID)
     dds[[idc]]$Peptide <- factor(dds[[idc]]$Peptide)
+    dds[[idc]]$Fraction <- factor(dds[[idc]]$Fraction)
+    dds[[idc]]$Protein <- factor(dds[[idc]]$Protein)
     dds[[idc]]$Spectrum <- factor(dds[[idc]]$Spectrum)
     
     # extract metadata for output csv
     metas[[idc]] <- data.table(
-      N=dds[[idc]]$N[1],
+      ForeignKey=dds[[idc]]$ForeignKey[1],
       Protein=dds[[idc]]$Protein[1],
       Peptides=length(levels(factor(dds[[idc]]$Peptide))),
       Spectra=length(levels(factor(dds[[idc]]$Spectrum))),
-      MinConf=ifelse(!is.factor(dds[[idc]]$Confidence),min(dds[[idc]]$Confidence),dds[[idc]]$Confidence[1]),
-      MinPrecursorCount=min(dds[[idc]]$PrecursorCount)
+      MeanConfidence=ifelse(!is.factor(dds[[idc]]$Confidence),mean(dds[[idc]]$Confidence),dds[[idc]]$Confidence[1]),
+      MeanPrecursorCount=mean(dds[[idc]]$PrecursorCount)
     )
   }
   

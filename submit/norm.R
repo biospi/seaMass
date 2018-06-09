@@ -25,20 +25,22 @@ norm <- function(dd, seed, nitt, thin) {
     
     # some runs, conditions or samples might not be represented for this protein. remove these
     # levels with zero values otherwise MCMCglmm breaks
-    dd$Run <- factor(dd$Run)
-    dd$Digest <- factor(dd$Digest)
-    dd$Spectrum <- factor(dd$Spectrum)
-    dd$Peptide <- factor(dd$Peptide)
-    dd$RunChannel <- factor(dd$RunChannel)
-    dd$Count <- round(dd$Count)
-    
+    dd.norm <- data.table(
+      Run = factor(dd$Run),
+      Channel = factor(dd$Channel),
+      Digest = factor(dd$Digest),
+      Spectrum = factor(dd$Spectrum),
+      Peptide = factor(dd$Peptide),
+      Count = round(dd$Count)
+    )
+
     # number of factor levels
-    nP <- length(levels(dd$Peptide))
-    nS <- length(levels(dd$Spectrum))  
-    nR <- length(levels(dd$Run))
-    nD <- length(levels(dd$Digest))
+    nP <- length(levels(dd.norm$Peptide))
+    nS <- length(levels(dd.norm$Spectrum))  
+    nR <- length(levels(dd.norm$Run))
+    nD <- length(levels(dd.norm$Digest))
     
-    if (nR > 1) dd$Channel <- factor(dd$Channel,levels=rev(levels(dd$Channel)))  
+    if (nR > 1) dd.norm$Channel <- factor(dd.norm$Channel,levels=rev(levels(dd.norm$Channel)))  
 
     if (nP > 1) {
       
@@ -52,18 +54,18 @@ norm <- function(dd, seed, nitt, thin) {
         random = ~ idh(Peptide):Digest,
         rcov = as.formula(ifelse(nS==1,"~units", "~idh(Spectrum):units")),
         family = 'poisson',
-        data=dd, prior=prior, nitt=nitt, burnin=0, thin=thin, verbose=F
+        data=dd.norm, prior=prior, nitt=nitt, burnin=0, thin=thin, verbose=F
       ))
       print(summary(model))
       message("")
       
       # save samples for exposures.R
       if (nR==1) {
-        runchannels <- colnames(model$Sol) %in% c(sapply(levels(dd$Run), function(x) paste0('Channel', levels(dd$Channel))))
+        runchannels <- colnames(model$Sol) %in% c(sapply(levels(dd.norm$Run), function(x) paste0('Channel', levels(dd.norm$Channel))))
         samples <- model$Sol[,runchannels,drop=F]
-        colnames(samples) <- paste0(dd$Run[1], sub('Channel', '', colnames(samples)))
+        colnames(samples) <- paste0(dd.norm$Run[1], sub('Channel', '', colnames(samples)))
       } else {
-        runchannels <- colnames(model$Sol) %in% c(sapply(levels(dd$Run), function(x) paste0('Run', x, ':Channel', levels(dd$Channel))))
+        runchannels <- colnames(model$Sol) %in% c(sapply(levels(dd.norm$Run), function(x) paste0('Run', x, ':Channel', levels(dd.norm$Channel))))
         samples <- model$Sol[,runchannels,drop=F]
         colnames(samples) <- sub('^Run', '', colnames(samples))  
         colnames(samples) <- sub(':Channel', '', colnames(samples))  
@@ -81,7 +83,7 @@ norm <- function(dd, seed, nitt, thin) {
 
 options(max.print=99999)
 args <- commandArgs(T)
-#args <- c("99", "0")
+#args <- c("0", "0")
 
 # some tuning parameters (should come from parameters.Rdata with defaults given here)
 prefix <- ifelse(file.exists("parameters.Rdata"),".",file.path("..","..","input"))
@@ -105,7 +107,7 @@ samples <- vector("list", length(dds))
 time <- vector("list", length(dds))
 names(samples) <- names(dds)
 for (i in names(dds)) {
-  message(paste0("[",Sys.time(),paste0(" Processing job ",i,"...]")))
+  message(paste0("[",Sys.time(),paste0(" Processing ProteinID ",i,"...]")))
   
   dd <- dds[[i]]
   seed <- random_seed + chain
