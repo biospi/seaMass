@@ -48,7 +48,7 @@ println(exposuresSetupJobID)
 # Exposures
 #########################################
 srunReturn  = readstring(`sbatch --dependency=afterok:$exposuresSetupJobID bayesprot-exposures.sh`)
-rintln("sbatch --dependency=afterok:$exposuresSetupJobID bayesprot-exposures.sh")
+println("sbatch --dependency=afterok:$exposuresSetupJobID bayesprot-exposures.sh")
 exposuresJobID = parse(Int,match(r"([\d.]*\d+)",srunReturn).match)
 println(exposuresJobID)
 
