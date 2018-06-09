@@ -91,14 +91,14 @@ model <- function(dd,seed,nitt,thin,design,exposures.meta,use_exposure_sd) {
 
 options(max.print=99999)
 args <- commandArgs(T)
-args <- c("99", "0")
+#args <- c("99", "0")
 
 # some tuning parameters (should come from parameters.Rdata with defaults given here)
 prefix <- ifelse(file.exists("parameters.Rdata"),".",file.path("..","..","input"))
 load(file.path(prefix,"parameters.Rdata"))
 nitt <- as.integer(ifelse("model_iterations" %in% parameters$Key,parameters$Value[parameters$Key=="model_iterations"],13000))
 nburnin <- as.integer(ifelse("model_warmup" %in% parameters$Key,parameters$Value[parameters$Key=="model_warmup"],3000))
-nsamp <- as.integer(ifelse("model_samples" %in% parameters$Key,parameters$Value[parameters$Key=="model_samples"],1000))
+nsamp <- as.integer(ifelse("model_samples" %in% parameters$Key,parameters$Value[parameters$Key=="model_samples"],10000))
 nchain <- as.integer(ifelse("model_chains" %in% parameters$Key,parameters$Value[parameters$Key=="model_chains"],100))
 random_seed <- ifelse("random_seed" %in% parameters$Key,as.integer(parameters$Value[parameters$Key=="random_seed"]),0)
 use_exposure_sd <- as.integer(ifelse("use_exposure_sd" %in% parameters$Key,ifelse(parameters$Value[parameters$Key=="use_exposure_sd"]>0,1,0),1))  

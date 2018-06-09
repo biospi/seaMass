@@ -72,12 +72,12 @@ exposures.plot$Channel <- design$Channel
 exposures.plot <- melt(exposures.plot,variable.name="sample",value.name="Exposure",id.vars=c("Run","Channel"))
 exposures.plot$Exposure <- exposures.plot$Exposure / log(2)
 
-# contruct mean-shifted exposures
-exposures.shifted.func <- function(x) {
+# contruct mean-centred exposures
+exposures.centred.func <- function(x) {
   x$Exposure <- x$Exposure - mean(x$Exposure)
   x
 }
-exposures.shifted <- exposures.plot[,as.list(exposures.shifted.func(.SD)), by=list(Run,sample)]
+exposures.centred <- exposures.plot[,as.list(exposures.centred.func(.SD)), by=list(Run,sample)]
 
 plot.exposures <- function(exposures)
 {
@@ -86,7 +86,7 @@ plot.exposures <- function(exposures)
     m <- mean(x,na.rm=T)
     if (is.nan(m)) m <- NA
     
-    data.table(mean=m, fc=paste0("  ", ifelse(m<0, format(-2^-m,digits=2), format(2^m,digits=3)),"fc"))
+    data.table(mean=m, fc=paste0("  ", ifelse(m<0, format(-2^-m,digits=3), format(2^m,digits=3)),"fc"))
   }
   exposures.meta <- exposures[,as.list(exposures.meta.func(Exposure)), by=list(Run,Channel)]
   
@@ -131,8 +131,8 @@ message("[",paste0(Sys.time()," Writing exposures.pdf...]"))
 g <- plot.exposures(exposures.plot)
 ggsave("exposures.pdf", g, width=4*length(levels(design$Run)), height=1*length(levels(design$Channel)))
 
-message("[",paste0(Sys.time()," Writing exposures_mean-shifted.pdf...]"))
-g <- plot.exposures(exposures.shifted)
-ggsave("exposures_mean-shifted.pdf", g, width=4*length(levels(design$Run)), height=1*length(levels(design$Channel)))
+message("[",paste0(Sys.time()," Writing exposures_mean-centred.pdf...]"))
+g <- plot.exposures(exposures.centred)
+ggsave("exposures_mean-centred.pdf", g, width=4*length(levels(design$Run)), height=1*length(levels(design$Channel)))
 
 message("[",paste0(Sys.time()," Finished]"))

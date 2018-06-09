@@ -19,7 +19,9 @@ if (!readxl.installed) {
 
 # arguments and script directory
 args <- commandArgs(T)
+#args <- c("60plex-samples_exploratory.xlsx", "serum proteomics 60plex 280617_PSMs2.txt")
 script_dir <- dirname(strsplit(grep('^--file=',commandArgs(),value=T),'=')[[1]][2])
+#script_dir <- "/home/awd/Repositories/bayesprot"
 
 # read ProteomeDiscoverer PSMs
 message(paste0("reading: ",args[2],"..."))
@@ -29,29 +31,24 @@ dd.raw <- fread(args[2], check.names=T)
 dd.raw <- dd.raw[dd.raw$Peptide.Quan.Usage=="Use",]
 dd.raw <- dd.raw[dd.raw$Quan.Info=="Unique",]
 
-precursorCount <- colnames(dd.raw)[colnames(dd.raw) %in% c("PrecursorSignal", "PrecursorIntensityAcquisition","Intensity")]
-conf <- colnames(dd.raw)[colnames(dd.raw) %in% c("Conf","Confidence")]
-dd.raw <- dd.raw[order(dd.raw[,get(conf)],dd.raw[,get(precursorCount)]),]
-
+# only use spectra with no missing data [TODO: reconsider]
 mvars <- colnames(dd.raw)[grepl("^X[0-9]+",colnames(dd.raw))]
 dd.raw <- dd.raw[complete.cases(dd.raw[,..mvars]),]
 
-#Create N parameter
-dd.tmp <- dd.raw[!duplicated(dd.raw[,"Master.Protein.Accessions"]),"Master.Protein.Accessions",drop=F]
-dd.tmp$N <- seq.int(nrow(dd.tmp))
-dd.raw <- merge(dd.raw,dd.tmp, by = "Master.Protein.Accessions") 
-
+# fractions are identified by "Spectrum.File"
 dd.raw$Spectrum <- seq.int(nrow(dd.raw))
-#Fractions are identified by "Spectrum.File"
 dd.raw$Fraction <- dd.raw$Spectrum.File
+
+# translate confidence to integer
+dd.raw$Confidence <- ifelse(dd.raw$Confidence=="High",75,50)
 
 # create standardised data.table (DO NOT CREATE FACTORS AT THIS STAGE, JUST MAKES SUBSETTING SLOW)
 dd <- data.table(
-  N = dd.raw$N,
-  Protein = paste0(dd.raw$Master.Protein.Accessions,': ',dd.raw$Protein.Descriptions),
+  ForeignKey = dd.raw$Master.Protein.Accessions,
+  Protein = paste0(dd.raw$Protein.Accessions,': ',dd.raw$Protein.Descriptions),
   Peptide = paste0(dd.raw$Sequence,': ',dd.raw$Modifications),
-  Confidence = dd.raw[,get(conf)],
-  PrecursorCount= dd.raw[,get(precursorCount)],
+  Confidence = dd.raw[,Confidence],
+  PrecursorCount= dd.raw[,Intensity],
   Mass = dd.raw$MH...Da.,
   Charge= dd.raw$Charge,
   RetentionTime = dd.raw$RT..min.,

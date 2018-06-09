@@ -19,7 +19,7 @@ if (!readxl.installed) {
 
 # arguments and script directory
 args <- commandArgs(T)
-#args <- c("DigestSpikeIn_exploratory.xlsx", "20180420_AT_Full Bayes Spiking Experiment_PeptideSummary.txt")
+#args <- c("DigestSpikeIn_comparison1.xlsx", "20180420_AT_Full Bayes Spiking Experiment_PeptideSummary.txt")
 script_dir <- dirname(strsplit(grep('^--file=',commandArgs(),value=T),'=')[[1]][2])
 #script_dir <- "/home/awd/Repositories/bayesprot"
 
@@ -33,7 +33,7 @@ dd.raw <- dd.raw[dd.raw$Used==1,]
 dd.raw <- dd.raw[!grepl("^RRRRR.*",dd.raw$Accessions),]
 # in PP5 PrecusorSignal column changed to PrecursorIntensityAcquisition
 precursorCount <- colnames(dd.raw)[colnames(dd.raw) %in% c("PrecursorSignal", "PrecursorIntensityAcquisition")]
-dd.raw <- dd.raw[order(dd.raw$Conf,dd.raw[,get(precursorCount)]),]  
+dd.raw <- dd.raw[order(-dd.raw$Conf,-dd.raw[,get(precursorCount)]),]  
 # sometimes there is more than one ID for a spectrum, just keep the most confident one
 dd.raw <- dd.raw[!duplicated(dd.raw[,"Spectrum"]),]
 # split spectrum to get at fraction
@@ -41,7 +41,7 @@ dd.raw <- cbind(dd.raw, matrix(unlist(strsplit(as.character(dd.raw$Spectrum),'.'
 
 # create standardised data.table (DO NOT CREATE FACTORS AT THIS STAGE, JUST MAKES SUBSETTING SLOW)
 dd <- data.table(
-  N=dd.raw$N,
+  ForeignKey=dd.raw$N,
   Protein=paste0(dd.raw$Accessions,': ',dd.raw$Names),
   Peptide=paste0(dd.raw$Sequence,': ',dd.raw$Modifications,': ',dd.raw$Cleavages),
   Confidence=dd.raw$Conf,
