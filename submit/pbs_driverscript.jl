@@ -139,7 +139,7 @@ end
 #exposuresJobID = parse(Int,match(r"([\d.]*\d+)",qsubReturn).match)
 run(`chmod u+x bayesprot-exposures.sh`)
 qsubReturn  = readstring(`qsub -W depend=afterany:$exposuresSetupJobID bayesprot-exposures.sh`)
-rintln("qsub -W depend=afterany:$exposuresSetupJobID bayesprot-exposures.sh")
+println("qsub -W depend=afterany:$exposuresSetupJobID bayesprot-exposures.sh")
 exposuresJobID = qsubReturn[1:end-1]
 println(exposuresJobID)
 
