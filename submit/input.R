@@ -93,7 +93,7 @@ dd <- dd[order(dd$ProteinID, dd$Peptide, dd$Run, dd$Fraction, dd$Charge),]
 setkey(dd, ProteinID)
 
 # split and save data in batches of proteins for norm.R and model.R
-batches <- as.integer(ifelse("batches" %in% parameters$Key,parameters$Value[parameters$Key=="batches"],12))
+batches <- as.integer(ifelse("batches" %in% parameters$Key,parameters$Value[parameters$Key=="batches"],10))
 ids <- split(freq$ProteinID, freq$ProteinID %% batches)
 
 dd.index <- vector("list", length(ids))
