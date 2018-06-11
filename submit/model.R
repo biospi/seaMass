@@ -18,7 +18,7 @@ model <- function(dd,seed,nitt,thin,design,exposures.meta,use_exposure_sd) {
   ee <- data.table(RunChannel=levels(dd$RunChannel))
   ee <- merge(ee,exposures.meta,all.x=T)
   if (use_exposure_sd == 0) ee$var <- 0.0
-  ee$var[ee$var==0.0] <- 1e-7
+  ee$var[ee$var==0.0] <- 1e-6
 
   # adjust for intended volume differences between runchannels
   ee.func <- function(x) {
