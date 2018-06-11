@@ -20,7 +20,7 @@ prefix <- "results"
 files <- list.files(path=prefix,pattern="^[0-9]+\\.[0-9]+\\.Rdata")
 if (length(files) < nbatch * nchain) {
   prefix <- file.path("..","..","norm","results")
-  files <- list.files(path=file.path("..","..","norm","results"),pattern="^[0-9]+\\.[0-9]+\\.Rdata")
+  files <- list.files(path=prefix,pattern="^[0-9]+\\.[0-9]+\\.Rdata")
   
   if (length(files) < nbatch * nchain) stop(paste0("ERROR: Missing norm input"))
 }

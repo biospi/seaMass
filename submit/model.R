@@ -134,6 +134,9 @@ samples.VCV <- vector("list", length(dds))
 dic <- vector("list", length(dds))
 time <- vector("list", length(dds))
 names(samples.Sol) <- names(dds)
+names(samples.VCV) <- names(dds)
+names(dic) <- names(dds)
+names(time) <- names(dds)
 for (i in names(dds)) {
   message(paste0("[",Sys.time(),paste0(" Processing job ",i,"...]")))
   
