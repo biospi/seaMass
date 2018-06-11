@@ -504,10 +504,6 @@ for (f in files) {
     names(proteins) <- names(samples.Sol)
     for (p in names(proteins)) proteins[[p]] <- vector("list", length(nchain))
   }
-  
-  dic <- dic[61:120]
-  samples.VCV <- samples.VCV[61:120]
-  time <- time[61:120]
 
   for (p in names(proteins)) {
     proteins[[p]][[chain+1]] <- list(dic=dic[[p]], time=time[[p]], samples.Sol=samples.Sol[[p]], samples.VCV=samples.VCV[[p]])
