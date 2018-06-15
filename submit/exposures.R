@@ -9,7 +9,7 @@ prefix <- ifelse(file.exists("parameters.Rdata"),".",file.path("..","..","input"
 load(file.path(prefix,"parameters.Rdata"))
 load(file.path(prefix,"design.Rdata"))
   
-nbatch <- as.integer(ifelse("batches" %in% parameters$Key,parameters$Value[parameters$Key=="batches"],100))
+nbatch <- as.integer(ifelse("batches" %in% parameters$Key,parameters$Value[parameters$Key=="batches"],10))
 nsamp <- as.integer(ifelse("norm_samples" %in% parameters$Key,parameters$Value[parameters$Key=="norm_samples"],1000))
 nchain <- as.integer(ifelse("norm_chains" %in% parameters$Key,parameters$Value[parameters$Key=="norm_chains"],10))
 
