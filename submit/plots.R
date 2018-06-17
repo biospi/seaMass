@@ -460,7 +460,7 @@ plots <- function(protein, design, nitt, nburnin, nchain, tol, do_plots) {
 }
 
 args <- commandArgs(T)
-#args <- c("99")
+#args <- c("3")
 
 # some tuning parameters (should come from parameters.Rdata with defaults given here)
 prefix <- ifelse(file.exists("parameters.Rdata"),".",file.path("..","..","input"))
@@ -472,23 +472,23 @@ nchain <- as.integer(ifelse("model_chains" %in% parameters$Key,parameters$Value[
 tol <- as.double(ifelse("model_tol" %in% parameters$Key,parameters$Value[parameters$Key=="model_tol"],0.0125))
 do_plots <- as.integer(ifelse("do_plots" %in% parameters$Key,parameters$Value[parameters$Key=="do_plots"],1))
 
-if(!dir.exists("stats")) {
-  dir.create("stats")
-  dir.create("samplestats")
-  dir.create("conditions")
-  dir.create("conditions_sd")
-  dir.create("samples")
-  dir.create("peptides")
-  dir.create("peptides_sd")
-  dir.create("digests_sd")
-}
+# if(!dir.exists("stats")) {
+#   dir.create("stats")
+#   dir.create("samplestats")
+#   dir.create("conditions")
+#   dir.create("conditions_sd")
+#   dir.create("samples")
+#   dir.create("peptides")
+#   dir.create("peptides_sd")
+#   dir.create("digests_sd")
+# }
 
 # get files for this batch
 prefix <- "results"
 files <- list.files(prefix,pattern=paste0("^",args[1],"\\.[0-9]+\\.Rdata"))
 if (length(files) < nchain) {
   prefix = file.path("..","..","model","results")
-  files <- list.files(path=prefix, pattern="^[0-9]+\\.[0-9]+\\.Rdata")
+  files <- list.files(prefix,pattern=paste0("^",args[1],"\\.[0-9]+\\.Rdata"))
   
   if (length(files) < nchain) stop(paste0("ERROR: Missing model input"))
 }
