@@ -4,6 +4,7 @@ message(paste0("[",Sys.time(), " Starting]"))
 
 library(data.table)
 library(ggplot2)
+library(ggfortify)
 library(coda)
 
 # some tuning parameters (should come from parameters.Rdata with defaults given here)
@@ -41,9 +42,11 @@ stats.conditions.all$ProteinID <- factor(stats.conditions.all$ProteinID)
 stats.conditions.all$Condition <- factor(stats.conditions.all$Condition)
 stats.conditions.all <- merge(dd.index, stats.conditions.all)
 
+# write stats.samples
 stats.samples.all <- stats.samples.all[order(as.numeric(as.character(stats.samples.all$ProteinID))),]
 fwrite(stats.samples.all, paste0(parameters$Value[parameters$Key=="id"],"_Samples.csv"))
 
+# write stats.conditions
 test_conditions <- levels(design$Condition)[levels(design$Condition) != tolower(levels(design$Condition))]
 test_conditions <- test_conditions[2:length(test_conditions)]
 for (con in levels(stats.conditions.all$Condition))
@@ -56,6 +59,26 @@ for (con in levels(stats.conditions.all$Condition))
   
   fwrite(out, paste0(parameters$Value[parameters$Key=="id"],"_Condition_", con, ".csv"))
 }
+
+# PCA plot
+quants.samples.x <- as.matrix(stats.samples.all[,grepl("\\.mean$", colnames(stats.samples.all)), with=F])
+samples <- gsub("\\.mean$", "", colnames(quants.samples.x))
+rownames(quants.samples.x) <- as.character(stats.samples.all$ProteinID)
+quants.samples.x <- as.data.table(t(na.omit(quants.samples.x)))
+rownames(quants.samples.x) <- samples
+
+quants.samples <- as.data.frame(quants.samples.x)
+quants.samples$Sample <- samples 
+quants.samples <- merge(quants.samples, design)
+rownames(quants.samples) <- quants.samples$Sample
+
+g <- autoplot(prcomp(quants.samples.x), data=quants.samples, label=T, colour="Condition")
+ggsave(paste0(parameters$Value[parameters$Key=="id"],"_PCA.pdf"), g, width=8, height=8)
+
+
+
+
+
 
 # samps <- mdply(files, .id=NULL, function(f) {
 #   load(paste0("stats/",f))
