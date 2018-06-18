@@ -377,17 +377,7 @@ library(mcgibbsit)
 #   }
 # }
 
-
-plots <- function(protein, design, nitt, nburnin, nchain, tol, do_plots) { 
-  
-  # mcgibbsit needs burnin and samples across all chains
-  iterations.Sol <- protein[[1]][["samples.Sol"]] 
-  
-  # merge samples for all chains
-  samples.Sol <- as.matrix(window(protein[[1]][["samples.Sol"]],nburnin+1,end(protein[[1]][["samples.Sol"]])))
-  samples.Sol <- samples.Sol/log(2) #transforming to log2
-  samples.VCV <- as.matrix(window(protein[[1]][["samples.VCV"]],nburnin+1,end(protein[[1]][["samples.VCV"]])))
-  samples.VCV <- samples.VCV/log(2) #transforming to log2
+calc.stats.conditions <- function(iterations.Sol, samples.Sol, design, nitt, nburnin, nchain, tol, modeltime, dic) { 
     
   # one-sided statistical tests, checking precision
   test_conditions <- levels(design$Condition)[levels(design$Condition) != tolower(levels(design$Condition))]
@@ -410,7 +400,7 @@ plots <- function(protein, design, nitt, nburnin, nchain, tol, do_plots) {
       )
       
       tests.func <- function(q) {
-        res <- mcgibbsit(samples,q,tol)
+        res <- mcgibbsit(iterations, q, tol)
         
         nitt_pred <- NA
         try(nitt_pred <- max(ceiling(res$resmatrix[,'Total'] / nchain),1), silent=T)
@@ -418,8 +408,8 @@ plots <- function(protein, design, nitt, nburnin, nchain, tol, do_plots) {
         try(nburnin_pred <- max(ceiling(res$resmatrix[,'M'] / nchain),1), silent=T)
         
         data.table(
-          time = protein[[1]][["time"]],
-          dic = protein[[1]][["dic"]],
+          ModelTime = modeltime,
+          DIC = dic,
           itt_pred = nitt_pred,
           itt_ok = ifelse(nitt>=nitt_pred,"Yes","No"),
           burnin_pred = nburnin_pred,
@@ -430,37 +420,55 @@ plots <- function(protein, design, nitt, nburnin, nchain, tol, do_plots) {
           localFDR = 1-q
         )
       }
-      qs <- qs[,as.list(tests.func(q))]
+      qs <- qs[,as.list(tests.func(q)), by=Test]
       
     } else {
       data.table()
     }
   }
+  
   stats <- stats[,as.list(stats.func(Condition)), by=Condition]
- 
-  
-  # if(do_plots) { 
-  #   # plots
-  #   print(paste0(Sys.time()," [plots() Plotting conditions for protein ",protein_id,"]"))    
-  #   plot.conditions(s.Sol, design, fc, paste0("conditions/",protein_id,".png"))
-  #   print(paste0(Sys.time()," [plots() Plotting conditions sd for protein ",protein_id,"]"))    
-  #   plot.conditions_sd(s.VCV, design, paste0("conditions_sd/",protein_id,".png"))
-  #   print(paste0(Sys.time()," [plots() Plotting samples for protein ",protein_id,"]"))    
-  #   ylim <- plot.samples(s.Sol, design, paste0("samples/",protein_id,".png"))
-  #   print(paste0(Sys.time()," [plots() Plotting peptides for protein ",protein_id,"]"))    
-  #   plot.peptides(s.Sol, design, paste0("peptides/",protein_id,".png"), ylim)
-  #   print(paste0(Sys.time()," [plots() Plotting peptides sd for protein ",protein_id,"]"))    
-  #   plot.peptides_sd(s.VCV, design, paste0("peptides_sd/",protein_id,".png"))
-  #   #print(paste0(Sys.time()," [plots() Plotting digests sd for protein ",protein_id,"]"))    
-  #   #plot.digests_sd(s.VCV, design, paste0("digests_sd/",protein_id,".png"))
-  # }
-  
-  # save stats, and samples for study-wide plots
-  # s.Sol <- s.Sol[,colnames(s.Sol) %in% paste0('Condition', test_conditions),drop=F]
 }
 
+
+calc.stats.samples <- function(s.Sol, design) {
+
+  samps.conditions <- s.Sol[,colnames(s.Sol) %in% paste0('Condition', levels(design$Condition)),drop=F]
+  samps.baseline <- data.table(x = rnorm(nrow(samps.conditions),1e-6,1e-6))
+  colnames(samps.baseline)[1] <- paste0('Condition',levels(design$Condition)[1])
+  samps.conditions <- cbind(samps.baseline, samps.conditions)
+  colnames(samps.conditions) <- sub('Condition', '', colnames(samps.conditions), fixed=T)
+
+  samples <- data.table(Sample=levels(design$Sample))
+  if (length(levels(design$Population))==1) {
+    samples$Name = paste0('Sample.', levels(design$Sample))
+  } else {
+    samples$Name <- sapply(samples$Sample, function(i) paste0('Population', design$Population[design$Sample==i][1], '.Sample.', i))
+  }
+  samps.samples <- s.Sol[seq(1,nrow(s.Sol),1),colnames(s.Sol) %in% samples$Name]
+  colnames(samps.samples) <- samples$Sample[match(colnames(samps.samples), samples$Name)]
+  samps.conditions <- samps.conditions[seq(1,nrow(s.Sol),1),]
+
+  # add Condition fixed effects to samples
+  samps.samples_plus_conditions <- samps.samples
+  for (i in colnames(samps.samples)) {
+    if (as.character(design$Condition[design$Sample==i][1]) %in% colnames(samps.conditions)) {
+      samps.samples_plus_conditions[,i] <- samps.samples_plus_conditions[,i] + samps.conditions[,get(as.character(design$Condition[design$Sample==i][1]))]
+    }
+  }
+  
+  stats.mean <-colMeans(samps.samples_plus_conditions)
+  names(stats.mean) <- paste0(names(stats.mean), ".mean")
+  
+  stats.sd <- sapply(1:ncol(samps.samples_plus_conditions), function(i) sd(samps.samples_plus_conditions[,i]))
+  names(stats.sd) <- paste0(names(stats.mean), ".sd")
+
+  as.data.table(t(c(stats.mean, stats.sd)))
+}
+
+
 args <- commandArgs(T)
-#args <- c("99")
+if (length(args) == 0) args <- c("3") # test case
 
 # some tuning parameters (should come from parameters.Rdata with defaults given here)
 prefix <- ifelse(file.exists("parameters.Rdata"),".",file.path("..","..","input"))
@@ -472,23 +480,21 @@ nchain <- as.integer(ifelse("model_chains" %in% parameters$Key,parameters$Value[
 tol <- as.double(ifelse("model_tol" %in% parameters$Key,parameters$Value[parameters$Key=="model_tol"],0.0125))
 do_plots <- as.integer(ifelse("do_plots" %in% parameters$Key,parameters$Value[parameters$Key=="do_plots"],1))
 
-if(!dir.exists("stats")) {
-  dir.create("stats")
-  dir.create("samplestats")
-  dir.create("conditions")
-  dir.create("conditions_sd")
-  dir.create("samples")
-  dir.create("peptides")
-  dir.create("peptides_sd")
-  dir.create("digests_sd")
-}
+# if(!dir.exists("stats")) {
+#   dir.create("conditions")
+#   dir.create("conditions_sd")
+#   dir.create("samples")
+#   dir.create("peptides")
+#   dir.create("peptides_sd")
+#   dir.create("digests_sd")
+# }
 
 # get files for this batch
 prefix <- "results"
 files <- list.files(prefix,pattern=paste0("^",args[1],"\\.[0-9]+\\.Rdata"))
 if (length(files) < nchain) {
   prefix = file.path("..","..","model","results")
-  files <- list.files(path=prefix, pattern="^[0-9]+\\.[0-9]+\\.Rdata")
+  files <- list.files(prefix,pattern=paste0("^",args[1],"\\.[0-9]+\\.Rdata"))
   
   if (length(files) < nchain) stop(paste0("ERROR: Missing model input"))
 }
@@ -506,26 +512,42 @@ for (f in files) {
   }
 
   for (p in names(proteins)) {
-    proteins[[p]][[chain+1]] <- list(dic=dic[[p]], time=time[[p]], samples.Sol=samples.Sol[[p]], samples.VCV=samples.VCV[[p]])
+    proteins[[p]][[chain+1]] <- list(DIC=dic[[p]], ModelTime=time[[p]], samples.Sol=samples.Sol[[p]], samples.VCV=samples.VCV[[p]])
   }
 }
 
 # combine across chains, compute stats and construct plots for each protein
-stats <- vector("list", length(proteins))
-names(stats) <- names(proteins)
+stats.conditions <- vector("list", length(proteins))
+names(stats.conditions) <- names(proteins)
+stats.samples <- vector("list", length(proteins))
+names(stats.samples) <- names(proteins)
 for (p in names(proteins)) {
   message(paste0("[", Sys.time()," Processing protein ", p,"]"))    
   
-  dic <- mean(sapply(1:nchain, function(x) proteins[[p]][[x]]$dic))
-  time <- sum(sapply(1:nchain, function(x) proteins[[p]][[x]]$time))
+  dic <- mean(sapply(1:nchain, function(x) proteins[[p]][[x]]$DIC))
+  time <- sum(sapply(1:nchain, function(x) proteins[[p]][[x]]$ModelTime))
   samples.Sol <- mcmc.list(lapply(1:nchain, function(x) proteins[[p]][[x]]$samples.Sol))
   samples.VCV <- mcmc.list(lapply(1:nchain, function(x) proteins[[p]][[x]]$samples.VCV))
   
-  proteins[[p]] <- list(dic=dic, time=time, samples.Sol=samples.Sol, samples.VCV=samples.VCV)
-  stats[[p]] <- plots(proteins[p], design, nitt, nburnin, nchain, tol, do_plots)
+  proteins[[p]] <- list(DIC=dic, ModelTime=time, samples.Sol=samples.Sol, samples.VCV=samples.VCV)
+  
+  # mcgibbsit needs burnin and samples across all chains
+  iterations.Sol <- proteins[[p]][["samples.Sol"]] 
+  
+  # merge samples across all chains for stats and plots 
+  samples.Sol <- as.matrix(window(proteins[[p]][["samples.Sol"]],nburnin+1,end(proteins[[p]][["samples.Sol"]])))
+  samples.Sol <- samples.Sol/log(2) #transforming to log2
+  samples.VCV <- as.matrix(window(proteins[[p]][["samples.VCV"]],nburnin+1,end(proteins[[p]][["samples.VCV"]])))
+  samples.VCV <- samples.VCV/log(2) #transforming to log2  
+  
+  # conditions
+  stats.conditions[[p]] <- calc.stats.conditions(iterations.Sol, samples.Sol, design, nitt, nburnin, nchain, tol, proteins[[p]][["ModelTime"]], proteins[[p]][["DIC"]])
+  # samples
+  stats.samples[[p]] <- calc.stats.samples(samples.Sol, design)
+  
   proteins[[p]] <- NULL
 }
-save(stats, file=paste0(args[1],".Rdata"))
+save(stats.conditions, stats.samples, file=paste0(args[1],".Rdata"))
 
 message(paste0("[",Sys.time()," Finished]"))
 
