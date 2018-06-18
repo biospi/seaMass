@@ -21,18 +21,22 @@ setClass("SLURM",
     cpuNum = "numeric",
     node = "numeric",
     mem = "character",
+    himem = "character",
     longQue = "character",
     shortQue = "character",
-    totalJobs = "numeric"
+    totalJobs = "numeric",
+    lowCPUNum = "numeric"
   ),
   prototype
   (
     cpuNum = 14,
     node = 1,
     mem = "3G",
+    himem = "16G",
     longQue = "cpu",
     shortQue = "serial",
-    totalJobs = 1
+    totalJobs = 1,
+    lowCPUNum = 6
   ),
   contains = "ScheduleHPC"
 )
@@ -304,7 +308,7 @@ setMethod("plotsHPC", signature(object = "SLURM"), function(object)
       }
       cat(sprintf("exec Rscript ../../plots.R %d &> ../out/out_std_%d.out &\n",batchNum[i],batchNum[i]))
 
-      if (idx == object@cpuNum || i == N)
+      if (idx == object@lowCPUNum || i == N)
       {
         cat("wait\n")
         sink()
@@ -325,7 +329,7 @@ setMethod("plotsHPC", signature(object = "SLURM"), function(object)
       cat("#SBATCH --export=all\n")
       cat("#SBATCH -o plots/out/out-%A_task-%a.out\n")
       cat("#SBATCH -e plots/error/error-%A_task-%a.out\n")
-      cat(sprintf("#SBATCH --mem-per-cpu=%s\n",object@mem))
+      cat(sprintf("#SBATCH --mem-per-cpu=%s\n",object@himem))
       cat(sprintf("#SBATCH -p %s\n",object@longQue))
       cat(sprintf("#SBATCH -N %d\n",object@node))
       cat(sprintf("#SBATCH -c %d\n",object@cpuNum))
@@ -368,7 +372,7 @@ setMethod("plotsHPC", signature(object = "SLURM"), function(object)
       cat("#SBATCH --export=all\n")
       cat("#SBATCH -o plots/out/out-%A_task-%a.out\n")
       cat("#SBATCH -e plots/error/error-%A_task-%a.out\n")
-      cat(sprintf("#SBATCH --mem-per-cpu=%s\n",object@mem))
+      cat(sprintf("#SBATCH --mem-per-cpu=%s\n",object@himem))
       cat(sprintf("#SBATCH -p %s\n",object@longQue))
       cat(sprintf("#SBATCH -N %d\n",object@node))
       cat(sprintf("#SBATCH -c %d\n",object@cpuNum))
