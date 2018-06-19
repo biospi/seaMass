@@ -143,10 +143,12 @@ for (i in names(dds)) {
   dd <- dds[[i]]
   seed <- random_seed + chain
   thin <- ceiling((nitt-nburnin)*nchain/nsamp)
-  time[[i]] <- system.time(output <- model(dd,seed,nitt,thin,design,exposures.meta,use_exposure_sd))
-  samples.Sol[[i]] <- output[["samples.Sol"]]
-  samples.VCV[[i]] <- output[["samples.VCV"]]
-  dic[[i]] <- output[["DIC"]]
+  if (nrow(dd) > 0) {
+    time[[i]] <- system.time(output <- model(dd,seed,nitt,thin,design,exposures.meta,use_exposure_sd))
+    samples.Sol[[i]] <- output[["samples.Sol"]]
+    samples.VCV[[i]] <- output[["samples.VCV"]]
+    dic[[i]] <- output[["DIC"]]
+  }
 }
 save(samples.Sol, samples.VCV, dic, time, file=paste0(batch,".",chain,".Rdata"))
 
