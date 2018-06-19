@@ -522,28 +522,30 @@ names(stats.conditions) <- names(proteins)
 stats.samples <- vector("list", length(proteins))
 names(stats.samples) <- names(proteins)
 for (p in names(proteins)) {
-  message(paste0("[", Sys.time()," Processing protein ", p,"]"))    
+  message(paste0("[", Sys.time()," Processing protein ", p,"]"))   
   
-  dic <- mean(sapply(1:nchain, function(x) proteins[[p]][[x]]$DIC))
-  time <- sum(sapply(1:nchain, function(x) proteins[[p]][[x]]$ModelTime))
-  samples.Sol <- mcmc.list(lapply(1:nchain, function(x) proteins[[p]][[x]]$samples.Sol))
-  samples.VCV <- mcmc.list(lapply(1:nchain, function(x) proteins[[p]][[x]]$samples.VCV))
-  
-  proteins[[p]] <- list(DIC=dic, ModelTime=time, samples.Sol=samples.Sol, samples.VCV=samples.VCV)
-  
-  # mcgibbsit needs burnin and samples across all chains
-  iterations.Sol <- proteins[[p]][["samples.Sol"]] 
-  
-  # merge samples across all chains for stats and plots 
-  samples.Sol <- as.matrix(window(proteins[[p]][["samples.Sol"]],nburnin+1,end(proteins[[p]][["samples.Sol"]])))
-  samples.Sol <- samples.Sol/log(2) #transforming to log2
-  samples.VCV <- as.matrix(window(proteins[[p]][["samples.VCV"]],nburnin+1,end(proteins[[p]][["samples.VCV"]])))
-  samples.VCV <- samples.VCV/log(2) #transforming to log2  
-  
-  # conditions
-  stats.conditions[[p]] <- calc.stats.conditions(iterations.Sol, samples.Sol, design, nitt, nburnin, nchain, tol, proteins[[p]][["ModelTime"]], proteins[[p]][["DIC"]])
-  # samples
-  stats.samples[[p]] <- calc.stats.samples(samples.Sol, design)
+  if (!is.null(proteins[[p]][[1]]$DIC)) {
+    dic <- mean(sapply(1:nchain, function(x) proteins[[p]][[x]]$DIC))
+    time <- sum(sapply(1:nchain, function(x) proteins[[p]][[x]]$ModelTime))
+    samples.Sol <- mcmc.list(lapply(1:nchain, function(x) proteins[[p]][[x]]$samples.Sol))
+    samples.VCV <- mcmc.list(lapply(1:nchain, function(x) proteins[[p]][[x]]$samples.VCV))
+    
+    proteins[[p]] <- list(DIC=dic, ModelTime=time, samples.Sol=samples.Sol, samples.VCV=samples.VCV)
+    
+    # mcgibbsit needs burnin and samples across all chains
+    iterations.Sol <- proteins[[p]][["samples.Sol"]] 
+    
+    # merge samples across all chains for stats and plots 
+    samples.Sol <- as.matrix(window(proteins[[p]][["samples.Sol"]],nburnin+1,end(proteins[[p]][["samples.Sol"]])))
+    samples.Sol <- samples.Sol/log(2) #transforming to log2
+    samples.VCV <- as.matrix(window(proteins[[p]][["samples.VCV"]],nburnin+1,end(proteins[[p]][["samples.VCV"]])))
+    samples.VCV <- samples.VCV/log(2) #transforming to log2  
+    
+    # conditions
+    stats.conditions[[p]] <- calc.stats.conditions(iterations.Sol, samples.Sol, design, nitt, nburnin, nchain, tol, proteins[[p]][["ModelTime"]], proteins[[p]][["DIC"]])
+    # samples
+    stats.samples[[p]] <- calc.stats.samples(samples.Sol, design)
+  }
   
   proteins[[p]] <- NULL
 }
