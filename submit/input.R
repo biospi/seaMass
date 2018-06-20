@@ -7,6 +7,8 @@ if (!readxl.installed) {
   library(readxl)
 }
 
+require(methods)
+
 # read bayesprot metadata
 message(paste0("reading: ",args[1],"..."))
 parameters <- data.table(read_excel(args[1],1,col_names=F))  
@@ -156,12 +158,51 @@ save(parameters,file=file.path(out_dir,"submit","input","parameters.Rdata"))
 save(design,file=file.path(out_dir,"submit","input","design.Rdata"))
 
 # this is where the SLURM/PBS scripts should be generated 
-norm_chains <- as.integer(ifelse("norm_chains" %in% parameters$Key,parameters$Value[parameters$Key=="norm_chains"],10))
-model_chains <- as.integer(ifelse("model_chains" %in% parameters$Key,parameters$Value[parameters$Key=="model_chains"],100))
-# Norm: 'Rscript norm.R <batch> <norm_chain> <norm_chains>' where <batch> is from 0 to batches-1 and <norm_chain> is from 0 to norm_chaines-1 
-# Model: 'Rscript nmodel.R <batch> <model_chain> <model_chains>' where <batch> is from 0 to batches-1 and <model_chain> is from 0 to model_chains-1 
+source(file.path(script_dir,"submit","ScheduleHPC.R"))
+
+# New xlsx reader library so Key = X__1 and Value = X__2
+systemHPC <- as.character(ifelse("HPC" %in% parameters$Key,parameters$Value[parameters$Key=="HPC"],"SLURM"))
+
+if (systemHPC == "SLURM") {
+  batch <- as.integer(ifelse("batch" %in% parameters$Key,parameters$Value[parameters$Key=="batch"],10))
+  norm_chains <- as.integer(ifelse("norm_chains" %in% parameters$Key,parameters$Value[parameters$Key=="norm_chains"],10))
+  model_chains <- as.integer(ifelse("model_chains" %in% parameters$Key,parameters$Value[parameters$Key=="model_chains"],100))
+
+  cpu_num <- as.integer(ifelse("cpu_num" %in% parameters$Key,parameters$Value[parameters$Key=="cpu_num"],14))
+  node <- as.integer(ifelse("node" %in% parameters$Key,parameters$Value[parameters$Key=="node"],1))
+  mem <- as.character(ifelse("mem" %in% parameters$Key,parameters$Value[parameters$Key=="mem"],"3G"))
+  himem <- as.character(ifelse("himem" %in% parameters$Key,parameters$Value[parameters$Key=="himem"],"16G"))
+  long_que <- as.character(ifelse("long_que" %in% parameters$Key,parameters$Value[parameters$Key=="long_que"],"cpu"))
+  short_que <- as.character(ifelse("short_que" %in% parameters$Key,parameters$Value[parameters$Key=="short_que"],"serial"))
+  total_jobs <- as.integer(ifelse("total_jobs" %in% parameters$Key,parameters$Value[parameters$Key=="total_jobs"],1))
+  low_cpu_num <- as.integer(ifelse("low_cpu_num" %in% parameters$Key,parameters$Value[parameters$Key=="low_cpu_num"],6))
+
+  clusterHPC <- new(systemHPC, batch = batch, normChain = norm_chains, modelChain = model_chains, path = out_dir,
+                    cpuNum = cpu_num, node = node, mem = mem, himem = himem, longQue = long_que,shortQue = short_que,
+                    totalJobs = total_jobs,lowCPUNum = low_cpu_num)
+} else if (systemHPC == "PBS") {
+  stop("PBS HPC system yet to be implemented!...")
+} else if (systemHPC == "SGE") {
+  stop("SGE HPC system yet to be implemented!...")
+} else {
+  stop("Error: Unknown HPC system. Possible HPC systems = SLURM, PBS, SGE.")
+}
+
+#message(paste("batch",batch,"norm_chain",norm_chains,"model_chains",model_chains,"cpu_num",cpu_num,"node",node,"mem",
+#              mem,"himem",himem,"long_que",long_que,"short_que",short_que,"total_jobs",total_jobs,"low_cpu_num",low_cpu_num))
+
+# Norm: 'Rscript norm.R <batch> <norm_chain> <norm_chains>' where <batch> is from 0 to batches-1 and <norm_chain> is from 0 to norm_chaines-1
+normHPC(clusterHPC)
+# Exposures: 'Rscript exposures.R'
+exposuresHPC(clusterHPC)
+# Model: 'Rscript model.R <batch> <model_chain> <model_chains>' where <batch> is from 0 to batches-1 and <model_chain> is from 0 to model_chains-1
+modelHPC(clusterHPC)
 # Plots: 'Rscript plots.R <batch>' where <batch> is from 0 to batches-1
+plotsHPC(clusterHPC)
 # Output: 'Rscript output.R'
+#outputHPC(clusterHPC)
+# Generate bash script for chained HPC submit job:
+genJobFileHPC(clusterHPC)
 
 # create zip file and clean up
 message(paste0("writing: ",out_zip,"..."))
@@ -171,4 +212,3 @@ zip(file.path(wd,out_zip),".",flags="-r9Xq")
 setwd(wd)
 unlink(out_dir,recursive=T)
 message("")  
-
