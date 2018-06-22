@@ -121,7 +121,7 @@ setMethod("normHPC", signature(object = "SLURM"), function(object)
         sink(fname)
         cat("cd norm/results\n")
       }
-      cat(sprintf("exec Rscript ../../norm.R %d %d %d &> ../out/out_std_%d_%d.out &\n",
+      cat(sprintf("exec Rscript ../../norm.R %d %d %d &> ../out_std_%d_%d.out &\n",
                     batchNum[i],vecChain[i],object@normChain,batchNum[i],vecChain[i])
                   )
       if ((idx == object@cpuNum) || i == N)
@@ -140,8 +140,8 @@ setMethod("normHPC", signature(object = "SLURM"), function(object)
     cat("#!/bin/bash\n")
     cat("#SBATCH -J Norm\n")
     cat("#SBATCH --export=all\n")
-    cat("#SBATCH -o norm/out/out-%A_task-%a.out\n")
-    cat("#SBATCH -e norm/error/error-%A_task-%a.out\n")
+    cat("#SBATCH -o norm/out-%A_task-%a.out\n")
+    cat("#SBATCH -e norm/error-%A_task-%a.out\n")
     cat(sprintf("#SBATCH --mem-per-cpu=%s\n",object@mem))
     cat(sprintf("#SBATCH -p %s\n",object@longQue))
     cat(sprintf("#SBATCH -N %d\n",object@node))
@@ -166,14 +166,14 @@ setMethod("exposuresHPC", signature(object = "SLURM"), function(object)
     cat("#!/bin/bash\n")
     cat("#SBATCH -J Exposures\n")
     cat("#SBATCH --export=all\n")
-    cat("#SBATCH -o exposures/out/out-%A_task-%a.out\n")
-    cat("#SBATCH -e exposures/error/error-%A_task-%a.out\n")
+    cat("#SBATCH -o exposures/out-%A_task-%a.out\n")
+    cat("#SBATCH -e exposures/error-%A_task-%a.out\n")
     cat(sprintf("#SBATCH --mem=%s\n",object@himem))
     cat(sprintf("#SBATCH -p %s\n",object@shortQue))
     cat(sprintf("#SBATCH -N %d\n",singleNode))
     cat(sprintf("#SBATCH -c %s\n",singleCPU))
     cat("cd exposures/results\n")
-    cat("srun Rscript ../../exposures.R HPC\n")
+    cat("srun Rscript ../../exposures.R\n")
 
     sink()
 
@@ -210,7 +210,7 @@ setMethod("modelHPC", signature(object = "SLURM"), function(object)
         sink(fname)
         cat("cd model/results\n")
       }
-      cat(sprintf("exec Rscript ../../model.R %d %d %d &> ../out/out_std_%d_%d.out &\n",
+      cat(sprintf("exec Rscript ../../model.R %d %d %d &> ../out_std_%d_%d.out &\n",
                     batchNum[i],vecChain[i],object@modelChain,batchNum[i],vecChain[i])
                  )
 
@@ -233,8 +233,8 @@ setMethod("modelHPC", signature(object = "SLURM"), function(object)
       cat("#!/bin/bash\n")
       cat("#SBATCH -J Model\n")
       cat("#SBATCH --export=all\n")
-      cat("#SBATCH -o model/out/out-%A_task-%a.out\n")
-      cat("#SBATCH -e model/error/error-%A_task-%a.out\n")
+      cat("#SBATCH -o model/out-%A_task-%a.out\n")
+      cat("#SBATCH -e model/error-%A_task-%a.out\n")
       cat(sprintf("#SBATCH --mem-per-cpu=%s\n",object@mem))
       cat(sprintf("#SBATCH -p %s\n",object@longQue))
       cat(sprintf("#SBATCH -N %d\n",object@node))
@@ -277,8 +277,8 @@ setMethod("modelHPC", signature(object = "SLURM"), function(object)
       cat("#!/bin/bash\n")
       cat("#SBATCH -J Model\n")
       cat("#SBATCH --export=all\n")
-      cat("#SBATCH -o model/out/out-%A_task-%a.out\n")
-      cat("#SBATCH -e model/error/error-%A_task-%a.out\n")
+      cat("#SBATCH -o model/out-%A_task-%a.out\n")
+      cat("#SBATCH -e model/error-%A_task-%a.out\n")
       cat(sprintf("#SBATCH --mem-per-cpu=%s\n",object@mem))
       cat(sprintf("#SBATCH -p %s\n",object@longQue))
       cat(sprintf("#SBATCH -N %d\n",object@node))
@@ -309,7 +309,7 @@ setMethod("plotsHPC", signature(object = "SLURM"), function(object)
         sink(fname)
         cat("cd plots/results\n")
       }
-      cat(sprintf("exec Rscript ../../plots.R %d &> ../out/out_std_%d.out &\n",batchNum[i],batchNum[i]))
+      cat(sprintf("exec Rscript ../../plots.R %d &> ../out_std_%d.out &\n",batchNum[i],batchNum[i]))
 
       if (idx == object@lowCPUNum || i == N)
       {
@@ -330,8 +330,8 @@ setMethod("plotsHPC", signature(object = "SLURM"), function(object)
       cat("#!/bin/bash\n")
       cat("#SBATCH -J Plots\n")
       cat("#SBATCH --export=all\n")
-      cat("#SBATCH -o plots/out/out-%A_task-%a.out\n")
-      cat("#SBATCH -e plots/error/error-%A_task-%a.out\n")
+      cat("#SBATCH -o plots/out-%A_task-%a.out\n")
+      cat("#SBATCH -e plots/error-%A_task-%a.out\n")
       cat(sprintf("#SBATCH --mem=%s\n",(16*object@lowCPUNum)))
       cat(sprintf("#SBATCH -p %s\n",object@longQue))
       cat(sprintf("#SBATCH -N %d\n",object@node))
@@ -373,9 +373,9 @@ setMethod("plotsHPC", signature(object = "SLURM"), function(object)
       cat("#!/bin/bash\n")
       cat("#SBATCH -J Plots\n")
       cat("#SBATCH --export=all\n")
-      cat("#SBATCH -o plots/out/out-%A_task-%a.out\n")
-      cat("#SBATCH -e plots/error/error-%A_task-%a.out\n")
-      cat(sprintf("#SBATCH --mem=%s\n",(16*object@lowCPUNum)))
+      cat("#SBATCH -o plots/out-%A_task-%a.out\n")
+      cat("#SBATCH -e plots/error-%A_task-%a.out\n")
+      cat(sprintf("#SBATCH --mem=%dG\n",(16*object@lowCPUNum)))
       cat(sprintf("#SBATCH -p %s\n",object@longQue))
       cat(sprintf("#SBATCH -N %d\n",object@node))
       cat(sprintf("#SBATCH -c %d\n",object@cpuNum))
@@ -387,6 +387,33 @@ setMethod("plotsHPC", signature(object = "SLURM"), function(object)
     system(paste("chmod u+x",file.path(object@path,"submit","bayesprot-plots.sh")))
   }
 )
+
+
+setMethod("ouputHPC", signature(object = "SLURM"), function(object)
+  {
+    singleCPU = 1
+    singleNode = 1
+
+    sink(file.path(object@path,"submit","bayesprot-ouput.sh"))
+
+    cat("#!/bin/bash\n")
+    cat("#SBATCH -J Output\n")
+    cat("#SBATCH --export=all\n")
+    cat("#SBATCH -o output/out-%A_task-%a.out\n")
+    cat("#SBATCH -e output/error-%A_task-%a.out\n")
+    cat(sprintf("#SBATCH --mem=%s\n",object@himem))
+    cat(sprintf("#SBATCH -p %s\n",object@shortQue))
+    cat(sprintf("#SBATCH -N %d\n",singleNode))
+    cat(sprintf("#SBATCH -c %s\n",singleCPU))
+    cat("cd output/results\n")
+    cat("srun Rscript ../../output.R\n")
+
+    sink()
+
+    system(paste("chmod u+x",file.path(object@path,"submit","bayesprot-output.sh")))
+    }
+)
+
 
 setMethod("genJobFileHPC", signature(object = "SLURM"), function(object)
   {
@@ -434,9 +461,11 @@ setMethod("genJobFileHPC", signature(object = "SLURM"), function(object)
     #########################################
     # Output
     #########################################
-    #outputID=$(sbatch --dependency=afterok:$outputSetupJobID bayesprot-output.sh)
-    #echo sbatch --dependency=afterok:$outputSetupJobID bayesprot-output.sh
-    #echo Output Submitted: $outputID
+    cat("sbatchReturn=$(sbatch --dependency=afterok:$plotsJobID bayesprot-output.sh)\n")
+    cat("echo sbatch --dependency=afterok:$plotsJobID bayesprot-output.sh\n")
+    cat("ouputJobID=$sbatchReturn\n")
+    cat("ouputJobID=${outputJobID//[^0-9]/}\n")
+    cat("echo Plots Array Job Submitted: $outputJobID\n\n")
 
     sink()
 

@@ -200,7 +200,7 @@ modelHPC(clusterHPC)
 # Plots: 'Rscript plots.R <batch>' where <batch> is from 0 to batches-1
 plotsHPC(clusterHPC)
 # Output: 'Rscript output.R'
-#outputHPC(clusterHPC)
+outputHPC(clusterHPC)
 # Generate bash script for chained HPC submit job:
 genJobFileHPC(clusterHPC)
 
