@@ -86,6 +86,14 @@ setGeneric("plotsHPC",
 )
 
 
+setGeneric("outputHPC",
+  function(object)
+  {
+    standardGeneric("outputHPC")
+  }
+)
+
+
 setGeneric("genJobFileHPC",
   function(object)
   {
@@ -389,12 +397,12 @@ setMethod("plotsHPC", signature(object = "SLURM"), function(object)
 )
 
 
-setMethod("ouputHPC", signature(object = "SLURM"), function(object)
+setMethod("outputHPC", signature(object = "SLURM"), function(object)
   {
     singleCPU = 1
     singleNode = 1
 
-    sink(file.path(object@path,"submit","bayesprot-ouput.sh"))
+    sink(file.path(object@path,"submit","bayesprot-output.sh"))
 
     cat("#!/bin/bash\n")
     cat("#SBATCH -J Output\n")
@@ -463,8 +471,8 @@ setMethod("genJobFileHPC", signature(object = "SLURM"), function(object)
     #########################################
     cat("sbatchReturn=$(sbatch --dependency=afterok:$plotsJobID bayesprot-output.sh)\n")
     cat("echo sbatch --dependency=afterok:$plotsJobID bayesprot-output.sh\n")
-    cat("ouputJobID=$sbatchReturn\n")
-    cat("ouputJobID=${outputJobID//[^0-9]/}\n")
+    cat("outputJobID=$sbatchReturn\n")
+    cat("outputJobID=${outputJobID//[^0-9]/}\n")
     cat("echo Plots Array Job Submitted: $outputJobID\n\n")
 
     sink()
