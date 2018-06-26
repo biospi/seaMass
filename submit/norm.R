@@ -83,7 +83,7 @@ norm <- function(dd, seed, nitt, thin) {
 
 options(max.print=99999)
 args <- commandArgs(T)
-#args <- c("99", "0")
+if (length(args) == 0) args <- c("0", "7")
 
 # some tuning parameters (should come from parameters.Rdata with defaults given here)
 prefix <- ifelse(file.exists("parameters.Rdata"),".",file.path("..","..","input"))
