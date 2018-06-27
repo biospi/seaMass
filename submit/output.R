@@ -2,6 +2,7 @@ invisible(Sys.setlocale("LC_COLLATE","C"))
 
 message(paste0("[",Sys.time(), " Starting]"))
 
+library(methods)
 library(data.table)
 library(ggplot2)
 library(ggfortify)
@@ -69,7 +70,7 @@ rownames(quants.samples.x) <- samples
 
 quants.samples <- as.data.frame(quants.samples.x)
 quants.samples$Sample <- samples 
-quants.samples <- merge(quants.samples, design)
+quants.samples <- merge(quants.samples, design[!duplicated(Sample), list(Sample, Condition)])
 rownames(quants.samples) <- quants.samples$Sample
 
 g <- autoplot(prcomp(quants.samples.x), data=quants.samples, label=T, colour="Condition")
