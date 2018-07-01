@@ -6,6 +6,7 @@ library(methods)
 library(data.table)
 library(ggplot2)
 library(ggfortify)
+library(ggrepel)
 library(coda)
 
 # some tuning parameters (should come from parameters.Rdata with defaults given here)
@@ -61,24 +62,26 @@ for (con in levels(stats.conditions.all$Condition))
   fwrite(out, paste0(parameters$Value[parameters$Key=="id"],"_Condition_", con, ".csv"))
 }
 
-# PCA plot
-quants.samples.x <- as.matrix(stats.samples.all[,grepl("\\.mean$", colnames(stats.samples.all)), with=F])
-samples <- gsub("\\.mean$", "", colnames(quants.samples.x))
-rownames(quants.samples.x) <- as.character(stats.samples.all$ProteinID)
-quants.samples.x <- as.data.table(t(na.omit(quants.samples.x)))
-rownames(quants.samples.x) <- samples
+# diagnostic plots
 
-quants.samples <- as.data.frame(quants.samples.x)
-quants.samples$Sample <- samples 
-quants.samples <- merge(quants.samples, design[!duplicated(Sample), list(Sample, Condition)])
-rownames(quants.samples) <- quants.samples$Sample
+# generate wide quant data.table with samples as row names
+dd.samples <- as.matrix(stats.samples.all[,grepl("\\.mean$", colnames(stats.samples.all)), with=F])
+samples <- gsub("\\.mean$", "", colnames(dd.samples))
+rownames(dd.samples) <- as.character(stats.samples.all$ProteinID)
+dd.samples <- as.data.table(t(na.omit(dd.samples)))
+dd.samples$Sample <- samples
 
-g <- autoplot(prcomp(quants.samples.x), data=quants.samples, label=T, colour="Condition")
+# PCA
+pca.samples <- prcomp(dd.samples[, !"Sample", with = F], center = F, scale = F)
+dd.pca.samples <- fortify(pca.samples)
+dd.pca.samples$Sample <- dd.samples$Sample
+dd.pca.samples <- merge(dd.pca.samples, design[!duplicated(Sample), list(Sample, Condition)])
+
+g <- autoplot(pca.samples, data = dd.pca.samples, scale = 0, colour = "Condition")
+g <- g + geom_label_repel(aes(label = Sample, colour = Condition))
+g <- g + coord_equal() + theme(aspect.ratio=1)
+
 ggsave(paste0(parameters$Value[parameters$Key=="id"],"_PCA.pdf"), g, width=8, height=8)
-
-
-
-
 
 
 # samps <- mdply(files, .id=NULL, function(f) {
