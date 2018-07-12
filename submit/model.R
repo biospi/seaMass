@@ -7,7 +7,7 @@ suppressMessages(library(MCMCglmm))
 library(methods)
 
 # BAYESPROT FULL MODEL
-model <- function(dd,seed,nitt,thin,design,exposures.meta,use_exposure_sd) { 
+model <- function(dd,seed,nitt,thin,design,exposures.meta,use_exposure_sd,condition_prior_sd) { 
 
   set.seed(seed)
   
@@ -71,7 +71,10 @@ model <- function(dd,seed,nitt,thin,design,exposures.meta,use_exposure_sd) {
     R = list(V = diag(nS), nu = 0.002)
   )
   prior$B$mu[(nS+1):(nS+nRC-1)] <- ee$mean[2:nRC]
-  diag(prior$B$V)[(nS+1):(nS+nRC-1)] <- ee$var[2:nRC]              
+  diag(prior$B$V)[(nS+1):(nS+nRC-1)] <- ee$var[2:nRC]
+
+  diag(prior$B$V)[(nS+nRC):(nS+nRC+nC-2)] <- rep(condition_prior_sd * log(2), nC-1)
+
   model <- suppressWarnings(MCMCglmm(
     as.formula(paste0("Count ~ ", ifelse(nS==1, "", "Spectrum-1 + "), "RunChannel + Condition")),
     #random = as.formula(paste0(ifelse(nO==1, "~ Sample ", "~idh(Population):Sample "), " + idh(Digest):Peptide", ifelse(nP==1, " + Digest", " + idh(Peptide):Digest"))),
@@ -102,6 +105,7 @@ nsamp <- as.integer(ifelse("model_samples" %in% parameters$Key,parameters$Value[
 nchain <- as.integer(ifelse("model_chains" %in% parameters$Key,parameters$Value[parameters$Key=="model_chains"],100))
 random_seed <- ifelse("random_seed" %in% parameters$Key,as.integer(parameters$Value[parameters$Key=="random_seed"]),0)
 use_exposure_sd <- as.integer(ifelse("use_exposure_sd" %in% parameters$Key,ifelse(parameters$Value[parameters$Key=="use_exposure_sd"]>0,1,0),1))  
+condition_prior_sd <- as.numeric(ifelse("condition_prior_sd" %in% parameters$Key, parameters$Value[parameters$Key=="condition_prior_sd"], 1e-6))
 
 # load design
 load(file.path(prefix,"design.Rdata"))

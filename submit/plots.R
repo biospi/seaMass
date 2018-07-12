@@ -377,7 +377,7 @@ library(mcgibbsit)
 #   }
 # }
 
-calc.stats.conditions <- function(iterations.Sol, samples.Sol, design, nitt, nburnin, nchain, tol, modeltime, dic) { 
+calc.stats.conditions <- function(iterations.Sol, samples.Sol, design, nitt, nburnin, nchain, tol, modeltime, dic, condition_prior_sd, model_prior_ratio) { 
     
   # one-sided statistical tests, checking precision
   test_conditions <- levels(design$Condition)[levels(design$Condition) != tolower(levels(design$Condition))]
@@ -392,11 +392,14 @@ calc.stats.conditions <- function(iterations.Sol, samples.Sol, design, nitt, nbu
       iterations <- iterations.Sol[,paste0('Condition', con)]
       samples <- samples.Sol[,paste0('Condition', con)]
       samples.mean <- mean(samples)
+      samples.sd <- sd(samples)
       samples.hpdi <- HPDinterval(mcmc(samples))
 
+      logMLR <- dnorm(x=0, mean=samples.mean, sd=samples.sd, log=T) - dnorm(x=0, mean=0, sd=condition_prior_sd, log=T)
+
       qs <- data.table(
-        Test=c("Up","Down"),
-        q=pmin(pmax(c(sum(samples > 0.0), sum(samples < 0.0))  ,1),length(samples)-1) / length(samples)
+        Test = ifelse(samples.mean > 0, "Up", "Down"),
+        q = 1/(1 + exp(logMLR)*model_prior_ratio)
       )
       
       tests.func <- function(q) {
@@ -417,6 +420,7 @@ calc.stats.conditions <- function(iterations.Sol, samples.Sol, design, nitt, nbu
           mean = samples.mean,
           lower = samples.hpdi[1],
           upper = samples.hpdi[2],
+          logMLR <- logMLR,
           localFDR = 1-q
         )
       }
@@ -479,6 +483,9 @@ nburnin <- as.integer(ifelse("model_warmup" %in% parameters$Key,parameters$Value
 nchain <- as.integer(ifelse("model_chains" %in% parameters$Key,parameters$Value[parameters$Key=="model_chains"],100))
 tol <- as.double(ifelse("model_tol" %in% parameters$Key,parameters$Value[parameters$Key=="model_tol"],0.0125))
 do_plots <- as.integer(ifelse("do_plots" %in% parameters$Key,parameters$Value[parameters$Key=="do_plots"],1))
+condition_prior_sd <- as.double(ifelse("condition_prior_sd" %in% parameters$Key, parameters$Value[parameters$Key=="condition_prior_sd"], 1e-6))
+model_prior_ratio <- as.double(ifelse("model_prior_ratio" %in% parameters$Key, parameters$Value[parameters$Key=="model_prior_ratio"], 1))
+
 
 # if(!dir.exists("stats")) {
 #   dir.create("conditions")
@@ -542,7 +549,7 @@ for (p in names(proteins)) {
     samples.VCV <- samples.VCV/log(2) #transforming to log2  
     
     # conditions
-    stats.conditions[[p]] <- calc.stats.conditions(iterations.Sol, samples.Sol, design, nitt, nburnin, nchain, tol, proteins[[p]][["ModelTime"]], proteins[[p]][["DIC"]])
+    stats.conditions[[p]] <- calc.stats.conditions(iterations.Sol, samples.Sol, design, nitt, nburnin, nchain, tol, proteins[[p]][["ModelTime"]], proteins[[p]][["DIC"]], condition_prior_sd, model_prior_ratio)
     # samples
     stats.samples[[p]] <- calc.stats.samples(samples.Sol, design)
   }
