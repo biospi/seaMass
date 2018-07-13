@@ -23,17 +23,22 @@ norm <- function(dd, seed, nitt, thin) {
     
   } else {
     
-    # some runs, conditions or samples might not be represented for this protein. remove these
-    # levels with zero values otherwise MCMCglmm breaks
-    dd.norm <- data.table(
+    # set up censoring
+    left.censor <- function(x) ifelse(all(is.na(x)), NA, round(min(x, na.rm = T)))
+    dd.norm <- dd[, list(MaxCount=left.censor(Count)), by = Spectrum]
+    
+    dd.norm <- merge(data.table(
       Run = factor(dd$Run),
       Channel = factor(dd$Channel),
       Digest = factor(dd$Digest),
       Spectrum = factor(dd$Spectrum),
       Peptide = factor(dd$Peptide),
-      Count = round(dd$Count)
-    )
-
+      MinCount = ifelse(!is.na(dd$Count), round(dd$Count), 0)
+    ), dd.norm)
+    
+    dd.norm <- dd.norm[complete.cases(dd.norm),]
+    dd.norm$MaxCount <- pmax(dd.norm$MinCount, dd.norm$MaxCount)
+    
     # number of factor levels
     nP <- length(levels(dd.norm$Peptide))
     nS <- length(levels(dd.norm$Spectrum))  
@@ -50,10 +55,10 @@ norm <- function(dd, seed, nitt, thin) {
         R = list(V=diag(nS), nu=0.002)
       )
       model <- suppressWarnings(MCMCglmm(
-        as.formula(paste0("Count ~ Spectrum-1 + ", ifelse(nR==1, "Channel", "Run:Channel"))),
+        as.formula(paste0("c(MinCount, MaxCount) ~ Spectrum-1 + ", ifelse(nR==1, "Channel", "Run:Channel"))),
         random = ~ idh(Peptide):Digest,
         rcov = as.formula(ifelse(nS==1,"~units", "~idh(Spectrum):units")),
-        family = 'poisson',
+        family = 'cenpoisson',
         data=dd.norm, prior=prior, nitt=nitt, burnin=0, thin=thin, verbose=F
       ))
       print(summary(model))
@@ -83,7 +88,7 @@ norm <- function(dd, seed, nitt, thin) {
 
 options(max.print=99999)
 args <- commandArgs(T)
-if (length(args) == 0) args <- c("0", "7")
+if (length(args) == 0) args <- c("9", "9")
 
 # some tuning parameters (should come from parameters.Rdata with defaults given here)
 prefix <- ifelse(file.exists("parameters.Rdata"),".",file.path("..","..","input"))

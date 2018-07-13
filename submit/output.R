@@ -79,7 +79,7 @@ dd.pca.samples <- merge(dd.pca.samples, design[!duplicated(Sample), list(Sample,
 
 g <- autoplot(pca.samples, data = dd.pca.samples, scale = 0, colour = "Condition")
 g <- g + geom_label_repel(aes(label = Sample, colour = Condition))
-g <- g + coord_equal() + theme(aspect.ratio=1)
+g <- g + theme(aspect.ratio=1) + coord_equal() 
 
 ggsave(paste0(parameters$Value[parameters$Key=="id"],"_PCA.pdf"), g, width=8, height=8)
 

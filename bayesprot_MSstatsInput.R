@@ -45,8 +45,5 @@ dd <- data.table(
 levels(dd$Channel) <- paste0("Channel.", levels(dd$Channel))
 dd <- dcast(dd, ... ~ Channel, value.var = "Intensity")
 
-# we don't handle NA properly at present
-dd <- dd[complete.cases(dd),]
-
 # pass control to core codebase
 source(file.path(script_dir,"submit","input.R")) 

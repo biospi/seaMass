@@ -30,28 +30,39 @@ model <- function(dd,seed,nitt,thin,design,exposures.meta,use_exposure_sd) {
   message("")
   print(ee)
   message("")
-
-  # some runs, conditions or samples might not be represented for this protein. remove these
-  # levels with zero values otherwise MCMCglmm breaks
-  dd$Run <- factor(dd$Run)
-  dd$Sample <- factor(dd$Sample)
-  dd$Digest <- factor(dd$Digest)
-  dd$Population <- factor(dd$Population)
-  dd$Condition <- factor(dd$Condition)
-  dd$Count <- round(dd$Count)
+  
+  # set up censoring
+  left.censor <- function(x) ifelse(all(is.na(x)), NA, round(min(x, na.rm = T)))
+  dd.model <- dd[, list(MaxCount=left.censor(Count)), by = Spectrum]
+  
+  dd.model <- merge(data.table(
+    Run = factor(dd$Run),
+    Channel = factor(dd$Channel),
+    RunChannel = factor(dd$RunChannel),
+    Digest = factor(dd$Digest),
+    Spectrum = factor(dd$Spectrum),
+    Peptide = factor(dd$Peptide),
+    Sample = factor(dd$Sample),
+    Population = factor(dd$Population),
+    Condition = factor(dd$Condition),
+    MinCount = ifelse(!is.na(dd$Count), round(dd$Count), 0)
+  ), dd.model)
+  
+  dd.model <- dd.model[complete.cases(dd.model),]
+  dd.model$MaxCount <- pmax(dd.model$MinCount, dd.model$MaxCount)
   
   # number of factor levels
-  nA <- length(levels(dd$Sample))
-  nD <- length(levels(dd$Digest))
-  nO <- length(levels(dd$Population))
-  nC <- length(levels(dd$Condition))
-  nP <- length(levels(dd$Peptide))
-  nS <- length(levels(dd$Spectrum))  
-  nRC <- length(levels(dd$RunChannel)) 
+  nA <- length(levels(dd.model$Sample))
+  nD <- length(levels(dd.model$Digest))
+  nO <- length(levels(dd.model$Population))
+  nC <- length(levels(dd.model$Condition))
+  nP <- length(levels(dd.model$Peptide))
+  nS <- length(levels(dd.model$Spectrum))  
+  nRC <- length(levels(dd.model$RunChannel)) 
   
   # If a Population level only has 1 Sample, fix its variance to ~0 [this is to support a pooled reference sample]
   freqTable <- design[!duplicated(design$Sample),][,.N,by=Population]
-  population.vars <- ifelse(freqTable[freqTable$Population %in% levels(dd$Population),]$N > 1, 1, 1e-10)
+  population.vars <- ifelse(freqTable[freqTable$Population %in% levels(dd.model$Population),]$N > 1, 1, 1e-10)
   
   # Explanation of integrating exposures into the model (RunChannel fixed effects)
   # ------------------------------------------------------------------------------
@@ -73,12 +84,12 @@ model <- function(dd,seed,nitt,thin,design,exposures.meta,use_exposure_sd) {
   prior$B$mu[(nS+1):(nS+nRC-1)] <- ee$mean[2:nRC]
   diag(prior$B$V)[(nS+1):(nS+nRC-1)] <- ee$var[2:nRC]              
   model <- suppressWarnings(MCMCglmm(
-    as.formula(paste0("Count ~ ", ifelse(nS==1, "", "Spectrum-1 + "), "RunChannel + Condition")),
+    as.formula(paste0("c(MinCount, MaxCount) ~ ", ifelse(nS==1, "", "Spectrum-1 + "), "RunChannel + Condition")),
     #random = as.formula(paste0(ifelse(nO==1, "~ Sample ", "~idh(Population):Sample "), " + idh(Digest):Peptide", ifelse(nP==1, " + Digest", " + idh(Peptide):Digest"))),
     random = as.formula(paste0(ifelse(nO==1, "~ Sample", "~idh(Population):Sample"), ifelse(nP==1, " + Digest", " + idh(Peptide):Digest"))),
     rcov = as.formula(ifelse(nS==1, "~ units", "~ idh(Spectrum):units")),
-    family = 'poisson',        
-    data=dd, prior=prior, nitt=nitt, burnin=0, thin=thin, pr=T, singular.ok=T, verbose=F
+    family = 'cenpoisson',        
+    data=dd.model, prior=prior, nitt=nitt, burnin=0, thin=thin, pr=T, singular.ok=T, verbose=F
   ))
   print(summary(model))
   message("")
@@ -91,7 +102,7 @@ model <- function(dd,seed,nitt,thin,design,exposures.meta,use_exposure_sd) {
 
 options(max.print=99999)
 args <- commandArgs(T)
-if (length(args) == 0) args <- c("0", "7")
+if (length(args) == 0) args <- c("9", "9")
 
 # some tuning parameters (should come from parameters.Rdata with defaults given here)
 prefix <- ifelse(file.exists("parameters.Rdata"),".",file.path("..","..","input"))
