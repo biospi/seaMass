@@ -3,7 +3,7 @@
 invisible(Sys.setlocale("LC_COLLATE","C"))
 
 message("")
-message("BayesProt v1.1 (SCIEX ProteinPilot import) | © 2015-2018 BIOSP👁  Laboratory")
+message("BayesProt v1.1 (SCIEX ProteinPilot import) | © 2015-2018 biosp👁   aboratory")
 message("This program comes with ABSOLUTELY NO WARRANTY.")
 message("This is free software, and you are welcome to redistribute it under certain conditions.")
 message("")
@@ -79,7 +79,7 @@ if("Area.121" %in% colnames(dd.raw)) dd.wide$Label.121 <- dd.raw$Area.121
 # melt label counts
 dd <- melt(dd.wide, variable.name = "Label", value.name = "Count",
            measure.vars = colnames(dd.wide)[grep("^Label\\.", colnames(dd.wide))])
-dd$Label <- sub("^Label\\.", "", dd$Label)
+levels(dd$Label) <- sub("^Label\\.", "", levels(dd$Label))
 
 # pass control to core codebase
 source(file.path(script_dir,"submit","input.R"))

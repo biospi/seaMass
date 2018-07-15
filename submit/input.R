@@ -25,82 +25,95 @@ dd.params <- rbind(
   c("hpc.totaljobs", "1"),
   c("hpc.lowncpu", "6"),
   
-  c("internal.nrun", length(unique(dd$Run))),
-  c("internal.nproteingroup", length(unique(dd$ProteinGroup))),
-  c("internal.npeptidoform", length(unique(dd$Peptidoform))),
-  c("internal.nfeature", length(unique(dd$Feature))),
-  c("internal.nlabel", length(unique(dd$Label))),
-  c("internal.id", id)
+  c("bayesprot.id", id),
+  c("bayesprot.version", "1.2")
 )
 colnames(dd.params) <- c("Key", "Value")
 dd.params <- as.data.table(dd.params)
 
-# build indices
+# ensure factors for building indicies
+dd$ProteinGroup <- factor(dd$ProteinGroup)
+dd$Peptidoform <- factor(dd$Peptidoform)
+dd$Feature <- factor(dd$Feature)
+dd$Run <- factor(dd$Run)
+dd$Label <- factor(dd$Label)
+
+# build ProteinGroup index
 dd.proteingroups <- dd[, .(
-  nPeptidoform = length(unique(Peptidoform)),
-  nFeature = length(unique(Feature)),
+  nPeptidoform = length(unique(as.character(Peptidoform))),
+  nFeature = length(unique(as.character(Feature))),
   nCount = .N
 ), by = ProteinGroup]
 dd.proteingroups <- dd.proteingroups[order(-nPeptidoform, -nFeature, -nCount, ProteinGroup)]
-dd.proteingroups$ProteinGroup <- factor(dd.proteingroups$ProteinGroup, unique(dd.proteingroups$ProteinGroup))
-dd.proteingroups$ProteinGroupID <- as.integer(dd.proteingroups$ProteinGroup)
+dd.proteingroups$ProteinGroupID <- factor(as.integer(factor(dd.proteingroups$ProteinGroup, unique(dd.proteingroups$ProteinGroup))))
 
-dd$ProteinGroupID <- dd.proteingroups$ProteinGroupID[match(dd$ProteinGroup, dd.proteingroups$ProteinGroup)]
-dd.proteingroups$ProteinGroupID <- factor(dd.proteingroups$ProteinGroupID)
+dd <- merge(dd, dd.proteingroups[, list(ProteinGroup, ProteinGroupID)], by = "ProteinGroup")
+dd$ProteinGroup <- NULL
 
+# build Peptidoform index
 dd.peptidoforms <- dd[, .(
-  ProteinGroupID,
-  nFeature = length(unique(Feature)),
+  nFeature = length(unique(as.character(Feature))),
   nCount = .N
 ), by = Peptidoform]
-dd.peptidoforms  <- dd.peptidoforms[order(-nFeature, -nCount, ProteinGroupID, Peptidoform)]
-dd.peptidoforms$Peptidoform <- factor(dd.peptidoforms$Peptidoform, unique(dd.peptidoforms$Peptidoform))
-dd.peptidoforms$PeptidoformID <- as.integer(dd.peptidoforms$Peptidoform)
+dd.peptidoforms  <- dd.peptidoforms[order(-nFeature, -nCount, Peptidoform)]
+dd.peptidoforms$PeptidoformID <- factor(as.integer(factor(dd.peptidoforms$Peptidoform, unique(dd.peptidoforms$Peptidoform))))
 
-dd$PeptidoformID <- dd.peptidoforms$PeptidoformID[match(dd$Peptidoform, dd.peptidoforms$Peptidoform)]
-dd.peptidoforms$ProteinGroupID <- factor(dd.peptidoforms$ProteinGroupID)
-dd.peptidoforms$PeptidoformID <- factor(dd.peptidoforms$PeptidoformID)
+dd <- merge(dd, dd.peptidoforms[, list(Peptidoform, PeptidoformID)], by = "Peptidoform")
+dd$Peptidoform <- NULL
 
+# build Feature index
 dd.features <- dd[, .(
-  PeptidoformID,
   nCount = .N
 ), by = Feature]
-dd.features  <- dd.features[order(-nCount, PeptidoformID, Feature)]
-dd.features$Feature <- factor(dd.features$Feature, unique(dd.features$Feature))
-dd.features$PeptidoformID <- factor(dd.features$PeptidoformID)
-dd.features$FeatureID <- as.integer(dd.features$Feature)
+dd.features  <- dd.features[order(-nCount, Feature)]
+dd.features$FeatureID <- factor(as.integer(factor(dd.features$Feature, unique(dd.features$Feature))))
 
-dd$FeatureID <- dd.features$FeatureID[match(dd$Feature, dd.features$Feature)]
-dd.features$FeatureID <- factor(dd.features$FeatureID)
+dd <- merge(dd, dd.features[, list(Feature, FeatureID)])
+dd$Feature <- NULL
 
+# build Preparation index
 dd.preparations <- dd[, .(
   Preparation = paste(Run, ":", Label)
 ), by = list(Run, Label)]
-dd.preparations$RunID <- as.integer(factor(dd.preparations$Run))
-dd.preparations$LabelID <- as.integer(factor(dd.preparations$Label))
-dd.preparations$PreparationID <- as.integer(factor(dd.preparations$Preparation))
+dd.preparations$Preparation <- factor(dd.preparations$Preparation)
+dd.preparations$RunID <- factor(as.integer(dd.preparations$Run))
+dd.preparations$LabelID <- factor(as.integer(dd.preparations$Label))
+dd.preparations$PreparationID <- factor(as.integer(dd.preparations$Preparation))
 
-dd$RunID <- dd.preparations$RunID[match(dd$Run, dd.preparations$Run)]
-dd$LabelID <- dd.preparations$LabelID[match(dd$Label, dd.preparations$Label)]
-dd$PreparationID <- dd.preparations$PreparationID[match(dd$Preparation, dd.preparations$PreparationID)]
+dd <- merge(dd, dd.preparations[, list(Run, Label, RunID, LabelID, PreparationID)], by = c("Run", "Label"))
+dd$Run <- NULL
+dd$Label <- NULL
 
+# factors are appaulingly slow to split, so change to strings as we want to drop levels anyway
+dd$ProteinGroupID <- as.integer(dd$ProteinGroupID)
+dd$PeptidoformID <- as.integer(dd$PeptidoformID)
+dd$FeatureID <- as.integer(dd$FeatureID)
+dd$RunID <- as.integer(dd$RunID)
+dd$LabelID <- as.integer(dd$LabelID)
+dd$PreparationID <- as.integer(dd$PreparationID)
 
 # estimate how long each ProteinGroup will take to process
-# intercept, peptidoforms, peptidoforms^2, features, features^2, peptidoforms*features 
-a <- c(1.462154e+01, 6.002002e-01, 3.886181e+00, 5.376223e-02, 2.671169e-04, 7.516105e+001)
-score <- a[1] + a[2]*dd.index$peptidoforms + a[3]*dd.index$peptidoforms^2 +
-  a[4]*dd.index$features +  + a[5]*dd.index$features^2 + a[6]*dd.index$peptidoforms*dd.index$features 
+# Intercept, ProteinGroups, Peptidoforms, ProteinGroups^2, Peptidoforms^2, ProteinGroups*Peptidoforms 
+a <- c(746.09, 32.76, 7.36, 5017.36, 4975.00, 5038.31)
 
 # assign ProteinGroups to batches
 message("batching protein groups...")
 nbatch <- as.integer(dd.params[Key=="nbatch", Value])
-scores <- rep(0, nbatch)
+dd.batches <- data.table(nP = rep(0, nbatch), nT = rep(0, nbatch))
 dds = vector("list", nbatch)
-for (j in 1:nbatch) dds[[j]] <- vector("list", nrow(dd.index))
-for (i in 1:nrow(dd.index)) {
+for (j in 1:nbatch) dds[[j]] <- vector("list", nrow(dd.proteingroups))
+for (i in 1:nrow(dd.proteingroups)) {
+  scores <- a[1] +
+    a[2]*(dd.batches$nP+1) +
+    a[3]*(dd.batches$nT+dd.proteingroups$nPeptidoform[i]) +
+    a[4]*(dd.batches$nP+1)*(dd.batches$nP+1) +
+    a[5]*(dd.batches$nT+dd.proteingroups$nPeptidoform[i])*(dd.batches$nT+dd.proteingroups$nPeptidoform[i]) +
+    a[6]*(dd.batches$nP+1)*(dd.batches$nT+dd.proteingroups$nPeptidoform[i])
+    
   j <- which.min(scores)
-  dds[[j]][[i]] <- dd[ForeignKey == dd.index$ForeignKey[i],]
-  scores[j] <- scores[j] + score[i]
+  dds[[j]][[i]] <- dd[ProteinGroupID == dd.proteingroups$ProteinGroupID[i],]
+  dd.batches$nP[j] <- dd.batches$nP[j] + 1
+  dd.batches$nT[j] <- dd.batches$nT[j] + dd.proteingroups$nPeptidoform[i]
 }
 
 # build HPC submission zip
@@ -116,17 +129,19 @@ for (file in list.files(file.path(script_dir, "submit")))
 for (j in 1:nbatch) {
   dd <- rbindlist(dds[[j]])
   
-  dd$Run <- factor(dd$Run)
-  dd$Label <- factor(dd$Label)
-  dd$ProteinGroup <- factor(dd$ProteinGroup)
-  dd$Peptidoform <- factor(dd$Peptidoform)
-  dd$Feature <- factor(dd$Feature)
+  # and back to factors...
+  dd$ProteinGroupID <- factor(dd$ProteinGroupID)
+  dd$PeptidoformID <- factor(dd$PeptidoformID)
+  dd$FeatureID <- factor(dd$FeatureID)
+  dd$RunID <- factor(dd$RunID)
+  dd$LabelID <- factor(dd$LabelID)
+  dd$PreparationID <- factor(dd$PreparationID)
   
   save(dd, file = file.path(out_dir, "input", paste0(j-1, ".Rdata")))
 }
 
 # save metadata
-save(dd.index, dd.params, file = file.path(out_dir, "input", "metadata.Rdata"))
+save(dd.params, dd.proteingroups, dd.peptidoforms, dd.features, dd.preparations, file = file.path(out_dir, "input", "metadata.Rdata"))
 
 # this is where the SLURM/PBS scripts should be generated 
 source(file.path(script_dir, "submit", "ScheduleHPC.R"))

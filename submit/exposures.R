@@ -17,16 +17,17 @@ burnin <- as.integer(dd.params[Key=="quant.burnin", Value])
 thin <- as.integer(dd.params[Key=="quant.thin", Value])
 nsamp <- nchain * (nitt - burnin) / thin
 
-nproteingroup <- as.integer(dd.params[Key=="internal.nproteingroup", Value])
-nrun <- as.integer(dd.params[Key=="internal.nrun", Value])
-nlabel <- as.integer(dd.params[Key=="internal.nlabel", Value])
-
 prefix <- ifelse(file.exists("0.0.Rdata"), ".", file.path("..", "..", "norm", "results"))
+
+nP <- length(levels(dd.proteingroups$ProteinGroupID))
+nR <- length(levels(dd.preparations$RunID))
+nL <- length(levels(dd.preparations$LabelID))
 
 # load batches
 stats.peptidoforms.all <- vector("list", nbatch)
 stats.quants.all <- vector("list", nbatch)
-mcmc.quants.all <- array(NA, c(nproteingroup, nrun, nlabel, nsamp))
+mcmc.quants.all <- array(NA, c(nP, nR, nL, nsamp))
+time.mcmc.all <- rep(0, nbatch)
 for (i in 1:nbatch) {
   message("[", paste0(Sys.time(), " Processing batch ", i,"/", nbatch, "...]"))
 
@@ -34,8 +35,9 @@ for (i in 1:nbatch) {
   mcmc.peptidoforms.chains <- vector("list", nchain)
   for (j in 1:nchain) {
     load(file.path(prefix, paste0(i-1, ".", j-1, ".Rdata")))
-    mcmc.quants.chains[[j]] <- mcmc.quants
-    mcmc.peptidoforms.chains[[j]] <- mcmc.peptidoforms
+    mcmc.quants.chains[[j]] <- as.mcmc(mcmc.quants)
+    mcmc.peptidoforms.chains[[j]] <- as.mcmc(mcmc.peptidoforms)
+    time.mcmc.all[i] <- time.mcmc.all[i] + time.mcmc["elapsed"]
   }
   
   # stats for peptidoform variances
@@ -52,18 +54,19 @@ for (i in 1:nbatch) {
   # stats for quant ratios
   mcmc.quants.chains <- mcmc.list(mcmc.quants.chains)
   stats.quants.all[[i]] <- summary(mcmc.quants.chains)$statistics
+  rhat.cols <- stats.quants.all[[i]][, "SD"] != 0
   stats.quants.all[[i]] <- data.table(
     Effect = rownames(stats.quants.all[[i]]),
-    Rhat = gelman.diag(mcmc.quants.chains)$psrf[, "Point est."]
+    Rhat = NA
   )
+  stats.quants.all[[i]]$Rhat[rhat.cols] <- gelman.diag(mcmc.quants.chains[, rhat.cols])$psrf[, "Point est."]
   
   # 4D array of ProteinGroup, Run, Label, MCMC samps
   mcmc.quants.chains <- t(as.matrix(mcmc.quants.chains))
   for (j in 1:nrow(mcmc.quants.chains)) {
-    p <- as.integer(sub(":Run[0-9]+:Label[0-9]+", "", sub("^ProteinGroup", "", rownames(mcmc.quants.chains)[j])))
-    r <- as.integer(sub(":Label[0-9]+", "", sub("^ProteinGroup[0-9]+:Run", "", rownames(mcmc.quants.chains)[j])))
-    l <- as.integer(sub("^ProteinGroup[0-9]+:Run[0-9]+:Label", "", rownames(mcmc.quants.chains)[j]))
-    print(paste(p, r, l))
+    p <- as.integer(gsub("^([0-9]+):[0-9]+:[0-9]+$", "\\1", rownames(mcmc.quants.chains)[j]))
+    r <- as.integer(gsub("^[0-9]+:([0-9])+:[0-9]+$", "\\1", rownames(mcmc.quants.chains)[j]))
+    l <- as.integer(gsub("^[0-9]+:[0-9]+:([0-9])+$", "\\1", rownames(mcmc.quants.chains)[j]))
     mcmc.quants.all[p, r, l,] <- mcmc.quants.chains[j,]
   }
   mcmc.quants.chains <- NULL
@@ -72,15 +75,20 @@ stats.peptidoforms.all <- rbindlist(stats.peptidoforms.all)
 stats.quants.all <- rbindlist(stats.quants.all)
 
 # calculate medians to use as exposures
-mcmc.exposures <- array(NA, c(nrun, nlabel, nsamp))
-for (r in 1:nrun) {
-  for (l in 1:nlabel) {
+mcmc.exposures <- array(NA, c(nR, nL, nsamp))
+for (r in 1:nR) {
+  for (l in 1:nL) {
     print(paste(r,l))
     for (i in 1:nsamp) {
       mcmc.exposures[r, l, i] <- median(mcmc.quants.all[, r, l, i])
     }
   }
 }
+
+# save times for load balancing
+save(time.mcmc.all, file = "time.mcmc.all.Rdata")
+
+
 
 
 plot.mcmc.exposures <- function(mcmc.exposures)

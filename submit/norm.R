@@ -9,13 +9,17 @@ options(max.print = 99999)
 
 # process arguments
 args <- commandArgs(T)
-if (length(args) == 0) args <- c("1", "0")
+if (length(args) == 0) args <- c("6", "0")
 batch <- as.integer(args[1])
 chain <- as.integer(args[2])
 
 # load parameters
 prefix <- ifelse(file.exists("metadata.Rdata"), ".", file.path("..", "..", "input"))
 load(file.path(prefix, "metadata.Rdata"))
+
+nitt <- as.integer(dd.params[Key=="quant.nitt", Value])
+burnin <- as.integer(dd.params[Key=="quant.burnin", Value])
+thin <- as.integer(dd.params[Key=="quant.thin", Value])
 
 # set seed
 set.seed(as.integer(dd.params[Key=="seed", Value]) + chain)
@@ -24,66 +28,59 @@ set.seed(as.integer(dd.params[Key=="seed", Value]) + chain)
 prefix <- ifelse(file.exists(paste0(batch,".Rdata")),".",file.path("..","..","input"))
 load(file.path(prefix,paste0(batch,".Rdata")))
 
-## create dd.model
-nP <- length(levels(dd$ProteinGroup))
-nT <- length(levels(dd$Peptidoform))
-nF <- length(levels(dd$Feature))  
-nL <- length(levels(dd$Label))
-nR <- length(levels(dd$Run))
-
-dd.model <- data.table(
-  ProteinGroup = factor(as.integer(dd$ProteinGroup)),
-  Peptidoform = factor(as.integer(dd$Peptidoform)),
-  Feature = factor(as.integer(dd$Feature)),
-  Run = factor(as.integer(dd$Run)),
-  Label = factor(as.integer(dd$Label)),
-  Count = round(dd$Count)
-)
+## set to dd
+nP <- length(levels(dd$ProteinGroupID))
+nT <- length(levels(dd$PeptidoformID))
+nF <- length(levels(dd$FeatureID))  
+nR <- length(levels(dd$RunID))
+nL <- length(levels(dd$LabelID))
+dd$Count = round(dd$Count)
 
 # MCMCglmm doesn't keep treatment contrast order
-if (nP > 1 & nR == 1) levels(dd.model$Label) = rev(levels(dd.model$Label))
-if (nP > 1 & nL == 1) levels(dd.model$Run) = rev(levels(dd.model$Run))
-if (nP == 1 & nR > 1 & nL > 1) levels(dd.model$Label) = rev(levels(dd.model$Run))
+if (nP > 1 & nR == 1) levels(dd$LabelID) = rev(levels(dd$LabelID))
+if (nP > 1 & nL == 1) levels(dd$RunID) = rev(levels(dd$RunID))
+if (nP == 1 & nR > 1 & nL > 1) levels(dd$LabelID) = rev(levels(dd$LabelID))
 
 # run model!
-nitt <- as.integer(dd.params[Key=="quant.nitt", Value])
-burnin <- as.integer(dd.params[Key=="quant.burnin", Value])
-thin <- as.integer(dd.params[Key=="quant.thin", Value])
-
 prior <- list(
   G = list(G1 = list(V = diag(nT), nu = nT, alpha.mu = rep(0, nT), alpha.V = diag(1000, nT))),
   R = list(V = diag(nF), nu = 0.002)
 )
-
 time.mcmc <- system.time(model <- (MCMCglmm(
-  as.formula(paste0("Count ~ Feature + ", ifelse(nP==1, "", "ProteinGroup:"), ifelse(nR<=1, ifelse(nL<=1, "", "Label"), ifelse(nL<=1, "Run", "Run:Label")), " - 1")),
-  random = as.formula(paste0("~ ", ifelse(nT==1, "Peptidoform", "idh(Peptidoform)"), ifelse(nR<=1, "", ":Run"), ifelse(nL<=1, "", ":Label"))),
-  rcov = as.formula(paste0("~ ", ifelse(nF==1, "units", "idh(Feature):units"))),
-  family = "poisson", data = dd.model, prior = prior, nitt = nitt, burnin = burnin, thin = thin, verbose = F
+  as.formula(paste0("Count ~ FeatureID + ", ifelse(nP==1, "", "ProteinGroupID:"), ifelse(nR<=1, ifelse(nL<=1, "", "LabelID"), ifelse(nL<=1, "RunID", "RunID:LabelID")), " - 1")),
+  random = as.formula(paste0("~ ", ifelse(nT==1, "PeptidoformID", "idh(PeptidoformID)"), ifelse(nR<=1, "", ":RunID"), ifelse(nL<=1, "", ":LabelID"))),
+  rcov = as.formula(paste0("~ ", ifelse(nF==1, "units", "idh(FeatureID):units"))),
+  family = "poisson", data = dd, prior = prior, nitt = nitt, burnin = burnin, thin = thin, verbose = F
 )))
-
 summary(model)
 message("")
 
-# figure out what mcmc samples we should save
-dd.id <- data.table(
-  ID = CJ(paste("ProteinGroup", levels(dd$ProteinGroup)), paste("Run", levels(dd$Run)), paste("Label", levels(dd$Label)))[, paste(V1, V2, V3, sep =" : ")],
-  MCMCglmmID = CJ(paste0("ProteinGroup", 1:nP), paste0("Run", 1:nR), paste0("Label", 1:nL))[, paste(V1, V2, V3, sep =":")]
-)
-if (nP == 1) dd.id$MCMCglmmID <- sub("^ProteinGroup1:", "", dd.id$MCMCglmmID)
-if (nR == 1) dd.id$MCMCglmmID <- sub("Run1:", "", dd.id$MCMCglmmID)
-if (nR == 1) dd.id$MCMCglmmID <- sub("Run1", "", dd.id$MCMCglmmID)
-if (nL == 1) dd.id$MCMCglmmID <- sub("Label1", "", dd.id$MCMCglmmID)
-dd.id$MCMCglmmID <- sub("::", ":", dd.id$MCMCglmmID)
+# refer to dd to figure out what mcmc samples we need to save
+dd.ids <- dd[!duplicated(dd[, list(ProteinGroupID, PreparationID)]), list(ProteinGroupID, RunID, LabelID)]
+dd.ids$ProteinGroupMCMCglmm <- ""
+dd.ids$RunMCMCglmm <- ""
+dd.ids$LabelMCMCglmm <- ""
+if (nP>1) dd.ids$ProteinGroupMCMCglmm <-paste0("ProteinGroupID", dd.ids$ProteinGroupID, ":")
+if (nR>1) dd.ids$RunMCMCglmm <-paste0("RunID", dd.ids$RunID, ":")
+if (nL>1) dd.ids$LabelMCMCglmm <-paste0("LabelID", dd.ids$LabelID, ":")
+dd.ids$MCMCglmm <- paste0(dd.ids$ProteinGroupMCMCglmm, dd.ids$RunMCMCglmm, dd.ids$LabelMCMCglmm)
+dd.ids$MCMCglmm <- substr(dd.ids$MCMCglmm, 1, nchar(dd.ids$MCMCglmm) - 1)
 
 # save mcmc samples for exposures.R
-model$Sol <- model$Sol[, colnames(model$Sol) %in% dd.id$MCMCglmmID]
-colnames(model$Sol) <- dd.id$ID[match(colnames(model$Sol), dd.id$MCMCglmmID)]
-mcmc.quants <- model$Sol
+denominators <- dd.ids$MCMCglmm[!dd.ids$MCMCglmm %in%  colnames(model$Sol)] 
+mcmc.quants <- as.matrix(model$Sol[, colnames(model$Sol) %in% dd.ids$MCMCglmm])
+model$Sol <- NULL
 
-model$VCV <- model$VCV[, grep("^Peptidoform", colnames(model$VCV))]  
-colnames(model$VCV) <- levels(dd$Peptidoform)
-mcmc.peptidoforms <- model$VCV
+mcmc.quants.demoninator <- matrix(0, nrow(mcmc.quants), length(denominators))
+colnames(mcmc.quants.demoninator) <- denominators
+
+mcmc.quants <- cbind(mcmc.quants.demoninator, mcmc.quants)
+j <- match(colnames(mcmc.quants), dd.ids$MCMCglmm)
+colnames(mcmc.quants) <- paste0(dd.ids$ProteinGroupID[j], ":", dd.ids$RunID[j], ":", dd.ids$LabelID[j])
+
+mcmc.peptidoforms <- as.matrix(model$VCV[, grep("^Peptidoform", colnames(model$VCV))])
+model$VCV <- NULL
+colnames(mcmc.peptidoforms) <- gsub("^PeptidoformID([0-9]+)\\.LabelID$", "\\1", colnames(mcmc.peptidoforms))
 
 save(mcmc.quants, mcmc.peptidoforms, time.mcmc, file=paste0(batch, ".", chain, ".Rdata"))
 
