@@ -125,7 +125,7 @@ setMethod("normHPC", signature(object = "SLURM"), function(object)
       if (idx == 1)
       {
         jobID = jobID + 1
-        fname=paste(file.path(object@path,"submit","norm","norm-job"),jobID,".sh",sep="",collapse="")
+        fname=paste(file.path(object@path,"norm","norm-job"),jobID,".sh",sep="",collapse="")
         sink(fname)
         cat("cd norm/results\n")
       }
@@ -143,7 +143,7 @@ setMethod("normHPC", signature(object = "SLURM"), function(object)
         idx = idx + 1
       }
     }
-    sink(file.path(object@path,"submit","bayesprot-norm.sh"))
+    sink(file.path(object@path,"bayesprot-norm.sh"))
 
     cat("#!/bin/bash\n")
     cat("#SBATCH -J Norm\n")
@@ -159,7 +159,7 @@ setMethod("normHPC", signature(object = "SLURM"), function(object)
 
     sink()
 
-    system(paste("chmod u+x",file.path(object@path,"submit","bayesprot-norm.sh")))
+    system(paste("chmod u+x",file.path(object@path,"bayesprot-norm.sh")))
   }
 )
 
@@ -169,7 +169,7 @@ setMethod("exposuresHPC", signature(object = "SLURM"), function(object)
     singleCPU = 1
     singleNode = 1
 
-    sink(file.path(object@path,"submit","bayesprot-exposures.sh"))
+    sink(file.path(object@path,"bayesprot-exposures.sh"))
 
     cat("#!/bin/bash\n")
     cat("#SBATCH -J Exposures\n")
@@ -185,7 +185,7 @@ setMethod("exposuresHPC", signature(object = "SLURM"), function(object)
 
     sink()
 
-    system(paste("chmod u+x",file.path(object@path,"submit","bayesprot-exposures.sh")))
+    system(paste("chmod u+x",file.path(object@path,"bayesprot-exposures.sh")))
     }
 )
 
@@ -214,7 +214,7 @@ setMethod("modelHPC", signature(object = "SLURM"), function(object)
       if (idx == 1)
       {
         jobID = jobID + 1
-        fname=paste(file.path(object@path,"submit","model","model-job"),jobID,".sh",sep="",collapse="")
+        fname=paste(file.path(object@path,"model","model-job"),jobID,".sh",sep="",collapse="")
         sink(fname)
         cat("cd model/results\n")
       }
@@ -236,7 +236,7 @@ setMethod("modelHPC", signature(object = "SLURM"), function(object)
 
     if (object@totalJobs == 1)
     {
-      sink(file.path(object@path,"submit","bayesprot-model.sh"))
+      sink(file.path(object@path,"bayesprot-model.sh"))
     
       cat("#!/bin/bash\n")
       cat("#SBATCH -J Model\n")
@@ -259,7 +259,7 @@ setMethod("modelHPC", signature(object = "SLURM"), function(object)
       idx <- 0
       for (i in c(1:object@totalJobs))
       {
-        fname=paste(file.path(object@path,"submit","model","model-batch-job"),i,".sh",sep="",collapse="")
+        fname=paste(file.path(object@path,"model","model-batch-job"),i,".sh",sep="",collapse="")
         sink(fname)
         cat("#!/bin/bash\n")
         for (j in 1:nrun)
@@ -280,7 +280,7 @@ setMethod("modelHPC", signature(object = "SLURM"), function(object)
         }
       }
 
-      sink(file.path(object@path,"submit","bayesprot-model.sh"))
+      sink(file.path(object@path,"bayesprot-model.sh"))
 
       cat("#!/bin/bash\n")
       cat("#SBATCH -J Model\n")
@@ -296,7 +296,7 @@ setMethod("modelHPC", signature(object = "SLURM"), function(object)
 
       sink()
     }
-    system(paste("chmod u+x",file.path(object@path,"submit","bayesprot-model.sh")))
+    system(paste("chmod u+x",file.path(object@path,"bayesprot-model.sh")))
   }
 )
 
@@ -313,7 +313,7 @@ setMethod("plotsHPC", signature(object = "SLURM"), function(object)
       if (idx == 1)
       {
         jobID = jobID + 1
-        fname=paste(file.path(object@path,"submit","plots","plots-job"),jobID,".sh",sep="",collapse="")
+        fname=paste(file.path(object@path,"plots","plots-job"),jobID,".sh",sep="",collapse="")
         sink(fname)
         cat("cd plots/results\n")
       }
@@ -333,7 +333,7 @@ setMethod("plotsHPC", signature(object = "SLURM"), function(object)
 
     if (object@totalJobs == 1)
     {
-      sink(file.path(object@path,"submit","bayesprot-plots.sh"))
+      sink(file.path(object@path,"bayesprot-plots.sh"))
 
       cat("#!/bin/bash\n")
       cat("#SBATCH -J Plots\n")
@@ -356,7 +356,7 @@ setMethod("plotsHPC", signature(object = "SLURM"), function(object)
       idx <- 0
       for (i in c(1:object@totalJobs))
       {
-        fname=paste(file.path(object@path,"submit","plots","plots-batch-job"),i,".sh",sep="",collapse="")
+        fname=paste(file.path(object@path,"plots","plots-batch-job"),i,".sh",sep="",collapse="")
         sink(fname)
         cat("#!/bin/bash\n")
         for (j in 1:nrun)
@@ -376,7 +376,7 @@ setMethod("plotsHPC", signature(object = "SLURM"), function(object)
           print(paste("ERROR: JobIB greater than number of subjobs!!! idx: ", idx, " extra: ",extra))
         }
       }
-      sink(file.path(object@path,"submit","bayesprot-plots.sh"))
+      sink(file.path(object@path,"bayesprot-plots.sh"))
 
       cat("#!/bin/bash\n")
       cat("#SBATCH -J Plots\n")
@@ -392,7 +392,7 @@ setMethod("plotsHPC", signature(object = "SLURM"), function(object)
 
       sink()
     }
-    system(paste("chmod u+x",file.path(object@path,"submit","bayesprot-plots.sh")))
+    system(paste("chmod u+x",file.path(object@path,"bayesprot-plots.sh")))
   }
 )
 
@@ -402,7 +402,7 @@ setMethod("outputHPC", signature(object = "SLURM"), function(object)
     singleCPU = 1
     singleNode = 1
 
-    sink(file.path(object@path,"submit","bayesprot-output.sh"))
+    sink(file.path(object@path,"bayesprot-output.sh"))
 
     cat("#!/bin/bash\n")
     cat("#SBATCH -J Output\n")
@@ -418,14 +418,14 @@ setMethod("outputHPC", signature(object = "SLURM"), function(object)
 
     sink()
 
-    system(paste("chmod u+x",file.path(object@path,"submit","bayesprot-output.sh")))
+    system(paste("chmod u+x",file.path(object@path,"bayesprot-output.sh")))
     }
 )
 
 
 setMethod("genJobFileHPC", signature(object = "SLURM"), function(object)
   {
-    sink(file.path(object@path,"submit","jobSubmitScript.sh"))
+    sink(file.path(object@path,"jobSubmitScript.sh"))
     
     cat("#!/bin/bash\n")
     cat("# jobSubmitScript.sh\n\n")
@@ -477,6 +477,6 @@ setMethod("genJobFileHPC", signature(object = "SLURM"), function(object)
 
     sink()
 
-    system(paste("chmod u+x",file.path(object@path,"submit","jobSubmitScript.sh")))
+    system(paste("chmod u+x",file.path(object@path,"jobSubmitScript.sh")))
   }
 )

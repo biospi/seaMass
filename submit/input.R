@@ -1,183 +1,153 @@
-# check for required package
-suppressPackageStartupMessages(
-  readxl.installed <- require("readxl")
+# default parameters
+id <- sub("[.][^.]*$", "", basename(args[1]), perl=T)
+
+dd.params <- rbind(
+  c("seed", "0"),
+  c("nbatch", "100"),
+  
+  c("quant.nitt", "1300"),
+  c("quant.burnin", "300"),
+  c("quant.thin", "1"),
+  c("quant.nchain", "10"),
+
+  c("de.nitt", "13000"),
+  c("de.burnin", "3000"),
+  c("de.thin", "100"),
+  c("de.nchain", "100"),
+  
+  c("hpc", "SLURM"),
+  c("hpc.ncpu", "14"),
+  c("hpc.nnode", "1"),
+  c("hpc.mem", "3G"),
+  c("hpc.himem", "16G"),
+  c("hpc.longq", "cpu"),
+  c("hpc.shortq", "serial"),
+  c("hpc.totaljobs", "1"),
+  c("hpc.lowncpu", "6"),
+  
+  c("internal.nrun", length(unique(dd$Run))),
+  c("internal.nproteingroup", length(unique(dd$ProteinGroup))),
+  c("internal.npeptidoform", length(unique(dd$Peptidoform))),
+  c("internal.nfeature", length(unique(dd$Feature))),
+  c("internal.nlabel", length(unique(dd$Label))),
+  c("internal.id", id)
 )
-if (!readxl.installed) { 
-  install.packages("readxl",dependencies=T,repos="http://mirrors.ebi.ac.uk/CRAN/")
-  library(readxl)
-}
+colnames(dd.params) <- c("Key", "Value")
+dd.params <- as.data.table(dd.params)
 
-require(methods)
+# build indices
+dd.proteingroups <- dd[, .(
+  nPeptidoform = length(unique(Peptidoform)),
+  nFeature = length(unique(Feature)),
+  nCount = .N
+), by = ProteinGroup]
+dd.proteingroups <- dd.proteingroups[order(-nPeptidoform, -nFeature, -nCount, ProteinGroup)]
+dd.proteingroups$ProteinGroup <- factor(dd.proteingroups$ProteinGroup, unique(dd.proteingroups$ProteinGroup))
+dd.proteingroups$ProteinGroupID <- as.integer(dd.proteingroups$ProteinGroup)
 
-# read bayesprot metadata
-message(paste0("reading: ",args[1],"..."))
-parameters <- data.table(read_excel(args[1],1,col_names=F))  
-colnames(parameters) <- c("Key","Value")
-design <- data.table(read_excel(args[1],2))
-design$Run <- factor(design$Run)
-design$Sample <- factor(design$Sample)
-design$Digest <- factor(design$Digest)
-design$Population <- factor(design$Population)
-design$Condition <- factor(design$Condition)
-design$Condition <- factor(sub('^[[:digit:]]+\\.','',design$Condition), levels=sub('^[[:digit:]]+\\.','',levels(design$Condition)))
-design$Channel <- factor(design$Channel)
-fractions <- data.table(read_excel(args[1],3))  
+dd$ProteinGroupID <- dd.proteingroups$ProteinGroupID[match(dd$ProteinGroup, dd.proteingroups$ProteinGroup)]
+dd.proteingroups$ProteinGroupID <- factor(dd.proteingroups$ProteinGroupID)
 
-# merge Fractions table
-fracs <- unique(dd$Fraction)
-missing_fracs <- sort(fracs[!(fracs %in% fractions$Fraction)])
-if (length(missing_fracs) > 0)
-{
-  message("")
-  message(paste("WARNING: NO RUN SPECIFIED FOR FRACTIONS",paste(missing_fracs,collapse=", "),": FRACTIONS WILL BE DISCARDED"))    
-  message("")  
-}
-dd <- merge(dd, fractions, by="Fraction")
+dd.peptidoforms <- dd[, .(
+  ProteinGroupID,
+  nFeature = length(unique(Feature)),
+  nCount = .N
+), by = Peptidoform]
+dd.peptidoforms  <- dd.peptidoforms[order(-nFeature, -nCount, ProteinGroupID, Peptidoform)]
+dd.peptidoforms$Peptidoform <- factor(dd.peptidoforms$Peptidoform, unique(dd.peptidoforms$Peptidoform))
+dd.peptidoforms$PeptidoformID <- as.integer(dd.peptidoforms$Peptidoform)
 
-# check Design table
-runchannels <- as.vector(sapply(levels(factor(design$Run)), function (r) paste(r,substring(grep("^Channel\\.",colnames(dd),value=T),9),sep='.')))
-design_runchannels <- interaction(factor(design$Run),factor(design$Channel))
-missing_runchannels <- runchannels[!(runchannels %in% design_runchannels)]
-if (length(missing_runchannels) > 0)
-{
-  message("")
-  message(paste0("WARNING: NO SAMPLE SPECIFIED FOR CHANNELS ",paste(missing_runchannels,collapse=", "),": CHANNELS WILL BE DISCARDED"))    
-  message("")  
-}
+dd$PeptidoformID <- dd.peptidoforms$PeptidoformID[match(dd$Peptidoform, dd.peptidoforms$Peptidoform)]
+dd.peptidoforms$ProteinGroupID <- factor(dd.peptidoforms$ProteinGroupID)
+dd.peptidoforms$PeptidoformID <- factor(dd.peptidoforms$PeptidoformID)
 
-# filter by min_spectra
-if("min_spectra" %in% parameters$Key)
-{
-  min_spectra <- as.integer(parameters$Value[parameters$Key=="min_spectra"])
-  
-  freq <- dd[, .(count=.N), by=ForeignKey]
-  dd <- dd[dd$ForeignKey %in% freq$ForeignKey[freq$count>=min_spectra],]
-}
+dd.features <- dd[, .(
+  PeptidoformID,
+  nCount = .N
+), by = Feature]
+dd.features  <- dd.features[order(-nCount, PeptidoformID, Feature)]
+dd.features$Feature <- factor(dd.features$Feature, unique(dd.features$Feature))
+dd.features$PeptidoformID <- factor(dd.features$PeptidoformID)
+dd.features$FeatureID <- as.integer(dd.features$Feature)
 
-# filter by min_peptides
-if("min_peptides" %in% parameters$Key)
-{
-  min_peptides <- as.integer(parameters$Value[parameters$Key=="min_peptides"])
-  
-  freq <- dd[, .(count=length(levels(factor(Peptide)))), by=ForeignKey]
-  dd <- dd[dd$ForeignKey %in% freq$ForeignKey[freq$count>=min_peptides],]
-}
+dd$FeatureID <- dd.features$FeatureID[match(dd$Feature, dd.features$Feature)]
+dd.features$FeatureID <- factor(dd.features$FeatureID)
 
-# filter by max_spectra_per_peptide_per_run
-if("max_spectra_per_peptide_per_run" %in% parameters$Key)
-{
-  max_spectra_per_peptide_per_run <- as.integer(parameters$Value[parameters$Key=="max_spectra_per_peptide_per_run"])
-  
-  # order by ident confidence then precursor signal
-  dd <- dd[order(-dd$Conf,-dd$PrecursorCount),] 
-  # prioritise spectra within ForeignKey:Peptide:Run:Fraction:Charge subgroups
-  dd[, priority := seq_len(.N), by = list(ForeignKey, Peptide, Run, Fraction, Charge)]
-  dd <- dd[order(priority),]
-  # now select max_spectra_per_peptide_per_run from each ForeignKey:Peptide:Run subgroup (this is somewhat slow)
-  dd <- dd[, .SD[1:max_spectra_per_peptide_per_run], by = list(ForeignKey, Peptide, Run)]
-  dd[, priority := NULL]
+dd.preparations <- dd[, .(
+  Preparation = paste(Run, ":", Label)
+), by = list(Run, Label)]
+dd.preparations$RunID <- as.integer(factor(dd.preparations$Run))
+dd.preparations$LabelID <- as.integer(factor(dd.preparations$Label))
+dd.preparations$PreparationID <- as.integer(factor(dd.preparations$Preparation))
+
+dd$RunID <- dd.preparations$RunID[match(dd$Run, dd.preparations$Run)]
+dd$LabelID <- dd.preparations$LabelID[match(dd$Label, dd.preparations$Label)]
+dd$PreparationID <- dd.preparations$PreparationID[match(dd$Preparation, dd.preparations$PreparationID)]
+
+
+# estimate how long each ProteinGroup will take to process
+# intercept, peptidoforms, peptidoforms^2, features, features^2, peptidoforms*features 
+a <- c(1.462154e+01, 6.002002e-01, 3.886181e+00, 5.376223e-02, 2.671169e-04, 7.516105e+001)
+score <- a[1] + a[2]*dd.index$peptidoforms + a[3]*dd.index$peptidoforms^2 +
+  a[4]*dd.index$features +  + a[5]*dd.index$features^2 + a[6]*dd.index$peptidoforms*dd.index$features 
+
+# assign ProteinGroups to batches
+message("batching protein groups...")
+nbatch <- as.integer(dd.params[Key=="nbatch", Value])
+scores <- rep(0, nbatch)
+dds = vector("list", nbatch)
+for (j in 1:nbatch) dds[[j]] <- vector("list", nrow(dd.index))
+for (i in 1:nrow(dd.index)) {
+  j <- which.min(scores)
+  dds[[j]][[i]] <- dd[ForeignKey == dd.index$ForeignKey[i],]
+  scores[j] <- scores[j] + score[i]
 }
 
 # build HPC submission zip
 id <- sub("[.][^.]*$", "", basename(args[1]), perl=T)
 out_zip <- paste0(id, ".bayesprot.zip")
-out_dir <- tempfile("bayesprot.")
-dir.create(out_dir)
-invisible(file.copy(file.path(script_dir,"submit"),out_dir,recursive=T))
-parameters <- rbind(parameters, data.table(Key="id", Value=id))
+tmp_dir <- tempfile("bayesprot.")
+out_dir <- file.path(tmp_dir, paste0(id, ".bayesprot"))
+dir.create(out_dir, recursive = T)
+for (file in list.files(file.path(script_dir, "submit")))
+  file.copy(file.path(script_dir, "submit", file), out_dir, recursive = T)
 
-# add our ProteinID to dd
-freq <- dd[, .(count=.N), by=ForeignKey]
-freq <- freq[order(-count),]
-freq$ProteinID <- 0:(nrow(freq)-1)
-dd <- merge(freq[,c("ProteinID","ForeignKey")], dd, by="ForeignKey")
-dd <- dd[order(dd$ProteinID, dd$Peptide, dd$Run, dd$Fraction, dd$Charge),]
-setkey(dd, ProteinID)
-
-# split and save data in batches of proteins for norm.R and model.R
-batches <- as.integer(ifelse("batches" %in% parameters$Key,parameters$Value[parameters$Key=="batches"],10))
-ids <- split(freq$ProteinID, freq$ProteinID %% batches)
-
-dd.index <- vector("list", length(ids))
-names(dd.index) <- names(ids)
-
-for (i in names(ids)) {
-  message(paste0("batching proteins: ",as.numeric(i)+1,"/",batches,"..."))
+# save batches
+for (j in 1:nbatch) {
+  dd <- rbindlist(dds[[j]])
   
-  dds <- vector("list", length(ids[[i]]))
-  names(dds) <- as.character(ids[[i]])
-  metas <- vector("list", length(ids[[i]]))
-  names(metas) <- as.character(ids[[i]])
+  dd$Run <- factor(dd$Run)
+  dd$Label <- factor(dd$Label)
+  dd$ProteinGroup <- factor(dd$ProteinGroup)
+  dd$Peptidoform <- factor(dd$Peptidoform)
+  dd$Feature <- factor(dd$Feature)
   
-  for (id in ids[[i]]) {
-    idc <- as.character(id)
-    
-    # extract data for mixed-effects model
-    dds[[idc]] <- dd[ProteinID == id,]
-    channels = paste0("Channel.",levels(factor(design$Channel)))
-    dds[[idc]] <- melt(dds[[idc]], variable.name='Channel', value.name='Count', measure.vars=channels)
-    levels(dds[[idc]]$Channel) <- substring(levels(dds[[idc]]$Channel), 9)
-    dds[[idc]] <- merge(design,dds[[idc]],by=c('Run','Channel'),sort=F)
-    
-    # now convert to factors
-    dds[[idc]]$Run <- factor(dds[[idc]]$Run)
-    dds[[idc]]$Channel <- factor(dds[[idc]]$Channel)
-    dds[[idc]]$Sample <- factor(dds[[idc]]$Sample)
-    dds[[idc]]$Digest <- factor(dds[[idc]]$Digest)
-    dds[[idc]]$Population <- factor(dds[[idc]]$Population)
-    dds[[idc]]$Condition <- factor(dds[[idc]]$Condition)
-    dds[[idc]]$ForeignKey <- factor(dds[[idc]]$ForeignKey)
-    dds[[idc]]$ProteinID <- factor(dds[[idc]]$ProteinID)
-    dds[[idc]]$Peptide <- factor(dds[[idc]]$Peptide)
-    dds[[idc]]$Fraction <- factor(dds[[idc]]$Fraction)
-    dds[[idc]]$Protein <- factor(dds[[idc]]$Protein)
-    dds[[idc]]$Spectrum <- factor(dds[[idc]]$Spectrum)
-    
-    # extract metadata for output csv
-    metas[[idc]] <- data.table(
-      ForeignKey=dds[[idc]]$ForeignKey[1],
-      Protein=dds[[idc]]$Protein[1],
-      Peptides=length(levels(factor(dds[[idc]]$Peptide))),
-      Spectra=length(levels(factor(dds[[idc]]$Spectrum))),
-      MeanConfidence=ifelse(!is.factor(dds[[idc]]$Confidence),mean(dds[[idc]]$Confidence),dds[[idc]]$Confidence[1]),
-      MeanPrecursorCount=mean(dds[[idc]]$PrecursorCount)
-    )
-  }
-  
-  dd.index[[i]] <- rbindlist(metas,idcol="ProteinID")
-  
-  save(dds,metas,file=file.path(out_dir,"submit","input",paste0(i,".Rdata")))
+  save(dd, file = file.path(out_dir, "input", paste0(j-1, ".Rdata")))
 }
 
 # save metadata
-dd.index <- rbindlist(dd.index)
-levels(dd.index$ProteinID) <- levels(dd$ProteinID)
-dd.index <- dd.index[order(as.integer(dd.index$ProteinID)),]
-save(dd.index,file=file.path(out_dir,"submit","input","index.Rdata"))
-save(parameters,file=file.path(out_dir,"submit","input","parameters.Rdata"))
-save(design,file=file.path(out_dir,"submit","input","design.Rdata"))
+save(dd.index, dd.params, file = file.path(out_dir, "input", "metadata.Rdata"))
 
 # this is where the SLURM/PBS scripts should be generated 
-source(file.path(script_dir,"submit","ScheduleHPC.R"))
+source(file.path(script_dir, "submit", "ScheduleHPC.R"))
 
 # New xlsx reader library so Key = X__1 and Value = X__2
-systemHPC <- as.character(ifelse("HPC" %in% parameters$Key,parameters$Value[parameters$Key=="HPC"],"SLURM"))
+systemHPC <- as.character(dd.params[Key=="hpc", Value])
 
 if (systemHPC == "SLURM") {
-  batch <- as.integer(ifelse("batch" %in% parameters$Key,parameters$Value[parameters$Key=="batch"],10))
-  norm_chains <- as.integer(ifelse("norm_chains" %in% parameters$Key,parameters$Value[parameters$Key=="norm_chains"],10))
-  model_chains <- as.integer(ifelse("model_chains" %in% parameters$Key,parameters$Value[parameters$Key=="model_chains"],100))
+  norm_chains <- as.integer(dd.params[Key=="quant.nchain", Value])
+  model_chains <- as.integer(dd.params[Key=="de.nchain", Value])
 
-  cpu_num <- as.integer(ifelse("cpu_num" %in% parameters$Key,parameters$Value[parameters$Key=="cpu_num"],14))
-  node <- as.integer(ifelse("node" %in% parameters$Key,parameters$Value[parameters$Key=="node"],1))
-  mem <- as.character(ifelse("mem" %in% parameters$Key,parameters$Value[parameters$Key=="mem"],"3G"))
-  himem <- as.character(ifelse("himem" %in% parameters$Key,parameters$Value[parameters$Key=="himem"],"16G"))
-  long_que <- as.character(ifelse("long_que" %in% parameters$Key,parameters$Value[parameters$Key=="long_que"],"cpu"))
-  short_que <- as.character(ifelse("short_que" %in% parameters$Key,parameters$Value[parameters$Key=="short_que"],"serial"))
-  total_jobs <- as.integer(ifelse("total_jobs" %in% parameters$Key,parameters$Value[parameters$Key=="total_jobs"],1))
-  low_cpu_num <- as.integer(ifelse("low_cpu_num" %in% parameters$Key,parameters$Value[parameters$Key=="low_cpu_num"],6))
+  cpu_num <- as.integer(dd.params[Key=="hpc.ncpu", Value])
+  node <- as.integer(dd.params[Key=="hpc.nnode", Value])
+  mem <- dd.params[Key=="hpc.mem", Value]
+  himem <- dd.params[Key=="hpc.himem", Value]
+  long_que <- dd.params[Key=="hpc.longq", Value]
+  short_que <- dd.params[Key=="hpc.shortq", Value]
+  total_jobs <- as.integer(dd.params[Key=="hpc.totaljobs", Value])
+  low_cpu_num <- as.integer(dd.params[Key=="hpc.lowncpu", Value])
 
-  clusterHPC <- new(systemHPC, batch = batch, normChain = norm_chains, modelChain = model_chains, path = out_dir,
+  clusterHPC <- new(systemHPC, batch = nbatch, normChain = norm_chains, modelChain = model_chains, path = out_dir,
                     cpuNum = cpu_num, node = node, mem = mem, himem = himem, longQue = long_que,shortQue = short_que,
                     totalJobs = total_jobs,lowCPUNum = low_cpu_num)
 } else if (systemHPC == "PBS") {
@@ -205,10 +175,10 @@ outputHPC(clusterHPC)
 genJobFileHPC(clusterHPC)
 
 # create zip file and clean up
-message(paste0("writing: ",out_zip,"..."))
+message(paste0("writing: ", out_zip, "..."))
 wd <- getwd()
-setwd(file.path(out_dir,"submit"))
-zip(file.path(wd,out_zip),".",flags="-r9Xq")
+setwd(tmp_dir)
+zip(file.path(wd, out_zip), ".", flags="-r9Xq")
 setwd(wd)
-unlink(out_dir,recursive=T)
+unlink(tmp_dir, recursive = T)
 message("")  
