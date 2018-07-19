@@ -17,13 +17,108 @@ burnin <- as.integer(dd.params[Key=="quant.burnin", Value])
 thin <- as.integer(dd.params[Key=="quant.thin", Value])
 nsamp <- nchain * (nitt - burnin) / thin
 
-prefix <- ifelse(file.exists("0.0.Rdata"), ".", file.path("..", "..", "norm", "results"))
-
 nP <- length(levels(dd.proteingroups$ProteinGroupID))
-nR <- length(levels(dd.preparations$RunID))
-nL <- length(levels(dd.preparations$LabelID))
+nD <- length(levels(dd.preparations$PreparationID))
 
-# load batches
+prefix <- ifelse(file.exists("1.1.2.Rdata"), ".", file.path("..", "..", "norm", "results", "quants"))
+
+# load and calculate exposures
+mcmc.exposures <- matrix(0, nbatch * nchain, nD)
+colnames(mcmc.exposures) <- levels(dd.preparations$PreparationID)
+stats.quants <- vector("list", nD)
+for(i in 2:nD) {
+  message("[", paste0(Sys.time(), " Calculating exposure for preparation ", i, "...]"))
+  
+  mcmc.quants <- vector("list", nbatch)
+  for (j in 1:nbatch) {
+    for (k in 1:nchain) {
+      mcmc.quants[[j]] <- readRDS(file.path(prefix, paste0(j, ".", k, ".", levels(dd.preparations$PreparationID)[i], ".Rdata")))
+      mcmc.quants[[j]]$chainID <- k
+    }    
+  }
+  mcmc.quants <- rbindlist(mcmc.quants)
+  
+  # calculate exposure
+  mcmc.exposure <- mcmc.quants[, list(log2exposure = median(log2quant)), by = c("sampID", "chainID")]
+  mcmc.exposures[, i] <- mcmc.exposure$log2exposure
+  
+  # correct exposure
+  mcmc.quants <- merge(mcmc.quants, mcmc.exposure)[, list(ProteinGroupID, sampID, chainID, log2quant = (log2quant - log2exposure))]
+  stats.quants[[i]] <- mcmc.quants[, list(PreparationID = factor(levels(dd.preparations$PreparationID)[i]), log2mean = mean(log2quant), log2sd = sd(log2quant)), by = ProteinGroupID]
+}
+stats.quants <- rbindlist(stats.quants)
+
+# mean centre exposures
+# mcmc.exposures <- t(apply(mcmc.exposures, 1, function(x) x - mean(x)))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+for (i in 1:nbatch) {
+  message("[", paste0(Sys.time(), " Processing batch ", i,"/", nbatch, "...]"))
+  
+  mcmc.quants.chains <- vector("list", nchain)
+  for (j in 1:nchain) {
+    load(file.path(prefix, paste0(i-1, ".", j-1, ".Rdata")))
+    mcmc.quants$chainID <- j
+    mcmc.quants.chains[[j]] <- mcmc.quants
+  }
+  mcmc.quants.chains <- rbindlist(mcmc.quants.chains)
+  
+  for (j in 1:nL) mcmc.quants.all[[j]][[i]] <- mcmc.quants.chains[LabelID == levels(dd.preparations$LabelID)[j],]
+}
+
+# derive medians
+mcmc.exposures <- vector("list", nL)
+for (i in 1:nL) {
+  message("[", paste0(Sys.time(), " Processing label ", i,"/", nL, "...]"))
+  
+  try({
+    mcmc.quants.all[[i]] <- rbindlist(mcmc.quants.all[[i]])
+    mcmc.exposures[[i]] <- mcmc.quants.all[[i]][, list(log2exposure = median(log2quant)), by = interaction(sampID, chainID)]
+    mcmc.exposures[[i]]$LabelID <- levels(dd.preparations$LabelID)[i]
+  })
+}
+
+
+
+mcmc.quants.all <- rbindlist(mcmc.quants.all)
+
+
+
+
+
 stats.peptidoforms.all <- vector("list", nbatch)
 stats.quants.all <- vector("list", nbatch)
 mcmc.quants.all <- array(NA, c(nP, nR, nL, nsamp))
@@ -80,7 +175,7 @@ for (r in 1:nR) {
   for (l in 1:nL) {
     print(paste(r,l))
     for (i in 1:nsamp) {
-      mcmc.exposures[r, l, i] <- median(mcmc.quants.all[, r, l, i])
+      mcmc.exposures[r, l, i] <- median(log2(exp(mcmc.quants.all[, r, l, i])))
     }
   }
 }

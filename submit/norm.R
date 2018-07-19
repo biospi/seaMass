@@ -7,39 +7,42 @@ suppressPackageStartupMessages(library(MCMCglmm))
 suppressPackageStartupMessages(library(methods))
 options(max.print = 99999)
 
-# process arguments
-args <- commandArgs(T)
-if (length(args) == 0) args <- c("6", "0")
-batch <- as.integer(args[1])
-chain <- as.integer(args[2])
-
 # load parameters
 prefix <- ifelse(file.exists("metadata.Rdata"), ".", file.path("..", "..", "input"))
 load(file.path(prefix, "metadata.Rdata"))
 
+nbatch <- as.integer(dd.params[Key=="nbatch", Value])
 nitt <- as.integer(dd.params[Key=="quant.nitt", Value])
 burnin <- as.integer(dd.params[Key=="quant.burnin", Value])
 thin <- as.integer(dd.params[Key=="quant.thin", Value])
 
+# process arguments
+args <- commandArgs(T)
+if (length(args) == 0) args <- c("1")
+batch <- ((as.integer(args[1]) - 1) %% nbatch) + 1
+chain <- ((as.integer(args[1]) - 1) %/% nbatch) + 1
+
 # set seed
-set.seed(as.integer(dd.params[Key=="seed", Value]) + chain)
+set.seed(as.integer(dd.params[Key=="seed", Value]) + chain - 1)
 
 # load batch
 prefix <- ifelse(file.exists(paste0(batch,".Rdata")),".",file.path("..","..","input"))
 load(file.path(prefix,paste0(batch,".Rdata")))
 
 ## set to dd
-nP <- length(levels(dd$ProteinGroupID))
-nT <- length(levels(dd$PeptidoformID))
+nP <- length(levels(dd$ProteinID))
+nT <- length(levels(dd$PeptideID))
 nF <- length(levels(dd$FeatureID))  
-nR <- length(levels(dd$RunID))
-nL <- length(levels(dd$LabelID))
+nA <- length(levels(dd$AssayID))
 dd$Count = round(dd$Count)
 
 # MCMCglmm doesn't keep treatment contrast order
-if (nP > 1 & nR == 1) levels(dd$LabelID) = rev(levels(dd$LabelID))
-if (nP > 1 & nL == 1) levels(dd$RunID) = rev(levels(dd$RunID))
-if (nP == 1 & nR > 1 & nL > 1) levels(dd$LabelID) = rev(levels(dd$LabelID))
+if (nP > 1 & nA > 1) dd$AssayID <- factor(dd$AssayID, rev(levels(dd$AssayID)))
+
+dd$ProteinID <- factor(dd$ProteinID)
+dd$PeptideID <- factor(dd$PeptideID)
+dd$FeatureID <- factor(dd$FeatureID) 
+dd$AssayID <- factor(dd$AssayID)
 
 # run model!
 prior <- list(
@@ -47,8 +50,8 @@ prior <- list(
   R = list(V = diag(nF), nu = 0.002)
 )
 time.mcmc <- system.time(model <- (MCMCglmm(
-  as.formula(paste0("Count ~ FeatureID + ", ifelse(nP==1, "", "ProteinGroupID:"), ifelse(nR<=1, ifelse(nL<=1, "", "LabelID"), ifelse(nL<=1, "RunID", "RunID:LabelID")), " - 1")),
-  random = as.formula(paste0("~ ", ifelse(nT==1, "PeptidoformID", "idh(PeptidoformID)"), ifelse(nR<=1, "", ":RunID"), ifelse(nL<=1, "", ":LabelID"))),
+  as.formula(paste0("Count ~ FeatureID + ", ifelse(nP==1, "", "ProteinID:"), "AssayID - 1")),
+  random = as.formula(paste0("~ ", ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":AssayID")),
   rcov = as.formula(paste0("~ ", ifelse(nF==1, "units", "idh(FeatureID):units"))),
   family = "poisson", data = dd, prior = prior, nitt = nitt, burnin = burnin, thin = thin, verbose = F
 )))
@@ -56,33 +59,38 @@ summary(model)
 message("")
 
 # refer to dd to figure out what mcmc samples we need to save
-dd.ids <- dd[!duplicated(dd[, list(ProteinGroupID, PreparationID)]), list(ProteinGroupID, RunID, LabelID)]
-dd.ids$ProteinGroupMCMCglmm <- ""
-dd.ids$RunMCMCglmm <- ""
-dd.ids$LabelMCMCglmm <- ""
-if (nP>1) dd.ids$ProteinGroupMCMCglmm <-paste0("ProteinGroupID", dd.ids$ProteinGroupID, ":")
-if (nR>1) dd.ids$RunMCMCglmm <-paste0("RunID", dd.ids$RunID, ":")
-if (nL>1) dd.ids$LabelMCMCglmm <-paste0("LabelID", dd.ids$LabelID, ":")
-dd.ids$MCMCglmm <- paste0(dd.ids$ProteinGroupMCMCglmm, dd.ids$RunMCMCglmm, dd.ids$LabelMCMCglmm)
-dd.ids$MCMCglmm <- substr(dd.ids$MCMCglmm, 1, nchar(dd.ids$MCMCglmm) - 1)
+dd.ids <- dd[, list(ProteinID, AssayID)]
+dd.ids <- dd.ids[!duplicated(dd.ids),]
+if (nP>1) dd.ids$variable <- paste0("ProteinID", dd.ids$ProteinID, ":")
+dd.ids$variable <- paste0(dd.ids$variable, "AssayID", dd.ids$AssayID)
 
-# save mcmc samples for exposures.R
-denominators <- dd.ids$MCMCglmm[!dd.ids$MCMCglmm %in%  colnames(model$Sol)] 
-mcmc.quants <- as.matrix(model$Sol[, colnames(model$Sol) %in% dd.ids$MCMCglmm])
+# save mcmc samples for exposures.R, converting to log2
+mcmc.quants <- as.data.table(model$Sol[, colnames(model$Sol) %in% dd.ids$variable] / log(2))
+mcmc.peptides <- as.data.table(sqrt(model$VCV[, grep("^PeptideID[0-9]+\\.AssayID$", colnames(model$VCV))] / log(2)))
+mcmc.features <- as.data.table(sqrt(model$VCV[, grep("^FeatureID[0-9]+\\.units$", colnames(model$VCV))] / log(2)))
 model$Sol <- NULL
-
-mcmc.quants.demoninator <- matrix(0, nrow(mcmc.quants), length(denominators))
-colnames(mcmc.quants.demoninator) <- denominators
-
-mcmc.quants <- cbind(mcmc.quants.demoninator, mcmc.quants)
-j <- match(colnames(mcmc.quants), dd.ids$MCMCglmm)
-colnames(mcmc.quants) <- paste0(dd.ids$ProteinGroupID[j], ":", dd.ids$RunID[j], ":", dd.ids$LabelID[j])
-
-mcmc.peptidoforms <- as.matrix(model$VCV[, grep("^Peptidoform", colnames(model$VCV))])
 model$VCV <- NULL
-colnames(mcmc.peptidoforms) <- gsub("^PeptidoformID([0-9]+)\\.LabelID$", "\\1", colnames(mcmc.peptidoforms))
 
-save(mcmc.quants, mcmc.peptidoforms, time.mcmc, file=paste0(batch, ".", chain, ".Rdata"))
+mcmc.quants$sampID <- factor(1:nrow(mcmc.quants))
+mcmc.quants <- melt(mcmc.quants, id.vars = "sampID", value.name = "log2quant")
+mcmc.quants <- merge(dd.ids[, list(variable, ProteinID, AssayID)], mcmc.quants)
+mcmc.quants$variable <- NULL
+mcmc.quants$AssayID <- factor(mcmc.quants$AssayID)
+dir.create("quants", showWarnings = F)
+for (i in levels(mcmc.quants$AssayID)) saveRDS(mcmc.quants[AssayID == i, !"AssayID"], file=file.path("quants", paste0(batch, ".", chain, ".", i, ".rds")))
+
+colnames(mcmc.peptides) <- gsub("^PeptideID([0-9]+)\\.LabelID$", "\\1", colnames(mcmc.peptides))
+mcmc.peptides$sampID <- factor(1:nrow(mcmc.peptides))
+mcmc.peptides <- melt(mcmc.peptides, id.vars = "sampID", variable.name = "PeptideID", value.name = "log2stdev")
+setcolorder(mcmc.peptides, c("PeptideID", "sampID", "log2stdev"))
+
+colnames(mcmc.features) <- gsub("^FeatureID([0-9]+)\\.units$", "\\1", colnames(mcmc.features))
+mcmc.features$sampID <- factor(1:nrow(mcmc.features))
+mcmc.features <- melt(mcmc.features, id.vars = "sampID", variable.name = "FeatureID", value.name = "log2stdev")
+setcolorder(mcmc.features, c("FeatureID", "sampID", "log2stdev"))
+
+dir.create("stdevs", showWarnings = F)
+save(mcmc.peptides, mcmc.features, time.mcmc, file=file.path("stdevs", paste0(batch, ".", chain, ".Rdata")))
 
 message(paste0("[",Sys.time()," Finished]"))
 

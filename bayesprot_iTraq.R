@@ -3,7 +3,7 @@
 invisible(Sys.setlocale("LC_COLLATE","C"))
 
 message("")
-message("BayesProt v1.1 (SCIEX ProteinPilot import) | © 2015-2018 biosp👁   aboratory")
+message("BayesProt v1.1 (SCIEX ProteinPilot import) | © 2015-2018 biosp👁")
 message("This program comes with ABSOLUTELY NO WARRANTY.")
 message("This is free software, and you are welcome to redistribute it under certain conditions.")
 message("")
@@ -55,8 +55,8 @@ dd.raw <- merge(dd.raw, fractions)
 # create wide data table
 dd.wide <- dd.raw[, list(
   Run = dd.raw$Run,
-  ProteinGroup = Accessions,
-  Peptidoform = paste(Sequence, ":", Modifications, ":", ProteinModifications, ":", Cleavages),
+  Protein = Accessions,
+  Peptide = paste(Sequence, ":", Modifications, ":", ProteinModifications, ":", Cleavages),
   Feature = paste0(Theor.z, "+ ", Spectrum),
   ForeignFilter = ifelse(Used == 1, "PASS", paste("FAIL:", Annotation))
 )]
