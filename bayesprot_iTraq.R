@@ -30,7 +30,7 @@ suppressPackageStartupMessages(
 # arguments and script directory
 args <- commandArgs(T)
 if (length(args) == 0) {
-  args <- c("DigestSpikeIn_RunA.xlsx", "20180412_AT_8-PLEX1_PeptideSummary.txt")
+  args <- c("JXU1.xlsx", "20140910_NR_JXU_GRP 1 SET 1-2-3_combined_PeptideSummary.txt")
   script_dir <- "/home/awd/Repositories/bayesprot.develop"
 } else {
   script_dir <- dirname(strsplit(grep("^--file=", commandArgs(), value = T), "=")[[1]][2])
@@ -51,6 +51,8 @@ dd.raw <- dd.raw[!grepl("^RRRRR.*", dd.raw$Accessions),]
 dd.raw <- cbind(dd.raw, matrix(unlist(strsplit(as.character(dd.raw$Spectrum), ".", fixed = T)), ncol = 5, byrow = T))
 dd.raw$Fraction <- as.numeric(dd.raw$V1)
 dd.raw <- merge(dd.raw, fractions)
+
+if(!("ProteinModifications" %in% colnames(dd.raw))) dd.raw[, ProteinModifications := ""]
 
 # create wide data table
 dd.wide <- dd.raw[, list(
