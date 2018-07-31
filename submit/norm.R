@@ -30,20 +30,9 @@ prefix <- ifelse(file.exists(paste0(batch,".Rdata")),".",file.path("..","..","in
 load(file.path(prefix,paste0(batch,".Rdata")))
 
 ## prepare dd for MCMCglmm
-dd$QuantID <- factor(paste(dd$ProteinID, dd$AssayID, sep = "_"))
+dd$QuantID <- factor(paste(dd$ProteinID, dd$AssayID, sep = ":"))
+dd$QuantID <- factor(dd$QuantID, rev(levels(dd$QuantID))) # for equivalence to traditional normalisation constants
 dd$Count = round(dd$Count)
-
-#dd$ProteinID <- factor(dd$ProteinID)
-#dd$PeptideID <- factor(dd$PeptideID)
-#dd$FeatureID <- factor(dd$FeatureID) 
-#dd$RunID <- factor(dd$RunID)
-#dd$LabelID <- factor(dd$LabelID, rev(levels(dd$LabelID)))
-#dd$AssayID <- factor(dd$AssayID))
-
-# MCMCglmm doesn't keep treatment contrast order
-#if (nP > 1 & nR == 1) dd$LabelID <- factor(dd$LabelID, rev(levels(dd$LabelID)))
-#if (nP > 1 & nL == 1) dd$RunID <- factor(dd$RunID, rev(levels(dd$RunID)))
-#if (nP > 1 & nR > 1 & nL > 1) dd$LabelID <- factor(dd$LabelID, rev(levels(dd$LabelID)))
 
 nP <- length(levels(dd$ProteinID))
 nT <- length(levels(dd$PeptideID))
@@ -56,7 +45,6 @@ prior <- list(
   R = list(V = diag(nF), nu = 0.002)
 )
 time.mcmc <- system.time(model <- (MCMCglmm(
-  #as.formula(paste0("Count ~ FeatureID + ", ifelse(nP==1, "", "ProteinID:"), ifelse(nR<=1, ifelse(nL<=1, "", "LabelID"), ifelse(nL<=1, "RunID", "RunID:LabelID")), " - 1")),
   Count ~ FeatureID + QuantID - 1,
   random = as.formula(paste0("~ ", ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":AssayID")),
   rcov = as.formula(paste0("~ ", ifelse(nF==1, "units", "idh(FeatureID):units"))),
@@ -64,6 +52,12 @@ time.mcmc <- system.time(model <- (MCMCglmm(
 )))
 summary(model)
 message("")
+
+
+
+
+
+
 
 # refer to dd to figure out what mcmc samples we need to save
 dd.ids <- dd[, list(ProteinID, RunID, LabelID)]
