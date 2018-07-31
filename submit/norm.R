@@ -29,20 +29,26 @@ set.seed(as.integer(dd.params[Key=="seed", Value]) + chain - 1)
 prefix <- ifelse(file.exists(paste0(batch,".Rdata")),".",file.path("..","..","input"))
 load(file.path(prefix,paste0(batch,".Rdata")))
 
-## set to dd
+## prepare dd for MCMCglmm
+dd$QuantID <- factor(paste(dd$ProteinID, dd$AssayID, sep = "_"))
+dd$Count = round(dd$Count)
+
+#dd$ProteinID <- factor(dd$ProteinID)
+#dd$PeptideID <- factor(dd$PeptideID)
+#dd$FeatureID <- factor(dd$FeatureID) 
+#dd$RunID <- factor(dd$RunID)
+#dd$LabelID <- factor(dd$LabelID, rev(levels(dd$LabelID)))
+#dd$AssayID <- factor(dd$AssayID))
+
+# MCMCglmm doesn't keep treatment contrast order
+#if (nP > 1 & nR == 1) dd$LabelID <- factor(dd$LabelID, rev(levels(dd$LabelID)))
+#if (nP > 1 & nL == 1) dd$RunID <- factor(dd$RunID, rev(levels(dd$RunID)))
+#if (nP > 1 & nR > 1 & nL > 1) dd$LabelID <- factor(dd$LabelID, rev(levels(dd$LabelID)))
+
 nP <- length(levels(dd$ProteinID))
 nT <- length(levels(dd$PeptideID))
 nF <- length(levels(dd$FeatureID))  
 nA <- length(levels(dd$AssayID))
-dd$Count = round(dd$Count)
-
-# MCMCglmm doesn't keep treatment contrast order
-if (nP > 1 & nA > 1) dd$AssayID <- factor(dd$AssayID, rev(levels(dd$AssayID)))
-
-dd$ProteinID <- factor(dd$ProteinID)
-dd$PeptideID <- factor(dd$PeptideID)
-dd$FeatureID <- factor(dd$FeatureID) 
-dd$AssayID <- factor(dd$AssayID)
 
 # run model!
 prior <- list(
@@ -50,19 +56,22 @@ prior <- list(
   R = list(V = diag(nF), nu = 0.002)
 )
 time.mcmc <- system.time(model <- (MCMCglmm(
-  as.formula(paste0("Count ~ FeatureID + ", ifelse(nP==1, "", "ProteinID:"), "AssayID - 1")),
+  #as.formula(paste0("Count ~ FeatureID + ", ifelse(nP==1, "", "ProteinID:"), ifelse(nR<=1, ifelse(nL<=1, "", "LabelID"), ifelse(nL<=1, "RunID", "RunID:LabelID")), " - 1")),
+  Count ~ FeatureID + QuantID - 1,
   random = as.formula(paste0("~ ", ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":AssayID")),
   rcov = as.formula(paste0("~ ", ifelse(nF==1, "units", "idh(FeatureID):units"))),
-  family = "poisson", data = dd, prior = prior, nitt = nitt, burnin = burnin, thin = thin, verbose = F
+  family = "poisson", data = dd, prior = prior, nitt = nitt, burnin = burnin, thin = thin, verbose = F, saveX = T, saveZ = T, saveXL = T
 )))
 summary(model)
 message("")
 
 # refer to dd to figure out what mcmc samples we need to save
-dd.ids <- dd[, list(ProteinID, AssayID)]
+dd.ids <- dd[, list(ProteinID, RunID, LabelID)]
 dd.ids <- dd.ids[!duplicated(dd.ids),]
 if (nP>1) dd.ids$variable <- paste0("ProteinID", dd.ids$ProteinID, ":")
-dd.ids$variable <- paste0(dd.ids$variable, "AssayID", dd.ids$AssayID)
+if (nR>1) dd.ids$variable <- paste0(dd.ids$variable, "RunID", dd.ids$RunID)
+if (nR>1 & nL>1) dd.ids$variable <- paste0(dd.ids$variable, ":")
+if (nL>1) dd.ids$variable <- paste0(dd.ids$variable, "LabelID", dd.ids$LabelID)
 
 # save mcmc samples for exposures.R, converting to log2
 mcmc.quants <- as.data.table(model$Sol[, colnames(model$Sol) %in% dd.ids$variable] / log(2))
@@ -73,11 +82,16 @@ model$VCV <- NULL
 
 mcmc.quants$sampID <- factor(1:nrow(mcmc.quants))
 mcmc.quants <- melt(mcmc.quants, id.vars = "sampID", value.name = "log2quant")
-mcmc.quants <- merge(dd.ids[, list(variable, ProteinID, AssayID)], mcmc.quants)
+mcmc.quants <- merge(dd.ids[, list(variable, ProteinID, RunID, LabelID)], mcmc.quants)
 mcmc.quants$variable <- NULL
-mcmc.quants$AssayID <- factor(mcmc.quants$AssayID)
+mcmc.quants$RunID <- factor(mcmc.quants$RunID)
+mcmc.quants$LabelID <- factor(mcmc.quants$LabelID)
 dir.create("quants", showWarnings = F)
-for (i in levels(mcmc.quants$AssayID)) saveRDS(mcmc.quants[AssayID == i, !"AssayID"], file=file.path("quants", paste0(batch, ".", chain, ".", i, ".rds")))
+for (i in levels(mcmc.quants$RunID)) {
+  for (j in levels(mcmc.quants$LabelID)) {
+    saveRDS(mcmc.quants[RunID == i & LabelID == j, !c("RunID", "LabelID")], file=file.path("quants", paste0(batch, ".", chain, ".", i, ".", j, ".rds")))
+  }
+} 
 
 colnames(mcmc.peptides) <- gsub("^PeptideID([0-9]+)\\.LabelID$", "\\1", colnames(mcmc.peptides))
 mcmc.peptides$sampID <- factor(1:nrow(mcmc.peptides))

@@ -80,16 +80,16 @@ dd.assays$RunID <- factor(as.integer(dd.assays$Run))
 dd.assays$LabelID <- factor(as.integer(dd.assays$Label))
 dd.assays$AssayID <- factor(as.integer(dd.assays$Assay))
 
-dd <- merge(dd, dd.assays[, list(Run, Label, AssayID)], by = c("Run", "Label"))
-dd$Run <- NULL
-dd$Label <- NULL
+dd <- merge(dd, dd.assays[, list(Run, Label, RunID, LabelID, AssayID)], by = c("Run", "Label"))
+dd$Run = NULL
+dd$Label = NULL
 
 # factors are appaulingly slow to split, so change to strings as we want to drop levels anyway
 dd$ProteinID <- as.integer(dd$ProteinID)
 dd$PeptideID <- as.integer(dd$PeptideID)
 dd$FeatureID <- as.integer(dd$FeatureID)
-#dd$RunID <- as.integer(dd$RunID)
-#dd$LabelID <- as.integer(dd$LabelID)
+dd$RunID <- as.integer(dd$RunID)
+dd$LabelID <- as.integer(dd$LabelID)
 dd$AssayID <- as.integer(dd$AssayID)
 
 # estimate how long each Protein will take to process and assign Proteins to batches
@@ -136,8 +136,8 @@ for (j in 1:nbatch) {
   dd$ProteinID <- factor(dd$ProteinID)
   dd$PeptideID <- factor(dd$PeptideID)
   dd$FeatureID <- factor(dd$FeatureID)
-  #dd$RunID <- factor(dd$RunID)
-  #dd$LabelID <- factor(dd$LabelID)
+  dd$RunID <- factor(dd$RunID)
+  dd$LabelID <- factor(dd$LabelID)
   dd$AssayID <- factor(dd$AssayID)
   
   save(dd, file = file.path(out_dir, "input", paste0(j, ".Rdata")))

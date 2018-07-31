@@ -18,55 +18,71 @@ thin <- as.integer(dd.params[Key=="quant.thin", Value])
 nsamp <- (nitt - burnin) / thin
 
 nP <- length(levels(dd.proteins$ProteinID))
-nD <- length(levels(dd.assays$AssayID))
+#nR <- length(levels(dd.assays$RunID))
+#nL <- length(levels(dd.assays$LabelID))
 
-prefix <- ifelse(file.exists("1.1.2.Rdata"), ".", file.path("..", "..", "norm", "results", "quants"))
+prefix <- ifelse(file.exists("quants"), ".", file.path("..", "..", "norm", "results", "quants"))
 
-# load and calculate exposures
-mcmc.exposures <- vector("list", nchain * (nD-1))
-for (i in 1:nchain) {
-  message("[", paste0(Sys.time(), " Calculating exposures for chain ", i, "/", nchain, "...]"))
-  
-  for(j in 2:nD) {
-    # read MCMC samps
-    mcmc.quants <- vector("list", nbatch)
-    for (k in 1:nbatch)  mcmc.quants[[k]] <- readRDS(file.path(prefix, paste0(k, ".", i, ".", j, ".rds")))
-    mcmc.quants <- rbindlist(mcmc.quants)
-  
-    # calculate exposure
-    mcmc.exposures[[i*(nD-1) + (j-1)]] <- mcmc.quants[, list(
-      chainID = i, AssayID = j, log2exposure = median(log2quant)), by = sampID]
-  }
-}
-mcmc.exposures <- rbindlist(mcmc.exposures)
-saveRDS(mcmc.exposures, "exposures.rds")
-  
-stats.quants <- vector("list", nbatch)
-for (i in 1:nbatch) {
-  message("[", paste0(Sys.time(), " Calculating normalised quants for batch ", i, "/", nbatch, "...]"))
+# calculate exposures
+mcmc.exposures <- matrix(0.0, nchain * nsamp, nrow(dd.assays))
+for (j in 1:nchain) {
+  for(k in 1:nrow(dd.assays)) {
+    message("[", paste0(Sys.time(), " Calculating exposures for chain ", j, "/", nchain, ", run ", dd.assays$RunID[k], ", label ", dd.assays$LabelID[k], "...]"))
     
-  mcmc.quants <- vector("list", nchain * (nD-1))
-  for(j in 1:nchain) {
-    for(k in 2:nD) {
-      mcmc.quants[[k]] <- readRDS(file.path(prefix, paste0(i, ".", j, ".", k, ".rds")))
-      mcmc.quants[[k]][, chainID := j]
-      mcmc.quants[[k]][, AssayID := k]
+    if(dd.assays$LabelID[k] != levels(dd.assays$LabelID)[1]) {
+      
+      # read MCMC samps
+      mcmc.quants <- vector("list", nbatch)
+      for (i in 1:nbatch)  mcmc.quants[[i]] <- readRDS(file.path(prefix, paste0(i, ".", j, ".", dd.assays$RunID[k], ".", dd.assays$LabelID[k], ".rds")))
+      mcmc.quants <- rbindlist(mcmc.quants)
+      
+      # calculate exposure
+      mcmc.exposures[((j-1)*nsamp+1):(j*nsamp), k] <- mcmc.quants[, median(log2quant), by = sampID]$V1
     }
   }
-  mcmc.quants <- merge(rbindlist(mcmc.quants), mcmc.exposures)
-  mcmc.quants[, log2quant := log2quant - log2exposure]
-  mcmc.quants[, log2exposure := NULL]
-  mcmc.quants <- rbind(mcmc.quants, data.table(
-    ProteinID = rep(levels(mcmc.quants$ProteinID), each = nsamp * nchain),
-    sampID = rep(1:nsamp, nchain * length(levels(mcmc.quants$ProteinID))),
-    chainID = rep(rep(1:nchain, each = nsamp), length(levels(mcmc.quants$ProteinID))),
-    log2quant = 0.0,
-    AssayID = 1
-  ))   
-  
-  mean.centre <- function(x) x - mean(x)
-  mcmc.quants[, log2quant := mean.centre(log2quant), by = c("ProteinID", "sampID", "chainID")]
-  stats.quants[[i]] <- mcmc.quants[, list(log2mean = mean(log2quant), log2stdev = sd(log2quant)), by = c("ProteinID", "AssayID")]
+}
+saveRDS(mcmc.exposures, "exposures.rds")
+    
+# calculate normalised quants within each run
+stats.quants <- vector("list", nbatch)
+for (i in 1:nbatch) {
+  for(r in levels(dd.assays$RunID)) {
+    message("[", paste0(Sys.time(), " Calculating  normalised quants for batch ", i, "/", nbatch, ", run ", r, "...]"))
+    
+    labels <- dd.assays[RunID == r,]$LabelID
+    labels <- labels[labels != levels(dd.assays$LabelID)[1]]
+    
+    mcmc.quants <- NULL
+    for(l in labels) {
+      for(j in 1:nchain) {
+        dd <- readRDS(file.path(prefix, paste0(i, ".", j, ".", r, ".", l, ".rds"))) 
+        
+        if (is.null(mcmc.quants)) mcmc.quants <- array(0.0, c(nchain * nsamp, length(labels), length(levels(dd$ProteinID))))
+ 
+        mcmc.quants[((i-1)*nsamp+1):(i*nsamp), j] <- mcmc.quants[, median(log2quant), by = sampID]$V1
+        
+        mcmc.quants[[k*nchain + l]] <- 
+        mcmc.quants[[k*nchain + l]][, chainID := l]
+        mcmc.quants[[k*nchain + l]][, RunID := j]
+        mcmc.quants[[k*nchain + l]][, LabelID := k]
+      }  
+    }
+    mcmc.quants <- merge(rbindlist(mcmc.quants), mcmc.exposures)
+    
+    mcmc.quants[, log2quant := log2quant - log2exposure]
+    mcmc.quants[, log2exposure := NULL]
+    mcmc.quants <- rbind(mcmc.quants, data.table(
+      ProteinID = rep(levels(mcmc.quants$ProteinID), each = nsamp * nchain),
+      sampID = rep(1:nsamp, nchain * length(levels(mcmc.quants$ProteinID))),
+      chainID = rep(rep(1:nchain, each = nsamp), length(levels(mcmc.quants$ProteinID))),
+      log2quant = 0.0,
+      AssayID = 1
+    ))   
+    
+    mean.centre <- function(x) x - mean(x)
+    mcmc.quants[, log2quant := mean.centre(log2quant), by = c("ProteinID", "sampID", "chainID")]
+    stats.quants[[i]] <- mcmc.quants[, list(log2mean = mean(log2quant), log2stdev = sd(log2quant)), by = c("ProteinID", "AssayID")]
+  }
 }
 stats.quants <- rbindlist(stats.quants)
 stats.quants$AssayID <- factor(stats.quants$AssayID, levels = levels(dd.assays$AssayID))
