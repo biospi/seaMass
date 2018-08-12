@@ -6,13 +6,13 @@ require(methods)
 setClass("ScheduleHPC",
   representation(
     batch = "numeric",
-    normChain = "numeric",
+    quantChain = "numeric",
     modelChain = "numeric",
     path = "character"
   ),
   prototype(
     batch = 10,
-    normChain = 10,
+    quantChain = 10,
     modelChain = 100,
     path = "."
   )
@@ -57,10 +57,10 @@ setClass("SGE",
 )
 
 # Class Function defined
-setGeneric("normHPC",
+setGeneric("quantHPC",
   function(object)
   {
-    standardGeneric("normHPC")
+    standardGeneric("quantHPC")
   }
 )
 
@@ -101,16 +101,16 @@ setGeneric("genJobFileHPC",
   }
 )
 
-setMethod("normHPC", signature(object = "SLURM"), function(object)
+setMethod("quantHPC", signature(object = "SLURM"), function(object)
   {
-    N <- object@batch * object@normChain
+    N <- object@batch * object@quantChain
     batchNum <- vector(mode="numeric",length=N)
     vecChain <- vector(mode="numeric",length=N)
 
     idx = 1
     for (i in seq (0, object@batch-1, 1))
     {
-      for (j in seq(0, object@normChain-1, 1))
+      for (j in seq(0, object@quantChain-1, 1))
       {
         batchNum[idx] <- i
         vecChain[idx] <- j
@@ -125,12 +125,12 @@ setMethod("normHPC", signature(object = "SLURM"), function(object)
       if (idx == 1)
       {
         jobID = jobID + 1
-        fname=paste(file.path(object@path,"norm","norm-job"),jobID,".sh",sep="",collapse="")
+        fname=paste(file.path(object@path,"quant","quant-job"),jobID,".sh",sep="",collapse="")
         sink(fname)
-        cat("cd norm/results\n")
+        cat("cd quant/results\n")
       }
-      cat(sprintf("exec Rscript ../../norm.R %d %d %d &> ../out_std_%d_%d.out &\n",
-                    batchNum[i],vecChain[i],object@normChain,batchNum[i],vecChain[i])
+      cat(sprintf("exec Rscript ../../quant.R %d %d %d &> ../out_std_%d_%d.out &\n",
+                    batchNum[i],vecChain[i],object@quantChain,batchNum[i],vecChain[i])
                   )
       if ((idx == object@cpuNum) || i == N)
       {
@@ -143,23 +143,23 @@ setMethod("normHPC", signature(object = "SLURM"), function(object)
         idx = idx + 1
       }
     }
-    sink(file.path(object@path,"bayesprot-norm.sh"))
+    sink(file.path(object@path,"bayesprot-quant.sh"))
 
     cat("#!/bin/bash\n")
-    cat("#SBATCH -J Norm\n")
+    cat("#SBATCH -J Quant\n")
     cat("#SBATCH --export=all\n")
-    cat("#SBATCH -o norm/out-%A_task-%a.out\n")
-    cat("#SBATCH -e norm/error-%A_task-%a.out\n")
+    cat("#SBATCH -o quant/out-%A_task-%a.out\n")
+    cat("#SBATCH -e quant/error-%A_task-%a.out\n")
     cat(sprintf("#SBATCH --mem-per-cpu=%s\n",object@mem))
     cat(sprintf("#SBATCH -p %s\n",object@longQue))
     cat(sprintf("#SBATCH -N %d\n",object@node))
     cat(sprintf("#SBATCH -c %d\n",object@cpuNum))
     cat(sprintf("#SBATCH --array=1-%d\n",jobID))
-    cat("srun sh norm/norm-job$SLURM_ARRAY_TASK_ID.sh\n")
+    cat("srun sh quant/quant-job$SLURM_ARRAY_TASK_ID.sh\n")
 
     sink()
 
-    system(paste("chmod u+x",file.path(object@path,"bayesprot-norm.sh")))
+    system(paste("chmod u+x",file.path(object@path,"bayesprot-quant.sh")))
   }
 )
 
@@ -431,19 +431,19 @@ setMethod("genJobFileHPC", signature(object = "SLURM"), function(object)
     cat("# jobSubmitScript.sh\n\n")
 
     #########################################
-    # Norm Array Job
+    # Quant Array Job
     #########################################
-    cat("sbatchReturn=$(sbatch  bayesprot-norm.sh)\n")
-    cat("echo sbatch bayesprot-norm.sh\n")
-    cat("normJobID=$sbatchReturn\n")
-    cat("normJobID=${normJobID//[^0-9]/}\n")
-    cat("echo Norm Job Array Submitted: $normJobID\n\n")
+    cat("sbatchReturn=$(sbatch  bayesprot-quant.sh)\n")
+    cat("echo sbatch bayesprot-quant.sh\n")
+    cat("quantJobID=$sbatchReturn\n")
+    cat("quantJobID=${quantJobID//[^0-9]/}\n")
+    cat("echo Quant Job Array Submitted: $quantJobID\n\n")
 
     #########################################
     # Exposures
     #########################################
-    cat("sbatchReturn=$(sbatch --dependency=afterok:$normJobID bayesprot-exposures.sh)\n")
-    cat("echo sbatch --dependency=afterok:$normJobID bayesprot-exposures.sh\n")
+    cat("sbatchReturn=$(sbatch --dependency=afterok:$quantJobID bayesprot-exposures.sh)\n")
+    cat("echo sbatch --dependency=afterok:$quantJobID bayesprot-exposures.sh\n")
     cat("exposuresJobID=$sbatchReturn\n")
     cat("exposuresJobID=${exposuresJobID//[^0-9]/}\n")
     cat("echo Exposures Submitted: $exposuresJobID\n\n")

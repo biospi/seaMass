@@ -73,7 +73,7 @@ dd$Feature <- NULL
 
 # build Assay index
 dd.assays <- dd[, .(
-  Assay = paste0(Run, ".", Label)
+  Assay = paste(Run, Label, sep = ".")
 ), by = list(Run, Label)]
 dd.assays$Assay <- factor(dd.assays$Assay)
 dd.assays$RunID <- factor(as.integer(dd.assays$Run))
@@ -83,6 +83,9 @@ dd.assays$AssayID <- factor(as.integer(dd.assays$Assay))
 dd <- merge(dd, dd.assays[, list(Run, Label, RunID, LabelID, AssayID)], by = c("Run", "Label"))
 dd$Run = NULL
 dd$Label = NULL
+
+# build Baseline index
+#dd.baselines <- unique(dd[, list(ProteinID, RunID, LabelID, BaselineID)])
 
 # factors are appaulingly slow to split, so change to strings as we want to drop levels anyway
 dd$ProteinID <- as.integer(dd$ProteinID)
@@ -100,6 +103,7 @@ nbatch <- as.integer(dd.params[Key=="nbatch", Value])
 dd.batches <- data.table(nP = rep(0, nbatch), nT = rep(0, nbatch), nF = rep(0, nbatch))
 dds = vector("list", nbatch)
 for (j in 1:nbatch) dds[[j]] <- vector("list", nrow(dd.proteins))
+dd.proteins$batchID = NA
 for (i in 1:nrow(dd.proteins)) {
   scores <- a[1] +
     a[2]*(dd.batches$nP+1) +
@@ -117,6 +121,7 @@ for (i in 1:nrow(dd.proteins)) {
   dd.batches$nP[j] <- dd.batches$nP[j] + 1
   dd.batches$nT[j] <- dd.batches$nT[j] + dd.proteins$nPeptide[i]
   dd.batches$nF[j] <- dd.batches$nF[j] + dd.proteins$nFeature[i]
+  dd.proteins$batchID[i] <- j
 }
 
 # build HPC submission zip
@@ -153,7 +158,7 @@ source(file.path(script_dir, "submit", "ScheduleHPC.R"))
 systemHPC <- as.character(dd.params[Key=="hpc", Value])
 
 if (systemHPC == "SLURM") {
-  norm_chains <- as.integer(dd.params[Key=="quant.nchain", Value])
+  quant_chains <- as.integer(dd.params[Key=="quant.nchain", Value])
   model_chains <- as.integer(dd.params[Key=="de.nchain", Value])
   
   cpu_num <- as.integer(dd.params[Key=="hpc.ncpu", Value])
@@ -165,7 +170,7 @@ if (systemHPC == "SLURM") {
   total_jobs <- as.integer(dd.params[Key=="hpc.totaljobs", Value])
   low_cpu_num <- as.integer(dd.params[Key=="hpc.lowncpu", Value])
   
-  clusterHPC <- new(systemHPC, batch = nbatch, normChain = norm_chains, modelChain = model_chains, path = out_dir,
+  clusterHPC <- new(systemHPC, batch = nbatch, quantChain = quant_chains, modelChain = model_chains, path = out_dir,
                     cpuNum = cpu_num, node = node, mem = mem, himem = himem, longQue = long_que,shortQue = short_que,
                     totalJobs = total_jobs,lowCPUNum = low_cpu_num)
 } else if (systemHPC == "PBS") {
@@ -176,11 +181,11 @@ if (systemHPC == "SLURM") {
   stop("Error: Unknown HPC system. Possible HPC systems = SLURM, PBS, SGE.")
 }
 
-#message(paste("batch",batch,"norm_chain",norm_chains,"model_chains",model_chains,"cpu_num",cpu_num,"node",node,"mem",
+#message(paste("batch",batch,"quant_chain",quant_chains,"model_chains",model_chains,"cpu_num",cpu_num,"node",node,"mem",
 #              mem,"himem",himem,"long_que",long_que,"short_que",short_que,"total_jobs",total_jobs,"low_cpu_num",low_cpu_num))
 
-# Norm: 'Rscript norm.R <batch> <norm_chain> <norm_chains>' where <batch> is from 0 to batches-1 and <norm_chain> is from 0 to norm_chaines-1
-normHPC(clusterHPC)
+# Quant: 'Rscript quant.R <batch> <quant_chain> <quant_chains>' where <batch> is from 0 to batches-1 and <quant_chain> is from 0 to quant_chaines-1
+quantHPC(clusterHPC)
 # Exposures: 'Rscript exposures.R'
 exposuresHPC(clusterHPC)
 # Model: 'Rscript model.R <batch> <model_chain> <model_chains>' where <batch> is from 0 to batches-1 and <model_chain> is from 0 to model_chains-1
