@@ -18,7 +18,7 @@ thin <- as.integer(dd.params[Key=="quant.thin", Value])
 
 # process arguments
 args <- commandArgs(T)
-if (length(args) == 0) args <- c("1")
+if (length(args) == 0) args <- c("90")
 batch <- ((as.integer(args[1]) - 1) %% nbatch) + 1
 chain <- ((as.integer(args[1]) - 1) %/% nbatch) + 1
 
@@ -29,7 +29,18 @@ set.seed(as.integer(dd.params[Key=="seed", Value]) + chain - 1)
 prefix <- ifelse(file.exists(paste0(batch,".Rdata")),".",file.path("..","..","input"))
 load(file.path(prefix,paste0(batch,".Rdata")))
 
-## prepare dd for MCMCglmm
+# remove single spectrum hits per run as this model cannot estimate them
+# build Protein index
+dd <- merge(dd, dd[, list(nFeature = length(unique(as.character(FeatureID)))), by = list(ProteinID, RunID)])
+dd <- dd[nFeature > 1,]
+dd$nFeature <- NULL
+
+dd$ProteinID <- factor(dd$ProteinID)
+dd$PeptideID <- factor(dd$PeptideID)
+dd$FeatureID <- factor(dd$FeatureID)
+dd$AssayID <- factor(dd$AssayID)
+
+# prepare dd for MCMCglmm
 nP <- length(levels(dd$ProteinID))
 nT <- length(levels(dd$PeptideID))
 nF <- length(levels(dd$FeatureID))  

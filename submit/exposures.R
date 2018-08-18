@@ -18,53 +18,78 @@ thin <- as.integer(dd.params[Key=="quant.thin", Value])
 nsamp <- (nitt - burnin) / thin
 
 nP <- length(levels(dd.proteins$ProteinID))
+nL <- length(levels(dd.assays$LabelID))
 nA <- length(levels(dd.assays$AssayID))
 
 prefix <- ifelse(file.exists("quants"), ".", file.path("..", "..", "quant", "results", "quants"))
 
 # calculate exposures
-mcmc.exposures <- matrix(NA, nchain * nsamp, nA)
-baselines <- rep(NA, nA)
+mcmc.exposures.label <- matrix(NA, nchain * nsamp, nA)
+mcmc.exposures.run <- matrix(NA, nchain * nsamp, nA)
+baseline.exposures.label <- rep(NA, nA)
+baseline.exposures.run <- rep(NA, nA)
 for (j in 1:nchain) {
-  for(a in 1:nA) {
-   files <- list.files(prefix, paste0("+[0-9]\\.", j, "\\.", a, "\\.rds"))
+  for (l in 1:nL) {
+    baseline.run <- NA
     
-    if (length(files) > 0) {
-      if (length(files) < nbatch) stop("ERROR: Some quant output is missing")
-      
-      message("[", paste0(Sys.time(), " Calculating exposures for chain ", j, "/", nchain, ", assay ", a, "...]"))
-      
-      # read MCMC samps
-      mcmc.quants <- matrix(NA, nsamp, nP)
-      dd.quants <- data.table(ProteinID = rep(NA, nP), BaselineID = rep(NA, nP))
-      i <- 1
-      for (f in files) {
-        mcmc.quants.batch <- readRDS(file.path(prefix, f))
-        mcmc.quants[, i:(i + ncol(mcmc.quants.batch) - 1)] <- mcmc.quants.batch
-        dd.quants$ProteinID[i:(i + ncol(mcmc.quants.batch) - 1)] <- sub("^([0-9]+)\\.[0-9]+$", "\\1", colnames(mcmc.quants.batch))
-        dd.quants$BaselineID[i:(i + ncol(mcmc.quants.batch) - 1)] <- sub("^[0-9]+\\.([0-9]+)$", "\\1", colnames(mcmc.quants.batch))
-        i <- i + ncol(mcmc.quants.batch)
+    for (r in dd.assays[, .N, by = RunID][order(-N), RunID]) {
+      a <- dd.assays[RunID == r & LabelID == l, AssayID]
+      if (length(a) > 0) {
+        files <- list.files(prefix, paste0("^[0-9]+\\.", j, "\\.", a, "\\.rds$"))
+        
+        if (length(files) > 0) {
+          if (length(files) < nbatch) stop("ERROR: Some quant output is missing")
+          
+          message("[", paste0(Sys.time(), " Calculating exposures for chain ", j, "/", nchain, ", run ", r, ", label ", l, "...]"))
+          
+          # read MCMC samps
+          mcmc.quants <- matrix(NA, nsamp, nP)
+          baseline.quants <- array(NA, nP)
+          for (f in files) {
+            mcmc.quants.batch <- readRDS(file.path(prefix, f))
+            for (k in 1:ncol(mcmc.quants.batch)) {
+              proteinID <- as.integer(sub("^([0-9]+)\\.[0-9]+$", "\\1", colnames(mcmc.quants.batch)[k]))
+              baseline.quants[proteinID] <- as.integer(sub("^[0-9]+\\.([0-9]+)$", "\\1", colnames(mcmc.quants.batch)[k]))
+              mcmc.quants[, proteinID] <- mcmc.quants.batch[, k]
+            }
+          }
+          
+          # calculate intra-run exposure
+          if (is.na(baseline.exposures.label[a])) baseline.exposures.label[a] <- names(sort(table(baseline.quants), decreasing = T))[1]
+          mcmc.exposures.label[((j-1)*nsamp+1):(j*nsamp), a] <- apply(mcmc.quants[, which(baseline.quants == baseline.exposures.label[a])], 1, function(x) median(x, na.rm = T))
+          
+          # # calculate inter-run exposure
+          # mcmc.quants <- apply(mcmc.quants, 2, '-', mcmc.exposures.label[((j-1)*nsamp+1):(j*nsamp), a])
+          # 
+          # if (r == dd.assays[, .N, by = RunID][order(-N), RunID][1]) {
+          #   if (is.na(baseline.run)) baseline.run <- r
+          #   mcmc.quants.baseline <- mcmc.quants
+          #   mcmc.exposures.run[((j-1)*nsamp+1):(j*nsamp), a] <- 0.0
+          # } else {
+          #   baseline.exposures.run[a] <- dd.assays[, .N, by = RunID][order(-N), RunID][1]
+          #   mcmc.quants <- mcmc.quants - mcmc.quants.baseline
+          #   mcmc.exposures.run[((j-1)*nsamp+1):(j*nsamp), a] <- apply(mcmc.quants[, which(baseline.quants == baseline.exposures.label[a])], 1, function(x) median(x, na.rm = T))
+          # }
+          # baseline.exposures.run[a] <- r
+        }        
       }
-
-      # calculate exposure
-      if (is.na(baselines[a])) baselines[a] <- dd.quants$BaselineID[which.max(dd.quants[, .N, by = BaselineID]$N)] 
-      mcmc.exposures[((j-1)*nsamp+1):(j*nsamp), a] <- apply(mcmc.quants[, which(dd.quants$BaselineID == baselines[a])], 1, function(x) median(x))
     }
   }
 }
 
 # fill denominators with zeros
-denominators <- as.integer(unique(baselines[!is.na(baselines)]))
-mcmc.exposures[, denominators] <- 0.0
-baselines[denominators] <- denominators
-baselines <- factor(baselines, levels = unique(baselines))
+baselines <- as.integer(unique(baseline.exposures.label[!is.na(baseline.exposures.label)]))
+mcmc.exposures.label[, baselines] <- 0.0
+baseline.exposures.label[baselines] <- baselines
+baseline.exposures.label <- factor(baseline.exposures.label, levels = unique(baseline.exposures.label))
 
-# plotitng function for exposures
+# ploting function for exposures
 plot.exposures <- function(mcmc.exposures)
 {
   dd.exposures <- data.table(t(mcmc.exposures))
   dd.exposures$Assay <- dd.assays$Assay
   dd.exposures <- melt(dd.exposures, variable.name="mcmc", value.name="Exposure", id.vars = "Assay")
+  dd.exposures <- dd.exposures[complete.cases(dd.exposures),]
   
   # construct metadata
   dd.exposures.meta.func <- function(x) {
@@ -112,78 +137,120 @@ plot.exposures <- function(mcmc.exposures)
   g
 }
 
-# plot exposures
-message("[", paste0(Sys.time(), " Writing exposures.pdf...]"))
-g <- plot.exposures(mcmc.exposures)
-ggsave("exposures.pdf", g, width = 8, height = 0.5 * nA)
+# plot label exposures
+message("[", paste0(Sys.time(), " Writing exposures_intrarun-alr.pdf...]"))
+g <- plot.exposures(mcmc.exposures.label)
+ggsave("medians.pdf", g, width = 8, height = 0.5 * nA)
+saveRDS(mcmc.exposures.label, "medians.rds")
 
-# contruct mean-centred exposures
-for (i in levels(baselines)) {
-  cols <- which(baselines == i)
-  mcmc.exposures[, cols] <- mcmc.exposures[, cols] - rowMeans(mcmc.exposures[, cols])
-}
-
-# plot mean-centred exposures
-message("[",paste0(Sys.time()," Writing exposures_mean-centred.pdf...]"))
-g <- plot.exposures(mcmc.exposures)
-ggsave("exposures_mean-centred.pdf", g, width = 8, height = 0.5 * nA)
-
-saveRDS(mcmc.exposures, "exposures.rds")
-    
-# # calculate quantalised quants within each run
-# stats.quants <- vector("list", nbatch)
-# for (i in 1:nbatch) {
-#   for(r in levels(dd.assays$RunID)) {
-#     message("[", paste0(Sys.time(), " Calculating  quantalised quants for batch ", i, "/", nbatch, ", run ", r, "...]"))
-#     
-#     labels <- dd.assays[RunID == r,]$LabelID
-#     labels <- labels[labels != levels(dd.assays$LabelID)[1]]
-#     
-#     mcmc.quants <- NULL
-#     for(l in labels) {
-#       for(j in 1:nchain) {
-#         dd <- readRDS(file.path(prefix, paste0(i, ".", j, ".", r, ".", l, ".rds"))) 
-#         
-#         if (is.null(mcmc.quants)) mcmc.quants <- array(0.0, c(nchain * nsamp, length(labels), length(levels(dd$ProteinID))))
-#  
-#         mcmc.quants[((i-1)*nsamp+1):(i*nsamp), j] <- mcmc.quants[, median(log2quant), by = sampID]$V1
-#         
-#         mcmc.quants[[k*nchain + l]] <- 
-#         mcmc.quants[[k*nchain + l]][, chainID := l]
-#         mcmc.quants[[k*nchain + l]][, RunID := j]
-#         mcmc.quants[[k*nchain + l]][, LabelID := k]
-#       }  
-#     }
-#     mcmc.quants <- merge(rbindlist(mcmc.quants), mcmc.exposures)
-#     
-#     mcmc.quants[, log2quant := log2quant - log2exposure]
-#     mcmc.quants[, log2exposure := NULL]
-#     mcmc.quants <- rbind(mcmc.quants, data.table(
-#       ProteinID = rep(levels(mcmc.quants$ProteinID), each = nsamp * nchain),
-#       sampID = rep(1:nsamp, nchain * length(levels(mcmc.quants$ProteinID))),
-#       chainID = rep(rep(1:nchain, each = nsamp), length(levels(mcmc.quants$ProteinID))),
-#       log2quant = 0.0,
-#       AssayID = 1
-#     ))   
-#     
-#     mean.centre <- function(x) x - mean(x)
-#     mcmc.quants[, log2quant := mean.centre(log2quant), by = c("ProteinID", "sampID", "chainID")]
-#     stats.quants[[i]] <- mcmc.quants[, list(log2mean = mean(log2quant), log2stdev = sd(log2quant)), by = c("ProteinID", "AssayID")]
-#   }
-# }
-# stats.quants <- rbindlist(stats.quants)
-# stats.quants$AssayID <- factor(stats.quants$AssayID, levels = levels(dd.assays$AssayID))
-# stats.quants <- merge(dd.assays[, list(AssayID, Assay)], stats.quants, by = "AssayID")
-# stats.quants$Assay.stdev <- factor(paste0(stats.quants$Assay, ".log2stdev"))
-# stats.quants$Assay <- factor(paste0(stats.quants$Assay, ".log2mean"))
-# stats.quants <- merge(
-#   dcast(stats.quants, ProteinID ~ Assay, value.var = "log2mean"),
-#   dcast(stats.quants, ProteinID ~ Assay.stdev, value.var = "log2stdev"),
-#   by = "ProteinID"
-# )
-# stats.quants <- merge(dd.proteins, stats.quants, by = "ProteinID")
+# # plot run exposures
+# message("[",paste0(Sys.time()," Writing exposures-run.pdf...]"))
+# g <- plot.exposures(mcmc.exposures.run)
+# ggsave("exposures-run.pdf", g, width = 8, height = 0.5 * nA)
 # 
-# fwrite(stats.quants, paste0(dd.params[Key == "bayesprot.id", Value], "_quants.csv") )
+# test <- mcmc.exposures.run - mcmc.exposures.label
+# plot.exposures(mcmc.exposures.label)
+
+# # contruct label mean-centred exposures
+# for (i in levels(baseline.exposures.label)) {
+#  cols <- which(baseline.exposures.label == i)
+#  mcmc.exposures.label[, cols] <- mcmc.exposures.label[, cols] - rowMeans(mcmc.exposures.label[, cols])
+#}
+ 
+# # plot label mean-centred exposures
+# message("[",paste0(Sys.time()," Writing exposures_intrarun-clr.pdf...]"))
+# g <- plot.exposures(mcmc.exposures.label)
+# ggsave("exposures_intrarun-clr.pdf", g, width = 8, height = 0.5 * nA)
+# saveRDS(mcmc.exposures.label, "exposures_intrarun-clr.rds")
+
+# calculate normalised quants within each run
+dd.quants <- vector("list", nbatch * nA)
+for (i in 1:nbatch) {
+  
+  mcmc.quants <- array(NA, c(nchain * nsamp, nrow(dd.proteins[batchID == i,]), nA))
+  colnames(mcmc.quants) <- dd.proteins[batchID == i, ProteinID]
+  baseline.quants <- matrix(NA, nrow(dd.proteins[batchID == i,]), nA)
+  rownames(baseline.quants) <- dd.proteins[batchID == i, ProteinID]
+  for (a in 1:nA) {
+    files <- list.files(prefix, paste0("^", i, "\\.[0-9]+\\.", a, "\\.rds"))
+    if (length(files) > 0) {
+      if (length(files) < nchain) stop("ERROR: Some quant output is missing")
+      
+      message("[", paste0(Sys.time(), " Determining quants for batch ", i, "/", nbatch, ", assay ", a, "...]"))
+      
+      # read MCMC samps and normalise
+      for (j in 1:nchain) {
+        mcmc.quants.chain <- readRDS(file.path(prefix, files[j]))
+        for (k in 1:ncol(mcmc.quants.chain)) {
+          proteinID <-  sub("^([0-9]+)\\.[0-9]+$", "\\1", colnames(mcmc.quants.chain)[k])
+          baseline.quants[proteinID, a] <- as.integer(sub("^[0-9]+\\.([0-9]+)$", "\\1", colnames(mcmc.quants.chain)[k]))
+          if (is.na(baseline.quants[proteinID, baseline.quants[proteinID, a]])) {
+            baseline.quants[proteinID, baseline.quants[proteinID, a]] <- baseline.quants[proteinID, a]
+            mcmc.quants[, proteinID, baseline.quants[proteinID, a]] <- 0.0
+          }
+          mcmc.quants[, proteinID, a] <- mcmc.quants.chain[, k] - mcmc.exposures.label[, a]
+        }
+      }
+    }
+  }
+  
+  # clr & ilr transform
+   for (l in levels(baseline.exposures.label)) {
+     cols <- which(baseline.exposures.label == l)
+     for (p in 1:ncol(mcmc.quants)) {
+       mcmc.quants[, p, cols] <- mcmc.quants[, p, cols] - rowMeans(mcmc.quants[, p, cols])
+       #mcmc.quants[, p, cols] <- cbind(clr2ilr(mcmc.quants[, p, cols], ilrBase(D = nL, method = "balanced")), 0)
+     }
+   }
+  
+  for (a in 1:nA) {
+    dd.quants[[(i-1)*nA + a]] <- data.table(
+      ProteinID = colnames(mcmc.quants),
+      AssayID = a,
+      log2mean = colMeans(mcmc.quants[,, a]),
+      log2sd = apply(mcmc.quants[,, a], 2, sd)
+    )  
+  }
+}
+dd.quants <- rbindlist(dd.quants)
+dd.quants$ProteinID <- factor(dd.quants$ProteinID, levels = levels(dd.proteins$ProteinID))
+dd.quants$AssayID <- factor(dd.quants$AssayID, levels = levels(dd.assays$AssayID))
+dd.quants <- merge(dd.assays[, list(AssayID, Assay)], dd.quants, by = "AssayID")
+dd.quants <- dd.quants[order(ProteinID, AssayID),]
+
+# write out quants
+dd.quants.out <- dd.quants
+dd.quants.out$Assay.sd <- factor(paste0(dd.quants.out$Assay, ".log2sd"))
+dd.quants.out$Assay <- factor(paste0(dd.quants.out$Assay, ".log2mean"))
+dd.quants.out <- merge(
+  dcast(dd.quants.out, ProteinID ~ Assay, value.var = "log2mean"),
+  dcast(dd.quants.out, ProteinID ~ Assay.sd, value.var = "log2sd"),
+  by = "ProteinID"
+)
+#dd.quants.out <- merge(dd.proteins[, list(ProteinID, Protein, nPeptide, nFeature, nCount)], dd.quants.out, by = "ProteinID")
+dd.quants.out <- merge(dd.proteins, dd.quants.out, by = "ProteinID")
+fwrite(dd.quants.out, paste0(dd.params[Key == "bayesprot.id", Value], "_quants.csv") )
+
+# plot quant distributions
+dd.quants.meta <- dd.quants[, list(
+  log2median = median(log2mean, na.rm = T),
+  log2lower = quantile(log2mean, probs = 0.025, na.rm = T),
+  log2upper = quantile(log2mean, probs = 0.975, na.rm = T)
+), by = AssayID]
+
+dd.quants.plot <- merge(dd.quants, dd.quants.meta)
+dd.quants.plot <- dd.quants.plot[log2mean >= log2lower & log2mean <= log2upper,]
+
+g <- ggplot(dd.quants.plot, aes(x = AssayID, y = log2mean))
+g <- g + scale_y_continuous(expand = c(0, 0))
+#g <- g + coord_cartesian(ylim = c(-0.03, 0.03))
+g <- g + geom_violin()
+g <- g + geom_segment(data = dd.quants.meta, aes(x = as.integer(AssayID) - 0.45, xend = as.integer(AssayID) + 0.45, y = log2median, yend = log2median),size = 1/2)
+g
+
+
+
+
 
 # stats.peptidoforms.all <- vector("list", nbatch)
 # stats.quants.all <- vector("list", nbatch)
