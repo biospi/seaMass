@@ -84,5 +84,5 @@ dd <- melt(dd.wide, variable.name = "Label", value.name = "Count",
 levels(dd$Label) <- sub("^Label\\.", "", levels(dd$Label))
 
 # pass control to core codebase
-source(file.path(script_dir,"submit","input.R"))
+source(file.path(script_dir, "input.R"))
 

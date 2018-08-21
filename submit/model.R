@@ -1,166 +1,106 @@
 invisible(Sys.setlocale("LC_COLLATE","C"))
 
-message(paste0("[",Sys.time(), " Starting]"))
+message(paste0("[", Sys.time(), " Starting]"))
 
-library(data.table)
-suppressMessages(library(MCMCglmm))
-library(methods)
+suppressPackageStartupMessages(library(data.table))
+suppressPackageStartupMessages(library(MCMCglmm))
+suppressPackageStartupMessages(library(methods))
+options(max.print = 99999)
 
-# BAYESPROT FULL MODEL
-model <- function(dd,seed,nitt,thin,design,exposures.meta,use_exposure_sd) { 
+# load parameters
+prefix <- ifelse(file.exists("metadata.Rdata"), ".", file.path("..", "..", "input"))
+load(file.path(prefix, "metadata.Rdata"))
 
-  set.seed(seed)
-  
-  # order exposures so it matches the prior specification
-  dd$RunChannel <- as.factor(paste0(dd$Run,dd$Channel))
-  exposures.meta$RunChannel <- as.factor(paste0(exposures.meta$Run,exposures.meta$Channel))
-  design$RunChannel <- as.factor(paste0(design$Run,design$Channel))
-  ee <- data.table(RunChannel=levels(dd$RunChannel))
-  ee <- merge(ee,exposures.meta,all.x=T)
-  if (use_exposure_sd == 0) ee$var <- 0.0
-  ee$var[ee$var==0.0] <- 1e-6
+nbatch <- as.integer(dd.params[Key=="nbatch", Value])
+nitt <- as.integer(dd.params[Key=="model.nitt", Value])
+burnin <- as.integer(dd.params[Key=="model.burnin", Value])
+thin <- as.integer(dd.params[Key=="model.thin", Value])
 
-  # adjust for intended volume differences between runchannels
-  ee.func <- function(x) {
-    x$mean <- x$mean + log(design$Volume[design$RunChannel==as.character(x$RunChannel)])
-    x$RunChannel <- NULL
-    x
-  }
-  ee <- ee[,as.list(ee.func(cbind(RunChannel,.SD))), by=list(RunChannel)]
-  message("")
-  print(ee)
-  message("")
-  
-  # set up censoring
-  left.censor <- function(x) ifelse(all(is.na(x)), NA, round(min(x, na.rm = T)))
-  dd.model <- dd[, list(MaxCount=left.censor(Count)), by = Spectrum]
-  
-  dd.model <- merge(data.table(
-    Run = factor(dd$Run),
-    Channel = factor(dd$Channel),
-    RunChannel = factor(dd$RunChannel),
-    Digest = factor(dd$Digest),
-    Spectrum = factor(dd$Spectrum),
-    Peptide = factor(dd$Peptide),
-    Sample = factor(dd$Sample),
-    Population = factor(dd$Population),
-    Condition = factor(dd$Condition),
-    MinCount = ifelse(!is.na(dd$Count), round(dd$Count), 0)
-  ), dd.model)
-  
-  dd.model <- dd.model[complete.cases(dd.model),]
-  dd.model$MaxCount <- pmax(dd.model$MinCount, dd.model$MaxCount)
-  
-  # number of factor levels
-  nA <- length(levels(dd.model$Sample))
-  nD <- length(levels(dd.model$Digest))
-  nO <- length(levels(dd.model$Population))
-  nC <- length(levels(dd.model$Condition))
-  nP <- length(levels(dd.model$Peptide))
-  nS <- length(levels(dd.model$Spectrum))  
-  nRC <- length(levels(dd.model$RunChannel)) 
-  
-  # If a Population level only has 1 Sample, fix its variance to ~0 [this is to support a pooled reference sample]
-  freqTable <- design[!duplicated(design$Sample),][,.N,by=Population]
-  population.vars <- ifelse(freqTable[freqTable$Population %in% levels(dd.model$Population),]$N > 1, 1, 1e-10)
-  
-  # Explanation of integrating exposures into the model (RunChannel fixed effects)
-  # ------------------------------------------------------------------------------
-  # RunChannel fixed effect priors use mean/var calculated by exposures.R
-  # However, MCMCglmm doesn't really understand strong priors when it organises the fixed effects.
-  # For example, you have to use singular.ok=T because it doesn't take the prior into account
-  # when calculating if the fixed effect design matrix is full rank. Also, second level effects
-  # always have one level removed. So we can't make Spectrum a second level effect otherwise it
-  # misses the first spectrum! Luckily we can make RunChannel a second level effect because the first
-  # level is not important (as it is always mean 0, var 1e-7)
-    
-  prior <- list(
-    B = list(mu = matrix(0,nRC+nS+nC-2,1),V = diag(nRC+nS+nC-2) * 1e+6),
-    G = list(G1 = list(V = diag(population.vars), nu = nO, alpha.mu = rep(0,nO),  alpha.V = diag(1000,nO)),
-             #G2 = list(V = diag(nD), nu = nD, alpha.mu = rep(0,nD),  alpha.V = diag(1000,nD)),
-             G2 = list(V = diag(nP), nu = nP, alpha.mu = rep(0,nP),  alpha.V = diag(1000,nP))),
-    R = list(V = diag(nS), nu = 0.002)
-  )
-  prior$B$mu[(nS+1):(nS+nRC-1)] <- ee$mean[2:nRC]
-  diag(prior$B$V)[(nS+1):(nS+nRC-1)] <- ee$var[2:nRC]              
-  model <- suppressWarnings(MCMCglmm(
-    as.formula(paste0("c(MinCount, MaxCount) ~ ", ifelse(nS==1, "", "Spectrum-1 + "), "RunChannel + Condition")),
-    #random = as.formula(paste0(ifelse(nO==1, "~ Sample ", "~idh(Population):Sample "), " + idh(Digest):Peptide", ifelse(nP==1, " + Digest", " + idh(Peptide):Digest"))),
-    random = as.formula(paste0(ifelse(nO==1, "~ Sample", "~idh(Population):Sample"), ifelse(nP==1, " + Digest", " + idh(Peptide):Digest"))),
-    rcov = as.formula(ifelse(nS==1, "~ units", "~ idh(Spectrum):units")),
-    family = 'cenpoisson',        
-    data=dd.model, prior=prior, nitt=nitt, burnin=0, thin=thin, pr=T, singular.ok=T, verbose=F
-  ))
-  print(summary(model))
-  message("")
-  
-  samples.Sol <- model$Sol[,!grepl("^Spectrum",colnames(model$Sol))] # save space - we don't need the spectrum fixed effects
-  samples.VCV <- model$VCV[,!grepl("^Spectrum",colnames(model$VCV))] # save space - we don't need the spectrum residual variances (yet)
-
-  list(samples.Sol=samples.Sol, samples.VCV=samples.VCV, DIC=model$DIC)  
-}
-
-options(max.print=99999)
+# process arguments
 args <- commandArgs(T)
-if (length(args) == 0) args <- c("9", "9")
+if (length(args) == 0) args <- c("90")
+batch <- ((as.integer(args[1]) - 1) %% nbatch) + 1
+chain <- ((as.integer(args[1]) - 1) %/% nbatch) + 1
 
-# some tuning parameters (should come from parameters.Rdata with defaults given here)
-prefix <- ifelse(file.exists("parameters.Rdata"),".",file.path("..","..","input"))
-load(file.path(prefix,"parameters.Rdata"))
-nitt <- as.integer(ifelse("model_iterations" %in% parameters$Key,parameters$Value[parameters$Key=="model_iterations"],13000))
-nburnin <- as.integer(ifelse("model_warmup" %in% parameters$Key,parameters$Value[parameters$Key=="model_warmup"],3000))
-nsamp <- as.integer(ifelse("model_samples" %in% parameters$Key,parameters$Value[parameters$Key=="model_samples"],10000))
-nchain <- as.integer(ifelse("model_chains" %in% parameters$Key,parameters$Value[parameters$Key=="model_chains"],100))
-random_seed <- ifelse("random_seed" %in% parameters$Key,as.integer(parameters$Value[parameters$Key=="random_seed"]),0)
-use_exposure_sd <- as.integer(ifelse("use_exposure_sd" %in% parameters$Key,ifelse(parameters$Value[parameters$Key=="use_exposure_sd"]>0,1,0),1))  
-
-# load design
-load(file.path(prefix,"design.Rdata"))
-
-# load exposures, compute mean/sd
-prefix <- ifelse(file.exists("exposures.Rdata"),".",file.path("..","..","exposures","results"))
-load(file.path(prefix,"exposures.Rdata"))
-
-# compute mean/sd
-exposures.meta <- data.table(t(exposures))
-exposures.meta$Run <- design$Run
-exposures.meta$Channel <- design$Channel
-exposures.meta <- melt(exposures.meta,variable.name="sample",value.name="Exposure",id.vars=c("Run","Channel"))
-exposures.meta.func <- function(x) {
-  data.table(mean=mean(x), var=var(x))
-}
-exposures.meta <- exposures.meta[,as.list(exposures.meta.func(Exposure)), by=list(Run,Channel)]
-
-# which batch and chain are we processing?
-batch <- as.integer(args[1])
-chain <- as.integer(args[2])
+# set seed
+set.seed(as.integer(dd.params[Key=="seed", Value]) + chain - 1)
 
 # load batch
 prefix <- ifelse(file.exists(paste0(batch,".Rdata")),".",file.path("..","..","input"))
 load(file.path(prefix,paste0(batch,".Rdata")))
 
-# run full model!
-samples.Sol <- vector("list", length(dds))
-samples.VCV <- vector("list", length(dds))
-dic <- vector("list", length(dds))
-time <- vector("list", length(dds))
-names(samples.Sol) <- names(dds)
-names(samples.VCV) <- names(dds)
-names(dic) <- names(dds)
-names(time) <- names(dds)
-for (i in names(dds)) {
-  message(paste0("[",Sys.time(),paste0(" Processing job ",i,"...]")))
-  
-  dd <- dds[[i]]
-  seed <- random_seed + chain
-  thin <- ceiling((nitt-nburnin)*nchain/nsamp)
-  if (nrow(dd) > 0) {
-    time[[i]] <- system.time(output <- model(dd,seed,nitt,thin,design,exposures.meta,use_exposure_sd))
-    samples.Sol[[i]] <- output[["samples.Sol"]]
-    samples.VCV[[i]] <- output[["samples.VCV"]]
-    dic[[i]] <- output[["DIC"]]
-  }
+# remove single spectrum hits per run as this model cannot estimate them
+dd <- merge(dd, dd[, list(nFeature = length(unique(as.character(FeatureID)))), by = list(ProteinID, RunID)])
+dd <- dd[nFeature > 1,]
+dd$nFeature <- NULL
+# need to drop lost levels
+dd$ProteinID <- factor(dd$ProteinID)
+dd$PeptideID <- factor(dd$PeptideID)
+dd$FeatureID <- factor(dd$FeatureID)
+dd$AssayID <- factor(dd$AssayID)
+
+# prepare dd for MCMCglmm
+nP <- length(levels(dd$ProteinID))
+nT <- length(levels(dd$PeptideID))
+nF <- length(levels(dd$FeatureID))  
+nA <- length(levels(dd$AssayID))
+dd$Count = round(dd$Count)
+
+# setup QuantID contrasts
+dd[, BaselineID := dd.assays$AssayID[dd.assays$RunID == RunID[1] & dd.assays$LabelID == unique(LabelID)[1]], by = c("ProteinID", "RunID")] # todo: work for no label case
+dd$QuantID <- as.character(interaction(dd$ProteinID, dd$BaselineID, dd$AssayID, lex.order = T, drop = T))
+dd[AssayID == BaselineID, QuantID := "."]
+dd$QuantID <- factor(dd$QuantID)
+nQ <- length(levels(dd$QuantID))
+
+# run model!
+prior <- list(
+  G = list(G1 = list(V = diag(nT), nu = nT, alpha.mu = rep(0, nT), alpha.V = diag(1000, nT))),
+  R = list(V = diag(nF), nu = 0.002)
+)
+time.mcmc <- system.time(model <- (MCMCglmm(
+  Count ~ FeatureID + QuantID - 1,
+  random = as.formula(paste0("~ ", ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":AssayID")),
+  rcov = as.formula(paste0("~ ", ifelse(nF==1, "units", "idh(FeatureID):units"))),
+  family = "poisson", data = dd, prior = prior, nitt = nitt, burnin = burnin, thin = thin, pr = T, verbose = F
+)))
+summary(model)
+message("")
+
+if (length(colnames(model$Sol)[grep("^QuantID[0-9]+\\.[0-9]+\\.[0-9]+$", colnames(model$Sol))]) != length(levels(dd$QuantID)) - 1) {
+  stop("Some contrasts were dropped unexpectedly")
 }
-save(samples.Sol, samples.VCV, dic, time, file=paste0(batch,".",chain,".Rdata"))
+
+# extract quants, converting to log2
+mcmc.quants <- mcmc(matrix(0.0, nrow(model$Sol), nQ-1), start = start(model$Sol), end = end(model$Sol), thin = thin(model$Sol))
+colnames(mcmc.quants) <- paste0("QuantID", levels(dd$QuantID)[2:nQ])
+for (i in grep("^QuantID[0-9]+\\.[0-9]+\\.[0-9]+$$", colnames(model$Sol))) mcmc.quants[, colnames(model$Sol)[i]] <- model$Sol[, i] / log(2)
+colnames(mcmc.quants) <- sub("^QuantID", "", colnames(mcmc.quants))
+
+# extract peptide level quants, converting to log2
+mcmc.peptides.quants <- model$Sol[, grep("^PeptideID[0-9]+\\.AssayID\\.[0-9]+$", colnames(model$Sol))] / log(2)
+colnames(mcmc.peptides.quants) <- sub("^PeptideID([0-9]+)\\.AssayID(\\.[0-9]+)$", "\\1\\2", colnames(mcmc.peptides.quants))
+model$Sol <- NULL
+
+# extract peptide variances, converting to log2 stdevs
+mcmc.peptides.sd <- sqrt(model$VCV[, grep("^PeptideID[0-9]+\\.AssayID$", colnames(model$VCV))] / log(2))
+if (nT==1) {
+  colnames(mcmc.peptides.sd) <- levels(dd$PeptideID)
+} else {
+  colnames(mcmc.peptides.sd) <- gsub("^PeptideID([0-9]+)\\.AssayID$", "\\1", colnames(mcmc.peptides.sd))
+}
+
+# extract feature variances, converting to log2 stdevs
+mcmc.features.sd <- sqrt(model$VCV[, grep("^FeatureID[0-9]+\\.units$", colnames(model$VCV))] / log(2))
+if (nF==1) {
+  colnames(mcmc.features.sd) <- levels(dd$FeatureID)
+} else {
+  colnames(mcmc.features.sd) <- gsub("^FeatureID([0-9]+)\\.units$", "\\1", colnames(mcmc.features.sd))
+}
+model$VCV <- NULL
+
+# save
+save(mcmc.quants, mcmc.peptides.quants, mcmc.peptides.sd, mcmc.features.sd, time.mcmc, file = paste0(batch, ".", chain, ".Rdata"))
 
 message(paste0("[",Sys.time()," Finished]"))
+

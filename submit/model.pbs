@@ -1,0 +1,11 @@
+#!/bin/bash
+#PBS -N bp.model
+#PBS -o model
+#PBS -j oe
+#PBS -l nodes=1:ppn=1
+#PBS -l walltime=12:00:00
+#PBS -M andrew.dowsey@bristol.ac.uk
+#PBS -q veryshort
+#PBS -t 1-1000
+cd $PBS_O_WORKDIR/model/results
+Rscript ../../model.R ${PBS_ARRAYID}

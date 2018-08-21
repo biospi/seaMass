@@ -5,26 +5,11 @@ dd.params <- rbind(
   c("seed", "0"),
   c("nbatch", "100"),
   
-  c("quant.nitt", "1300"),
-  c("quant.burnin", "300"),
-  c("quant.thin", "1"),
-  c("quant.nchain", "10"),
-  
-  c("de.nitt", "13000"),
-  c("de.burnin", "3000"),
-  c("de.thin", "100"),
-  c("de.nchain", "100"),
-  
-  c("hpc", "SLURM"),
-  c("hpc.ncpu", "7"),
-  c("hpc.nnode", "1"),
-  c("hpc.mem", "10G"),
-  c("hpc.himem", "16G"),
-  c("hpc.longq", "cpu"),
-  c("hpc.shortq", "serial"),
-  c("hpc.totaljobs", "1"),
-  c("hpc.lowncpu", "6"),
-  
+  c("model.nitt", "2000"),
+  c("model.burnin", "1000"),
+  c("model.thin", "10"),
+  c("model.nchain", "10"),
+
   c("bayesprot.id", id),
   c("bayesprot.version", "1.2")
 )
@@ -46,6 +31,7 @@ dd.proteins <- dd[, .(
 ), by = Protein]
 dd.proteins <- dd.proteins[order(-nPeptide, -nFeature, -nCount, Protein)]
 dd.proteins$ProteinID <- factor(as.integer(factor(dd.proteins$Protein, unique(dd.proteins$Protein))))
+setcolorder(dd.proteins, c("ProteinID"))
 
 dd <- merge(dd, dd.proteins[, list(Protein, ProteinID)], by = "Protein")
 dd$Protein <- NULL
@@ -53,20 +39,28 @@ dd$Protein <- NULL
 # build Peptide index
 dd.peptides <- dd[, .(
   nFeature = length(unique(as.character(Feature))),
-  nCount = .N
+  nCount = .N,
+  TopProteinID = min(as.integer(as.character(ProteinID))),
+  ProteinIDs = paste(unique(as.integer(as.character(ProteinID))), collapse = "")
 ), by = Peptide]
-dd.peptides  <- dd.peptides[order(-nFeature, -nCount, Peptide)]
+dd.peptides  <- dd.peptides[order(TopProteinID, -nFeature, -nCount, Peptide)]
+dd.peptides$TopProteinID <- NULL
 dd.peptides$PeptideID <- factor(as.integer(factor(dd.peptides$Peptide, unique(dd.peptides$Peptide))))
+setcolorder(dd.peptides, c("ProteinIDs", "PeptideID"))
 
 dd <- merge(dd, dd.peptides[, list(Peptide, PeptideID)], by = "Peptide")
 dd$Peptide <- NULL
 
 # build Feature index
 dd.features <- dd[, .(
-  nCount = .N
+  nCount = .N,
+  TopPeptideID = min(as.integer(as.character(PeptideID))),
+  PeptideIDs = paste(unique(as.integer(as.character(PeptideID))), collapse = "")
 ), by = Feature]
-dd.features  <- dd.features[order(-nCount, Feature)]
+dd.features <- dd.features[order(TopPeptideID, -nCount, Feature)]
+dd.features$TopPeptideID <- NULL
 dd.features$FeatureID <- factor(as.integer(factor(dd.features$Feature, unique(dd.features$Feature))))
+setcolorder(dd.features, c("PeptideIDs", "FeatureID"))
 
 dd <- merge(dd, dd.features[, list(Feature, FeatureID)])
 dd$Feature <- NULL
@@ -83,9 +77,6 @@ dd.assays$AssayID <- factor(as.integer(dd.assays$Assay))
 dd <- merge(dd, dd.assays[, list(Run, Label, RunID, LabelID, AssayID)], by = c("Run", "Label"))
 dd$Run = NULL
 dd$Label = NULL
-
-# build Baseline index
-#dd.baselines <- unique(dd[, list(ProteinID, RunID, LabelID, BaselineID)])
 
 # factors are appaulingly slow to split, so change to strings as we want to drop levels anyway
 dd$ProteinID <- as.integer(dd$ProteinID)
@@ -129,7 +120,9 @@ id <- sub("[.][^.]*$", "", basename(args[1]), perl=T)
 out_zip <- paste0(id, ".bayesprot.zip")
 tmp_dir <- tempfile("bayesprot.")
 out_dir <- file.path(tmp_dir, paste0(id, ".bayesprot"))
-dir.create(out_dir, recursive = T)
+dir.create(file.path(out_dir, "input"), recursive = T)
+dir.create(file.path(out_dir, "model", "results"), recursive = T)
+dir.create(file.path(out_dir, "output", "results"), recursive = T)
 for (file in list.files(file.path(script_dir, "submit")))
   file.copy(file.path(script_dir, "submit", file), out_dir, recursive = T)
 
@@ -150,52 +143,6 @@ for (j in 1:nbatch) {
 
 # save metadata
 save(dd.params, dd.proteins, dd.peptides, dd.features, dd.assays, file = file.path(out_dir, "input", "metadata.Rdata"))
-
-# this is where the SLURM/PBS scripts should be generated 
-source(file.path(script_dir, "submit", "ScheduleHPC.R"))
-
-# New xlsx reader library so Key = X__1 and Value = X__2
-systemHPC <- as.character(dd.params[Key=="hpc", Value])
-
-if (systemHPC == "SLURM") {
-  quant_chains <- as.integer(dd.params[Key=="quant.nchain", Value])
-  model_chains <- as.integer(dd.params[Key=="de.nchain", Value])
-  
-  cpu_num <- as.integer(dd.params[Key=="hpc.ncpu", Value])
-  node <- as.integer(dd.params[Key=="hpc.nnode", Value])
-  mem <- dd.params[Key=="hpc.mem", Value]
-  himem <- dd.params[Key=="hpc.himem", Value]
-  long_que <- dd.params[Key=="hpc.longq", Value]
-  short_que <- dd.params[Key=="hpc.shortq", Value]
-  total_jobs <- as.integer(dd.params[Key=="hpc.totaljobs", Value])
-  low_cpu_num <- as.integer(dd.params[Key=="hpc.lowncpu", Value])
-  
-  clusterHPC <- new(systemHPC, batch = nbatch, quantChain = quant_chains, modelChain = model_chains, path = out_dir,
-                    cpuNum = cpu_num, node = node, mem = mem, himem = himem, longQue = long_que,shortQue = short_que,
-                    totalJobs = total_jobs,lowCPUNum = low_cpu_num)
-} else if (systemHPC == "PBS") {
-  stop("PBS HPC system yet to be implemented!...")
-} else if (systemHPC == "SGE") {
-  stop("SGE HPC system yet to be implemented!...")
-} else {
-  stop("Error: Unknown HPC system. Possible HPC systems = SLURM, PBS, SGE.")
-}
-
-#message(paste("batch",batch,"quant_chain",quant_chains,"model_chains",model_chains,"cpu_num",cpu_num,"node",node,"mem",
-#              mem,"himem",himem,"long_que",long_que,"short_que",short_que,"total_jobs",total_jobs,"low_cpu_num",low_cpu_num))
-
-# Quant: 'Rscript quant.R <batch> <quant_chain> <quant_chains>' where <batch> is from 0 to batches-1 and <quant_chain> is from 0 to quant_chaines-1
-quantHPC(clusterHPC)
-# Exposures: 'Rscript exposures.R'
-exposuresHPC(clusterHPC)
-# Model: 'Rscript model.R <batch> <model_chain> <model_chains>' where <batch> is from 0 to batches-1 and <model_chain> is from 0 to model_chains-1
-modelHPC(clusterHPC)
-# Plots: 'Rscript plots.R <batch>' where <batch> is from 0 to batches-1
-plotsHPC(clusterHPC)
-# Output: 'Rscript output.R'
-outputHPC(clusterHPC)
-# Generate bash script for chained HPC submit job:
-genJobFileHPC(clusterHPC)
 
 # create zip file and clean up
 message(paste0("writing: ", out_zip, "..."))
