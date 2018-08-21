@@ -1,0 +1,21 @@
+Package: bayesprot
+Type: Package
+Title: Bayesian Mixed-Effects Modelling for Proteomics
+Version: 0.2.0
+Authors@R: as.person(c(
+    "Andrew Dowsey <andrew.dowsey@bristol.ac.uk> [aut, cre]",
+    "Alexander Phillips <a.m.phillips@liverpool.ac.uk> [ctb]",
+    "Ranjeet Bhamber <ranjeet.bhamber@bristol.ac.uk> [ctb]"
+  ))
+Description: Bayesian mixed-effects modelling for protein-level differential analysis of quantitative mass spectrometry proteomics data.
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+Depends: R (>= 3.4.0)
+Imports: 
+    data.table (>= 1.11.4),
+Suggests:
+    MCMCglmm (>= 2.26),
+    ggfortify (>= 0.4.5),
+    ggrepel (>= 0.8.0),
+RoxygenNote: 6.0.1
