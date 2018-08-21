@@ -1,56 +1,48 @@
-Sys.setlocale("LC_COLLATE","C")
+invisible(Sys.setlocale("LC_COLLATE","C"))
 
-# BAYESPROT MODEL
-norm <- function(protein_id,chain,nchain,seed,nitt,thin) { 
-  library(methods)
-  library(MCMCglmm)
-  library(reshape2)
-  library(plyr)
+message(paste0("[",Sys.time(), " Starting]"))
+
+library(data.table)
+suppressMessages(library(MCMCglmm))
+library(methods)
+
+# BAYESPROT NORM MODEL
+norm <- function(dd, seed, nitt, thin) { 
   
-  set.seed(seed + chain)
-  load(paste0(protein_id,".Rdata"))
+  set.seed(seed)
 
   # The norm model needs each Channel to be reported at least twice per Run. If not, need to
   # drop these runs
-  data$RunChannel <- interaction(data$Run, data$Channel, sep='')
-  freq <- count(data$RunChannel)
-  data <- data[data$RunChannel %in% freq$x[freq$freq>1],]
+  dd$RunChannel <- interaction(dd$Run, dd$Channel, sep='')
+  freq <- dd[, .N , by=RunChannel]
+  dd <- dd[dd$RunChannel %in% freq$RunChannel[freq$N>1],]
   
-  if (nrow(data) == 0) {
+  if (nrow(dd) == 0) {
     
-    samps.runchannels = data.frame()
+    samples = data.table()
     
   } else {
     
     # some runs, conditions or samples might not be represented for this protein. remove these
     # levels with zero values otherwise MCMCglmm breaks
-    data$Run <- factor(data$Run)
-    data$Digest <- factor(data$Digest)
-    data$Spectrum <- factor(data$Spectrum)
-    data$Peptide <- factor(data$Peptide)
-    data$RunChannel <- factor(data$RunChannel)
-    
-    # number of factor levels
-    nP <- length(levels(data$Peptide))
-    nS <- length(levels(data$Spectrum))  
-    nR <- length(levels(data$Run))
-    nD <- length(levels(data$Digest))
-    
-    if (nR > 1) data$Channel <- factor(data$Channel,levels=rev(levels(data$Channel)))  
+    dd.norm <- data.table(
+      Run = factor(dd$Run),
+      Channel = factor(dd$Channel),
+      Digest = factor(dd$Digest),
+      Spectrum = factor(dd$Spectrum),
+      Peptide = factor(dd$Peptide),
+      Count = round(dd$Count)
+    )
 
-    if (nP == 1) {
-      # one peptide only for this protein
-      prior <- list(
-        R = list(V=diag(nS), nu=0.002)
-      )
-      model <- suppressWarnings(MCMCglmm(
-        as.formula(paste("Count ~", ifelse(nS==1, "", "Spectrum-1 +"), ifelse(nR==1, "Channel", "Run:Channel"))),
-        rcov = as.formula(ifelse(nS==1,"~units", "~idh(Spectrum):units")),
-        family = 'poisson',
-        data=data, prior=prior, nitt=nitt, burnin=0, thin=thin, verbose=F
-      ))
-      
-    } else {
+    # number of factor levels
+    nP <- length(levels(dd.norm$Peptide))
+    nS <- length(levels(dd.norm$Spectrum))  
+    nR <- length(levels(dd.norm$Run))
+    nD <- length(levels(dd.norm$Digest))
+    
+    if (nR > 1) dd.norm$Channel <- factor(dd.norm$Channel,levels=rev(levels(dd.norm$Channel)))  
+
+    if (nP > 1) {
       
       # multiple peptides for this protein (full model)
       prior <- list(
@@ -62,54 +54,66 @@ norm <- function(protein_id,chain,nchain,seed,nitt,thin) {
         random = ~ idh(Peptide):Digest,
         rcov = as.formula(ifelse(nS==1,"~units", "~idh(Spectrum):units")),
         family = 'poisson',
-        data=data, prior=prior, nitt=nitt, burnin=0, thin=thin, verbose=F
+        data=dd.norm, prior=prior, nitt=nitt, burnin=0, thin=thin, verbose=F
       ))
+      print(summary(model))
+      message("")
+      
+      # save samples for exposures.R
+      if (nR==1) {
+        runchannels <- colnames(model$Sol) %in% c(sapply(levels(dd.norm$Run), function(x) paste0('Channel', levels(dd.norm$Channel))))
+        samples <- model$Sol[,runchannels,drop=F]
+        colnames(samples) <- paste0(dd.norm$Run[1], sub('Channel', '', colnames(samples)))
+      } else {
+        runchannels <- colnames(model$Sol) %in% c(sapply(levels(dd.norm$Run), function(x) paste0('Run', x, ':Channel', levels(dd.norm$Channel))))
+        samples <- model$Sol[,runchannels,drop=F]
+        colnames(samples) <- sub('^Run', '', colnames(samples))  
+        colnames(samples) <- sub(':Channel', '', colnames(samples))  
+      } 
+      
+    } else {
+      
+      samples = data.table()
       
     }
-
-    # save samples for exposures.R
-    if (nR==1) {
-      runchannels <- colnames(model$Sol) %in% c(maply(levels(data$Run), function(x) paste0('Channel', levels(data$Channel))))
-      samps.runchannels <- model$Sol[,runchannels,drop=F]
-      colnames(samps.runchannels) <- paste0(data$Run[1], sub('Channel', '', colnames(samps.runchannels)))
-    } else {
-      runchannels <- colnames(model$Sol) %in% c(maply(levels(data$Run), function(x) paste0('Run', x, ':Channel', levels(data$Channel))))
-      samps.runchannels <- model$Sol[,runchannels,drop=F]
-      colnames(samps.runchannels) <- sub('^Run', '', colnames(samps.runchannels))  
-      colnames(samps.runchannels) <- sub(':Channel', '', colnames(samps.runchannels))  
-    } 
-    
   }
   
-  save(samps.runchannels, file=paste0(protein_id,".",chain,".Rdata"))
+  samples
 }
 
+options(max.print=99999)
+args <- commandArgs(T)
+if (length(args) == 0) args <- c("0", "7")
 
-# FOR EXECUTING UNDER HPC
-if (length(commandArgs(T)) > 0 & commandArgs(T)[1]=="HPC")
-{
-  print(paste(Sys.time(),"[Starting]"))
+# some tuning parameters (should come from parameters.Rdata with defaults given here)
+prefix <- ifelse(file.exists("parameters.Rdata"),".",file.path("..","..","input"))
+load(file.path(prefix,"parameters.Rdata"))
+nitt <- as.integer(ifelse("norm_iterations" %in% parameters$Key,parameters$Value[parameters$Key=="norm_iterations"],13000))
+nburnin <- as.integer(ifelse("norm_warmup" %in% parameters$Key,parameters$Value[parameters$Key=="norm_warmup"],3000))
+nsamp <- as.integer(ifelse("norm_samples" %in% parameters$Key,parameters$Value[parameters$Key=="norm_samples"],1000))
+nchain <- as.integer(ifelse("norm_chains" %in% parameters$Key,parameters$Value[parameters$Key=="norm_chains"],10))
+random_seed <- ifelse("random_seed" %in% parameters$Key,as.integer(parameters$Value[parameters$Key=="random_seed"]),0)
 
-  # some tuning parameters (should come from parameters.Rdata with defaults given here)
-  load("parameters.Rdata")  
-  nitt <- as.integer(ifelse("norm_nitt" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nitt"],13000))
-  nburnin <- as.integer(ifelse("norm_nburnin" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nburnin"],3000))
-  nsamp <- as.integer(ifelse("norm_nsamp" %in% parameters$Key,parameters$Value[parameters$Key=="norm_nsamp"],1000))
+# which batch and chain are we processing?
+batch <- as.integer(args[1])
+chain <- as.integer(args[2])
 
-  # random seed
-  seed <- ifelse("random_seed" %in% parameters$Key,as.integer(parameters$Value[parameters$Key=="random_seed"]),0)
-  seed <- ifelse(seed>=0,seed,as.integer(commandArgs(T)[2]))
+# load batch
+prefix <- ifelse(file.exists(paste0(batch,".Rdata")),".",file.path("..","..","input"))
+load(file.path(prefix,paste0(batch,".Rdata")))
+
+# run norm model!
+samples <- vector("list", length(dds))
+time <- vector("list", length(dds))
+names(samples) <- names(dds)
+for (i in names(dds)) {
+  message(paste0("[",Sys.time(),paste0(" Processing ProteinID ",i,"...]")))
   
-  # run jobs
-  ids <- commandArgs(T)[3:length(commandArgs(T))]
-  protein_ids <- gsub(":[0-9]+/[0-9]+$","",ids)
-  chains <- as.integer(gsub("/[0-9]+$", "", gsub("^[0-9]+:","",ids)))
-  nchains <- as.integer(gsub("^[0-9]+:[0-9]+/","",ids))
-  
-  devnull <- sapply(seq_along(protein_ids), function(i) {
-    print(paste(Sys.time(),paste0("[Processing job ",ids[i],"]")))
-    norm(protein_ids[i],chains[i],nchains[i],seed,nitt,ceiling((nitt-nburnin)*nchains[i]/nsamp))
-  })
-  
-  print(paste(Sys.time(),"[Finished]"))
+  dd <- dds[[i]]
+  seed <- random_seed + chain
+  thin <- ceiling((nitt-nburnin)*nchain/nsamp)
+  time[[i]] <- system.time(samples[[i]] <- norm(dd,seed,nitt,thin))
 }
+save(samples, time, file=paste0(batch,".",chain,".Rdata"))
+
+message(paste0("[",Sys.time()," Finished]"))

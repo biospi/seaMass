@@ -1,3 +1,0 @@
-request_memory = 1500 
-request_disk = 350000
-requirements = (opsys == "LINUX") && (arch == "X86_64") && HAS_STANDARD_IMAGE && (regexp("^htc.*", TARGET.Machine) == False) && (regexp("^e-c07.*", TARGET.Machine) == False) && (regexp("^e-i07faskc38cp.*", TARGET.Machine) == False) && (regexp("^schroedinger.*", TARGET.Machine) == False)
