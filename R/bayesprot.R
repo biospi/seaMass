@@ -8,10 +8,10 @@
 #' @export
 
 bayesprot <- function(dd, id = "submit") {
-  message("BayesProt v0.2.0 | © 2015-2018 BIOSP👁  Laboratory")
+  message("BayesProt v0.2.0 | © 2015-2018 BIOSP👁 Laboratory")
   message("This program comes with ABSOLUTELY NO WARRANTY.")
   message("This is free software, and you are welcome to redistribute it under certain conditions.")
-  message("")
+  message("---")
 
   dd.params <- rbind(
     c("seed", "0"),
@@ -162,5 +162,4 @@ bayesprot <- function(dd, id = "submit") {
   zip(file.path(wd, out_zip), ".", flags="-r9Xq")
   setwd(wd)
   unlink(tmp_dir, recursive = T)
-  message("")
 }

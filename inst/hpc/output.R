@@ -26,6 +26,8 @@ nL <- length(levels(dd.assays$LabelID))
 nA <- length(levels(dd.assays$AssayID))
 
 prefix <- ifelse(file.exists("1.1.Rdata"), ".", file.path("..", "..", "model", "results"))
+stats.dir <- paste0(dd.params[Key == "bayesprot.id", Value], ".bayesprot.output")
+dir.create(stats.dir, showWarnings = F)
 dir.create("quants", showWarnings = F)
 
 # calculate exposures and stats
@@ -114,26 +116,26 @@ stats.quants.n <- apply(stats.quants.n, 2, rowSums)
 # write out means
 stats.quants.est <- stats.quants.sum / ifelse(stats.quants.n != 0, stats.quants.n, NA)
 colnames(stats.quants.est) <- dd.assays$Assay
-fwrite(cbind(dd.proteins, stats.quants.est), paste0(dd.params[Key == "bayesprot.id", Value], "_proteins_est.csv"))
+fwrite(cbind(dd.proteins, stats.quants.est), file.path(stats.dir, "proteins_est.csv"))
 
 # write out sds
 stats.quants.sd <- sqrt((stats.quants.sum2 + stats.quants.sum^2 / ifelse(stats.quants.n != 0, stats.quants.n, NA)) / stats.quants.n)
 colnames(stats.quants.sd) <- dd.assays$Assay
-fwrite(cbind(dd.proteins, stats.quants.sd), paste0(dd.params[Key == "bayesprot.id", Value], "_proteins_sd.csv"))
+fwrite(cbind(dd.proteins, stats.quants.sd), file.path(stats.dir, "proteins_sd.csv"))
 
 # write out peptides
 colnames(stats.peptides.quants.est) <- dd.assays$Assay
-fwrite(cbind(dd.peptides, sd = stats.peptides.sd, stats.peptides.quants.est), paste0(dd.params[Key == "bayesprot.id", Value], "_peptides_est.csv"))
+fwrite(cbind(dd.peptides, sd = stats.peptides.sd, stats.peptides.quants.est), file.path(stats.dir, "peptides_est.csv"))
 colnames(stats.peptides.quants.sd) <- dd.assays$Assay
-fwrite(cbind(dd.peptides, sd = stats.peptides.sd, stats.peptides.quants.sd), paste0(dd.params[Key == "bayesprot.id", Value], "_peptides_sd.csv"))
+fwrite(cbind(dd.peptides, sd = stats.peptides.sd, stats.peptides.quants.sd), file.path(stats.dir, "peptides_sd.csv"))
 
 # write out features
-fwrite(cbind(dd.features, sd = stats.features.sd), paste0(dd.params[Key == "bayesprot.id", Value], "_features.csv"))
+fwrite(cbind(dd.features, sd = stats.features.sd), file.path(stats.dir, "features.csv"))
 
 # write out timings
 colnames(stats.time.mcmc) <- paste0("chain", 1:nchain)
 dd.time.mcmc <- cbind(data.table(batchID = 1:nbatch), stats.time.mcmc, total = rowSums(stats.time.mcmc))
-fwrite(dd.time.mcmc, paste0(dd.params[Key == "bayesprot.id", Value], "_time.csv"))
+fwrite(dd.time.mcmc, file.path(stats.dir, "timings.csv"))
 
 # write out pca plot
 stats.quants.est.assays <- t(stats.quants.est[apply(stats.quants.est, 1, function(x) !any(is.na(x))),])
@@ -148,14 +150,14 @@ g <- g + theme(panel.border = element_rect(colour = "black", size = 1),
                strip.background = element_blank())
 g <- g + geom_label_repel(aes(label = Assay, colour = Label))
 g <- g + theme(aspect.ratio=1) + coord_equal()
-ggsave(paste0(dd.params[Key == "bayesprot.id", Value], "_pca.pdf"), g, width=8, height=8)
+ggsave(file.path(stats.dir, "pca.pdf"), g, width=8, height=8)
 
-dd.pca.assays$Condition <- c("pool", "pool", "AD", "AD", "AD", "Ctrl", "Ctrl", "Ctrl", "pool", "pool", "AD", "AD", "AD", "Ctrl", "Ctrl", "Ctrl", "pool", "pool", "AD", "AD", "AD", "Ctrl", "Ctrl", "Ctrl")
-dd.pca.assays$Sample <- c("P1", "P2", "S1", "S3", "S7", "S12", "S17", "S10", "P3", "P4", "S2", "S6", "S9", "S13", "S15", "S18", "P5", "P6", "S4", "S5", "S8", "S11", "S14", "S16")
-g <- autoplot(pca.assays, data = dd.pca.assays, scale = 0, colour = "Condition")
-g <- g + geom_label_repel(aes(label = Sample, colour = Condition))
-g <- g + theme(aspect.ratio=1) + coord_equal()
-ggsave(paste0(dd.params[Key == "bayesprot.id", Value], "_conditions_pca.pdf"), g, width=8, height=8)
+# dd.pca.assays$Condition <- c("pool", "pool", "AD", "AD", "AD", "Ctrl", "Ctrl", "Ctrl", "pool", "pool", "AD", "AD", "AD", "Ctrl", "Ctrl", "Ctrl", "pool", "pool", "AD", "AD", "AD", "Ctrl", "Ctrl", "Ctrl")
+# dd.pca.assays$Sample <- c("P1", "P2", "S1", "S3", "S7", "S12", "S17", "S10", "P3", "P4", "S2", "S6", "S9", "S13", "S15", "S18", "P5", "P6", "S4", "S5", "S8", "S11", "S14", "S16")
+# g <- autoplot(pca.assays, data = dd.pca.assays, scale = 0, colour = "Condition")
+# g <- g + geom_label_repel(aes(label = Sample, colour = Condition))
+# g <- g + theme(aspect.ratio=1) + coord_equal()
+# ggsave(paste0(dd.params[Key == "bayesprot.id", Value], "_conditions_pca.pdf"), g, width=8, height=8)
 
 # # plot quant distributions
 # dd.quants.plot <- dd.quants[ProteinID %in% ps,]
@@ -233,7 +235,7 @@ plot.exposures <- function(mcmc.exposures)
 # plot label exposures
 message("[", paste0(Sys.time(), " Writing exposures...]"))
 g <- plot.exposures(mcmc.exposures)
-ggsave(paste0(dd.params[Key == "bayesprot.id", Value], "_exposures.pdf"), g, width = 8, height = 0.5 * nA)
+ggsave(file.path(stats.dir, "exposures.pdf"), g, width = 8, height = 0.5 * nA)
 saveRDS(mcmc.exposures, "exposures.rds")
 
 # write out Rhat
@@ -252,6 +254,10 @@ for (a in 1:nA) {
   for (k in 1:ncol(mcmc.quants.all[[1]])) stats.quants.rhat[as.integer(colnames(mcmc.quants.all[[1]])[k]), a] <- gelman.diag(mcmc.quants.all[, k, drop = F], autoburnin = F)$psrf[1]
 }
 colnames(stats.quants.rhat) <- dd.assays$Assay
-fwrite(cbind(dd.proteins, stats.quants.rhat), paste0(dd.params[Key == "bayesprot.id", Value], "_rhat.csv"))
+fwrite(cbind(dd.proteins, stats.quants.rhat), file.path(stats.dir, "rhats.csv"))
+
+# create zip file and clean up
+message(paste0("writing: ", paste0(stats.dir, ".zip"), "..."))
+zip(paste0(stats.dir, ".zip"), stats.dir, flags="-r9Xq")
 
 message("[",paste0(Sys.time()," Finished]"))
