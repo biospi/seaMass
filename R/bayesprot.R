@@ -32,16 +32,16 @@ bayesprot <- function(dd, id = "submit") {
   dd$Protein <- factor(dd$Protein)
   dd$Peptide <- factor(dd$Peptide)
   dd$Feature <- factor(dd$Feature)
-  dd$Run <- factor(dd$Run)
-  dd$Label <- factor(dd$Label)
+  if("Run" %in% colnames(dd)) dd$Run <- factor(dd$Run)
+  if("Label" %in% colnames(dd)) dd$Label <- factor(dd$Label)
 
   # build Protein index
   dd.proteins <- dd[, .(
     nPeptide = length(unique(as.character(Peptide))),
     nFeature = length(unique(as.character(Feature))),
-    nCount = .N
+    nMeasurement = .N
   ), by = Protein]
-  dd.proteins <- dd.proteins[order(-nPeptide, -nFeature, -nCount, Protein)]
+  dd.proteins <- dd.proteins[order(-nPeptide, -nFeature, -nMeasurement, Protein)]
   dd.proteins$ProteinID <- factor(as.integer(factor(dd.proteins$Protein, unique(dd.proteins$Protein))))
   setcolorder(dd.proteins, c("ProteinID"))
 
@@ -51,11 +51,11 @@ bayesprot <- function(dd, id = "submit") {
   # build Peptide index
   dd.peptides <- dd[, .(
     nFeature = length(unique(as.character(Feature))),
-    nCount = .N,
+    nMeasurement = .N,
     TopProteinID = min(as.integer(as.character(ProteinID))),
     ProteinIDs = paste(unique(as.integer(as.character(ProteinID))), collapse = "")
   ), by = Peptide]
-  dd.peptides  <- dd.peptides[order(TopProteinID, -nFeature, -nCount, Peptide)]
+  dd.peptides  <- dd.peptides[order(TopProteinID, -nFeature, -nMeasurement, Peptide)]
   dd.peptides$TopProteinID <- NULL
   dd.peptides$PeptideID <- factor(as.integer(factor(dd.peptides$Peptide, unique(dd.peptides$Peptide))))
   setcolorder(dd.peptides, c("ProteinIDs", "PeptideID"))
@@ -65,11 +65,11 @@ bayesprot <- function(dd, id = "submit") {
 
   # build Feature index
   dd.features <- dd[, .(
-    nCount = .N,
+    nMeasurement = .N,
     TopPeptideID = min(as.integer(as.character(PeptideID))),
     PeptideIDs = paste(unique(as.integer(as.character(PeptideID))), collapse = "")
   ), by = Feature]
-  dd.features <- dd.features[order(TopPeptideID, -nCount, Feature)]
+  dd.features <- dd.features[order(TopPeptideID, -nMeasurement, Feature)]
   dd.features$TopPeptideID <- NULL
   dd.features$FeatureID <- factor(as.integer(factor(dd.features$Feature, unique(dd.features$Feature))))
   setcolorder(dd.features, c("PeptideIDs", "FeatureID"))
@@ -79,7 +79,7 @@ bayesprot <- function(dd, id = "submit") {
 
   # build Assay index
   dd.assays <- dd[, .(
-    Assay = paste(Run, Label, sep = ".")
+    Assay = paste(Run, Label, sep = "")
   ), by = list(Run, Label)]
   dd.assays$Assay <- factor(dd.assays$Assay)
   dd.assays$RunID <- factor(as.integer(dd.assays$Run))

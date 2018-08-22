@@ -29,10 +29,16 @@ set.seed(as.integer(dd.params[Key=="seed", Value]) + chain - 1)
 prefix <- ifelse(file.exists(paste0(batch,".Rdata")),".",file.path("..","..","input"))
 load(file.path(prefix,paste0(batch,".Rdata")))
 
+# remove single measurements per feature as cannot constuct a ratio
+dd <- merge(dd, dd[, list(nMeasurement = .N), by = list(FeatureID)])
+dd <- dd[nMeasurement > 1,]
+dd$nMeasurement <- NULL
+
 # remove single spectrum hits per run as this model cannot estimate them
-dd <- merge(dd, dd[, list(nFeature = length(unique(as.character(FeatureID)))), by = list(ProteinID, RunID)])
-dd <- dd[nFeature > 1,]
-dd$nFeature <- NULL
+# dd <- merge(dd, dd[, list(nFeature = length(unique(as.character(FeatureID)))), by = list(ProteinID, RunID)])
+# dd <- dd[nFeature > 1,]
+# dd$nFeature <- NULL
+
 # need to drop lost levels
 dd$ProteinID <- factor(dd$ProteinID)
 dd$PeptideID <- factor(dd$PeptideID)
@@ -42,12 +48,18 @@ dd$AssayID <- factor(dd$AssayID)
 # prepare dd for MCMCglmm
 nP <- length(levels(dd$ProteinID))
 nT <- length(levels(dd$PeptideID))
-nF <- length(levels(dd$FeatureID))  
+nF <- length(levels(dd$FeatureID))
+nR <- length(levels(dd$RunID))
+nL <- length(levels(dd$LabelID))
 nA <- length(levels(dd$AssayID))
 dd$Count = round(dd$Count)
 
 # setup QuantID contrasts
-dd[, BaselineID := dd.assays$AssayID[dd.assays$RunID == RunID[1] & dd.assays$LabelID == unique(LabelID)[1]], by = c("ProteinID", "RunID")] # todo: work for no label case
+if (nL == 1) {
+  dd[, BaselineID := dd.assays$AssayID[dd.assays$RunID == unique(RunID)[1]], by = list(ProteinID)]
+} else {
+  dd[, BaselineID := dd.assays$AssayID[dd.assays$RunID == RunID[1] & dd.assays$LabelID == unique(LabelID)[1]], by = list(ProteinID, RunID)]
+}
 dd$QuantID <- as.character(interaction(dd$ProteinID, dd$BaselineID, dd$AssayID, lex.order = T, drop = T))
 dd[AssayID == BaselineID, QuantID := "."]
 dd$QuantID <- factor(dd$QuantID)
@@ -67,9 +79,9 @@ time.mcmc <- system.time(model <- (MCMCglmm(
 summary(model)
 message("")
 
-if (length(colnames(model$Sol)[grep("^QuantID[0-9]+\\.[0-9]+\\.[0-9]+$", colnames(model$Sol))]) != length(levels(dd$QuantID)) - 1) {
-  stop("Some contrasts were dropped unexpectedly")
-}
+#if (length(colnames(model$Sol)[grep("^QuantID[0-9]+\\.[0-9]+\\.[0-9]+$", colnames(model$Sol))]) != length(levels(dd$QuantID)) - 1) {
+#  stop("Some contrasts were dropped unexpectedly")
+#}
 
 # extract quants, converting to log2
 mcmc.quants <- mcmc(matrix(0.0, nrow(model$Sol), nQ-1), start = start(model$Sol), end = end(model$Sol), thin = thin(model$Sol))

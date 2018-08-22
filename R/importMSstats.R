@@ -7,26 +7,18 @@
 #' @import data.table
 #' @export
 
-importMSstats <- function(datafile, fractions) {
-  # read MSstats input
-  message(paste0("reading: ",args[2],"..."))
-  dd.raw <- fread(args[2], check.names=T)
-
-  # create standardised data.table (DO NOT CREATE FACTORS AT THIS STAGE, JUST MAKES SUBSETTING SLOW)
+importMSstats <- function(dd.input) {
   dd <- data.table(
-    ForeignKey = dd.raw$ProteinName,
-    Protein = dd.raw$ProteinName,
-    Peptide = dd.raw$PeptideSequence,
-    Confidence = 0,
-    PrecursorCount = 0,
-    Mass = 0,
-    Charge= dd.raw$PrecursorCharge,
-    RetentionTime = 0,
-    Fraction = 1,
-    Spectrum = dd.raw$FragmentIon,
-    Channel = factor(dd.raw$Run),
-    Intensity = dd.raw$Intensity
+    Run = factor(dd.input$Run),
+    Label = factor(dd.input$IsotopeLabelType),
+    Protein = factor(dd.input$ProteinName),
+    Peptide = factor(dd.input$PeptideSequence),
+    Feature = factor(dd.input$FragmentIon),
+    Count = as.numeric(dd.input$Intensity)
   )
-  levels(dd$Channel) <- paste0("Channel.", levels(dd$Channel))
-  dcast(dd, ... ~ Channel, value.var = "Intensity")
+
+  if (length(levels(dd$Run)) == 1) levels(dd$Run) <- ""
+  if (length(levels(dd$Label)) == 1) levels(dd$Label <- "")
+
+  dd[complete.cases(dd),]
 }
