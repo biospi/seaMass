@@ -258,6 +258,6 @@ fwrite(cbind(dd.proteins, stats.quants.rhat), file.path(stats.dir, "rhats.csv"))
 
 # create zip file and clean up
 message(paste0("writing: ", paste0(stats.dir, ".zip"), "..."))
-zip(paste0(stats.dir, ".zip"), stats.dir, flags="-r9Xq")
+zip(file.path("..", "..", "..", paste0(stats.dir, ".zip")), stats.dir, flags="-r9Xq")
 
 message("[",paste0(Sys.time()," Finished]"))

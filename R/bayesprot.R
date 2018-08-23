@@ -15,7 +15,7 @@ bayesprot <- function(dd, id = "submit") {
 
   dd.params <- rbind(
     c("seed", "0"),
-    c("nbatch", "100"),
+    c("nbatch", "49"),
 
     c("model.nitt", "2000"),
     c("model.burnin", "1000"),
@@ -23,7 +23,7 @@ bayesprot <- function(dd, id = "submit") {
     c("model.nchain", "10"),
 
     c("bayesprot.id", id),
-    c("bayesprot.version", "1.2")
+    c("bayesprot.version", "0.2")
   )
   colnames(dd.params) <- c("Key", "Value")
   dd.params <- as.data.table(dd.params)
