@@ -1,81 +1,53 @@
 # BayesProt
-Bayesian linear mixed-effects model for protein-level quantification and
-study-level statistical testing in proteomics.
+Bayesian linear mixed-effects model for protein-level quantification in proteomics. Currently works with PSM output from ProteinPilot, ProteomeDiscoverer and MSstats.
 
-Contact: Al Phillips - A.M.Phillips@liverpool.ac.uk
+## Installation
+
+BayesProt requires the use of a HPC cluster. We support the popular cluster managers - SLURM, PBS, SGE (todo), and HTCondor (todo). Before BayesProt can run on the cluster, you need to ensure R and all of BayesProt's R library dependencies are installed there. The later can be done by installing the BayesProt package on your cluster's submit node as follows:
+
+```
+install.packages("devtools")
+library(devtools)
+install_github("biospi/bayesprot", ref = "develop", dependencies = T)
+```
+
+On the desktop PC you are using to prepare and analyse datasets, you need to do the same, but you don't need to install all the dependencies: 
+
+```
+install.packages("devtools")
+library(devtools)
+install_github("biospi/bayesprot", ref = "develop")
+```
 
 ## Usage
 
-For Protein Pilot iTRAQ data:
+Firstly, you need to use an 'import' function to convert from the upstream tool format to BayesProt's standardised data.frame format. Then you use the 'bayesprot' function output a submission zip file for transfer to your HPC cluster.
+
+### Importing from MSstats
+
+BayesProt can import data prepared by MSstats. For example:
 
 ```
-Rscript bayesprot.R my_iTRAQ_experiment.xlsx PeptideSummary.txt
+library(bayesprot)
+library(data.table)
+
+dd.input <- fread("E1508100903_6600_32Fixed.tsv", check.names=T)
+dd <- importMSstats(dd.input)
+bayesprot(dd, id = "SWATHBenchmark")
 ```
 
-For Proteome Discoverer TMT data:
+### Importing from ProteomeDiscoverer (TMT)
+
+If you are analysing more than one 6 or 12-plex, please ensure you run all through ProteomeDiscoverer at the same time. BayesProt then takes in the PSM output. For example:
 
 ```
-Rscript bayesprotTMT.R my_TMT_experiment.xlsx PSMS.txt
+todo
 ```
 
+### Importing from Protein Pilot (iTraq)
 
+If you are analysing more than one 4 or 8-plex, please ensure you run all through Protein Pilot at the same time. Since Protein Pilot doesn't understand datasets merged in this way, you also need to supply a data.frame which associates each fraction with each run. For example
 
-
-The design workbooks are formatted with three spreadsheets as follows:
-
-### Parameters
-Key-Value pairs:
-
-Key           | Value
---------------|--------
-email         | Kendal.Mintcake@footlights.ac.uk
-model_fc      | 1.05
-norm_nitt     | 13000
-norm_nburnin  | 3000
-norm_nchain   | 10
-norm_nsamp    | 1000
-model_nitt    | 13000
-model_nburnin | 3000
-model_nchain  | 100
-model_nsamp   | 10000
-nworker       | 1000
-
-### Design
-
-Experimental design.
-
-Run | Channel | Sample | Volume | Digestion | Population | Condition
-----|---------|--------|--------|-----------|------------|-----------
-A   | 113     | P      | 1      | P1        | Pool       | 2.pool
-A   | 114     | P      | 1      | P2        | Pool       | 2.pool
-A   | 115     | S1     | 1      | S1        | All        | 0.A
-A   | 116     | S2     | 1      | S2        | All        | 0.A
-A   | 117     | S3     | 1      | S3        | All        | 0.A
-A   | 118     | S4     | 1      | S4        | All        | 1.B
-A   | 119     | S5     | 1      | S5        | All        | 1.B
-A   | 121     | S6     | 1      | S6        | All        | 1.B
-B   | 113     | P      | 1      | P1        | Pool       | 2.pool
-B   | 114     | P      | 1      | P2        | Pool       | 2.pool
-B   | 115     | S7     | 1      | S7        | All        | 0.A
-B   | 116     | S8     | 1      | S8        | All        | 0.A
-B   | 117     | S9     | 1      | S9        | All        | 0.A
-B   | 118     | S10    | 1      | S10       | All        | 1.B
-B   | 119     | S11    | 1      | S11       | All        | 1.B
-B   | 121     | S12    | 1      | S12       | All        | 1.B
-
-
-Populations with a single sample (such as "Pool" above) will be assigned a
-biological variance of zero. This is used for e.g. a pooled reference sample.
-Condition 0 is used as the reference for differential expression testing.
-Conditions with names starting with a lowercase will not be output in plot results.
-
-### Fractions
-The mapping between fractions and iTRAQ/TMT Runs is described here. For Protein
-Pilot data, the fraction number should be used. For Proteome Discoverer TMT
-data, values from the "Spectrum File" column of *PSMs.txt should be used.
-
-
-#### Protein Pilot
 Fraction | Run
 ---------|-----
 1        |  A 
@@ -85,12 +57,31 @@ Fraction | Run
 5        |  B 
 6        |  B  
 
-#### Proteome Discoverer
-Fraction | Run
----------|-----
-file1.raw|  A 
-file2.raw|  A 
-file3.raw|  A 
-file3.raw|  B
-file5.raw|  B 
-file6.raw|  B  
+```
+library(readxl)
+library(bayesprot)
+
+fractions <- read_excel("fractions.xlsx")
+dd <- importProteinPilot("20140910_NR_JXU_GRP 1 SET 1-2-3_combined_PeptideSummary.txt", fractions)
+bayesprot(dd, id = "JXU1")
+```
+
+### Submitting to HPC cluster
+
+Transfer the submission zip file to your cluster, unzip and then execute the relevant batch script (e.g. slurm.sh or pbs.sh). WhenFor example:
+
+```
+scp submit.bayesprot.zip hpc.myuni.ac.uk:
+
+ssh hpc.myuni.ac.uk
+unzip submit.bayesprot.zip
+submit.bayesprot/slurm.sh
+exit
+```
+
+When finished you will be notified by email, and a zip file of your results can be downloaded:
+
+```
+scp hpc.myuni.ac.uk:submit.bayesprot.output.zip .
+unzip submit.bayesprot.output.zip
+```
