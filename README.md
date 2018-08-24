@@ -3,7 +3,7 @@ Bayesian linear mixed-effects model for protein-level quantification in proteomi
 
 ## Installation
 
-BayesProt requires the use of a HPC cluster. We support the popular cluster managers - SLURM, PBS, SGE (todo), and HTCondor (todo). Before BayesProt can run on the cluster, you need to ensure R and all of BayesProt's R library dependencies are installed there. The later can be done by installing the BayesProt package on your cluster's submit node as follows:
+BayesProt requires the use of a HPC cluster. We support the popular cluster managers - SLURM, PBS, SGE (todo), and HTCondor (todo). Before BayesProt can run on your cluster, you need to ensure R and all of BayesProt's R library dependencies are installed there. The later can be done by installing the BayesProt package on your cluster's submit node as follows:
 
 ```
 install.packages("devtools")
@@ -68,7 +68,7 @@ bayesprot(dd, id = "JXU1")
 
 ### Submitting to HPC cluster
 
-Transfer the submission zip file to your cluster, unzip and then execute the relevant batch script (e.g. slurm.sh or pbs.sh). WhenFor example:
+Transfer the submission zip file to your cluster, unzip and then execute the relevant batch script (e.g. slurm.sh or pbs.sh). For example:
 
 ```
 scp submit.bayesprot.zip hpc.myuni.ac.uk:
