@@ -15,7 +15,7 @@ bayesprot <- function(dd, id = "submit") {
 
   dd.params <- rbind(
     c("seed", "0"),
-    c("nbatch", "49"),
+    c("nbatch", "99"),
 
     c("model.nitt", "2000"),
     c("model.burnin", "1000"),
@@ -159,6 +159,7 @@ bayesprot <- function(dd, id = "submit") {
   message(paste0("writing: ", out_zip, "..."))
   wd <- getwd()
   setwd(tmp_dir)
+  if (file.exists(file.path(wd, out_zip))) file.remove(file.path(wd, out_zip))
   zip(file.path(wd, out_zip), ".", flags="-r9Xq")
   setwd(wd)
   unlink(tmp_dir, recursive = T)

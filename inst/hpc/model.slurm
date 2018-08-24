@@ -14,5 +14,5 @@
 #SBATCH --job-name=bp.model
 #SBATCH --mail-user=andrew.dowsey@bristol.ac.uk
 
-#SBATCH --array=1-460
+#SBATCH --array=1-990
 srun Rscript ../../model.R $SLURM_ARRAY_TASK_ID

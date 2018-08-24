@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#PBS -o ..
+#PBS -o model
 #PBS -j oe
 #PBS -l nodes=1:ppn=1
 
@@ -11,6 +11,6 @@
 #PBS -N bp.model
 #PBS -M andrew.dowsey@bristol.ac.uk
 
-#PBS -t 1-460
+#PBS -t 1-990
 cd $PBS_O_WORKDIR/model/results
 Rscript ../../model.R $PBS_ARRAYID
