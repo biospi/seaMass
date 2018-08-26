@@ -18,7 +18,7 @@ thin <- as.integer(dd.params[Key=="model.thin", Value])
 
 # process arguments
 args <- commandArgs(T)
-if (length(args) == 0) args <- c("90")
+if (length(args) == 0) args <- c("95")
 batch <- ((as.integer(args[1]) - 1) %% nbatch) + 1
 chain <- ((as.integer(args[1]) - 1) %/% nbatch) + 1
 
@@ -30,14 +30,14 @@ prefix <- ifelse(file.exists(paste0(batch,".Rdata")),".",file.path("..","..","in
 load(file.path(prefix,paste0(batch,".Rdata")))
 
 # remove single measurements per feature as cannot constuct a ratio
-dd <- merge(dd, dd[, list(nMeasurement = .N), by = list(FeatureID)])
-dd <- dd[nMeasurement > 1,]
-dd$nMeasurement <- NULL
+#dd <- merge(dd, dd[, list(nMeasurement = .N), by = list(FeatureID)])
+#dd <- dd[nMeasurement > 1,]
+#dd$nMeasurement <- NULL
 
-# remove single spectrum hits per run as this model cannot estimate them
-# dd <- merge(dd, dd[, list(nFeature = length(unique(as.character(FeatureID)))), by = list(ProteinID, RunID)])
-# dd <- dd[nFeature > 1,]
-# dd$nFeature <- NULL
+# model needs at least one Assay per Protein to have more than one Feature measurement
+dd <- merge(dd, dd[, list(nFeature = length(unique(as.character(FeatureID)))), by = list(ProteinID, AssayID)], by = c("ProteinID", "AssayID"))
+dd <- merge(dd, dd[, list(nFeatureMax = max(nFeature)), by = FeatureID], by = "FeatureID")
+dd <- dd[nFeatureMax > 1, !c("nFeature", "nFeatureMax")]
 
 # need to drop lost levels
 dd$ProteinID <- factor(dd$ProteinID)
@@ -79,9 +79,9 @@ time.mcmc <- system.time(model <- (MCMCglmm(
 summary(model)
 message("")
 
-#if (length(colnames(model$Sol)[grep("^QuantID[0-9]+\\.[0-9]+\\.[0-9]+$", colnames(model$Sol))]) != length(levels(dd$QuantID)) - 1) {
-#  stop("Some contrasts were dropped unexpectedly")
-#}
+if (length(colnames(model$Sol)[grep("^QuantID[0-9]+\\.[0-9]+\\.[0-9]+$", colnames(model$Sol))]) != length(levels(dd$QuantID)) - 1) {
+  stop("Some contrasts were dropped unexpectedly")
+}
 
 # extract quants, converting to log2
 mcmc.quants <- mcmc(matrix(0.0, nrow(model$Sol), nQ-1), start = start(model$Sol), end = end(model$Sol), thin = thin(model$Sol))

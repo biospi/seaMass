@@ -143,7 +143,7 @@ pca.assays <- prcomp(stats.quants.est.assays, center = F, scale = F)
 dd.pca.assays <- fortify(pca.assays)
 dd.pca.assays <- cbind(dd.pca.assays, dd.assays)
 
-g <- autoplot(pca.assays, data = dd.pca.assays, scale = 0, colour = "Label")
+g <- autoplot(pca.assays, data = dd.pca.assays, colour = "Label")
 g <- g + theme_bw()
 g <- g + theme(panel.border = element_rect(colour = "black", size = 1),
                panel.grid.major = element_line(size = 0.5),
@@ -151,31 +151,6 @@ g <- g + theme(panel.border = element_rect(colour = "black", size = 1),
 g <- g + geom_label_repel(aes(label = Assay, colour = Label))
 g <- g + theme(aspect.ratio=1) + coord_equal()
 ggsave(file.path(stats.dir, "pca.pdf"), g, width=8, height=8)
-
-# dd.pca.assays$Condition <- c("pool", "pool", "AD", "AD", "AD", "Ctrl", "Ctrl", "Ctrl", "pool", "pool", "AD", "AD", "AD", "Ctrl", "Ctrl", "Ctrl", "pool", "pool", "AD", "AD", "AD", "Ctrl", "Ctrl", "Ctrl")
-# dd.pca.assays$Sample <- c("P1", "P2", "S1", "S3", "S7", "S12", "S17", "S10", "P3", "P4", "S2", "S6", "S9", "S13", "S15", "S18", "P5", "P6", "S4", "S5", "S8", "S11", "S14", "S16")
-# g <- autoplot(pca.assays, data = dd.pca.assays, scale = 0, colour = "Condition")
-# g <- g + geom_label_repel(aes(label = Sample, colour = Condition))
-# g <- g + theme(aspect.ratio=1) + coord_equal()
-# ggsave(paste0(dd.params[Key == "bayesprot.id", Value], "_conditions_pca.pdf"), g, width=8, height=8)
-
-# # plot quant distributions
-# dd.quants.plot <- dd.quants[ProteinID %in% ps,]
-#
-# dd.quants.meta <- dd.quants.plot[, list(
-#   log2median = 0.0,
-#   log2lower = quantile(log2mean, probs = 0.025, na.rm = T),
-#   log2upper = quantile(log2mean, probs = 0.975, na.rm = T)
-# ), by = AssayID]
-#
-# dd.quants.plot <- merge(dd.quants.plot, dd.quants.meta)
-# dd.quants.plot <- dd.quants.plot[log2mean >= log2lower & log2mean <= log2upper,]
-#
-# g <- ggplot(dd.quants.plot, aes(x = AssayID, y = log2mean))
-# g <- g + scale_y_continuous(expand = c(0, 0))
-# g <- g + geom_violin()
-# g <- g + geom_segment(data = dd.quants.meta, aes(x = as.integer(AssayID) - 0.45, xend = as.integer(AssayID) + 0.45, y = log2median, yend = log2median),size = 1/2)
-# g
 
 # ploting function for exposures
 plot.exposures <- function(mcmc.exposures)
@@ -258,6 +233,8 @@ fwrite(cbind(dd.proteins, stats.quants.rhat), file.path(stats.dir, "rhats.csv"))
 
 # create zip file and clean up
 message(paste0("writing: ", paste0(stats.dir, ".zip"), "..."))
-zip(file.path("..", "..", "..", paste0(stats.dir, ".zip")), stats.dir, flags="-r9Xq")
+stats.zip <- file.path("..", "..", "..", paste0(stats.dir, ".zip"))
+if (file.exists(stats.zip)) file.remove(stats.zip)
+zip(stats.zip, stats.dir, flags="-r9Xq")
 
 message("[",paste0(Sys.time()," Finished]"))
