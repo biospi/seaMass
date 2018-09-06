@@ -2,6 +2,7 @@
 
 #SBATCH --workdir=output/results
 #SBATCH --output=../slurm-%j.out
+#SBATCH --requeue
 #SBATCH --mail-type=END,FAIL
 #SBATCH --nodes=1
 #SBATCH --tasks-per-node=1

@@ -2,6 +2,7 @@
 
 #PBS -o model
 #PBS -j oe
+#PBS -r y
 #PBS -l nodes=1:ppn=1
 
 #PBS -q veryshort

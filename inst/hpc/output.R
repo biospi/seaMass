@@ -12,11 +12,11 @@ suppressPackageStartupMessages(library(coda))
 prefix <- ifelse(file.exists("metadata.Rdata"), ".", file.path("..", "..", "input"))
 load(file.path(prefix, "metadata.Rdata"))
 
-nbatch <- as.integer(dd.params[Key=="nbatch", Value])
-nchain <- as.integer(dd.params[Key=="model.nchain", Value])
-nitt <- as.integer(dd.params[Key=="model.nitt", Value])
-burnin <- as.integer(dd.params[Key=="model.burnin", Value])
-thin <- as.integer(dd.params[Key=="model.thin", Value])
+nbatch <- params$nbatch
+nchain <- params$model.nchain
+nitt <- params$model.nitt
+burnin <- params$model.burnin
+thin <- params$model.thin
 nsamp <- (nitt - burnin) / thin
 
 nP <- length(levels(dd.proteins$ProteinID))
@@ -26,7 +26,7 @@ nL <- length(levels(dd.assays$LabelID))
 nA <- length(levels(dd.assays$AssayID))
 
 prefix <- ifelse(file.exists("1.1.Rdata"), ".", file.path("..", "..", "model", "results"))
-stats.dir <- paste0(dd.params[Key == "bayesprot.id", Value], ".bayesprot.output")
+stats.dir <- paste0(params$id, ".bayesprot.output")
 dir.create(stats.dir, showWarnings = F)
 dir.create("quants", showWarnings = F)
 
@@ -39,6 +39,8 @@ stats.peptides.quants.sd <- matrix(NA, nT, nA)
 stats.peptides.sd <- array(NA, nT)
 stats.features.sd <- array(NA, nF)
 stats.time.mcmc <- matrix(NA, nbatch, nchain)
+baseline.quants <- NULL
+mcmc.exposures <- matrix(NA, nsamp * nchain, nA)
 for (j in 1:nchain) {
   # read in quants
   mcmc.quants.all <- array(NA, c(nsamp, nP, nA))
@@ -91,18 +93,25 @@ for (j in 1:nchain) {
     }
   }
 
-  # calculate exposures (only use complete case proteins for exposures calculation as for others the mean could be biased)
-  ps <- which(apply(mcmc.quants.all, 2, function(x) all(!is.na(x))))
-  mcmc.exposures <- apply(mcmc.quants.all, 3, function(x1) apply(x1[, ps], 1, function(x2) median(x2, na.rm = T)))
+  # calculate exposures
+  for (a in 1:nA) {
+    # use only proteins which share the most common baseline
+    ps <- which(baseline.quants[, a] == names(which.max(table(baseline.quants[, a]))))
+    mcmc.exposures[(nsamp*(j-1)+1):(nsamp*j), a] <- apply(mcmc.quants.all[, ps, a], 1, function(x) median(x, na.rm = T))
+  }
 
   # apply exposures
-  for (p in 1:nP) mcmc.quants.all[, p,] <- mcmc.quants.all[, p,] - mcmc.exposures
+  for (p in 1:nP) mcmc.quants.all[, p,] <- mcmc.quants.all[, p,] - mcmc.exposures[(nsamp*(j-1)+1):(nsamp*j),]
 
   message("[", paste0(Sys.time(), " Saving chain ", j, "/", nchain, "...]"))
 
   # write out normalised quant mcmc
   colnames(mcmc.quants.all) <- 1:nP
-  for (a in 1:nA) saveRDS(as.mcmc(mcmc.quants.all[, !is.na(colSums(mcmc.quants.all[,, a])), a]), file.path("quants", paste0(j, ".", a, ".rds")))
+  for (a in 1:nA) {
+    mcmc.quants <- as.mcmc(mcmc.quants.all[, !is.na(colSums(mcmc.quants.all[,, a])), a])
+    colnames(mcmc.quants) <- paste0(colnames(mcmc.quants), ".", baseline.quants[!is.na(colSums(mcmc.quants.all[,, a])), a])
+    saveRDS(mcmc.quants, file.path("quants", paste0(j, ".", a, ".rds")))
+  }
 
   # compute output stats
   stats.quants.sum[,, j] <- apply(mcmc.quants.all, 3, function(x1) apply(x1, 2, function(x2) sum(x2, na.rm = T)))
@@ -113,29 +122,37 @@ stats.quants.sum <- apply(stats.quants.sum, 2, rowSums)
 stats.quants.sum2 <- apply(stats.quants.sum2, 2, rowSums)
 stats.quants.n <- apply(stats.quants.n, 2, rowSums)
 
-# write out means
+# write out protein quants, but have to split if multiple baselines per protein
+colnames(baseline.quants) <- dd.assays$Assay
+dd.baselines <- melt(cbind(data.table(ProteinID = 1:nP), baseline.quants), id.vars = "ProteinID", variable.name = "Assay", value.name = "BaselineID")
+
 stats.quants.est <- stats.quants.sum / ifelse(stats.quants.n != 0, stats.quants.n, NA)
 colnames(stats.quants.est) <- dd.assays$Assay
-fwrite(cbind(dd.proteins, stats.quants.est), file.path(stats.dir, "proteins_est.csv"))
+dd.stats.quants.est <- merge(melt(cbind(data.table(ProteinID = 1:nP), stats.quants.est), id.vars = "ProteinID", variable.name = "Assay"), dd.baselines)
+dd.stats.quants.est <- dcast(dd.stats.quants.est, ProteinID + BaselineID ~ Assay)[!is.na(BaselineID)]
+dd.stats.quants.est <- merge(dd.proteins, dd.stats.quants.est, by = "ProteinID")[, !c("batchID", "BaselineID")]
+fwrite(dd.stats.quants.est, file.path(stats.dir, "protein_estimates.csv"))
 
-# write out sds
 stats.quants.sd <- sqrt((stats.quants.sum2 + stats.quants.sum^2 / ifelse(stats.quants.n != 0, stats.quants.n, NA)) / stats.quants.n)
 colnames(stats.quants.sd) <- dd.assays$Assay
-fwrite(cbind(dd.proteins, stats.quants.sd), file.path(stats.dir, "proteins_sd.csv"))
+dd.stats.quants.sd <- merge(melt(cbind(data.table(ProteinID = 1:nP), stats.quants.sd), id.vars = "ProteinID", variable.name = "Assay"), dd.baselines)
+dd.stats.quants.sd <- dcast(dd.stats.quants.sd, ProteinID + BaselineID ~ Assay)[!is.na(BaselineID)]
+dd.stats.quants.sd <- merge(dd.proteins, dd.stats.quants.sd, by = "ProteinID")[, !c("batchID", "BaselineID")]
+fwrite(dd.stats.quants.sd, file.path(stats.dir, "protein_stdevs.csv"))
 
 # write out peptides
 colnames(stats.peptides.quants.est) <- dd.assays$Assay
-fwrite(cbind(dd.peptides, sd = stats.peptides.sd, stats.peptides.quants.est), file.path(stats.dir, "peptides_est.csv"))
+fwrite(cbind(dd.peptides, sd = stats.peptides.sd, stats.peptides.quants.est), file.path(stats.dir, "peptide_estimates.csv"))
 colnames(stats.peptides.quants.sd) <- dd.assays$Assay
-fwrite(cbind(dd.peptides, sd = stats.peptides.sd, stats.peptides.quants.sd), file.path(stats.dir, "peptides_sd.csv"))
+fwrite(cbind(dd.peptides, sd = stats.peptides.sd, stats.peptides.quants.sd), file.path(stats.dir, "peptide_stdevs.csv"))
 
 # write out features
-fwrite(cbind(dd.features, sd = stats.features.sd), file.path(stats.dir, "features.csv"))
+fwrite(cbind(dd.features, sd = stats.features.sd), file.path(stats.dir, "feature_stdevs.csv"))
 
 # write out timings
 colnames(stats.time.mcmc) <- paste0("chain", 1:nchain)
 dd.time.mcmc <- cbind(data.table(batchID = 1:nbatch), stats.time.mcmc, total = rowSums(stats.time.mcmc))
-fwrite(dd.time.mcmc, file.path(stats.dir, "timings.csv"))
+fwrite(dd.time.mcmc, file.path(stats.dir, "batch_timings.csv"))
 
 # write out pca plot
 stats.quants.est.assays <- t(stats.quants.est[apply(stats.quants.est, 1, function(x) !any(is.na(x))),])
@@ -226,10 +243,12 @@ for (a in 1:nA) {
   mcmc.quants.all <- as.mcmc.list(mcmc.quants.all)
 
   # Rhat
-  for (k in 1:ncol(mcmc.quants.all[[1]])) stats.quants.rhat[as.integer(colnames(mcmc.quants.all[[1]])[k]), a] <- gelman.diag(mcmc.quants.all[, k, drop = F], autoburnin = F)$psrf[1]
+  for (k in 1:ncol(mcmc.quants.all[[1]])) {
+    stats.quants.rhat[as.integer(sub("^([0-9]+)\\.[0-9]+$", "\\1", colnames(mcmc.quants.all[[1]])[k])), a] <- gelman.diag(mcmc.quants.all[, k, drop = F], autoburnin = F)$psrf[1]
+  }
 }
 colnames(stats.quants.rhat) <- dd.assays$Assay
-fwrite(cbind(dd.proteins, stats.quants.rhat), file.path(stats.dir, "rhats.csv"))
+fwrite(cbind(dd.proteins, stats.quants.rhat), file.path(stats.dir, "protein_rhats.csv"))
 
 # create zip file and clean up
 message(paste0("writing: ", paste0(stats.dir, ".zip"), "..."))
