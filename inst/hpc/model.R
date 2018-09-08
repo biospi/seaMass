@@ -30,15 +30,6 @@ set.seed(params$seed * nchain + chain - 1)
 prefix <- ifelse(file.exists(paste0(batch,".Rdata")),".",file.path("..","..","input"))
 load(file.path(prefix,paste0(batch,".Rdata")))
 
-# impute missing values
-dd = merge(
-  unique(dd[, .(ProteinID, PeptideID, FeatureID)]),
-  dd[CJ(FeatureID = FeatureID, AssayID = AssayID, unique = TRUE), .(FeatureID, AssayID, Count), on = .(FeatureID, AssayID)],
-  by = "FeatureID"
-)
-dd[, MaxCount := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
-dd[is.na(Count), Count := 0.0]
-
 # setup QuantID contrasts, accounting for complete separability between assays (nb: not efficient!)
 # first, figure out baseline for each measurement (might be more than one per feature if separable [e.g. iTraq runs])
 baseline.func <- function(dd.protein) {
@@ -74,7 +65,7 @@ nF <- length(levels(dd$FeatureID))
 nA <- length(levels(dd$AssayID))
 nQ <- length(levels(dd$QuantID))
 dd$Count = round(dd$Count)
-dd$MaxCount = round(dd$MaxCount)
+#dd$MaxCount = round(dd$MaxCount)
 
 # run model!
 prior <- list(
@@ -84,11 +75,12 @@ prior <- list(
   R = list(V = diag(nF), nu = 0.002)
 )
 time.mcmc <- system.time(model <- (MCMCglmm(
-  c(Count, MaxCount) ~ FeatureID + QuantID - 1,
+  #c(Count, MaxCount) ~ FeatureID + QuantID - 1,
+  Count ~ FeatureID + QuantID - 1,
   random = as.formula(paste0("~ ", ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":AssayID")),
 # random = as.formula(paste0("~ idh(AssayID):PeptideID + ", ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":AssayID")),
   rcov = as.formula(paste0("~ ", ifelse(nF==1, "units", "idh(FeatureID):units"))),
-  family = "cenpoisson", data = dd, prior = prior, nitt = nitt, burnin = burnin, thin = thin, pr = T, verbose = F
+  family = "poisson", data = dd, prior = prior, nitt = nitt, burnin = burnin, thin = thin, pr = T, verbose = F
 )))
 summary(model)
 message("")

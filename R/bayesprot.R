@@ -7,7 +7,7 @@
 #' @import data.table
 #' @export
 
-bayesprot <- function(dd, id = "submit", ...) {
+bayesprot <- function(dd, id = "submit", missing = "censored", ...) {
   params <- list(...)
   params$version <- packageVersion("bayesprot")
 
@@ -66,8 +66,8 @@ bayesprot <- function(dd, id = "submit", ...) {
 
   # build Assay index
   dd.assays <- dd[, .(
-    Assay = levels(dd$Assay),
-    AssayID = 1:length(levels(dd$Assay))
+    Assay = factor(levels(dd$Assay)),
+    AssayID = factor(1:length(levels(dd$Assay)))
   )]
 
   dd <- merge(dd, dd.assays[, .(Assay, AssayID)], by = "Assay")[, !"Assay"]
@@ -75,6 +75,13 @@ bayesprot <- function(dd, id = "submit", ...) {
   setcolorder(dd, c("ProteinID", "PeptideID", "FeatureID", "AssayID"))
   setorder(dd, ProteinID, PeptideID, FeatureID, AssayID)
 
+  # add info for missing data imputation
+  if (missing == "feature") dd[, Count := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
+  if (missing == "censored") dd[, MaxCount := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
+  if (missing == "censored" | missing == "zero") dd[is.na(Count), Count := 0.0]
+  if (missing == "censored" & all(dd$Count == dd$MaxCount)) dd[, MaxCount := NULL]
+
+  # BATCHIPROTEINSS AND CREATE ZIP SUBMISSION
   # factors are appaulingly slow to split, so change to strings as we want to drop levels anyway
   dd$ProteinID <- as.integer(dd$ProteinID)
   dd$PeptideID <- as.integer(dd$PeptideID)
@@ -89,7 +96,7 @@ bayesprot <- function(dd, id = "submit", ...) {
   dd.batches <- data.table(nP = rep(0, nbatch), nT = rep(0, nbatch), nF = rep(0, nbatch))
   dds = vector("list", nbatch)
   for (j in 1:nbatch) dds[[j]] <- vector("list", nrow(dd.proteins))
-  dd.proteins$batchID = NA
+  dd.proteins$batchID <- NA
   for (i in 1:nrow(dd.proteins)) {
     scores <- a[1] +
       a[2]*(dd.batches$nP+1) +
@@ -109,6 +116,7 @@ bayesprot <- function(dd, id = "submit", ...) {
     dd.batches$nF[j] <- dd.batches$nF[j] + dd.proteins$nFeature[i]
     dd.proteins$batchID[i] <- j
   }
+  dd.proteins$batchID <- factor(dd.proteins$batchID)
 
   # build HPC submission zip
   out_zip <- paste0(id, ".bayesprot.zip")
