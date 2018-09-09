@@ -12,7 +12,7 @@ importProteomeDiscoverer <- function(datafile, dd.fractions) {
   message(paste0("reading: ", datafile, "..."))
   dd.raw <- fread(datafile, check.names = T)
 
-  # only use rows that ProteomeDiscoverer uses for quant
+  # only use rows that ProteomeDiscoverer uses for quant (TODO: reconsider)
   dd.raw <- dd.raw[Peptide.Quan.Usage == "Use",]
   dd.raw <- dd.raw[Quan.Info == "Unique",]
 
@@ -21,11 +21,13 @@ importProteomeDiscoverer <- function(datafile, dd.fractions) {
 
   # create wide data table
   dd.wide <- dd.raw[ , list(
-    Run,
-    Protein = Master.Protein.Accessions,
-    Peptide = paste(Sequence, ":", Modifications),
-    Feature = paste(Spectrum.File, ":", First.Scan)
+    Protein = factor(Master.Protein.Accessions),
+    Peptide = factor(paste(Sequence, ":", Modifications)),
+    Feature = factor(paste(Spectrum.File, ":", First.Scan)),
+    Assay = Run
   )]
+  if("X126C" %in% colnames(dd.raw)) dd.wide$Label.126C <- dd.raw$X126C
+  if("X126N" %in% colnames(dd.raw)) dd.wide$Label.126N <- dd.raw$X126N
   if("X126" %in% colnames(dd.raw)) dd.wide$Label.126 <- dd.raw$X126
   if("X127C" %in% colnames(dd.raw)) dd.wide$Label.127C <- dd.raw$X127C
   if("X127N" %in% colnames(dd.raw)) dd.wide$Label.127N <- dd.raw$X127N
@@ -38,16 +40,16 @@ importProteomeDiscoverer <- function(datafile, dd.fractions) {
   if("X129" %in% colnames(dd.raw)) dd.wide$Label.129 <- dd.raw$X129
   if("X130C" %in% colnames(dd.raw)) dd.wide$Label.130C <- dd.raw$X130C
   if("X130N" %in% colnames(dd.raw)) dd.wide$Label.130N <- dd.raw$X130N
-  if("X130" %in% colnames(dd.raw)) dd.wide$Label.130 <- dd.raw$X130
+  if("X131C" %in% colnames(dd.raw)) dd.wide$Label.131C <- dd.raw$X131C
+  if("X131N" %in% colnames(dd.raw)) dd.wide$Label.131N <- dd.raw$X131N
   if("X131" %in% colnames(dd.raw)) dd.wide$Label.131 <- dd.raw$X131
-
-  # use only features with no missing data [TODO: reconsider]
-  dd.wide <- dd.wide[complete.cases(dd.wide),]
 
   # melt label counts
   dd <- melt(dd.wide, variable.name = "Label", value.name = "Count",
              measure.vars = colnames(dd.wide)[grep("^Label\\.", colnames(dd.wide))])
   levels(dd$Label) <- sub("^Label\\.", "", levels(dd$Label))
+  dd$Assay <- interaction(dd$Assay, dd$Label, lex.order = T)
+  dd[, Label := NULL]
 
   dd
 }

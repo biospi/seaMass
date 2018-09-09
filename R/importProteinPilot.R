@@ -46,6 +46,8 @@ importProteinPilot <- function(datafile, dd.fractions) {
   levels(dd$Label) <- sub("^Label\\.", "", levels(dd$Label))
   dd$Assay <- interaction(dd$Assay, dd$Label, lex.order = T)
   dd[, Label := NULL]
+
+  dd
 }
 
 

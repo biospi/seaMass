@@ -9,16 +9,15 @@
 
 importMSstats <- function(dd.input) {
   dd <- data.table(
-    Run = factor(dd.input$Run),
-    Label = factor(dd.input$IsotopeLabelType),
     Protein = factor(dd.input$ProteinName),
     Peptide = factor(dd.input$PeptideSequence),
-    Feature = factor(dd.input$FragmentIon),
-    Count = as.numeric(dd.input$Intensity)
+    Feature = factor(dd.input$FragmentIon)
   )
 
-  if (length(levels(dd$Run)) == 1) levels(dd$Run) <- ""
-  if (length(levels(dd$Label)) == 1) levels(dd$Label <- "")
+  if (length(unique(dd.input$Run)) == 1) dd$Assay <- factor(dd.input$IsotopeLabelType)
+  if (length(unique(dd.input$IsotopeLabelType)) == 1) dd$Assay <- factor(dd.input$Run)
+  if (is.null(dd$Assay)) dd$Assay <- paste(dd$Run, dd$Label, sep = ".")
+  dd$Count = as.numeric(dd.input$Intensity)
 
-  dd[complete.cases(dd),]
+  dd
 }

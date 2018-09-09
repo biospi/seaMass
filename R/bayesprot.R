@@ -7,7 +7,7 @@
 #' @import data.table
 #' @export
 
-bayesprot <- function(dd, id = "submit", missing = "censored", ...) {
+bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), missing = "censored", ...) {
   params <- list(...)
   params$version <- packageVersion("bayesprot")
 
@@ -67,15 +67,15 @@ bayesprot <- function(dd, id = "submit", missing = "censored", ...) {
   # build Assay index
   dd.assays <- dd[, .(
     Assay = factor(levels(dd$Assay)),
-    AssayID = factor(1:length(levels(dd$Assay)))
+    AssayID = factor(1:length(levels(dd$Assay))),
+    isRef = factor(levels(dd$Assay))%in% ref.assays
   )]
 
   dd <- merge(dd, dd.assays[, .(Assay, AssayID)], by = "Assay")[, !"Assay"]
 
+  # prepare dd, adding info for missing data imputation
   setcolorder(dd, c("ProteinID", "PeptideID", "FeatureID", "AssayID"))
   setorder(dd, ProteinID, PeptideID, FeatureID, AssayID)
-
-  # add info for missing data imputation
   if (missing == "feature") dd[, Count := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
   if (missing == "censored") dd[, MaxCount := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
   if (missing == "censored" | missing == "zero") dd[is.na(Count), Count := 0.0]

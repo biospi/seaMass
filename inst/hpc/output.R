@@ -84,12 +84,13 @@ for (j in 1:nchain) {
 
   message("[", paste0(Sys.time(), " Normalising chain ", j, "/", nchain, "...]"))
 
-  # transform to centred log ratios (clr)
+  # shift so that denominator is mean of reference assays
   for (p in 1:nP) {
     bs <- unique(baseline.quants[p,])
     for (b in bs[!is.na(bs)]) {
       as <- which(baseline.quants[p,] == b)
-      mcmc.quants.all[, p, as] <- mcmc.quants.all[, p, as] - rowMeans(mcmc.quants.all[, p, as])
+      rs <- intersect(as, as.integer(dd.assays[isRef == T, AssayID]))
+      mcmc.quants.all[, p, as] <- mcmc.quants.all[, p, as] - rowMeans(mcmc.quants.all[, p, rs])
     }
   }
 
@@ -123,21 +124,23 @@ stats.quants.sum2 <- apply(stats.quants.sum2, 2, rowSums)
 stats.quants.n <- apply(stats.quants.n, 2, rowSums)
 
 # write out protein quants, but have to split if multiple baselines per protein
-colnames(baseline.quants) <- dd.assays$Assay
-dd.baselines <- melt(cbind(data.table(ProteinID = 1:nP), baseline.quants), id.vars = "ProteinID", variable.name = "Assay", value.name = "BaselineID")
+#colnames(baseline.quants) <- dd.assays$Assay
+#dd.baselines <- melt(cbind(data.table(ProteinID = 1:nP), baseline.quants), id.vars = "ProteinID", variable.name = "Assay", value.name = "BaselineID")
 
 stats.quants.est <- stats.quants.sum / ifelse(stats.quants.n != 0, stats.quants.n, NA)
 colnames(stats.quants.est) <- dd.assays$Assay
-dd.stats.quants.est <- merge(melt(cbind(data.table(ProteinID = 1:nP), stats.quants.est), id.vars = "ProteinID", variable.name = "Assay"), dd.baselines)
-dd.stats.quants.est <- dcast(dd.stats.quants.est, ProteinID + BaselineID ~ Assay)[!is.na(BaselineID)]
-dd.stats.quants.est <- merge(dd.proteins, dd.stats.quants.est, by = "ProteinID")[, !c("batchID", "BaselineID")]
+#dd.stats.quants.est <- merge(melt(cbind(data.table(ProteinID = 1:nP), stats.quants.est), id.vars = "ProteinID", variable.name = "Assay"), dd.baselines)
+#dd.stats.quants.est <- dcast(dd.stats.quants.est, ProteinID + BaselineID ~ Assay)[!is.na(BaselineID)]
+#dd.stats.quants.est <- merge(dd.proteins, dd.stats.quants.est, by = "ProteinID")[, !c("batchID", "BaselineID")]
+dd.stats.quants.est <- cbind(dd.proteins[, !"batchID"], stats.quants.est)
 fwrite(dd.stats.quants.est, file.path(stats.dir, "protein_estimates.csv"))
 
 stats.quants.sd <- sqrt((stats.quants.sum2 + stats.quants.sum^2 / ifelse(stats.quants.n != 0, stats.quants.n, NA)) / stats.quants.n)
 colnames(stats.quants.sd) <- dd.assays$Assay
-dd.stats.quants.sd <- merge(melt(cbind(data.table(ProteinID = 1:nP), stats.quants.sd), id.vars = "ProteinID", variable.name = "Assay"), dd.baselines)
-dd.stats.quants.sd <- dcast(dd.stats.quants.sd, ProteinID + BaselineID ~ Assay)[!is.na(BaselineID)]
-dd.stats.quants.sd <- merge(dd.proteins, dd.stats.quants.sd, by = "ProteinID")[, !c("batchID", "BaselineID")]
+#dd.stats.quants.sd <- merge(melt(cbind(data.table(ProteinID = 1:nP), stats.quants.sd), id.vars = "ProteinID", variable.name = "Assay"), dd.baselines)
+#dd.stats.quants.sd <- dcast(dd.stats.quants.sd, ProteinID + BaselineID ~ Assay)[!is.na(BaselineID)]
+#dd.stats.quants.sd <- merge(dd.proteins, dd.stats.quants.sd, by = "ProteinID")[, !c("batchID", "BaselineID")]
+dd.stats.quants.sd <- cbind(dd.proteins[, !"batchID"], stats.quants.sd)
 fwrite(dd.stats.quants.sd, file.path(stats.dir, "protein_stdevs.csv"))
 
 # write out peptides
@@ -156,18 +159,49 @@ fwrite(dd.time.mcmc, file.path(stats.dir, "batch_timings.csv"))
 
 # write out pca plot
 stats.quants.est.assays <- t(stats.quants.est[apply(stats.quants.est, 1, function(x) !any(is.na(x))),])
-pca.assays <- prcomp(stats.quants.est.assays, center = F, scale = F)
+stats.quants.var <- colMeans(t(stats.quants.sd[apply(stats.quants.est, 1, function(x) !any(is.na(x))),]))^2
+
+pca.assays <- prcomp(stats.quants.est.assays, center = T, scale = stats.quants.var)
 dd.pca.assays <- fortify(pca.assays)
 dd.pca.assays <- cbind(dd.pca.assays, dd.assays)
 
-g <- autoplot(pca.assays, data = dd.pca.assays, colour = "Label")
+g <- autoplot(pca.assays, data = dd.pca.assays)
 g <- g + theme_bw()
 g <- g + theme(panel.border = element_rect(colour = "black", size = 1),
                panel.grid.major = element_line(size = 0.5),
                strip.background = element_blank())
-g <- g + geom_label_repel(aes(label = Assay, colour = Label))
+g <- g + geom_label_repel(aes(label = Assay))
 g <- g + theme(aspect.ratio=1) + coord_equal()
+if (!all(dd.assays$isRef)) g <- g + ggtitle(paste("ref.assays =", paste(dd.assays[isRef == T, Assay], collapse = "; ")))
 ggsave(file.path(stats.dir, "pca.pdf"), g, width=8, height=8)
+
+# write out pca plot without ref assays
+if (!all(dd.assays$isRef)) {
+  stats.quants.est.assays <- t(stats.quants.est[apply(stats.quants.est, 1, function(x) !any(is.na(x))), !dd.assays$isRef])
+  stats.quants.var <- colMeans(t(stats.quants.sd[apply(stats.quants.est, 1, function(x) !any(is.na(x))), !dd.assays$isRef]))^2
+
+  pca.assays <- prcomp(stats.quants.est.assays, center = T, scale = stats.quants.var)
+  dd.pca.assays <- fortify(pca.assays)
+  dd.pca.assays <- cbind(dd.pca.assays, dd.assays[isRef == F,])
+
+  g <- autoplot(pca.assays, data = dd.pca.assays)
+  g <- g + theme_bw()
+  g <- g + theme(panel.border = element_rect(colour = "black", size = 1),
+                 panel.grid.major = element_line(size = 0.5),
+                 strip.background = element_blank())
+  g <- g + geom_label_repel(aes(label = Assay))
+  g <- g + theme(aspect.ratio=1) + coord_equal()
+  g <- g + ggtitle(paste("ref.assays =", paste(dd.assays[isRef == T, Assay], collapse = "; ")))
+  ggsave(file.path(stats.dir, "pca_noref.pdf"), g, width=8, height=8)
+}
+
+# missing data imputation PCA
+# stats.quants.est.assays <- t(stats.quants.est)
+# nb = estim_ncpPCA(stats.quants.est.assays)
+# res.comp = imputePCA(stats.quants.est.assays, ncp = nb$ncp)
+# stats.quants.var <- colMeans(t(stats.quants.sd), na.rm = T)^2
+# res.pca = PCA(res.comp$completeObs, col.w = 1.0 / stats.quants.var, graph = F)
+# plot(res.pca, habillage = "ind", col.hab = dd.pca.assays$Grr)
 
 # ploting function for exposures
 plot.exposures <- function(mcmc.exposures)
