@@ -22,7 +22,6 @@ nsamp <- (nitt - burnin) / thin
 nP <- length(levels(dd.proteins$ProteinID))
 nT <- length(levels(dd.peptides$PeptideID))
 nF <- length(levels(dd.features$FeatureID))
-nL <- length(levels(dd.assays$LabelID))
 nA <- length(levels(dd.assays$AssayID))
 
 prefix <- ifelse(file.exists("1.1.Rdata"), ".", file.path("..", "..", "model", "results"))
@@ -74,8 +73,13 @@ for (j in 1:nchain) {
 
       ps <- as.integer(sub("^([0-9]+)\\.[0-9]+$", "\\1", colnames(mcmc.peptides.quants)))
       as <- as.integer(sub("^[0-9]+\\.([0-9]+)$", "\\1", colnames(mcmc.peptides.quants)))
-      stats.peptides.quants.est[ps, as] <- colMeans(mcmc.peptides.quants)
-      stats.peptides.quants.sd[ps, as] <- apply(mcmc.peptides.quants, 2, sd)
+      means <- colMeans(mcmc.peptides.quants)
+      stdevs <- apply(mcmc.peptides.quants, 2, sd)
+      for (i in 1:length(as)) {
+        stats.peptides.quants.est[ps[i], as[i]] <- means[i]
+        stats.peptides.quants.sd[ps[i], as[i]] <- stdevs[i]
+      }
+
       stats.peptides.sd[as.integer(colnames(mcmc.peptides.sd))] <- colMeans(mcmc.peptides.sd)
       stats.features.sd[as.integer(colnames(mcmc.features.sd))] <- colMeans(mcmc.features.sd)
       stats.time.mcmc[as.integer(sub("^([0-9]+)\\.[0-9]+\\.Rdata$", "\\1", f)), as.integer(sub("^[0-9]+\\.([0-9]+)\\.Rdata$", "\\1", f))] <- time.mcmc["elapsed"]
@@ -207,9 +211,8 @@ if (!all(dd.assays$isRef)) {
 plot.exposures <- function(mcmc.exposures)
 {
   dd.exposures <- data.table(t(mcmc.exposures))
-  dd.exposures$Run <- dd.assays$Run
   dd.exposures$Assay <- dd.assays$Assay
-  dd.exposures <- melt(dd.exposures, variable.name="mcmc", value.name="Exposure", id.vars = c("Assay", "Run"))
+  dd.exposures <- melt(dd.exposures, variable.name="mcmc", value.name="Exposure", id.vars = c("Assay"))
   dd.exposures <- dd.exposures[complete.cases(dd.exposures),]
 
   # construct metadata
@@ -219,7 +222,7 @@ plot.exposures <- function(mcmc.exposures)
 
     data.table(mean = m, fc = paste0("  ", ifelse(m < 0, format(-2^-m, digits = 3), format(2^m, digits = 3)), "fc"))
   }
-  dd.exposures.meta <- dd.exposures[, as.list(dd.exposures.meta.func(Exposure)), by = list(Assay, Run)]
+  dd.exposures.meta <- dd.exposures[, as.list(dd.exposures.meta.func(Exposure)), by = list(Assay)]
 
   # construct densities
   dd.exposures.density.func <- function(x) {
@@ -231,12 +234,12 @@ plot.exposures <- function(mcmc.exposures)
       data.table(x = dens$x, y = dens$y)
     }
   }
-  dd.exposures.density <- dd.exposures[, as.list(dd.exposures.density.func(Exposure)), by = list(Assay, Run)]
+  dd.exposures.density <- dd.exposures[, as.list(dd.exposures.density.func(Exposure)), by = list(Assay)]
 
   y_range <- max(dd.exposures.density$y) * 1.35
   x_range <- max(-min(dd.exposures.density$x[dd.exposures.density$y > y_range/100]), max(dd.exposures.density$x[dd.exposures.density$y > y_range/100])) * 1.2
 
-  g <- ggplot(dd.exposures, aes(x = mean, fill = Run, colour = Run))
+  g <- ggplot(dd.exposures, aes(x = mean))
   g <- g + theme_bw()
   g <- g + theme(panel.border = element_rect(colour = "black", size = 1),
                  panel.grid.major = element_line(size = 0.5),

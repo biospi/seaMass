@@ -6,7 +6,7 @@
 #PBS -l nodes=1:ppn=1
 
 #PBS -q veryshort
-#PBS -l mem=3gb
+#PBS -l mem=8gb
 #PBS -l walltime=12:00:00
 
 #PBS -N bp.model
@@ -15,3 +15,4 @@
 #PBS -t 1-990
 cd $PBS_O_WORKDIR/model/results
 Rscript ../../model.R $PBS_ARRAYID
+qstat -f $PBS_JOBID[$PBS_ARRAYID]
