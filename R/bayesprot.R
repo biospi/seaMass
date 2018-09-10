@@ -81,7 +81,8 @@ bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), missing =
   if (missing == "censored" | missing == "zero") dd[is.na(Count), Count := 0.0]
   if (missing == "censored" & all(dd$Count == dd$MaxCount)) dd[, MaxCount := NULL]
 
-  # BATCHIPROTEINSS AND CREATE ZIP SUBMISSION
+  # BATCH PROTEINS AND CREATE ZIP SUBMISSION
+
   # factors are appaulingly slow to split, so change to strings as we want to drop levels anyway
   dd$ProteinID <- as.integer(dd$ProteinID)
   dd$PeptideID <- as.integer(dd$PeptideID)
@@ -97,6 +98,7 @@ bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), missing =
   dds = vector("list", nbatch)
   for (j in 1:nbatch) dds[[j]] <- vector("list", nrow(dd.proteins))
   dd.proteins$batchID <- NA
+  dd.proteins$batchScore <- 0.0
   for (i in 1:nrow(dd.proteins)) {
     scores <- a[1] +
       a[2]*(dd.batches$nP+1) +
@@ -115,8 +117,10 @@ bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), missing =
     dd.batches$nT[j] <- dd.batches$nT[j] + dd.proteins$nPeptide[i]
     dd.batches$nF[j] <- dd.batches$nF[j] + dd.proteins$nFeature[i]
     dd.proteins$batchID[i] <- j
+    dd.proteins$batchScore[i] <- min(scores)
   }
-  dd.proteins$batchID <- factor(dd.proteins$batchID)
+  dd.proteins[, batchID := factor(batchID)]
+  dd.proteins[, batchScore := max(batchScore), by = batchID]
 
   # build HPC submission zip
   out_zip <- paste0(id, ".bayesprot.zip")

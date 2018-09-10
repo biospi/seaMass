@@ -13,9 +13,9 @@ load(file.path(prefix, "metadata.Rdata"))
 
 # process arguments
 args <- commandArgs(T)
-if (length(args) == 0) args <- c("3")
-batch <- ((as.integer(args[1]) - 1) %% params$nbatch) + 1
-chain <- ((as.integer(args[1]) - 1) %/% params$nbatch) + 1
+if (length(args) == 0) args <- c("2")
+chain <- ((as.integer(args[1]) - 1) %% params$model.nchain) + 1
+batch <- ((as.integer(args[1]) - 1) %/% params$model.nchain) + 1
 
 # load batch
 prefix <- ifelse(file.exists(paste0(batch,".Rdata")),".",file.path("..","..","input"))
@@ -56,18 +56,16 @@ set.seed(params$seed * params$model.nchain + chain - 1)
 
 # run model!
 prior <- list(
-  G = list(G1 = list(V = diag(nT), nu = nT, alpha.mu = rep(0, nT), alpha.V = diag(1000, nT))),
-# G = list(G1 = list(V = diag(nA), nu = nT, alpha.mu = rep(0, nA), alpha.V = diag(1000, nA)),
-#          G2 = list(V = diag(nT), nu = nT, alpha.mu = rep(0, nT), alpha.V = diag(1000, nT))),
+ G = list(G1 = list(V = diag(nA), nu = nT, alpha.mu = rep(0, nA), alpha.V = diag(1000, nA)),
+          G2 = list(V = diag(nT), nu = nT, alpha.mu = rep(0, nT), alpha.V = diag(1000, nT))),
   R = list(V = diag(nF), nu = 0.002)
 )
 time.mcmc <- system.time(model <- (MCMCglmm(
   as.formula(paste(ifelse(is.null(dd$MaxCount), "Count", "c(Count, MaxCount)"), "~ FeatureID + QuantID - 1")),
-  random = as.formula(paste0("~ ", ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":AssayID")),
-# random = as.formula(paste0("~ idh(AssayID):PeptideID + ", ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":AssayID")),
+  random = as.formula(paste0("~ idh(AssayID):PeptideID + ", ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":AssayID")),
   rcov = as.formula(paste0("~ ", ifelse(nF==1, "units", "idh(FeatureID):units"))),
   family = ifelse(is.null(dd$MaxCount), "poisson", "cenpoisson"),
-  data = dd, prior = prior, nitt = params$model.nitt, burnin = params$model.burnin, thin = params$model.thin, pr = T, verbose = F
+  data = dd, prior = prior, nitt = params$model.nitt, burnin = params$model.burnin, thin = params$model.thin, pr = T, verbose = T
 )))
 summary(model)
 message("")
@@ -87,8 +85,8 @@ mcmc.peptides.quants <- model$Sol[, grep("^PeptideID[0-9]+\\.AssayID\\.[0-9]+$",
 colnames(mcmc.peptides.quants) <- sub("^PeptideID([0-9]+)\\.AssayID(\\.[0-9]+)$", "\\1\\2", colnames(mcmc.peptides.quants))
 
 # extract assay deviations from peptide quants, converting to log2
-#mcmc.assays.quants <- model$Sol[, grep("^AssayID[0-9]+\\.PeptideID\\.[0-9]+$", colnames(model$Sol))] / log(2)
-#colnames(mcmc.assays.quants) <- sub("^AssayID([0-9]+)\\.PeptideID(\\.[0-9]+)$", "\\1\\2", colnames(mcmc.assays.quants))
+mcmc.assays.quants <- model$Sol[, grep("^AssayID[0-9]+\\.PeptideID\\.[0-9]+$", colnames(model$Sol))] / log(2)
+colnames(mcmc.assays.quants) <- sub("^AssayID([0-9]+)\\.PeptideID(\\.[0-9]+)$", "\\1\\2", colnames(mcmc.assays.quants))
 
 model$Sol <- NULL
 
@@ -101,8 +99,8 @@ if (nT==1) {
 }
 
 # extract assay variances, converting to log2 stdevs
-#mcmc.assays.sd <- sqrt(model$VCV[, grep("^AssayID[0-9]+\\.PeptideID$", colnames(model$VCV))] / log(2))
-#colnames(mcmc.assays.sd) <- gsub("^AssayID([0-9]+)\\.PeptideID$", "\\1", colnames(mcmc.assays.sd))
+mcmc.assays.sd <- sqrt(model$VCV[, grep("^AssayID[0-9]+\\.PeptideID$", colnames(model$VCV))] / log(2))
+colnames(mcmc.assays.sd) <- gsub("^AssayID([0-9]+)\\.PeptideID$", "\\1", colnames(mcmc.assays.sd))
 
 # extract feature variances, converting to log2 stdevs
 mcmc.features.sd <- sqrt(model$VCV[, grep("^FeatureID[0-9]+\\.units$", colnames(model$VCV))] / log(2))
@@ -118,6 +116,8 @@ save(
   mcmc.quants,
   mcmc.peptides.quants,
   mcmc.peptides.sd,
+  mcmc.assays.quants,
+  mcmc.assays.sd,
   mcmc.features.sd,
   time.mcmc,
   file = paste0(batch, ".", chain, ".Rdata")

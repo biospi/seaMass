@@ -19,6 +19,13 @@ importProteomeDiscoverer <- function(datafile, dd.fractions) {
   # fractions are identified by "Spectrum.File"
   dd.raw <- merge(dd.raw, dd.fractions[, list(Spectrum.File = Fraction, Run)])
 
+  # only retain the most confidenct and most intense spectrum for each feature (TODO: make option)
+  dd.raw[, Feature := factor(paste0(dd.raw$Sequence, " : ", dd.raw$Modifications, " : ", dd.raw$Charge, "+ : ", dd.raw$Spectrum.File))]
+  setorder(dd.raw, Feature, Confidence, -Intensity)
+  dd.raw <- unique(dd.raw, by = "Feature")
+
+  #dd.raw[, Adduct := factor(paste0(dd.raw$Run, " : ", dd.raw$Sequence, " : ", dd.raw$Modifications, " : ", dd.raw$Charge, "+"))]
+
   # create wide data table
   dd.wide <- dd.raw[ , list(
     Protein = factor(Master.Protein.Accessions),
