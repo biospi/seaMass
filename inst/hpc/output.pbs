@@ -15,4 +15,7 @@
 
 cd $PBS_O_WORKDIR/output/results
 Rscript ../../output.R
+
+EXITCODE=$?
 qstat -f $PBS_JOBID
+exit $EXITCODE

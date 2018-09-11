@@ -65,7 +65,7 @@ time.mcmc <- system.time(model <- (MCMCglmm(
   random = as.formula(paste0("~ idh(AssayID):PeptideID + ", ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":AssayID")),
   rcov = as.formula(paste0("~ ", ifelse(nF==1, "units", "idh(FeatureID):units"))),
   family = ifelse(is.null(dd$MaxCount), "poisson", "cenpoisson"),
-  data = dd, prior = prior, nitt = params$model.nitt, burnin = params$model.burnin, thin = params$model.thin, pr = T, verbose = T
+  data = dd, prior = prior, nitt = params$model.nitt, burnin = params$model.burnin, thin = params$model.thin, pr = T, verbose = F
 )))
 summary(model)
 message("")
