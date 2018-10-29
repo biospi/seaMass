@@ -2,6 +2,7 @@
 
 export(bayesprot)
 export(importMSstats)
+export(importProgenesis)
 export(importProteinPilot)
 export(importProteomeDiscoverer)
 import(data.table)

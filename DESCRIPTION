@@ -1,7 +1,7 @@
 Package: bayesprot
 Type: Package
 Title: Bayesian Mixed-Effects Modelling for Proteomics
-Version: 0.2.0
+Version: 1.2.0
 Authors@R: as.person(c(
     "Andrew Dowsey <andrew.dowsey@bristol.ac.uk> [aut, cre]",
     "Alexander Phillips <a.m.phillips@liverpool.ac.uk> [ctb]",
@@ -18,4 +18,5 @@ Suggests:
     MCMCglmm (>= 2.26),
     ggfortify (>= 0.4.5),
     ggrepel (>= 0.8.0),
-RoxygenNote: 6.0.1
+    fitdistr (>= 1.0-11)
+RoxygenNote: 6.1.0

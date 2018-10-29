@@ -4,7 +4,7 @@
 \alias{importMSstats}
 \title{Add together two numbers.}
 \usage{
-importMSstats(datafile, fractions)
+importMSstats(dd.input)
 }
 \arguments{
 \item{datafile}{A number.}
@@ -14,7 +14,4 @@ The sum of \code{x} and \code{y}.
 }
 \description{
 Add together two numbers.
-}
-\examples{
-add(1, 1)
 }

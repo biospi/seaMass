@@ -37,9 +37,10 @@ stats.peptides.quants.est <- matrix(NA, nT, nA)
 stats.peptides.quants.sd <- matrix(NA, nT, nA)
 stats.peptides.sd <- array(NA, nT)
 stats.features.sd <- array(NA, nF)
-stats.time.mcmc <- matrix(NA, nbatch, nchain)
+dd.perf <- data.table()
 baseline.quants <- NULL
 mcmc.exposures <- matrix(NA, nsamp * nchain, nA)
+
 for (j in 1:nchain) {
   # read in quants
   mcmc.quants.all <- array(NA, c(nsamp, nP, nA))
@@ -56,6 +57,7 @@ for (j in 1:nchain) {
     for (f in files) {
       load(file.path(prefix, f))
 
+      # proteins
       ps <- as.integer(sub("^([0-9]+)\\.[0-9]+\\.[0-9]+$", "\\1", colnames(mcmc.quants)))
       bs <- as.integer(sub("^[0-9]+\\.([0-9]+)\\.[0-9]+$", "\\1", colnames(mcmc.quants)))
       as <- as.integer(sub("^[0-9]+\\.[0-9]+\\.([0-9]+)$", "\\1", colnames(mcmc.quants)))
@@ -71,6 +73,7 @@ for (j in 1:nchain) {
         mcmc.quants.all[, ps[k], as[k]] <- mcmc.quants[, k]
       }
 
+      # peptides
       ps <- as.integer(sub("^([0-9]+)\\.[0-9]+$", "\\1", colnames(mcmc.peptides.quants)))
       as <- as.integer(sub("^[0-9]+\\.([0-9]+)$", "\\1", colnames(mcmc.peptides.quants)))
       means <- colMeans(mcmc.peptides.quants)
@@ -80,9 +83,11 @@ for (j in 1:nchain) {
         stats.peptides.quants.sd[ps[i], as[i]] <- stdevs[i]
       }
 
-      stats.peptides.sd[as.integer(colnames(mcmc.peptides.sd))] <- colMeans(mcmc.peptides.sd)
+      #stats.peptides.sd[as.integer(colnames(mcmc.peptides.sd))] <- colMeans(mcmc.peptides.sd)
       stats.features.sd[as.integer(colnames(mcmc.features.sd))] <- colMeans(mcmc.features.sd)
-      stats.time.mcmc[as.integer(sub("^([0-9]+)\\.[0-9]+\\.Rdata$", "\\1", f)), as.integer(sub("^[0-9]+\\.([0-9]+)\\.Rdata$", "\\1", f))] <- time.mcmc["elapsed"]
+
+      dd.time[, chainID := j]
+      dd.perf <- rbind(dd.perf, dd.time)
     }
   }
 
@@ -153,13 +158,17 @@ fwrite(cbind(dd.peptides, sd = stats.peptides.sd, stats.peptides.quants.est), fi
 colnames(stats.peptides.quants.sd) <- dd.assays$Assay
 fwrite(cbind(dd.peptides, sd = stats.peptides.sd, stats.peptides.quants.sd), file.path(stats.dir, "peptide_stdevs.csv"))
 
+# write out assays
+#colnames(stats.assays.sd) <- c(t(outer(dd.assays$Assay, 1:params$model.nchain, function(...) paste(..., sep = ":"))))
+#fwrite(cbind(dd.proteins, stats.assays.sd), file.path(stats.dir, "assay_stdevs.csv"))
+
 # write out features
 fwrite(cbind(dd.features, sd = stats.features.sd), file.path(stats.dir, "feature_stdevs.csv"))
 
 # write out timings
-colnames(stats.time.mcmc) <- paste0("chain", 1:nchain)
-dd.time.mcmc <- cbind(data.table(batchID = 1:nbatch), stats.time.mcmc, total = rowSums(stats.time.mcmc))
-fwrite(dd.time.mcmc, file.path(stats.dir, "batch_timings.csv"))
+dd.perf <- dd.perf[, .(seconds = sum(seconds)), by = ProteinID]
+setorder(dd.perf, ProteinID)
+fwrite(merge(dd.proteins, dd.perf), file.path(stats.dir, "protein_timings.csv"))
 
 # write out pca plot
 stats.quants.est.assays <- t(stats.quants.est[apply(stats.quants.est, 1, function(x) !any(is.na(x))),])
@@ -294,3 +303,64 @@ if (file.exists(stats.zip)) file.remove(stats.zip)
 zip(stats.zip, stats.dir, flags="-r9Xq")
 
 message("[",paste0(Sys.time()," Finished]"))
+
+
+
+
+
+
+
+
+
+# ploting function for exposures
+plot.assays <- function(mcmc.assays)
+{
+  dd.assays2 <- data.table(t(mcmc.assays))
+  dd.assays2$Assay <- dd.assays$Assay
+  dd.assays2 <- melt(dd.assays2, variable.name="mcmc", value.name="Exposure", id.vars = c("Assay"))
+  dd.assays2 <- dd.assays2[complete.cases(dd.assays2),]
+
+  # construct metadata
+  dd.assays2.meta.func <- function(x) {
+    m <- mean(x, na.rm=T)
+    if (is.nan(m)) m <- NA
+
+    data.table(mean = m)
+  }
+  dd.assays2.meta <- dd.assays2[, as.list(dd.assays2.meta.func(Exposure)), by = list(Assay)]
+
+  # construct densities
+  dd.assays2.density.func <- function(x) {
+    if (all(x == 0.0)) {
+      data.table()
+    }
+    else {
+      dens <- density(x, n = 4096, na.rm = T)
+      data.table(x = dens$x, y = dens$y)
+    }
+  }
+  dd.assays2.density <- dd.assays2[, as.list(dd.assays2.density.func(Exposure)), by = list(Assay)]
+
+  y_range <- max(dd.assays2.density$y) * 1.35
+  x_range <- max(-min(dd.assays2.density$x[dd.assays2.density$y > y_range/100]), max(dd.assays2.density$x[dd.assays2.density$y > y_range/100])) * 1.2
+
+  g <- ggplot(dd.assays2, aes(x = mean))
+  g <- g + theme_bw()
+  g <- g + theme(panel.border = element_rect(colour = "black", size = 1),
+                 panel.grid.major = element_line(size = 0.5),
+                 axis.ticks = element_blank(),
+                 axis.text.y = element_blank(),
+                 plot.title = element_text(size = 10),
+                 strip.background=element_blank())
+  g <- g + scale_x_continuous(expand = c(0, 0))
+  g <- g + scale_y_continuous(expand = c(0, 0))
+  g <- g + facet_grid(Assay ~ .)
+  g <- g + coord_cartesian(xlim = c(0, x_range), ylim = c(-0.0, y_range))
+  g <- g + xlab(expression('Standard Deviation of Digestion (Log'[2]*' Intensity)'))
+  g <- g + ylab("Probability Density")
+  g <- g + geom_vline(xintercept = 0,size = 1/2, colour = "darkgrey")
+  g <- g + geom_ribbon(data = dd.assays2.density,aes(x = x, ymax = y), ymin = 0,size = 1/2, alpha = 0.3)
+  g <- g + geom_line(data = dd.assays2.density, aes(x = x,y = y), size = 1/2)
+  g <- g + geom_vline(data = dd.assays2.meta,aes(xintercept = mean), size = 1/2)
+  g
+}

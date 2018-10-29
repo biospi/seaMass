@@ -2,8 +2,6 @@
 #'
 #' @param datafile A number.
 #' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add(1, 1)
 #' @import data.table
 #' @export
 

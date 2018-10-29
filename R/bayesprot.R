@@ -2,8 +2,6 @@
 #'
 #' @param datafile A number.
 #' @return The sum of \code{x} and \code{y}.
-#' @examples
-#' add(1, 1)
 #' @import data.table
 #' @export
 
@@ -11,7 +9,7 @@ bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), missing =
   params <- list(...)
   params$version <- packageVersion("bayesprot")
 
-  message(paste0("BayesProt v", params$version, " | © 2015-2018 BIOSP👁 Laboratory"))
+  message(paste0("BayesProt v", params$version, " | © 2015-2018 BioSP👁 Laboratory"))
   message("This program comes with ABSOLUTELY NO WARRANTY.")
   message("This is free software, and you are welcome to redistribute it under certain conditions.")
   message("---")
@@ -20,9 +18,9 @@ bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), missing =
   if (is.null(params$id)) params$id <- id
   if (is.null(params$seed)) params$seed <- 0
   if (is.null(params$nbatch)) params$nbatch <- 99
-  if (is.null(params$model.nitt)) params$model.nitt <- 2000
-  if (is.null(params$model.burnin)) params$model.burnin <- 1000
-  if (is.null(params$model.thin)) params$model.thin <- 10
+  if (is.null(params$model.nitt)) params$model.nitt <- 20000
+  if (is.null(params$model.burnin)) params$model.burnin <- 10000
+  if (is.null(params$model.thin)) params$model.thin <- 100
   if (is.null(params$model.nchain)) params$model.nchain <- 10
 
   # build Protein index

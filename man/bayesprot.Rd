@@ -4,7 +4,8 @@
 \alias{bayesprot}
 \title{Add together two numbers.}
 \usage{
-bayesprot(dd)
+bayesprot(dd, id = "input", ref.assays = levels(dd$Assay),
+  missing = "censored", ...)
 }
 \arguments{
 \item{datafile}{A number.}
@@ -14,7 +15,4 @@ The sum of \code{x} and \code{y}.
 }
 \description{
 Add together two numbers.
-}
-\examples{
-add(1, 1)
 }
