@@ -5,7 +5,6 @@ message(paste0("[", Sys.time(), " Starting]"))
 suppressPackageStartupMessages(library(data.table))
 suppressPackageStartupMessages(library(MCMCglmm))
 suppressPackageStartupMessages(library(methods))
-suppressPackageStartupMessages(library(LaplacesDemon))
 options(max.print = 99999)
 
 # load parameters
@@ -14,7 +13,7 @@ load(file.path(prefix, "metadata.Rdata"))
 
 # process arguments
 args <- commandArgs(T)
-if (length(args) == 0) args <- c("1")
+if (length(args) == 0) args <- c("990")
 chain <- ((as.integer(args[1]) - 1) %% params$model.nchain) + 1
 batch <- ((as.integer(args[1]) - 1) %/% params$model.nchain) + 1
 
@@ -65,50 +64,56 @@ for (p in levels(dd$ProteinID)) {
   nQ <- length(levels(dd.1$QuantID))
 
   # generate prior
-  if (is.null(peptide.var))
-  {
+  # if (is.null(peptide.var))
+  # {
     prior <- list(
       G = list(G1 = list(V = diag(nT), nu = nT, alpha.mu = rep(0, nT), alpha.V = diag(25^2, nT))),
       R = list(V = diag(nF), nu = 0.002)
     )
-  } else {
-    peptide_var_log_likelihood <- function(params) {
-      message(paste(exp(params[1]), exp(params[2])))
-      ll <- -sum(sapply(peptide.var, function(x) dinvwishart(x * diag(nT), exp(params[2]) + nT, exp(params[1]) * diag(nT), log = T)))
-      message(paste0(" ", ll))
-      ll
-    }
-    fit <- optim(c(log(1.0), log(0.002)), peptide_var_log_likelihood, method = "L-BFGS-B")#, lower = c(NA, log(0.002)))
-    peptide.V <- exp(fit$par[1])
-    peptide.nu <- exp(fit$par[2])
 
-    feature_var_log_likelihood <- function(params) {
-      message(paste(exp(params[1]), exp(params[2])))
-      ll <- -sum(sapply(feature.var, function(x) dinvwishart(x * diag(nT), exp(params[2]) + nT, exp(params[1]) * diag(nT), log = T)))
-      message(paste0(" ", ll))
-      ll
-    }
-    fit <- optim(c(log(1.0), log(0.002)), feature_var_log_likelihood, method = "L-BFGS-B")#, lower = c(NA, log(0.002)))
-    feature.V <- exp(fit$par[1])
-    feature.nu <- exp(fit$par[2])
-
-    # update priors
-    #peptide.fit <- fitdist(1.0 / peptide.var, "gamma", lower = c(0, 0))
-    #plot(peptide.fit)
-    #peptide.V <- peptide.fit$estimate["shape"] / ((1.0 / peptide.fit$estimate["rate"]) - 1)
-    #peptide.nu <- 2.0 * peptide.fit$estimate["shape"]
-
-    #feature.fit <- fitdist(1.0 / feature.var, "gamma", lower = c(0, 0))
-    #plot(feature.fit)
-    #feature.V <- feature.fit$estimate["shape"] / ((1.0 / feature.fit$estimate["rate"]) - 1)
-    #feature.nu <- 2.0 * feature.fit$estimate["shape"]
-
-    print(paste("peptide.V =", peptide.V, "peptide.nu =", peptide.nu, "feature.V =", feature.V, "feature.nu =", feature.nu))
     prior <- list(
-      G = list(G1 = list(V = peptide.V * diag(nT), nu = peptide.nu)),
-      R = list(V = feature.V * diag(nF), nu = feature.nu)
+      G = list(G1 = list(V = 0.06812122 * diag(nT), nu = 4.49653)),
+      R = list(V = 0.08369847 * diag(nF), nu = 5.988697)
     )
-  }
+
+  # } else {
+  #   peptide_var_log_likelihood <- function(params) {
+  #     #message(paste(exp(params[1]), exp(params[2])))
+  #     ll <- -sum(sapply(peptide.var, function(x) dinvwishart(x * diag(nT), exp(params[2]) + nT, exp(params[1]) * diag(nT), log = T)))
+  #     #message(paste0(" ", ll))
+  #     ll
+  #   }
+  #   fit <- optim(c(log(1.0), log(0.002)), peptide_var_log_likelihood, method = "L-BFGS-B")#, lower = c(NA, log(0.002)))
+  #   peptide.V <- exp(fit$par[1])
+  #   peptide.nu <- exp(fit$par[2])
+  #
+  #   feature_var_log_likelihood <- function(params) {
+  #     #message(paste(exp(params[1]), exp(params[2])))
+  #     ll <- -sum(sapply(feature.var, function(x) dinvwishart(x * diag(nT), exp(params[2]) + nT, exp(params[1]) * diag(nT), log = T)))
+  #     #message(paste0(" ", ll))
+  #     ll
+  #   }
+  #   fit <- optim(c(log(1.0), log(0.002)), feature_var_log_likelihood, method = "L-BFGS-B")#, lower = c(NA, log(0.002)))
+  #   feature.V <- exp(fit$par[1])
+  #   feature.nu <- exp(fit$par[2])
+  #
+  #   # update priors
+  #   #peptide.fit <- fitdist(1.0 / peptide.var, "gamma", lower = c(0, 0))
+  #   #plot(peptide.fit)
+  #   #peptide.V <- peptide.fit$estimate["shape"] / ((1.0 / peptide.fit$estimate["rate"]) - 1)
+  #   #peptide.nu <- 2.0 * peptide.fit$estimate["shape"]
+  #
+  #   #feature.fit <- fitdist(1.0 / feature.var, "gamma", lower = c(0, 0))
+  #   #plot(feature.fit)
+  #   #feature.V <- feature.fit$estimate["shape"] / ((1.0 / feature.fit$estimate["rate"]) - 1)
+  #   #feature.nu <- 2.0 * feature.fit$estimate["shape"]
+  #
+  #   print(paste("peptide.V =", peptide.V, "peptide.nu =", peptide.nu, "feature.V =", feature.V, "feature.nu =", feature.nu))
+  #   prior <- list(
+  #     G = list(G1 = list(V = peptide.V * diag(nT), nu = peptide.nu)),
+  #     R = list(V = feature.V * diag(nF), nu = feature.nu)
+  #   )
+  # }
 
   #run model
   time.1.mcmc <- system.time(model <- (MCMCglmm(
@@ -146,7 +151,7 @@ for (p in levels(dd$ProteinID)) {
   # extract peptide variances, converting to log2 stdevs
   if (nT==1) {
     mcmc.1.peptides.sd <- sqrt(model$VCV[, "PeptideID:AssayID", drop = F] / log(2))
-    names(mcmc.1.peptides.sd) <- levels(dd.1$PeptideID)
+    colnames(mcmc.1.peptides.sd) <- levels(dd.1$PeptideID)
   } else {
     mcmc.1.peptides.sd <- sqrt(model$VCV[, grep("^PeptideID[0-9]+\\.AssayID$", colnames(model$VCV)), drop = F] / log(2))
     colnames(mcmc.1.peptides.sd) <- gsub("^PeptideID([0-9]+)\\.AssayID$", "\\1", colnames(mcmc.1.peptides.sd))
@@ -174,10 +179,10 @@ save(
   mcmc.peptides.sd,
   mcmc.features.sd,
   dd.time,
-  peptide.V,
-  peptide.nu,
-  feature.V,
-  feature.nu,
+  # peptide.V,
+  # peptide.nu,
+  # feature.V,
+  # feature.nu,
   file = paste0(batch, ".", chain, ".Rdata")
 )
 

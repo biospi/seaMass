@@ -83,7 +83,7 @@ for (j in 1:nchain) {
         stats.peptides.quants.sd[ps[i], as[i]] <- stdevs[i]
       }
 
-      #stats.peptides.sd[as.integer(colnames(mcmc.peptides.sd))] <- colMeans(mcmc.peptides.sd)
+      stats.peptides.sd[as.integer(colnames(mcmc.peptides.sd))] <- colMeans(mcmc.peptides.sd)
       stats.features.sd[as.integer(colnames(mcmc.features.sd))] <- colMeans(mcmc.features.sd)
 
       dd.time[, chainID := j]
