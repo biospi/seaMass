@@ -17,11 +17,11 @@ bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), missing =
   # default parameters
   if (is.null(params$id)) params$id <- id
   if (is.null(params$seed)) params$seed <- 0
-  if (is.null(params$nbatch)) params$nbatch <- 99
-  if (is.null(params$model.nitt)) params$model.nitt <- 20000
-  if (is.null(params$model.burnin)) params$model.burnin <- 10000
-  if (is.null(params$model.thin)) params$model.thin <- 100
-  if (is.null(params$model.nchain)) params$model.nchain <- 10
+  if (is.null(params$nbatch)) params$nbatch <- 24
+  if (is.null(params$nitt)) params$nitt <- 20000
+  if (is.null(params$burnin)) params$burnin <- 10000
+  if (is.null(params$thin)) params$thin <- 100
+  if (is.null(params$nchain)) params$nchain <- 10
 
   # build Protein index
   dd.proteins <- dd[, .(
@@ -88,9 +88,9 @@ bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), missing =
   dd$AssayID <- as.integer(dd$AssayID)
 
   # use pre-trained regression model to estimate how long each Protein will take to process in order to assign Proteins to batches
-  # Intercept, Proteins, Peptides, Features, Proteins^2, Peptides^2, Features^2, Proteins*Peptides, Features*Peptides, Proteins*Features
+  # Intercept, nPeptide, nFeatures
   message("batching proteins...")
-  a <- c(2011.57, 31.69, 5024.83, 4.29, 0.53, 5047.33,  0.01, 4994.97, 5052.05, 0.06)
+  a <- c(2.67, 0.87, 3.30)
   nbatch <- params$nbatch
   dd.batches <- data.table(nP = rep(0, nbatch), nT = rep(0, nbatch), nF = rep(0, nbatch))
   dds = vector("list", nbatch)
@@ -98,16 +98,8 @@ bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), missing =
   dd.proteins$batchID <- NA
   dd.proteins$batchScore <- 0.0
   for (i in 1:nrow(dd.proteins)) {
-    scores <- a[1] +
-      a[2]*(dd.batches$nP+1) +
-      a[3]*(dd.batches$nT+dd.proteins$nPeptide[i]) +
-      a[4]*(dd.batches$nF+dd.proteins$nFeature[i]) +
-      a[5]*(dd.batches$nP+1)*(dd.batches$nP+1) +
-      a[6]*(dd.batches$nT+dd.proteins$nPeptide[i])*(dd.batches$nT+dd.proteins$nPeptide[i]) +
-      a[7]*(dd.batches$nF+dd.proteins$nFeature[i])*(dd.batches$nF+dd.proteins$nFeature[i]) +
-      a[8]*(dd.batches$nP+1)*(dd.batches$nT+dd.proteins$nPeptide[i]) +
-      a[9]*(dd.batches$nF+dd.proteins$nFeature[i])*(dd.batches$nT+dd.proteins$nPeptide[i]) +
-      a[10]*(dd.batches$nP+1)*(dd.batches$nF+dd.proteins$nFeature[i])
+    message(i)
+    scores <- a[1] + a[2] * (dd.batches$nT + dd.proteins$nPeptide[i]) + a[3] * (dd.batches$nF + dd.proteins$nFeature[i])
 
     j <- which.min(scores)
     dds[[j]][[i]] <- dd[ProteinID == dd.proteins$ProteinID[i],]
@@ -126,6 +118,7 @@ bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), missing =
   out_dir <- file.path(tmp_dir, paste0(id, ".bayesprot"))
   dir.create(file.path(out_dir, "input"), recursive = T)
   dir.create(file.path(out_dir, "model", "results"), recursive = T)
+  dir.create(file.path(out_dir, "hyper", "results"), recursive = T)
   dir.create(file.path(out_dir, "output", "results"), recursive = T)
   for (file in list.files(system.file("hpc", package = "bayesprot")))
     file.copy(file.path(system.file("hpc", package = "bayesprot"), file), out_dir, recursive = T)
