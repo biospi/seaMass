@@ -7,6 +7,7 @@ suppressPackageStartupMessages(library(fitdistrplus))
 suppressPackageStartupMessages(library(actuar))
 suppressPackageStartupMessages(library(MCMCglmm))
 suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(logKDE))
 
 # load parameters
 prefix <- ifelse(file.exists("metadata.Rdata"), ".", file.path("..", "..", "input"))
