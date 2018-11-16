@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#PBS -o hyper
+#PBS -o qprot
 #PBS -j oe
 #PBS -r y
 #PBS -l nodes=1:ppn=1
@@ -9,11 +9,12 @@
 #PBS -l mem=3gb
 #PBS -l walltime=12:00:00
 
-#PBS -N bp.hyper
+#PBS -N bp.qprot
 #PBS -M andrew.dowsey@bristol.ac.uk
 
-cd $PBS_O_WORKDIR/hyper/results
-Rscript ../../hyper.R
+#PBS -t 1-1000
+cd $PBS_O_WORKDIR/qprot/results
+Rscript ../../qprot.R $PBS_ARRAYID
 
 EXITCODE=$?
 qstat -f $PBS_JOBID

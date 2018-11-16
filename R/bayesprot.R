@@ -17,11 +17,13 @@ bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), missing =
   # default parameters
   if (is.null(params$id)) params$id <- id
   if (is.null(params$seed)) params$seed <- 0
-  if (is.null(params$nbatch)) params$nbatch <- 24
+  if (is.null(params$nbatch)) params$ncatch <- 28
   if (is.null(params$nitt)) params$nitt <- 20000
   if (is.null(params$burnin)) params$burnin <- 10000
   if (is.null(params$thin)) params$thin <- 100
   if (is.null(params$nchain)) params$nchain <- 10
+
+  message(paste0("building indices..."))
 
   # build Protein index
   dd.proteins <- dd[, .(
@@ -89,20 +91,16 @@ bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), missing =
 
   # use pre-trained regression model to estimate how long each Protein will take to process in order to assign Proteins to batches
   # Intercept, nPeptide, nFeatures
-  message("batching proteins...")
+  message("defining batches...")
   a <- c(2.67, 0.87, 3.30)
   nbatch <- params$nbatch
   dd.batches <- data.table(nP = rep(0, nbatch), nT = rep(0, nbatch), nF = rep(0, nbatch))
-  dds = vector("list", nbatch)
-  for (j in 1:nbatch) dds[[j]] <- vector("list", nrow(dd.proteins))
   dd.proteins$batchID <- NA
   dd.proteins$batchScore <- 0.0
   for (i in 1:nrow(dd.proteins)) {
-    message(i)
     scores <- a[1] + a[2] * (dd.batches$nT + dd.proteins$nPeptide[i]) + a[3] * (dd.batches$nF + dd.proteins$nFeature[i])
 
     j <- which.min(scores)
-    dds[[j]][[i]] <- dd[ProteinID == dd.proteins$ProteinID[i],]
     dd.batches$nP[j] <- dd.batches$nP[j] + 1
     dd.batches$nT[j] <- dd.batches$nT[j] + dd.proteins$nPeptide[i]
     dd.batches$nF[j] <- dd.batches$nF[j] + dd.proteins$nFeature[i]
@@ -120,33 +118,33 @@ bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), missing =
   dir.create(file.path(out_dir, "model", "results"), recursive = T)
   dir.create(file.path(out_dir, "hyper", "results"), recursive = T)
   dir.create(file.path(out_dir, "output", "results"), recursive = T)
+  dir.create(file.path(out_dir, "qprot", "results"), recursive = T)
   for (file in list.files(system.file("hpc", package = "bayesprot")))
     file.copy(file.path(system.file("hpc", package = "bayesprot"), file), out_dir, recursive = T)
 
   # save batches
+  message(paste0("saving batches..."))
   for (j in 1:nbatch) {
-    dd <- rbindlist(dds[[j]])
+    dd.batch <- dd[ProteinID %in% dd.proteins[batchID == j, ProteinID],]
 
     # and back to factors...
-    dd$ProteinID <- factor(dd$ProteinID)
-    dd$PeptideID <- factor(dd$PeptideID)
-    dd$FeatureID <- factor(dd$FeatureID)
-    dd$AssayID <- factor(dd$AssayID)
+    dd.batch$ProteinID <- factor(dd.batch$ProteinID)
+    dd.batch$PeptideID <- factor(dd.batch$PeptideID)
+    dd.batch$FeatureID <- factor(dd.batch$FeatureID)
+    dd.batch$AssayID <- factor(dd.batch$AssayID)
 
-    save(dd, file = file.path(out_dir, "input", paste0(j, ".Rdata")))
+    save(dd.batch, file = file.path(out_dir, "input", paste0(j, ".Rdata")))
   }
 
   # save metadata
   save(params, dd.proteins, dd.peptides, dd.features, dd.assays, file = file.path(out_dir, "input", "metadata.Rdata"))
 
   # create zip file and clean up
-  message(paste0("writing: ", out_zip, "..."))
+  message(paste0("writing ", out_zip, "..."))
   wd <- getwd()
   setwd(tmp_dir)
   if (file.exists(file.path(wd, out_zip))) file.remove(file.path(wd, out_zip))
   zip(file.path(wd, out_zip), ".", flags="-r9Xq")
   setwd(wd)
   unlink(tmp_dir, recursive = T)
-
-  dd
 }
