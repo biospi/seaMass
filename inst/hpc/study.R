@@ -137,7 +137,7 @@ feature.nu <- as.numeric(2.0 * fit.features$estimate["shape"])
 feature.V <- as.numeric((2.0 * fit.features$estimate["scale"]) / feature.nu)
 
 # save output
-save(mcmc.exposures, assays.V, assays.nu, peptide.V, peptide.nu, feature.V, feature.nu, file = "hyper.Rdata")
+save(mcmc.exposures, assays.V, assays.nu, peptide.V, peptide.nu, feature.V, feature.nu, file = "study.Rdata")
 
 
 # PLOTS
@@ -310,7 +310,7 @@ g <- g + coord_cartesian(xlim = c(0, x.max), ylim = c(0, 1.1 * max(dd.plot$y)), 
 g <- g + theme(legend.position="top")
 g <- g + xlab("log2 Variance")
 g <- g + ylab("Density")
-ggsave("hyper.pdf", g, width = 8, height = 1.5 + 0.75 * (2 + nA))
+ggsave("study.pdf", g, width = 8, height = 1.5 + 0.75 * (2 + nA))
 
 
 # create zip file and clean up

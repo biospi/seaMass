@@ -119,8 +119,8 @@ bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), missing =
   out_dir <- file.path(tmp_dir, paste0(id, ".bayesprot"))
   dir.create(file.path(out_dir, "input"), recursive = T)
   dir.create(file.path(out_dir, "model", "results"), recursive = T)
-  dir.create(file.path(out_dir, "hyper", "results"), recursive = T)
-  dir.create(file.path(out_dir, "output", "results"), recursive = T)
+  dir.create(file.path(out_dir, "study", "results"), recursive = T)
+  dir.create(file.path(out_dir, "quant", "results"), recursive = T)
   if (!is.null(params$qprot.design)) dir.create(file.path(out_dir, "qprot", "results"), recursive = T)
   if (!is.null(params$qprot.design)) dir.create(file.path(out_dir, "de", "results"), recursive = T)
   for (file in list.files(system.file("hpc", package = "bayesprot"))) {

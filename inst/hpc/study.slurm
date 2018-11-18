@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --workdir=hyper/results
+#SBATCH --workdir=study/results
 #SBATCH --output=../slurm-%j.out
 #SBATCH --requeue
 #SBATCH --nodes=1
@@ -11,7 +11,7 @@
 #SBATCH --mem=3g
 #SBATCH --time=12:00:00
 
-#SBATCH --job-name=bp.hyper
+#SBATCH --job-name=bp.study
 #SBATCH --mail-user=andrew.dowsey@bristol.ac.uk
 
-srun Rscript ../../hyper.R
+srun Rscript ../../study.R

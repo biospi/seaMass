@@ -32,10 +32,10 @@ ret <- foreach(batch = 1:params$nbatch) %dopar% {
   # set seed
   set.seed(params$seed * params$nchain + chain - 1)
 
-  # load priors if hyper has been run
-  prefix <- ifelse(file.exists("hyper.Rdata"), ".", file.path("..", "..", "hyper", "results"))
-  if (file.exists(file.path(prefix, "hyper.Rdata"))) {
-    load(file.path(prefix, "hyper.Rdata"))
+  # load priors if study has been run
+  prefix <- ifelse(file.exists("study.Rdata"), ".", file.path("..", "..", "study", "results"))
+  if (file.exists(file.path(prefix, "study.Rdata"))) {
+    load(file.path(prefix, "study.Rdata"))
   } else {
     feature.V <- 1
     feature.nu <- 0.002
