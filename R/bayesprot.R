@@ -17,12 +17,15 @@ bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), missing =
   # default parameters
   if (is.null(params$id)) params$id <- id
   if (is.null(params$seed)) params$seed <- 0
-  if (is.null(params$nbatch)) params$ncatch <- 28
+  if (is.null(params$nbatch)) params$nbatch <- 28
   if (is.null(params$nitt)) params$nitt <- 20000
   if (is.null(params$burnin)) params$burnin <- 10000
   if (is.null(params$thin)) params$thin <- 100
   if (is.null(params$nchain)) params$nchain <- 10
+  if (is.null(params$qprot.paired)) params$qprot.paired <- F
 
+  if (is.null(params$qprot.path)) params$qprot.path <- ""
+  if (params$qprot.path != "") params$qprot.path <- paste0(params$qprot.path, "/")
   message(paste0("building indices..."))
 
   # build Protein index
@@ -118,9 +121,13 @@ bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), missing =
   dir.create(file.path(out_dir, "model", "results"), recursive = T)
   dir.create(file.path(out_dir, "hyper", "results"), recursive = T)
   dir.create(file.path(out_dir, "output", "results"), recursive = T)
-  dir.create(file.path(out_dir, "qprot", "results"), recursive = T)
-  for (file in list.files(system.file("hpc", package = "bayesprot")))
-    file.copy(file.path(system.file("hpc", package = "bayesprot"), file), out_dir, recursive = T)
+  if (!is.null(params$qprot.design)) dir.create(file.path(out_dir, "qprot", "results"), recursive = T)
+  if (!is.null(params$qprot.design)) dir.create(file.path(out_dir, "de", "results"), recursive = T)
+  for (file in list.files(system.file("hpc", package = "bayesprot"))) {
+    if (!(is.null(params$qprot.design) & grepl("^qprot", file)) & !(is.null(params$qprot.design) & grepl("^de", file))) {
+      file.copy(file.path(system.file("hpc", package = "bayesprot"), file), out_dir, recursive = T)
+    }
+  }
 
   # save batches
   message(paste0("saving batches..."))

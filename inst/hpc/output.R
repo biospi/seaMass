@@ -13,12 +13,7 @@ suppressPackageStartupMessages(library(coda))
 prefix <- ifelse(file.exists("metadata.Rdata"), ".", file.path("..", "..", "input"))
 load(file.path(prefix, "metadata.Rdata"))
 
-nbatch <- params$nbatch
-nchain <- params$nchain
-nitt <- params$nitt
-burnin <- params$burnin
-thin <- params$thin
-nsamp <- (nitt - burnin) / thin
+nsamp <- (params$nitt - params$burnin) / params$thin
 
 nP <- length(levels(dd.proteins$ProteinID))
 nT <- length(levels(dd.peptides$PeptideID))
@@ -27,40 +22,40 @@ nA <- length(levels(dd.assays$AssayID))
 
 # create subdirectories if necessary
 prefix <- ifelse(file.exists("1.1.Rdata"), ".", file.path("..", "..", "model", "results"))
-stats.dir <- paste0(params$id, ".bayesprot.output")
+stats.dir <- paste0(params$id, ".bayesprot.study")
 dir.create(stats.dir, showWarnings = F)
 dir.create("quants", showWarnings = F)
 
 
 # LOAD MODEL OUTPUT, CORRECT EXPOSURES, COMPUTE STATS
 
-ls.timings <- vector("list", nbatch * nchain)
+ls.timings <- vector("list", params$nbatch * params$nchain)
 
-features.sd.psum <- array(NA, c(nF, nchain))
-features.sd.pn <- array(NA, c(nF, nchain))
+features.sd.psum <- array(NA, c(nF, params$nchain))
+features.sd.pn <- array(NA, c(nF, params$nchain))
 
-peptides.sd.psum <- array(NA, c(nT, nchain))
-peptides.sd.pn <- array(NA, c(nT, nchain))
+peptides.sd.psum <- array(NA, c(nT, params$nchain))
+peptides.sd.pn <- array(NA, c(nT, params$nchain))
 
-peptides.assays.deviation.psum <- array(NA, c(nT, nA, nchain))
-peptides.assays.deviation.psumsqrs <- array(NA, c(nT, nA, nchain))
-peptides.assays.deviation.pn <- array(NA, c(nT, nA, nchain))
+peptides.assays.deviation.psum <- array(NA, c(nT, nA, params$nchain))
+peptides.assays.deviation.psumsqrs <- array(NA, c(nT, nA, params$nchain))
+peptides.assays.deviation.pn <- array(NA, c(nT, nA, params$nchain))
 
-mcmc.exposures <- matrix(NA, nsamp * nchain, nA)
-proteins.assays.quant.psum <- array(NA, c(nP, nA, nchain))
-proteins.assays.quant.psumsqrs <- array(NA, c(nP, nA, nchain))
-proteins.assays.quant.pn <- array(NA, c(nP, nA, nchain))
+mcmc.exposures <- matrix(NA, nsamp * params$nchain, nA)
+proteins.assays.quant.psum <- array(NA, c(nP, nA, params$nchain))
+proteins.assays.quant.psumsqrs <- array(NA, c(nP, nA, params$nchain))
+proteins.assays.quant.pn <- array(NA, c(nP, nA, params$nchain))
 
-for (j in 1:nchain) {
+for (j in 1:params$nchain) {
   # read in quants
   proteins.assays.quant.mcmc <- array(NA, c(nsamp, nP, nA))
   proteins.assays.baseline <- matrix(NA, nP, nA)
 
   files <- list.files(prefix, paste0("^[0-9]+\\.", j, "\\.Rdata$"))
   if (length(files) > 0) {
-    if (length(files) < nbatch) stop("ERROR: Some quant output is missing")
+    if (length(files) < params$nbatch) stop("ERROR: Some quant output is missing")
 
-    message("[", paste0(Sys.time(), " Reading chain ", j, "/", nchain, "...]"))
+    message("[", paste0(Sys.time(), " Reading chain ", j, "/", params$nchain, "...]"))
 
     # read in MCMC samps
     for (f in files) {
@@ -68,7 +63,7 @@ for (j in 1:nchain) {
 
       # timings
       dd.time[, chainID := j]
-      ls.timings[[(as.integer(sub("\\.[0-9]+\\.Rdata$", "", f)) - 1) * nchain + j]] <- dd.time
+      ls.timings[[(as.integer(sub("\\.[0-9]+\\.Rdata$", "", f)) - 1) * params$nchain + j]] <- dd.time
 
       # features.sd
       features.sd.psum[as.integer(colnames(mcmc.features.var)), j] <- colSums(sqrt(mcmc.features.var) / log(2)) # convert to log2 ratios
@@ -105,7 +100,7 @@ for (j in 1:nchain) {
     }
   }
 
-  message("[", paste0(Sys.time(), " Correcting exposures for chain ", j, "/", nchain, "...]"))
+  message("[", paste0(Sys.time(), " Correcting exposures for chain ", j, "/", params$nchain, "...]"))
 
   # shift so that denominator is mean of reference assays
   for (p in 1:nP) {
@@ -127,14 +122,14 @@ for (j in 1:nchain) {
   # correct exposures
   for (p in 1:nP) proteins.assays.quant.mcmc[, p,] <- proteins.assays.quant.mcmc[, p,] - mcmc.exposures[(nsamp*(j-1)+1):(nsamp*j),]
 
-  message("[", paste0(Sys.time(), " Saving chain ", j, "/", nchain, "...]"))
+  message("[", paste0(Sys.time(), " Saving chain ", j, "/", params$nchain, "...]"))
 
   # write out normalised quant mcmc
   colnames(proteins.assays.quant.mcmc) <- 1:nP
   for (a in 1:nA) {
     mcmc.quants <- as.mcmc(proteins.assays.quant.mcmc[, !is.na(colSums(proteins.assays.quant.mcmc[,, a])), a])
     colnames(mcmc.quants) <- paste0(colnames(mcmc.quants), ".", proteins.assays.baseline[!is.na(colSums(proteins.assays.quant.mcmc[,, a])), a])
-    saveRDS(mcmc.quants, file.path("quants", paste0(j, ".", a, ".rds")))
+    saveRDS(mcmc.quants, file.path("quants", paste0(a, ".", j, ".rds")))
   }
 
   # compute output stats
@@ -282,8 +277,8 @@ for (a in 1:nA) {
   message("[", paste0(Sys.time(), " Calculating Rhat for assay ", a, "...]"))
 
   # load data
-  proteins.assays.quant.mcmc <- vector("list", nchain)
-  for (j in 1:nchain) {
+  proteins.assays.quant.mcmc <- vector("list", params$nchain)
+  for (j in 1:params$nchain) {
     proteins.assays.quant.mcmc[[j]] <- readRDS(file.path("quants", paste0(j, ".", a, ".rds")))
   }
   proteins.assays.quant.mcmc <- as.mcmc.list(proteins.assays.quant.mcmc)

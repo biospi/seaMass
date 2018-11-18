@@ -2,28 +2,22 @@ invisible(Sys.setlocale("LC_COLLATE","C"))
 
 message(paste0("[", Sys.time(), " Started]"))
 
-suppressPackageStartupMessages(library(doParallel))
 options(max.print = 99999)
 
 # load parameters
 prefix <- ifelse(file.exists("metadata.Rdata"), ".", file.path("..", "..", "input"))
 load(file.path(prefix, "metadata.Rdata"))
+nsamp <- (params$nitt - params$burnin) / params$thin
 
 # process arguments
 args <- commandArgs(T)
 if (length(args) == 0) args <- c("1")
 chain <- as.integer(args[1])
 
-nbatch <- params$nbatch
-nchain <- params$nchain
-nitt <- params$nitt
-burnin <- params$burnin
-thin <- params$thin
-nsamp <- (nitt - burnin) / thin
-
-cl <- makeCluster(nbatch)
+suppressPackageStartupMessages(library(doParallel))
+cl <- makeCluster(params$nbatch)
 registerDoParallel(cl)
-foreach(batch = 1:nbatch) %dopar% {
+ret <- foreach(batch = 1:params$nbatch) %dopar% {
   suppressPackageStartupMessages(library(data.table))
   suppressPackageStartupMessages(library(MCMCglmm))
   suppressPackageStartupMessages(library(methods))
@@ -50,6 +44,7 @@ foreach(batch = 1:nbatch) %dopar% {
   dd.time <- vector("list", length(levels(dd.batch$ProteinID)))
   mcmc.quants <- NULL
   mcmc.peptides.quants <- NULL
+  mcmc.assays.var <- NULL
   mcmc.peptides.var <- NULL
   mcmc.features.var <- NULL
   for (p in 1:length(levels(dd.batch$ProteinID))) {
@@ -77,7 +72,7 @@ foreach(batch = 1:nbatch) %dopar% {
     nT <- length(levels(dd$PeptideID))
 
     # only run model if (vaguely) identifiable
-    if (nT >= 3 || exists("peptide.nu")) {
+    if (nT >= 5 || exists("peptide.nu")) {
 
       dd[, FeatureID := factor(FeatureID)]
       nF <- length(levels(dd$FeatureID))
@@ -91,12 +86,14 @@ foreach(batch = 1:nbatch) %dopar% {
       # set prior
       if (exists("peptide.V")) {
         prior <- list(
-          G = list(G1 = list(V = peptide.V * diag(nT), nu = peptide.nu)),
+          G = list(G1 = list(V = assays.V * diag(nA), nu = median(assays.nu)),
+                   G2 = list(V = peptide.V * diag(nT), nu = peptide.nu)),
           R = list(V = feature.V * diag(nF), nu = feature.nu)
         )
       } else {
         prior <- list(
-          G = list(G1 = list(V = diag(nT), nu = nT, alpha.mu = rep(0, nT), alpha.V = diag(25^2, nT))),
+          G = list(G1 = list(V = diag(nA), nu = nA, alpha.mu = rep(0, nA), alpha.V = diag(25^2, nA)),
+                   G2 = list(V = diag(nT), nu = nT, alpha.mu = rep(0, nT), alpha.V = diag(25^2, nT))),
           R = list(V = feature.V * diag(nF), nu = feature.nu)
         )
       }
@@ -104,7 +101,7 @@ foreach(batch = 1:nbatch) %dopar% {
       #run model
       time.1.mcmc <- system.time(model <- (MCMCglmm(
         as.formula(paste(ifelse(is.null(dd$MaxCount), "Count", "c(Count, MaxCount)"), "~ ", ifelse(nF==1, "QuantID", "FeatureID - 1 + QuantID"))),
-        random = as.formula(paste0("~ ", ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":AssayID")),
+        random = as.formula(paste0("~ idh(AssayID):PeptideID + ", ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":AssayID")),
         rcov = as.formula(paste0("~ ", ifelse(nF==1, "units", "idh(FeatureID):units"))),
         family = ifelse(is.null(dd$MaxCount), "poisson", "cenpoisson"),
         data = dd, prior = prior, nitt = params$nitt, burnin = params$burnin, thin = params$thin, pr = T, verbose = F
@@ -136,6 +133,11 @@ foreach(batch = 1:nbatch) %dopar% {
 
       model$Sol <- NULL
 
+      # extract assay variances
+      mcmc.1.assays.var <- model$VCV[, grep("^AssayID[0-9]+\\.PeptideID$", colnames(model$VCV)), drop = F]
+      colnames(mcmc.1.assays.var) <- paste0(gsub("^AssayID([0-9]+\\.)PeptideID$", "\\1", colnames(mcmc.1.assays.var)), levels(dd.batch$ProteinID)[p])
+      mcmc.assays.var <- cbind(mcmc.assays.var, mcmc.1.assays.var)
+
       # extract peptide variances
       if (nT==1) {
         mcmc.1.peptides.var <- model$VCV[, "PeptideID:AssayID", drop = F]
@@ -165,6 +167,7 @@ foreach(batch = 1:nbatch) %dopar% {
   save(
     mcmc.quants,
     mcmc.peptides.quants,
+    mcmc.assays.var,
     mcmc.peptides.var,
     mcmc.features.var,
     dd.time,
