@@ -86,7 +86,7 @@ ret <- foreach(batch = 1:params$nbatch) %dopar% {
       # set prior
       if (exists("peptide.V")) {
         prior <- list(
-          G = list(G1 = list(V = assays.V * diag(nA), nu = median(assays.nu)),
+          G = list(G1 = list(V = diag(assays.V), nu = median(assays.nu)),
                    G2 = list(V = peptide.V * diag(nT), nu = peptide.nu)),
           R = list(V = feature.V * diag(nF), nu = feature.nu)
         )

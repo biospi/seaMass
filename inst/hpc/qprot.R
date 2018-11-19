@@ -2,6 +2,8 @@ invisible(Sys.setlocale("LC_COLLATE","C"))
 
 message("[",paste0(Sys.time()," Started]"))
 
+suppressPackageStartupMessages(library(data.table))
+
 # load parameters
 prefix <- ifelse(file.exists("metadata.Rdata"), ".", file.path("..", "..", "input"))
 load(file.path(prefix, "metadata.Rdata"))
@@ -14,7 +16,7 @@ chain <- as.integer(args[1])
 nP <- length(levels(dd.proteins$ProteinID))
 nA <- length(levels(dd.assays$AssayID))
 
-prefix <- ifelse(file.exists("1.1.Rdata"), ".", file.path("..", "..", "output", "results", "quants"))
+prefix <- ifelse(file.exists("1.1.rds"), ".", file.path("..", "..", "quant", "results", "quants"))
 
 # process design
 if (!is.factor(params$qprot.design$Assay)) params$qprot.design$Assay <- factor(params$qprot.design$Assay, levels = unique(params$qprot.design$Assay))
@@ -22,17 +24,19 @@ if (!is.factor(params$qprot.design$Condition)) params$qprot.design$Condition <- 
 dd.design <- as.data.table(merge(dd.assays, params$qprot.design))
 
 # read MCMC samps
-mcmc.quants <- array(0, c(nsamp, nP, nA))
+mcmc.quants <- array(NA, c(nsamp, nP, nA))
 
 files <- list.files(prefix, paste0("^[0-9]+\\.", chain, "\\.rds$"))
 if (length(files) > 0) {
   if (length(files) < nA) stop("ERROR: Some quant output is missing")
 
   for (f in files) {
+    print(paste0("[", Sys.time(), " Reading ", f, " ...]"))
+
     mcmc.quants.f <- readRDS(file.path(prefix, f))
 
     # todo: check baseline
-    mcmc.quants[, as.integer(sub("\\.[0-9]+$", "", colnames(mcmc.quants.f))), as.integer(sub("^[0-9+]\\.([0-9]+)\\.rds$", "\\1", f))] <- mcmc.quants.f
+    mcmc.quants[, as.integer(sub("\\.[0-9]+$", "", colnames(mcmc.quants.f))), as.integer(sub("\\.([0-9]+)\\.rds$", "", f))] <- mcmc.quants.f
   }
 }
 
@@ -47,11 +51,6 @@ cl <- makeCluster(params$nbatch)
 registerDoParallel(cl)
 ret <- foreach(batch = 1:params$nbatch) %dopar% {
   suppressPackageStartupMessages(library(data.table))
-  suppressPackageStartupMessages(library(fitdistrplus))
-  suppressPackageStartupMessages(library(actuar))
-  suppressPackageStartupMessages(library(MCMCglmm))
-  suppressPackageStartupMessages(library(ggplot2))
-  suppressPackageStartupMessages(library(logKDE))
 
   sink(paste0(chain, ".", batch, ".txt"))
   print(paste0("[", Sys.time(), " Started]"))
@@ -74,8 +73,8 @@ ret <- foreach(batch = 1:params$nbatch) %dopar% {
       mat.qprot <- cbind(dd.proteins$ProteinID, mat.0, mat.1)
       colnames(mat.qprot)[1] <- "Protein"
 
-      # bug? NA proteins are all zeros
-      mat.qprot <- mat.qprot[rowSums(mat.qprot[, 2:ncol(mat.qprot)] == 0) != ncol(mat.qprot) - 1, ]
+      # remove NAs (check qprot requirements)
+      mat.qprot <- mat.qprot[complete.cases(mat.qprot[, 2:ncol(mat.qprot)]),]
 
       # exponent as qprot needs intensities, not log ratios
       for (j in 2:ncol(mat.qprot)) mat.qprot[[j]] <- 2^mat.qprot[[j]]

@@ -6,7 +6,7 @@
 #SBATCH --mail-type=FAIL
 #SBATCH --nodes=1
 #SBATCH --tasks-per-node=1
-#SBATCH --cpus-per-task=28
+#SBATCH --cpus-per-task=14
 
 #SBATCH --partition=cpu
 #SBATCH --mem=96g

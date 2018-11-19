@@ -22,7 +22,7 @@ nA <- length(levels(dd.assays$AssayID))
 
 # create subdirectories if necessary
 prefix <- ifelse(file.exists("1.1.Rdata"), ".", file.path("..", "..", "model", "results"))
-stats.dir <- paste0(params$id, ".bayesprot.study")
+stats.dir <- paste0(params$id, ".bayesprot.quant")
 dir.create(stats.dir, showWarnings = F)
 dir.create("quants", showWarnings = F)
 
@@ -279,7 +279,7 @@ for (a in 1:nA) {
   # load data
   proteins.assays.quant.mcmc <- vector("list", params$nchain)
   for (j in 1:params$nchain) {
-    proteins.assays.quant.mcmc[[j]] <- readRDS(file.path("quants", paste0(j, ".", a, ".rds")))
+    proteins.assays.quant.mcmc[[j]] <- readRDS(file.path("quants", paste0(a, ".", j, ".rds")))
   }
   proteins.assays.quant.mcmc <- as.mcmc.list(proteins.assays.quant.mcmc)
 

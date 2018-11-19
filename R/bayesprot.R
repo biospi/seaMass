@@ -17,7 +17,7 @@ bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), missing =
   # default parameters
   if (is.null(params$id)) params$id <- id
   if (is.null(params$seed)) params$seed <- 0
-  if (is.null(params$nbatch)) params$nbatch <- 28
+  if (is.null(params$nbatch)) params$nbatch <- 14
   if (is.null(params$nitt)) params$nitt <- 20000
   if (is.null(params$burnin)) params$burnin <- 10000
   if (is.null(params$thin)) params$thin <- 100

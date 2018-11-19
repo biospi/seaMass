@@ -4,9 +4,9 @@ pushd $DIR > /dev/null
 
 # job chain
 MODEL=$(sbatch --parsable model.slurm)
-STUDY=$(sbatch --parsable --dependency=afterok:$MODEL hyper.slurm)
+STUDY=$(sbatch --parsable --dependency=afterok:$MODEL study.slurm)
 MODEL2=$(sbatch --parsable --dependency=afterok:$STUDY model.slurm)
-QUANT=$(sbatch --parsable --dependency=afterok:$MODEL2 output.slurm)
+QUANT=$(sbatch --parsable --dependency=afterok:$MODEL2 quant.slurm)
 if [ -d "qprot" ]; then
   QPROT=$(sbatch --parsable --dependency=afterok:$QUANT qprot.slurm)
   DE=$(sbatch --parsable --dependency=afterok:$QPROT de.slurm)
