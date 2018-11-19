@@ -9,7 +9,7 @@ suppressPackageStartupMessages(library(ggplot2))
 # load parameters
 prefix <- ifelse(file.exists("metadata.Rdata"), ".", file.path("..", "..", "input"))
 load(file.path(prefix, "metadata.Rdata"))
-stats.dir <- paste0(params$id, ".bayesprot.de.output")
+stats.dir <- paste0(params$id, ".bayesprot.de")
 dir.create(stats.dir, showWarnings = F)
 dir.create("qprot", showWarnings = F)
 dir.create("peps", showWarnings = F)
@@ -21,7 +21,7 @@ if (!is.factor(params$qprot.design$Assay)) params$qprot.design$Assay <- factor(p
 if (!is.factor(params$qprot.design$Condition)) params$qprot.design$Condition <- factor(params$qprot.design$Condition, levels = unique(params$qprot.design$Condition))
 dd.design <- as.data.table(merge(dd.assays, params$qprot.design))
 
-prefix <- ifelse(file.exists("protein_quants.csv"), ".", file.path("..", "..", "output", "results", paste0(params$id, ".bayesprot.output")))
+prefix <- ifelse(file.exists("protein_quants.csv"), ".", file.path("..", "..", "quant", "results", paste0(params$id, ".bayesprot.quant")))
 dd <- fread(file.path(prefix, "protein_quants.csv"))
 
 ct0 <- levels(dd.design$Condition)[1]

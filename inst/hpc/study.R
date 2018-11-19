@@ -49,11 +49,13 @@ for (j in 1:params$nchain) {
       load(file.path(prefix, f))
 
       # assay variances
-      as <- as.integer(sub("\\.[0-9]+$", "", colnames(mcmc.assays.var)))
-      ps <- as.integer(sub("^[0-9]+\\.", "", colnames(mcmc.assays.var)))
-      for (k in 1:length(as)) {
-        mcmc.assays.var.sum[as[k], ps[k]] <- mcmc.assays.var.sum[as[k], ps[k]] + colSums(mcmc.assays.var)[k]
-        mcmc.assays.var.n[as[k], ps[k]] <- mcmc.assays.var.n[as[k], ps[k]] + colSums(!is.na(mcmc.assays.var))[k]
+      if (params$assays.var) {
+        as <- as.integer(sub("\\.[0-9]+$", "", colnames(mcmc.assays.var)))
+        ps <- as.integer(sub("^[0-9]+\\.", "", colnames(mcmc.assays.var)))
+        for (k in 1:length(as)) {
+          mcmc.assays.var.sum[as[k], ps[k]] <- mcmc.assays.var.sum[as[k], ps[k]] + colSums(mcmc.assays.var)[k]
+          mcmc.assays.var.n[as[k], ps[k]] <- mcmc.assays.var.n[as[k], ps[k]] + colSums(!is.na(mcmc.assays.var))[k]
+        }
       }
 
       # peptide variances
@@ -106,16 +108,18 @@ for (j in 1:params$nchain) {
 # FIT INVERSE GAMMA DISTRIBUTIONS TO VARIANCES
 
 # fit assay posterior means
-assays.var <- array(NA, c(sum(dd.proteins$nPeptide), nA))
 assays.nu <- array(NA, nA)
 assays.V <- array(NA, nA)
-for (i in 1:nA) {
-  assays.var[, i] <- rep(as.vector(mcmc.assays.var.sum[i,] / mcmc.assays.var.n[i,]), dd.proteins$nPeptide)
-  fit.assays <- fitdist(assays.var[!is.na(assays.var[, i]), i], "invgamma", method = "mge", gof = "CvM", start = list(shape = 1.0, scale = 0.05))
-  assays.shape <- fit.assays$estimate["shape"]
-  assays.scale <- fit.assays$estimate["scale"]
-  assays.nu[i] <- as.numeric(2.0 * fit.assays$estimate["shape"])
-  assays.V[i] <- as.numeric((2.0 * fit.assays$estimate["scale"]) / assays.nu[i])
+if (params$assays.var) {
+  assays.var <- array(NA, c(sum(dd.proteins$nPeptide), nA))
+  for (i in 1:nA) {
+    assays.var[, i] <- rep(as.vector(mcmc.assays.var.sum[i,] / mcmc.assays.var.n[i,]), dd.proteins$nPeptide)
+    fit.assays <- fitdist(assays.var[!is.na(assays.var[, i]), i], "invgamma", method = "mge", gof = "CvM", start = list(shape = 1.0, scale = 0.05))
+    assays.shape <- fit.assays$estimate["shape"]
+    assays.scale <- fit.assays$estimate["scale"]
+    assays.nu[i] <- as.numeric(2.0 * fit.assays$estimate["shape"])
+    assays.V[i] <- as.numeric((2.0 * fit.assays$estimate["scale"]) / assays.nu[i])
+  }
 }
 
 # fit peptide posterior means
@@ -200,72 +204,74 @@ ggsave(file.path(stats.dir, "exposures.pdf"), plot.exposures(mcmc.exposures), wi
 
 
 # assays plot
-plot.assays <- function(assays.sd)
-{
-  dd.assays.sd <- data.table(t(assays.sd))
-  dd.assays.sd$Assay <- dd.assays$Assay
-  dd.assays.sd <- melt(dd.assays.sd, variable.name="mcmc", value.name="Exposure", id.vars = c("Assay"))
-  dd.assays.sd <- dd.assays.sd[complete.cases(dd.assays.sd),]
+if (params$assays.var) {
+  plot.assays <- function(assays.sd)
+  {
+    dd.assays.sd <- data.table(t(assays.sd))
+    dd.assays.sd$Assay <- dd.assays$Assay
+    dd.assays.sd <- melt(dd.assays.sd, variable.name="mcmc", value.name="Exposure", id.vars = c("Assay"))
+    dd.assays.sd <- dd.assays.sd[complete.cases(dd.assays.sd),]
 
-  # construct metadata
-  dd.assays.sd.meta.func <- function(x) {
-    m <- median(x, na.rm=T)
-    if (is.nan(m)) m <- NA
+    # construct metadata
+    dd.assays.sd.meta.func <- function(x) {
+      m <- median(x, na.rm=T)
+      if (is.nan(m)) m <- NA
 
-    data.table(median = m, fc = paste0("  ", ifelse(m < 0, format(-2^-m, digits = 3), format(2^m, digits = 3)), "fc"))
+      data.table(median = m, fc = paste0("  ", ifelse(m < 0, format(-2^-m, digits = 3), format(2^m, digits = 3)), "fc"))
+    }
+    dd.assays.sd.meta <- dd.assays.sd[, as.list(dd.assays.sd.meta.func(Exposure)), by = list(Assay)]
+
+    # construct densities
+    dd.assays.sd.density.func <- function(x) {
+      if (all(x == 0.0)) {
+        data.table()
+      }
+      else {
+        dens <- logdensity(x, n = 4096, from = 0.00001, na.rm = T)
+        data.table(x = dens$x, y = dens$y)
+      }
+    }
+    dd.assays.sd.density <- dd.assays.sd[, as.list(dd.assays.sd.density.func(Exposure)), by = list(Assay)]
+
+    y_range <- max(dd.assays.sd.density$y) * 1.35
+    x_range <- max(-min(dd.assays.sd.density$x[dd.assays.sd.density$y > y_range/100]), max(dd.assays.sd.density$x[dd.assays.sd.density$y > y_range/100])) * 1.2
+
+    # construct densities
+    dd.assays.sd.density.func <- function(x) {
+      if (all(x == 0.0)) {
+        data.table()
+      }
+      else {
+        dens <- logdensity(x, n = 4096, from = 0.00001, to = x_range, na.rm = T)
+        data.table(x = dens$x, y = dens$y)
+      }
+    }
+    dd.assays.sd.density <- dd.assays.sd[, as.list(dd.assays.sd.density.func(Exposure)), by = list(Assay)]
+
+    g <- ggplot(dd.assays.sd, aes(x = median))
+    g <- g + theme_bw()
+    g <- g + theme(panel.border = element_rect(colour = "black", size = 1),
+                   panel.grid.major = element_line(size = 0.5),
+                   axis.ticks = element_blank(),
+                   axis.text.y = element_blank(),
+                   plot.title = element_text(size = 10),
+                   strip.background=element_blank())
+    g <- g + scale_x_continuous(expand = c(0, 0))
+    g <- g + scale_y_continuous(expand = c(0, 0))
+    g <- g + facet_grid(Assay ~ .)
+    g <- g + coord_cartesian(xlim = c(0, x_range), ylim = c(-0.0, y_range))
+    g <- g + xlab(expression('Log'[2]*' Ratio'))
+    g <- g + ylab("Probability Density")
+    g <- g + geom_vline(xintercept = 0,size = 1/2, colour = "darkgrey")
+    g <- g + geom_ribbon(data = dd.assays.sd.density,aes(x = x, ymax = y), ymin = 0,size = 1/2, alpha = 0.3)
+    g <- g + geom_line(data = dd.assays.sd.density, aes(x = x,y = y), size = 1/2)
+    g <- g + geom_vline(data = dd.assays.sd.meta,aes(xintercept = median), size = 1/2)
+    g <- g + geom_text(data = dd.assays.sd.meta, aes(x = median, label = fc), y = max(dd.assays.sd.density$y) * 1.1, hjust = 0, vjust = 1, size = 3)
+    g
   }
-  dd.assays.sd.meta <- dd.assays.sd[, as.list(dd.assays.sd.meta.func(Exposure)), by = list(Assay)]
 
-  # construct densities
-  dd.assays.sd.density.func <- function(x) {
-    if (all(x == 0.0)) {
-      data.table()
-    }
-    else {
-      dens <- logdensity(x, n = 4096, from = 0.00001, na.rm = T)
-      data.table(x = dens$x, y = dens$y)
-    }
-  }
-  dd.assays.sd.density <- dd.assays.sd[, as.list(dd.assays.sd.density.func(Exposure)), by = list(Assay)]
-
-  y_range <- max(dd.assays.sd.density$y) * 1.35
-  x_range <- max(-min(dd.assays.sd.density$x[dd.assays.sd.density$y > y_range/100]), max(dd.assays.sd.density$x[dd.assays.sd.density$y > y_range/100])) * 1.2
-
-  # construct densities
-  dd.assays.sd.density.func <- function(x) {
-    if (all(x == 0.0)) {
-      data.table()
-    }
-    else {
-      dens <- logdensity(x, n = 4096, from = 0.00001, to = x_range, na.rm = T)
-      data.table(x = dens$x, y = dens$y)
-    }
-  }
-  dd.assays.sd.density <- dd.assays.sd[, as.list(dd.assays.sd.density.func(Exposure)), by = list(Assay)]
-
-  g <- ggplot(dd.assays.sd, aes(x = median))
-  g <- g + theme_bw()
-  g <- g + theme(panel.border = element_rect(colour = "black", size = 1),
-                 panel.grid.major = element_line(size = 0.5),
-                 axis.ticks = element_blank(),
-                 axis.text.y = element_blank(),
-                 plot.title = element_text(size = 10),
-                 strip.background=element_blank())
-  g <- g + scale_x_continuous(expand = c(0, 0))
-  g <- g + scale_y_continuous(expand = c(0, 0))
-  g <- g + facet_grid(Assay ~ .)
-  g <- g + coord_cartesian(xlim = c(0, x_range), ylim = c(-0.0, y_range))
-  g <- g + xlab(expression('Log'[2]*' Ratio'))
-  g <- g + ylab("Probability Density")
-  g <- g + geom_vline(xintercept = 0,size = 1/2, colour = "darkgrey")
-  g <- g + geom_ribbon(data = dd.assays.sd.density,aes(x = x, ymax = y), ymin = 0,size = 1/2, alpha = 0.3)
-  g <- g + geom_line(data = dd.assays.sd.density, aes(x = x,y = y), size = 1/2)
-  g <- g + geom_vline(data = dd.assays.sd.meta,aes(xintercept = median), size = 1/2)
-  g <- g + geom_text(data = dd.assays.sd.meta, aes(x = median, label = fc), y = max(dd.assays.sd.density$y) * 1.1, hjust = 0, vjust = 1, size = 3)
-  g
+  ggsave(file.path(stats.dir, "assay_stdevs.pdf"), plot.assays(sqrt(assays.var / log(2))), width = 8, height = 0.5 + 0.5 * nA)
 }
-
-ggsave(file.path(stats.dir, "assay_stdevs.pdf"), plot.assays(sqrt(assays.var / log(2))), width = 8, height = 0.5 + 0.5 * nA)
 
 # fit plot
 plot.fit.xmax <- function(x.var) {
@@ -286,11 +292,13 @@ plot.fit.dd <- function(label, x.var, x.V, x.nu, x.max) {
   )
 }
 
-dd.plot <- vector("list", 2 + nA)
+dd.plot <- vector("list", 2 + ifelse(params$assayvar, nA, 0))
 dd.plot[[1]] <- plot.fit.dd("Peptides", peptides.var, peptide.V, peptide.nu, x.max)
 dd.plot[[2]] <- plot.fit.dd("Features", features.var, feature.V, feature.nu, x.max)
-for (i in 1:nA) {
-  dd.plot[[2 + i]] <- plot.fit.dd(paste("Assay", dd.assays[AssayID == i, Assay]), assays.var[, i], assays.V[i], assays.nu[i], x.max)
+if (params$assays.var) {
+  for (i in 1:nA) {
+    dd.plot[[2 + i]] <- plot.fit.dd(paste("Assay", dd.assays[AssayID == i, Assay]), assays.var[, i], assays.V[i], assays.nu[i], x.max)
+  }
 }
 dd.plot <- rbindlist(dd.plot)
 dd.plot[, Label := factor(Label, levels = unique(Label))]
@@ -310,7 +318,7 @@ g <- g + coord_cartesian(xlim = c(0, x.max), ylim = c(0, 1.1 * max(dd.plot$y)), 
 g <- g + theme(legend.position="top")
 g <- g + xlab("log2 Variance")
 g <- g + ylab("Density")
-ggsave("study.pdf", g, width = 8, height = 1.5 + 0.75 * (2 + nA))
+ggsave("study.pdf", g, width = 8, height = 1.5 + 0.75 * (2 + ifelse(params$assayvar, nA, 0)))
 
 
 # create zip file and clean up

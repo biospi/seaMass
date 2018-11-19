@@ -24,6 +24,7 @@ bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), missing =
   if (is.null(params$nchain)) params$nchain <- 10
   if (is.null(params$qprot.paired)) params$qprot.paired <- F
 
+  if (is.null(params$qprot.paired)) params$assays.var <- T
   if (is.null(params$qprot.path)) params$qprot.path <- ""
   if (params$qprot.path != "") params$qprot.path <- paste0(params$qprot.path, "/")
   message(paste0("building indices..."))

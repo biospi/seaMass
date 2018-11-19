@@ -85,23 +85,37 @@ ret <- foreach(batch = 1:params$nbatch) %dopar% {
 
       # set prior
       if (exists("peptide.V")) {
-        prior <- list(
-          G = list(G1 = list(V = diag(assays.V), nu = median(assays.nu)),
-                   G2 = list(V = peptide.V * diag(nT), nu = peptide.nu)),
-          R = list(V = feature.V * diag(nF), nu = feature.nu)
-        )
+        if (params$assays.var) {
+          prior <- list(
+            G = list(G1 = list(V = diag(assays.V), nu = median(assays.nu)),
+                     G2 = list(V = peptide.V * diag(nT), nu = peptide.nu)),
+            R = list(V = feature.V * diag(nF), nu = feature.nu)
+          )
+        } else {
+          prior <- list(
+            G = list(G1 = list(V = peptide.V * diag(nT), nu = peptide.nu)),
+            R = list(V = feature.V * diag(nF), nu = feature.nu)
+          )
+        }
       } else {
-        prior <- list(
-          G = list(G1 = list(V = diag(nA), nu = nA, alpha.mu = rep(0, nA), alpha.V = diag(25^2, nA)),
-                   G2 = list(V = diag(nT), nu = nT, alpha.mu = rep(0, nT), alpha.V = diag(25^2, nT))),
-          R = list(V = feature.V * diag(nF), nu = feature.nu)
-        )
+        if (params$assays.var) {
+          prior <- list(
+            G = list(G1 = list(V = diag(nA), nu = nA, alpha.mu = rep(0, nA), alpha.V = diag(25^2, nA)),
+                     G2 = list(V = diag(nT), nu = nT, alpha.mu = rep(0, nT), alpha.V = diag(25^2, nT))),
+            R = list(V = feature.V * diag(nF), nu = feature.nu)
+          )
+        } else {
+          prior <- list(
+            G = list(G2 = list(V = diag(nT), nu = nT, alpha.mu = rep(0, nT), alpha.V = diag(25^2, nT))),
+            R = list(V = feature.V * diag(nF), nu = feature.nu)
+          )
+        }
       }
 
       #run model
       time.1.mcmc <- system.time(model <- (MCMCglmm(
         as.formula(paste(ifelse(is.null(dd$MaxCount), "Count", "c(Count, MaxCount)"), "~ ", ifelse(nF==1, "QuantID", "FeatureID - 1 + QuantID"))),
-        random = as.formula(paste0("~ idh(AssayID):PeptideID + ", ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":AssayID")),
+        random = as.formula(paste0("~ ", ifelse(params$assays.var, "idh(AssayID):PeptideID + ", ""), ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":AssayID")),
         rcov = as.formula(paste0("~ ", ifelse(nF==1, "units", "idh(FeatureID):units"))),
         family = ifelse(is.null(dd$MaxCount), "poisson", "cenpoisson"),
         data = dd, prior = prior, nitt = params$nitt, burnin = params$burnin, thin = params$thin, pr = T, verbose = F
@@ -134,9 +148,11 @@ ret <- foreach(batch = 1:params$nbatch) %dopar% {
       model$Sol <- NULL
 
       # extract assay variances
-      mcmc.1.assays.var <- model$VCV[, grep("^AssayID[0-9]+\\.PeptideID$", colnames(model$VCV)), drop = F]
-      colnames(mcmc.1.assays.var) <- paste0(gsub("^AssayID([0-9]+\\.)PeptideID$", "\\1", colnames(mcmc.1.assays.var)), levels(dd.batch$ProteinID)[p])
-      mcmc.assays.var <- cbind(mcmc.assays.var, mcmc.1.assays.var)
+      if (params$assays.var) {
+        mcmc.1.assays.var <- model$VCV[, grep("^AssayID[0-9]+\\.PeptideID$", colnames(model$VCV)), drop = F]
+        colnames(mcmc.1.assays.var) <- paste0(gsub("^AssayID([0-9]+\\.)PeptideID$", "\\1", colnames(mcmc.1.assays.var)), levels(dd.batch$ProteinID)[p])
+        mcmc.assays.var <- cbind(mcmc.assays.var, mcmc.1.assays.var)
+      }
 
       # extract peptide variances
       if (nT==1) {

@@ -6,10 +6,10 @@
 #SBATCH --mail-type=FAIL
 #SBATCH --nodes=1
 #SBATCH --tasks-per-node=1
-#SBATCH --cpus-per-task=28
+#SBATCH --cpus-per-task=14
 
 #SBATCH --partition=cpu
-#SBATCH --mem=96g
+#SBATCH --mem=64000m
 #SBATCH --time=14-00:00:00
 
 #SBATCH --job-name=bp.qprot

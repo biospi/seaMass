@@ -9,7 +9,7 @@
 #SBATCH --cpus-per-task=1
 
 #SBATCH --partition=serial
-#SBATCH --mem=3g
+#SBATCH --mem=4500m
 #SBATCH --time=12:00:00
 
 #SBATCH --job-name=bp.quant
