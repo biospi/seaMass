@@ -57,10 +57,10 @@ ret <- foreach(s = rep(1:nsamp, length(cts)), ct = rep(cts, each = nsamp)) %dopa
   print(paste0("[", Sys.time(), " Started]"))
 
   # process samp s
-  mat.0 <- mcmc.quants[s,, dd.design[Condition == levels(dd.design$Condition)[1], AssayID]]
+  mat.0 <- as.data.table(mcmc.quants[s,, dd.design[Condition == levels(dd.design$Condition)[1], AssayID]])
   colnames(mat.0) <- rep("0", ncol(mat.0))
 
-  mat.1 <- mcmc.quants[s, , dd.design[Condition == ct, AssayID]]
+  mat.1 <- as.data.table(mcmc.quants[s, , dd.design[Condition == ct, AssayID]])
   colnames(mat.1) <- rep("1", ncol(mat.1))
 
   mat.qprot <- cbind(dd.proteins$ProteinID, mat.0, mat.1)
@@ -74,7 +74,7 @@ ret <- foreach(s = rep(1:nsamp, length(cts)), ct = rep(cts, each = nsamp)) %dopa
 
   # run qprot
   filename.qprot <- file.path(file.path("qprot", ct), paste0(chain, ".", s, ".tsv"))
-  fwrite(as.data.table(mat.qprot), filename.qprot, sep = "\t")
+  fwrite(mat.qprot, filename.qprot, sep = "\t")
   if (params$qprot.paired) {
     system2(paste0(params$qprot.path, "qprot-paired"), args = c(filename.qprot, "10000", "100000", "0"))
   } else {

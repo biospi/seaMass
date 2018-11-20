@@ -22,19 +22,19 @@ if (!is.factor(params$qprot.design$Condition)) params$qprot.design$Condition <- 
 dd.design <- as.data.table(merge(dd.assays, params$qprot.design))
 
 prefix <- ifelse(file.exists("protein_quants.csv"), ".", file.path("..", "..", "quant", "results", paste0(params$id, ".bayesprot.quant")))
-dd <- fread(file.path(prefix, "protein_quants.csv"))
+dd <- fread(file.path(prefix, "protein_quants.csv"), header = T)
 
 ct0 <- levels(dd.design$Condition)[1]
 for (ct in levels(dd.design$Condition)[2:length(levels(dd.design$Condition))]) {
 
   # QPROT ON POSTERIOR MEANS ONLY, FOR FUN
-  mat.0 <- dd[, dd.design[Condition == ct0, Assay], with = F]
-  colnames(mat.0) <- rep("0", ncol(mat.0))
+  mat.0 <- dd[, c("ProteinID", dd.design[Condition == ct0, Assay]), with = F]
+  colnames(mat.0)[2:ncol(mat.0)] <- rep("0", ncol(mat.0) - 1)
 
   mat.1 <- dd[, dd.design[Condition == ct, Assay], with = F]
   colnames(mat.1) <- rep("1", ncol(mat.1))
 
-  mat.qprot <- cbind(dd.proteins$ProteinID, mat.0, mat.1)
+  mat.qprot <- cbind(mat.0, mat.1)
   colnames(mat.qprot)[1] <- "Protein"
 
   # remove NAs (check qprot requirements)
@@ -75,6 +75,7 @@ for (ct in levels(dd.design$Condition)[2:length(levels(dd.design$Condition))]) {
     setorder(dd.fdr.mcmc[[i]], PEP)
     dd.fdr.mcmc[[i]][, Discoveries := 1:nrow(dd.fdr.mcmc[[i]])]
     dd.fdr.mcmc[[i]][, FDR := cumsum(PEP) / Discoveries]
+    dd.fdr.mcmc[[i]][, samp := i]
 
     mcmc.peps[dd.fdr.mcmc[[i]]$ProteinID,
               as.integer(sub("\\.[0-9]+\\.tsv_qprot_fdr", "", files[i])),

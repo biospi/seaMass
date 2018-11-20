@@ -280,7 +280,10 @@ plot.fit.xmax <- function(x.var) {
   dens.x.var$x[which.min(abs(dens.x.var$y - 0.25 * max(dens.x.var$y)))]
 }
 
-x.max <- max(plot.fit.xmax(peptides.var), plot.fit.xmax(features.var), sapply(1:nA, function(i) plot.fit.xmax(assays.var[, i])))
+x.max <- max(plot.fit.xmax(peptides.var), plot.fit.xmax(features.var))
+if (params$assays.var) {
+  x.max <- max(x.max, sapply(1:nA, function(i) plot.fit.xmax(assays.var[, i])))
+}
 
 plot.fit.dd <- function(label, x.var, x.V, x.nu, x.max) {
   dens.x.var <- logdensity(x.var / log(2), from = 0.0000001, to = x.max, na.rm = T)[c("x","y")]
@@ -292,7 +295,7 @@ plot.fit.dd <- function(label, x.var, x.V, x.nu, x.max) {
   )
 }
 
-dd.plot <- vector("list", 2 + ifelse(params$assayvar, nA, 0))
+dd.plot <- vector("list", 2 + ifelse(params$assays.var, nA, 0))
 dd.plot[[1]] <- plot.fit.dd("Peptides", peptides.var, peptide.V, peptide.nu, x.max)
 dd.plot[[2]] <- plot.fit.dd("Features", features.var, feature.V, feature.nu, x.max)
 if (params$assays.var) {
@@ -318,7 +321,7 @@ g <- g + coord_cartesian(xlim = c(0, x.max), ylim = c(0, 1.1 * max(dd.plot$y)), 
 g <- g + theme(legend.position="top")
 g <- g + xlab("log2 Variance")
 g <- g + ylab("Density")
-ggsave("study.pdf", g, width = 8, height = 1.5 + 0.75 * (2 + ifelse(params$assayvar, nA, 0)))
+ggsave("study.pdf", g, width = 8, height = 1.5 + 0.75 * (2 + ifelse(params$assays.var, nA, 0)))
 
 
 # create zip file and clean up
