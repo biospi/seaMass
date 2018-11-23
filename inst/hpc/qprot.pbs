@@ -1,0 +1,18 @@
+#!/bin/bash
+
+#PBS -o qprot
+#PBS -j oe
+#PBS -r y
+#PBS -l nodes=1:ppn=16
+
+#PBS -q short
+#PBS -l mem=64000m
+#PBS -l walltime=120:00:00
+
+#PBS -N bp.qprot
+#PBS -M andrew.dowsey@bristol.ac.uk
+
+#PBS -t 1-10
+cd $PBS_O_WORKDIR/qprot/results
+Rscript ../../qprot.R $PBS_ARRAYID
+qstat -f $PBS_JOBID

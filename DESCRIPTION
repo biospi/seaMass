@@ -16,6 +16,7 @@ Imports:
     data.table (>= 1.11.4),
 Suggests:
     doParallel (>= 1.0.14),
+    doRNG (>= 1.7.1),
     MCMCglmm (>= 2.26),
     fitdistrplus (>= 1.0-11),
     actuar (>= 2.3-1),

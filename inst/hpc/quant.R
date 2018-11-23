@@ -1,5 +1,3 @@
-invisible(Sys.setlocale("LC_COLLATE","C"))
-
 message("[",paste0(Sys.time()," Starting]"))
 
 # load libraries
@@ -12,16 +10,15 @@ suppressPackageStartupMessages(library(coda))
 # load parameters
 prefix <- ifelse(file.exists("metadata.Rdata"), ".", file.path("..", "..", "input"))
 load(file.path(prefix, "metadata.Rdata"))
+nsamp <- (params$quant.nitt - params$quant.burnin) / params$quant.thin
 
-nsamp <- (params$nitt - params$burnin) / params$thin
-
+nA <- length(levels(dd.assays$AssayID))
 nP <- length(levels(dd.proteins$ProteinID))
 nT <- length(levels(dd.peptides$PeptideID))
 nF <- length(levels(dd.features$FeatureID))
-nA <- length(levels(dd.assays$AssayID))
 
-# create subdirectories if necessary
-prefix <- ifelse(file.exists("1.1.Rdata"), ".", file.path("..", "..", "model", "results"))
+# create subdirectories
+prefix <- ifelse(file.exists("1.Rdata"), ".", file.path("..", "..", "model", "results"))
 stats.dir <- paste0(params$id, ".bayesprot.quant")
 dir.create(stats.dir, showWarnings = F)
 dir.create("quants", showWarnings = F)
@@ -29,131 +26,126 @@ dir.create("quants", showWarnings = F)
 
 # LOAD MODEL OUTPUT, CORRECT EXPOSURES, COMPUTE STATS
 
-ls.timings <- vector("list", params$nbatch * params$nchain)
+timings <- array(NA, c(nP, params$quant.nchain))
 
-features.sd.psum <- array(NA, c(nF, params$nchain))
-features.sd.pn <- array(NA, c(nF, params$nchain))
+feature.stdevs.sum <- array(NA, c(nF, params$quant.nchain))
+feature.stdevs.n <- array(NA, c(nF, params$quant.nchain))
 
-peptides.sd.psum <- array(NA, c(nT, params$nchain))
-peptides.sd.pn <- array(NA, c(nT, params$nchain))
+peptide.stdevs.sum <- array(NA, c(nT, params$quant.nchain))
+peptide.stdevs.n <- array(NA, c(nT, params$quant.nchain))
 
-peptides.assays.deviation.psum <- array(NA, c(nT, nA, params$nchain))
-peptides.assays.deviation.psumsqrs <- array(NA, c(nT, nA, params$nchain))
-peptides.assays.deviation.pn <- array(NA, c(nT, nA, params$nchain))
+peptide.deviations.sum <- array(NA, c(nT, nA, params$quant.nchain))
+peptide.deviations.sumsqrs <- array(NA, c(nT, nA, params$quant.nchain))
+peptide.deviations.n <- array(NA, c(nT, nA, params$quant.nchain))
 
-mcmc.exposures <- matrix(NA, nsamp * params$nchain, nA)
-proteins.assays.quant.psum <- array(NA, c(nP, nA, params$nchain))
-proteins.assays.quant.psumsqrs <- array(NA, c(nP, nA, params$nchain))
-proteins.assays.quant.pn <- array(NA, c(nP, nA, params$nchain))
+mcmc.exposures <- matrix(NA, nsamp * params$quant.nchain, nA)
+protein.quants.sum <- array(NA, c(nP, nA, params$quant.nchain))
+protein.quants.sumsqrs <- array(NA, c(nP, nA, params$quant.nchain))
+protein.quants.n <- array(NA, c(nP, nA, params$quant.nchain))
 
-for (j in 1:params$nchain) {
-  # read in quants
-  proteins.assays.quant.mcmc <- array(NA, c(nsamp, nP, nA))
-  proteins.assays.baseline <- matrix(NA, nP, nA)
+for (j in 1:params$quant.nchain) {
+  message("[", paste0(Sys.time(), " Reading chain ", j, "/", params$quant.nchain, "...]"))
 
-  files <- list.files(prefix, paste0("^[0-9]+\\.", j, "\\.Rdata$"))
-  if (length(files) > 0) {
-    if (length(files) < params$nbatch) stop("ERROR: Some quant output is missing")
+  mcmc.protein.quants <- array(NA, c(nsamp, nP, nA))
+  protein.baselines <- matrix(NA, nP, nA)
 
-    message("[", paste0(Sys.time(), " Reading chain ", j, "/", params$nchain, "...]"))
-
-    # read in MCMC samps
-    for (f in files) {
-      load(file.path(prefix, f))
+  input.all <- readRDS(file.path(prefix, paste0(j, ".rds")))
+  for (name in names(input.all)) {
+    p <- as.integer(name)
+    input <- input.all[[name]]
+    if (!is.null(input)) {
 
       # timings
-      dd.time[, chainID := j]
-      ls.timings[[(as.integer(sub("\\.[0-9]+\\.Rdata$", "", f)) - 1) * params$nchain + j]] <- dd.time
+      timings[p, j] <- input$timing["elapsed"]
 
-      # features.sd
-      features.sd.psum[as.integer(colnames(mcmc.features.var)), j] <- colSums(sqrt(mcmc.features.var) / log(2)) # convert to log2 ratios
-      features.sd.pn[as.integer(colnames(mcmc.features.var)), j] <- colSums(!is.na(mcmc.features.var))
+      # peptide variance
+      ts <- as.integer(colnames(input$mcmc.peptide.vars))
+      peptide.stdevs.sum[ts] <- peptide.stdevs.sum[ts] + colSums(sqrt(input$mcmc.peptide.vars) / log(2)) # convert to log2 ratios
+      peptide.stdevs.n[ts] <- peptide.stdevs.n[ts] + colSums(!is.na(input$mcmc.peptide.vars))
 
-      # peptides.sd
-      peptides.sd.psum[as.integer(colnames(mcmc.peptides.var)), j] <- colSums(sqrt(mcmc.peptides.var) / log(2)) # convert to log2 ratios
-      peptides.sd.pn[as.integer(colnames(mcmc.peptides.var)), j] <- colSums(!is.na(mcmc.peptides.var))
+      # feature variances
+      fs <- as.integer(colnames(input$mcmc.feature.vars))
+      feature.stdevs.sum[fs] <- feature.stdevs.sum[fs] + colSums(sqrt(input$mcmc.feature.vars) / log(2)) # convert to log2 ratios
+      feature.stdevs.n[fs] <- feature.stdevs.n[fs] + colSums(!is.na(input$mcmc.feature.vars))
 
-      # peptides.assays.deviation
-      ts <- as.integer(sub("^([0-9]+)\\.[0-9]+$", "\\1", colnames(mcmc.peptides.quants)))
-      as <- as.integer(sub("^[0-9]+\\.([0-9]+)$", "\\1", colnames(mcmc.peptides.quants)))
-      for (k in 1:ncol(mcmc.peptides.quants)) {
-        peptides.assays.deviation.psum[ts[k], as[k], j] <- sum(mcmc.peptides.quants[, k] / log(2)) # convert to log2 ratios
-        peptides.assays.deviation.psumsqrs[ts[k], as[k], j] <- sum((mcmc.peptides.quants[, k] / log(2))^2) # convert to log2 ratios
-        peptides.assays.deviation.pn[ts[k], as[k], j] <- sum(!is.na(mcmc.peptides.quants[, k]))
+      # peptide deviations
+      ts <- as.integer(sub("^([0-9]+)\\.[0-9]+$", "\\1", colnames(input$mcmc.peptide.deviations)))
+      as <- as.integer(sub("^[0-9]+\\.([0-9]+)$", "\\1", colnames(input$mcmc.peptide.deviations)))
+      for (k in 1:ncol(input$mcmc.peptide.deviations)) {
+        peptide.deviations.sum[ts[k], as[k], j] <- sum(input$mcmc.peptide.deviations[, k] / log(2)) # convert to log2 ratios
+        peptide.deviations.sumsqrs[ts[k], as[k], j] <- sum((input$mcmc.peptide.deviations[, k] / log(2))^2) # convert to log2 ratios
+        peptide.deviations.n[ts[k], as[k], j] <- sum(!is.na(input$mcmc.peptide.deviations[, k]))
       }
 
-      # proteins.assays.quant.mcmc
-      ps <- as.integer(sub("^([0-9]+)\\.[0-9]+\\.[0-9]+$", "\\1", colnames(mcmc.quants)))
-      bs <- as.integer(sub("^[0-9]+\\.([0-9]+)\\.[0-9]+$", "\\1", colnames(mcmc.quants)))
-      as <- as.integer(sub("^[0-9]+\\.[0-9]+\\.([0-9]+)$", "\\1", colnames(mcmc.quants)))
-      for (k in 1:ncol(mcmc.quants)) {
-        proteins.assays.baseline[ps[k], as[k]] <- bs[k]
+      # protein quants
+      bs <- as.integer(sub("^[0-9]+\\.([0-9]+)\\.[0-9]+$", "\\1", colnames(input$mcmc.protein.quants)))
+      as <- as.integer(sub("^[0-9]+\\.[0-9]+\\.([0-9]+)$", "\\1", colnames(input$mcmc.protein.quants)))
+      protein.baselines[p, as] <- bs
 
-        # if not already done, fill in baseline with zeros
-        if (is.na(proteins.assays.baseline[ps[k], proteins.assays.baseline[ps[k], as[k]]])) {
-          proteins.assays.baseline[ps[k], proteins.assays.baseline[ps[k], as[k]]] <- proteins.assays.baseline[ps[k], as[k]]
-          proteins.assays.quant.mcmc[, ps[k], proteins.assays.baseline[ps[k], as[k]]] <- 0.0
+      # if not already done, fill in baseline with zeros
+      for (k in 1:ncol(input$mcmc.protein.quants)) {
+        if (is.na(protein.baselines[p, protein.baselines[p, as[k]]])) {
+          protein.baselines[p, protein.baselines[p, as[k]]] <- protein.baselines[p, as[k]]
+          mcmc.protein.quants[, p, protein.baselines[p, as[k]]] <- 0.0
         }
-
-        proteins.assays.quant.mcmc[, ps[k], as[k]] <- mcmc.quants[, k] / log(2) # convert to log2 ratios
       }
+
+      mcmc.protein.quants[, p, as] <- input$mcmc.protein.quants / log(2) # convert to log2 ratios
     }
   }
 
-  message("[", paste0(Sys.time(), " Correcting exposures for chain ", j, "/", params$nchain, "...]"))
+  message("[", paste0(Sys.time(), " Correcting exposures for chain ", j, "/", params$quant.nchain, "...]"))
 
   # shift so that denominator is mean of reference assays
   for (p in 1:nP) {
-    bs <- unique(proteins.assays.baseline[p,])
+    bs <- unique(protein.baselines[p,])
     for (b in bs[!is.na(bs)]) {
-      as <- which(proteins.assays.baseline[p,] == b)
+      as <- which(protein.baselines[p,] == b)
       rs <- intersect(as, as.integer(dd.assays[isRef == T, AssayID]))
-      proteins.assays.quant.mcmc[, p, as] <- proteins.assays.quant.mcmc[, p, as] - rowMeans(proteins.assays.quant.mcmc[, p, rs])
+      mcmc.protein.quants[, p, as] <- mcmc.protein.quants[, p, as] - rowMeans(mcmc.protein.quants[, p, rs])
     }
   }
 
   # calculate exposures
   for (a in 1:nA) {
     # use only proteins which share the most common baseline
-    ps <- which(proteins.assays.baseline[, a] == names(which.max(table(proteins.assays.baseline[, a]))))
-    mcmc.exposures[(nsamp*(j-1)+1):(nsamp*j), a] <- apply(proteins.assays.quant.mcmc[, ps, a], 1, function(x) median(x, na.rm = T))
+    ps <- which(protein.baselines[, a] == names(which.max(table(protein.baselines[, a]))))
+    mcmc.exposures[(nsamp*(j-1)+1):(nsamp*j), a] <- apply(mcmc.protein.quants[, ps, a], 1, function(x) median(x, na.rm = T))
   }
 
   # correct exposures
-  for (p in 1:nP) proteins.assays.quant.mcmc[, p,] <- proteins.assays.quant.mcmc[, p,] - mcmc.exposures[(nsamp*(j-1)+1):(nsamp*j),]
+  for (p in 1:nP) mcmc.protein.quants[, p,] <- mcmc.protein.quants[, p,] - mcmc.exposures[(nsamp*(j-1)+1):(nsamp*j),]
 
-  message("[", paste0(Sys.time(), " Saving chain ", j, "/", params$nchain, "...]"))
+  message("[", paste0(Sys.time(), " Saving chain ", j, "/", params$quant.nchain, "...]"))
 
   # write out normalised quant mcmc
-  colnames(proteins.assays.quant.mcmc) <- 1:nP
+  colnames(mcmc.protein.quants) <- 1:nP
   for (a in 1:nA) {
-    mcmc.quants <- as.mcmc(proteins.assays.quant.mcmc[, !is.na(colSums(proteins.assays.quant.mcmc[,, a])), a])
-    colnames(mcmc.quants) <- paste0(colnames(mcmc.quants), ".", proteins.assays.baseline[!is.na(colSums(proteins.assays.quant.mcmc[,, a])), a])
+    mcmc.quants <- as.mcmc(mcmc.protein.quants[, !is.na(colSums(mcmc.protein.quants[,, a])), a])
+    colnames(mcmc.quants) <- paste0(colnames(mcmc.quants), ".", protein.baselines[!is.na(colSums(mcmc.protein.quants[,, a])), a])
     saveRDS(mcmc.quants, file.path("quants", paste0(a, ".", j, ".rds")))
   }
 
   # compute output stats
-  proteins.assays.quant.psum[,, j] <- apply(proteins.assays.quant.mcmc, 3, function(x1) apply(x1, 2, function(x2) sum(x2)))
-  proteins.assays.quant.psumsqrs[,, j] <- apply(proteins.assays.quant.mcmc, 3, function(x1) apply(x1, 2, function(x2) sum(x2^2)))
-  proteins.assays.quant.pn[,, j] <- apply(proteins.assays.quant.mcmc, 3, function(x1) apply(x1, 2, function(x2) sum(!is.na(x2))))
+  protein.quants.sum[,, j] <- apply(mcmc.protein.quants, 3, function(x1) apply(x1, 2, function(x2) sum(x2)))
+  protein.quants.sumsqrs[,, j] <- apply(mcmc.protein.quants, 3, function(x1) apply(x1, 2, function(x2) sum(x2^2)))
+  protein.quants.n[,, j] <- apply(mcmc.protein.quants, 3, function(x1) apply(x1, 2, function(x2) sum(!is.na(x2))))
 }
 
 # merge chains
-dd.timings <- rbindlist(ls.timings)
+feature.stdevs.sum <- rowSums(feature.stdevs.sum)
+feature.stdevs.n <- rowSums(feature.stdevs.n)
 
-features.sd.psum <- rowSums(features.sd.psum)
-features.sd.pn <- rowSums(features.sd.pn)
+peptide.stdevs.sum <- rowSums(peptide.stdevs.sum)
+peptide.stdevs.n <- rowSums(peptide.stdevs.n)
 
-peptides.sd.psum <- rowSums(peptides.sd.psum)
-peptides.sd.pn <- rowSums(peptides.sd.pn)
+peptide.deviations.sum <- apply(peptide.deviations.sum, 2, rowSums)
+peptide.deviations.sumsqrs <- apply(peptide.deviations.sumsqrs, 2, rowSums)
+peptide.deviations.n <- apply(peptide.deviations.n, 2, rowSums)
 
-peptides.assays.deviation.psum <- apply(peptides.assays.deviation.psum, 2, rowSums)
-peptides.assays.deviation.psumsqrs <- apply(peptides.assays.deviation.psumsqrs, 2, rowSums)
-peptides.assays.deviation.pn <- apply(peptides.assays.deviation.pn, 2, rowSums)
-
-proteins.assays.quant.psum <- apply(proteins.assays.quant.psum, 2, rowSums)
-proteins.assays.quant.psumsqrs <- apply(proteins.assays.quant.psumsqrs, 2, rowSums)
-proteins.assays.quant.pn <- apply(proteins.assays.quant.pn, 2, rowSums)
+protein.quants.sum <- apply(protein.quants.sum, 2, rowSums)
+protein.quants.sumsqrs <- apply(protein.quants.sumsqrs, 2, rowSums)
+protein.quants.n <- apply(protein.quants.n, 2, rowSums)
 
 
 # EXPOSURES PLOT
@@ -222,42 +214,42 @@ saveRDS(mcmc.exposures, "exposures.rds")
 # SAVE OUTPUT
 
 # timings
-dd.timings <- dd.timings[, .(seconds = sum(seconds)), by = ProteinID]
-setorder(dd.timings, ProteinID)
-fwrite(merge(dd.proteins, dd.timings), file.path(stats.dir, "protein_timings.csv"))
+dd.timings <- as.data.table(timings)
+colnames(dd.timings) <- paste0("chain", 1:params$quant.nchain)
+fwrite(cbind(dd.proteins, dd.timings[, total := rowSums(timings)]), file.path(stats.dir, "protein_timings.csv"))
 
-# features.sd
-fwrite(cbind(dd.features, stdev = features.sd.psum / features.sd.pn), file.path(stats.dir, "feature_stdevs.csv"))
+# feature stdevs
+fwrite(cbind(dd.features, stdev = feature.stdevs.sum / feature.stdevs.n), file.path(stats.dir, "feature_stdevs.csv"))
 
-# peptides.sd
-fwrite(cbind(dd.peptides, stdev = peptides.sd.psum / peptides.sd.pn), file.path(stats.dir, "peptide_stdevs.csv"))
+# peptide stdevs
+fwrite(cbind(dd.peptides, stdev = peptide.stdevs.sum / peptide.stdevs.n), file.path(stats.dir, "peptide_stdevs.csv"))
 
-# peptides.assays.deviation
-peptides.assays.deviation.pmean <- peptides.assays.deviation.psum / peptides.assays.deviation.pn
-colnames(peptides.assays.deviation.pmean) <- dd.assays$Assay
-fwrite(cbind(dd.peptides, peptides.assays.deviation.pmean), file.path(stats.dir, "peptide_deviations.csv"))
+# peptide deviations
+peptide.deviations.mean <- peptide.deviations.sum / peptide.deviations.n
+colnames(peptide.deviations.mean) <- paste("x", dd.assays$Assay)
+fwrite(cbind(dd.peptides, peptide.deviations.mean), file.path(stats.dir, "peptide_deviations.csv"))
 
-peptides.assays.deviation.psd <- sqrt(peptides.assays.deviation.psumsqrs + peptides.assays.deviation.psum^2 / peptides.assays.deviation.pn)
-colnames(peptides.assays.deviation.psd) <- dd.assays$Assay
-fwrite(cbind(dd.peptides, peptides.assays.deviation.psd), file.path(stats.dir, "peptide_deviations_stdevs.csv"))
+peptide.deviations.stdev <- sqrt(peptide.deviations.sumsqrs + peptide.deviations.sum^2 / peptide.deviations.n)
+colnames(peptide.deviations.stdev) <- paste("x", dd.assays$Assay)
+fwrite(cbind(dd.peptides, peptide.deviations.stdev), file.path(stats.dir, "peptide_deviations_stdevs.csv"))
 
-# proteins.assays.quant.mcmc
-proteins.assays.quant.pmean <- proteins.assays.quant.psum / proteins.assays.quant.pn
-colnames(proteins.assays.quant.pmean) <- dd.assays$Assay
-fwrite(cbind(dd.proteins, proteins.assays.quant.pmean), file.path(stats.dir, "protein_quants.csv"))
+# protein quants
+protein.quants.mean <- protein.quants.sum / protein.quants.n
+colnames(protein.quants.mean) <- paste("x", dd.assays$Assay)
+fwrite(cbind(dd.proteins, protein.quants.mean), file.path(stats.dir, "protein_quants.csv"))
 
-proteins.assays.quant.psd <- sqrt(proteins.assays.quant.psumsqrs + proteins.assays.quant.psum^2 / proteins.assays.quant.pn)
-colnames(proteins.assays.quant.psd) <- dd.assays$Assay
-fwrite(cbind(dd.proteins, proteins.assays.quant.psd), file.path(stats.dir, "protein_quants_stdevs.csv"))
+protein.quants.stdev <- sqrt(protein.quants.sumsqrs + protein.quants.sum^2 / protein.quants.n)
+colnames(protein.quants.stdev) <- paste("x", dd.assays$Assay)
+fwrite(cbind(dd.proteins, protein.quants.stdev), file.path(stats.dir, "protein_quants_stdevs.csv"))
 
 
 #  QUALITY CONTROL
 
 # write out pca plot
-proteins.assays.quant.pca <- t(proteins.assays.quant.pmean[complete.cases(proteins.assays.quant.pmean),])
-proteins.assays.quant.pca.var <- rowMeans(proteins.assays.quant.psd[complete.cases(proteins.assays.quant.pmean),]^2)
+protein.quantspca <- t(protein.quants.mean[complete.cases(protein.quants.mean),])
+protein.quantspca.var <- rowMeans(protein.quants.stdev[complete.cases(protein.quants.mean),]^2)
 
-pca.assays <- prcomp(proteins.assays.quant.pca, center = T, scale = proteins.assays.quant.pca.var)
+pca.assays <- prcomp(protein.quantspca, center = T, scale = protein.quantspca.var)
 dd.pca.assays <- fortify(pca.assays)
 dd.pca.assays <- cbind(dd.pca.assays, dd.assays)
 
@@ -272,24 +264,24 @@ if (!all(dd.assays$isRef)) g <- g + ggtitle(paste("ref.assays =", paste(dd.assay
 ggsave(file.path(stats.dir, "pca.pdf"), g, width=8, height=8)
 
 # write out Rhat
-proteins.assays.quant.rhat <- matrix(NA, nP, nA)
+protein.quants.rhat <- matrix(NA, nP, nA)
 for (a in 1:nA) {
   message("[", paste0(Sys.time(), " Calculating Rhat for assay ", a, "...]"))
 
   # load data
-  proteins.assays.quant.mcmc <- vector("list", params$nchain)
-  for (j in 1:params$nchain) {
-    proteins.assays.quant.mcmc[[j]] <- readRDS(file.path("quants", paste0(a, ".", j, ".rds")))
+  mcmc.protein.quants <- vector("list", params$quant.nchain)
+  for (j in 1:params$quant.nchain) {
+    mcmc.protein.quants[[j]] <- readRDS(file.path("quants", paste0(a, ".", j, ".rds")))
   }
-  proteins.assays.quant.mcmc <- as.mcmc.list(proteins.assays.quant.mcmc)
+  mcmc.protein.quants <- as.mcmc.list(mcmc.protein.quants)
 
   # Rhat
-  for (k in 1:ncol(proteins.assays.quant.mcmc[[1]])) {
-    proteins.assays.quant.rhat[as.integer(sub("^([0-9]+)\\.[0-9]+$", "\\1", colnames(proteins.assays.quant.mcmc[[1]])[k])), a] <- gelman.diag(proteins.assays.quant.mcmc[, k, drop = F], autoburnin = F)$psrf[1]
+  for (k in 1:ncol(mcmc.protein.quants[[1]])) {
+    protein.quants.rhat[as.integer(sub("^([0-9]+)\\.[0-9]+$", "\\1", colnames(mcmc.protein.quants[[1]])[k])), a] <- gelman.diag(mcmc.protein.quants[, k, drop = F], autoburnin = F)$psrf[1]
   }
 }
-colnames(proteins.assays.quant.rhat) <- dd.assays$Assay
-fwrite(cbind(dd.proteins, proteins.assays.quant.rhat), file.path(stats.dir, "protein_rhats.csv"))
+colnames(protein.quants.rhat) <- dd.assays$Assay
+fwrite(cbind(dd.proteins, protein.quants.rhat), file.path(stats.dir, "protein_rhats.csv"))
 
 # create zip file and clean up
 message(paste0("writing: ", paste0(stats.dir, ".zip"), "..."))
@@ -328,11 +320,11 @@ message("[",paste0(Sys.time()," Finished]"))
 # res.pca = PCA(res.comp$completeObs, col.w = 1.0 / stats.quants.var, graph = F)
 # plot(res.pca, habillage = "ind", col.hab = dd.pca.assays$Grr)
 
-# proteins.assays.quant.mcmc (have to split when multiple baselines per protein)
-#colnames(proteins.assays.baseline) <- dd.assays$Assay
-#dd.baselines <- melt(cbind(data.table(ProteinID = 1:nP), proteins.assays.baseline), id.vars = "ProteinID", variable.name = "Assay", value.name = "BaselineID")
+# mcmc.protein.quants (have to split when multiple baselines per protein)
+#colnames(protein.baselines) <- dd.assays$Assay
+#dd.baselines <- melt(cbind(data.table(ProteinID = 1:nP), protein.baselines), id.vars = "ProteinID", variable.name = "Assay", value.name = "BaselineID")
 
-#stats.quants.est <- proteins.assays.quant.psum / ifelse(proteins.assays.quant.pn != 0, proteins.assays.quant.pn, NA)
+#stats.quants.est <- protein.quants.sum / ifelse(protein.quants.n != 0, protein.quants.n, NA)
 #colnames(stats.quants.est) <- dd.assays$Assay
 #dd.stats.quants.est <- merge(melt(cbind(data.table(ProteinID = 1:nP), stats.quants.est), id.vars = "ProteinID", variable.name = "Assay"), dd.baselines)
 #dd.stats.quants.est <- dcast(dd.stats.quants.est, ProteinID + BaselineID ~ Assay)[!is.na(BaselineID)]
@@ -340,7 +332,7 @@ message("[",paste0(Sys.time()," Finished]"))
 #dd.stats.quants.est <- cbind(dd.proteins[, !"batchID"], stats.quants.est)
 #fwrite(dd.stats.quants.est, file.path(stats.dir, "protein_estimates.csv"))
 
-#stats.quants.sd <- sqrt((proteins.assays.quant.psumsqrs + proteins.assays.quant.psum^2 / ifelse(proteins.assays.quant.pn != 0, proteins.assays.quant.pn, NA)) / proteins.assays.quant.pn)
+#stats.quants.sd <- sqrt((protein.quants.sumsqrs + protein.quants.sum^2 / ifelse(protein.quants.n != 0, protein.quants.n, NA)) / protein.quants.n)
 #colnames(stats.quants.sd) <- dd.assays$Assay
 #dd.stats.quants.sd <- merge(melt(cbind(data.table(ProteinID = 1:nP), stats.quants.sd), id.vars = "ProteinID", variable.name = "Assay"), dd.baselines)
 #dd.stats.quants.sd <- dcast(dd.stats.quants.sd, ProteinID + BaselineID ~ Assay)[!is.na(BaselineID)]

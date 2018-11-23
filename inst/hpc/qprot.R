@@ -1,13 +1,13 @@
-invisible(Sys.setlocale("LC_COLLATE","C"))
-
 message("[",paste0(Sys.time()," Started]"))
 
 suppressPackageStartupMessages(library(data.table))
+suppressPackageStartupMessages(library(doParallel))
+suppressPackageStartupMessages(library(doRNG))
 
 # load parameters
 prefix <- ifelse(file.exists("metadata.Rdata"), ".", file.path("..", "..", "input"))
 load(file.path(prefix, "metadata.Rdata"))
-nsamp <- (params$nitt - params$burnin) / params$thin
+nsamp <- (params$quant.nitt - params$quant.burnin) / params$quant.thin
 
 args <- commandArgs(T)
 if (length(args) == 0) args <- c("5")
@@ -19,72 +19,71 @@ nA <- length(levels(dd.assays$AssayID))
 prefix <- ifelse(file.exists("1.1.rds"), ".", file.path("..", "..", "quant", "results", "quants"))
 
 # process design
-if (!is.factor(params$qprot.design$Assay)) params$qprot.design$Assay <- factor(params$qprot.design$Assay, levels = unique(params$qprot.design$Assay))
-if (!is.factor(params$qprot.design$Condition)) params$qprot.design$Condition <- factor(params$qprot.design$Condition, levels = unique(params$qprot.design$Condition))
-dd.design <- as.data.table(merge(dd.assays, params$qprot.design))
+if (!is.factor(dd.de.design$Assay)) dd.de.design$Assay <- factor(dd.de.design$Assay, levels = unique(dd.de.design$Assay))
+if (!is.factor(dd.de.design$Condition)) dd.de.design$Condition <- factor(dd.de.design$Condition, levels = unique(dd.de.design$Condition))
+dd.de.design <- as.data.table(merge(dd.assays, dd.de.design))
 
 # read MCMC samps
-mcmc.quants <- array(NA, c(nsamp, nP, nA))
+mcmc.quants.all <- array(NA, c(nsamp, nP, nA))
+for (a in 1:nA) {
+  print(paste0("[", Sys.time(), " Reading ", a, ".", chain, ".rds ...]"))
 
-files <- list.files(prefix, paste0("^[0-9]+\\.", chain, "\\.rds$"))
-if (length(files) > 0) {
-  if (length(files) < nA) stop("ERROR: Some quant output is missing")
+  mcmc.quants <- readRDS(file.path(prefix, paste0(a, ".", chain, ".rds")))
 
-  for (f in files) {
-    print(paste0("[", Sys.time(), " Reading ", f, " ...]"))
-
-    mcmc.quants.f <- readRDS(file.path(prefix, f))
-
-    # todo: check baseline
-    mcmc.quants[, as.integer(sub("\\.[0-9]+$", "", colnames(mcmc.quants.f))), as.integer(sub("\\.([0-9]+)\\.rds$", "", f))] <- mcmc.quants.f
-  }
+  # todo: check baseline
+  mcmc.quants.all[, as.integer(sub("\\.[0-9]+$", "", colnames(mcmc.quants))), a] <- mcmc.quants
 }
 
-# create subdirectories
-cts <- levels(dd.design$Condition)[2:length(levels(dd.design$Condition))]
-for (ct in cts) {
-  dir.create(file.path("qprot", ct), showWarnings = F, recursive = T)
-}
-
-# perform qprot
-suppressPackageStartupMessages(library(doParallel))
-cl <- makeCluster(params$nbatch)
+# set up parallel processing, seed and go
+cl <- makeCluster(params$nthread)
 registerDoParallel(cl)
-ret <- foreach(s = rep(1:nsamp, length(cts)), ct = rep(cts, each = nsamp)) %dopar% {
+set.seed(params$seed * params$quant.nchain + chain - 1)
+
+cts <- levels(dd.de.design$Condition)[2:length(levels(dd.de.design$Condition))]
+output <- foreach(ct = rep(1:length(cts), each = nsamp), s = rep(1:nsamp, length(cts))) %dorng% {
   suppressPackageStartupMessages(library(data.table))
 
-  sink(file.path("qprot", ct, paste0(chain, ".", s, ".txt")))
-  print(paste0("[", Sys.time(), " Started]"))
-
   # process samp s
-  mat.0 <- as.data.table(mcmc.quants[s,, dd.design[Condition == levels(dd.design$Condition)[1], AssayID]])
-  colnames(mat.0) <- rep("0", ncol(mat.0))
+  dd.0 <- as.data.table(mcmc.quants.all[s,, dd.de.design[Condition == levels(dd.de.design$Condition)[1], AssayID]])
+  colnames(dd.0) <- rep("0", ncol(dd.0))
 
-  mat.1 <- as.data.table(mcmc.quants[s, , dd.design[Condition == ct, AssayID]])
-  colnames(mat.1) <- rep("1", ncol(mat.1))
+  dd.1 <- as.data.table(mcmc.quants.all[s, , dd.de.design[Condition == cts[ct], AssayID]])
+  colnames(dd.1) <- rep("1", ncol(dd.1))
 
-  mat.qprot <- cbind(dd.proteins$ProteinID, mat.0, mat.1)
-  colnames(mat.qprot)[1] <- "Protein"
+  dd.qprot <- cbind(dd.proteins$ProteinID, dd.0, dd.1)
+  colnames(dd.qprot)[1] <- "Protein"
 
   # remove NAs (check qprot requirements)
-  mat.qprot <- mat.qprot[complete.cases(mat.qprot[, 2:ncol(mat.qprot)]),]
+  dd.qprot <- dd.qprot[complete.cases(dd.qprot[, 2:ncol(dd.qprot)]),]
 
   # exponent as qprot needs intensities, not log ratios
-  for (j in 2:ncol(mat.qprot)) mat.qprot[[j]] <- 2^mat.qprot[[j]]
+  for (j in 2:ncol(dd.qprot)) dd.qprot[[j]] <- 2^dd.qprot[[j]]
 
   # run qprot
-  filename.qprot <- file.path(file.path("qprot", ct), paste0(chain, ".", s, ".tsv"))
-  fwrite(mat.qprot, filename.qprot, sep = "\t")
-  if (params$qprot.paired) {
-    system2(paste0(params$qprot.path, "qprot-paired"), args = c(filename.qprot, "10000", "100000", "0"))
+  filename.qprot <- paste0("_", ct, ".", chain, ".", s, ".tsv")
+  fwrite(dd.qprot, filename.qprot, sep = "\t")
+  if (params$de.paired) {
+    system2(paste0(params$qprot.path, "qprot-paired"), args = c(filename.qprot, params$qprot.burnin, params$qprot.nitt - params$qprot.burnin, "0"))
   } else {
-    system2(paste0(params$qprot.path, "qprot-param"), args = c(filename.qprot, "10000", "100000", "0"))
+    system2(paste0(params$qprot.path, "qprot-param"), args = c(filename.qprot, params$qprot.burnin, params$qprot.nitt - params$qprot.burnin, "0"))
   }
   system2(paste0(params$qprot.path, "getfdr"), arg = c(paste0(filename.qprot, "_qprot")))
+  dd.fdr <- fread(paste0(filename.qprot, "_qprot_fdr"))
 
-  print(paste0("[", Sys.time(), " Finished]"))
-  sink()
+  file.remove(filename.qprot)
+  file.remove(paste0(filename.qprot, "_qprot"))
+  file.remove(paste0(filename.qprot, "_qprot_density"))
+  file.remove(paste0(filename.qprot, "_qprot_fdr"))
+
+  setnames(dd.fdr, c("Protein", "fdr", "FDRup", "FDRdown"), c("ProteinID", "PEP", "PEPup", "PEPdown"))
+  dd.fdr[, Condition := cts[ct]]
+  dd.fdr[, samp := s]
+  dd.fdr
 }
+stopCluster(cl)
+
+# save
+saveRDS(rbindlist(output), file = paste0(chain, ".rds"))
 
 message(paste0("[", Sys.time(), " Finished]"))
 
