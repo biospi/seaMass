@@ -27,14 +27,15 @@ if (informative.priors) {
   burnin <- params$study.burnin
   thin <- params$study.thin
   # preprocess dd to remove features with missing values
-  dd.all <- dd.all[FeatureID %in% dd.all[, .(missing = any(is.na(Count))), by = FeatureID][missing == F, FeatureID]]
+  dd.all <- dd.all[FeatureID %in% dd.all[, .(missing = any(is.na(Count))), by = FeatureID][missing == F, FeatureID], -"missing"]
   # and where less than 5 peptides
   thresh <- 5
   dd.all <- dd.all[ProteinID %in% unique(dd.all[, .(ProteinID, PeptideID)])[, .(thresh = .N >= thresh), by = ProteinID][thresh == T, ProteinID],]
   dd.all[, ProteinID := factor(ProteinID)]
+  dd.all[, PeptideID := factor(PeptideID)]
+  dd.all[, FeatureID := factor(FeatureID)]
+  dd.all[, AssayID := factor(AssayID)]
 }
-nP <- length(levels(dd.all$ProteinID))
-nsamp <- (nitt - burnin) / thin
 
 # process arguments
 args <- commandArgs(T)
@@ -42,15 +43,12 @@ if (length(args) == 0) args <- c("10")
 chain <- as.integer(args[1])
 
 # set up parallel processing, seed and go
-cl <- makeCluster(params$nthread)
-registerDoParallel(cl)
+gc()
+registerDoParallel(params$nthread)
 set.seed(params$seed * nchain + chain - 1)
-
-output <- foreach(p = levels(dd.all$ProteinID)) %dorng% {
-
-  suppressPackageStartupMessages(library(data.table))
-  suppressPackageStartupMessages(library(MCMCglmm))
-  suppressPackageStartupMessages(library(methods))
+output <- foreach(p = levels(dd.all$ProteinID), .packages = c("data.table", "MCMCglmm", "methods"), .options.multicore = list(preschedule = F, silent = T)) %dorng% {
+  sink(paste0(chain, ".", Sys.getpid(), ".out"), append = T)
+  print(paste0("[", Sys.time(), " Started Protein ", p, "]"))
 
   # prepare dd for MCMCglmm
   dd <- dd.all[ProteinID == p,]
@@ -59,8 +57,8 @@ output <- foreach(p = levels(dd.all$ProteinID)) %dorng% {
   dd[, FeatureID := factor(FeatureID)]
   dd[, AssayID := factor(AssayID)]
 
-  # if using uninformative priors, no need to handle missing values as we have removed them
-  if (!informative.priors) {
+  # if using uninformative priors, no need to handle missing values as we have already removed them
+  if (informative.priors) {
     if (params$missing == "feature") dd[, Count := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
     if (params$missing == "censored") dd[, MaxCount := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
     if (params$missing == "censored" | params$missing == "zero") dd[is.na(Count), Count := 0.0]
@@ -72,14 +70,15 @@ output <- foreach(p = levels(dd.all$ProteinID)) %dorng% {
 
   # create co-occurence matrix of which assays are present in each feature
   dd$BaselineID <- dd$AssayID
-  dd.tmp <- merge(dd, dd, by = "FeatureID", allow.cartesian = T)
-  mat.tmp <- table(dd.tmp[, list(AssayID.x, AssayID.y)])
+  mat.tmp <- merge(dd, dd, by = "FeatureID", allow.cartesian = T)
+  mat.tmp <- table(mat.tmp[, list(AssayID.x, AssayID.y)])
   # matrix multiplication distributes assay relationships
   mat.tmp <- mat.tmp %*% mat.tmp
   # ignore columns that are not in ref.assays
   mat.tmp[!dd.assays[AssayID %in% colnames(mat.tmp), isRef],] <- NA
   # baseline is first non-zero occurence for each assay
   dd[, BaselineID := colnames(mat.tmp)[apply(mat.tmp != 0, 2, which.max)][AssayID]]
+  mat.tmp <- NULL
   dd$QuantID <- as.character(interaction(dd$ProteinID, dd$BaselineID, dd$AssayID, lex.order = T, drop = T))
   # and now merge where the assayID and the baselineID are the same, as these effects are not identifiable
   dd[AssayID == BaselineID, QuantID := "."]
@@ -120,7 +119,9 @@ output <- foreach(p = levels(dd.all$ProteinID)) %dorng% {
   }
 
   #run model
-  output <- list()
+  output <- list(timing = NULL, mcmc.protein.quants = NULL, mcmc.peptide.deviations = NULL, mcmc.assay.vars = NULL, mcmc.peptide.vars = NULL, mcmc.feature.vars = NULL)
+
+  gc()
   output$timing <- system.time(model <- (MCMCglmm(
     as.formula(paste(ifelse(is.null(dd$MaxCount), "Count", "c(Count, MaxCount)"), "~ ", ifelse(nF==1, "QuantID", "FeatureID - 1 + QuantID"))),
     random = as.formula(paste0("~ ", ifelse(params$assay.stdevs, "idh(AssayID):PeptideID + ", ""), ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":AssayID")),
@@ -128,7 +129,7 @@ output <- foreach(p = levels(dd.all$ProteinID)) %dorng% {
     family = ifelse(is.null(dd$MaxCount), "poisson", "cenpoisson"),
     data = dd, prior = prior, nitt = nitt, burnin = burnin, thin = thin, pr = T, verbose = F
   )))
-  output$summary <- capture.output(print(summary(model)))
+  print(summary(model))
 
   if (length(colnames(model$Sol)[grep("^QuantID[0-9]+\\.[0-9]+\\.[0-9]+$", colnames(model$Sol))]) != nQ - 1) {
     stop("Some contrasts were dropped unexpectedly")
@@ -152,7 +153,6 @@ output <- foreach(p = levels(dd.all$ProteinID)) %dorng% {
   model$Sol <- NULL
 
   # extract assay variances
-  output$mcmc.assay.vars <- NULL
   if (params$assay.stdevs) {
     output$mcmc.assay.vars <- model$VCV[, grep("^AssayID[0-9]+\\.PeptideID$", colnames(model$VCV)), drop = F]
     colnames(output$mcmc.assay.vars) <- paste0(gsub("^AssayID([0-9]+\\.)PeptideID$", "\\1", colnames(output$mcmc.assay.vars)), p)
@@ -177,10 +177,14 @@ output <- foreach(p = levels(dd.all$ProteinID)) %dorng% {
   }
 
   model <- NULL
+  gc()
+
+  print(paste0("[", Sys.time(), " Finished Protein ", p, "]"))
+  sink()
+
   output
 }
 names(output) <- levels(dd.all$ProteinID)
-stopCluster(cl)
 
 # save
 saveRDS(output, file = paste0(chain, ".rds"))

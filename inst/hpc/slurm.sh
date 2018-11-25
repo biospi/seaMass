@@ -3,8 +3,8 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 pushd $DIR > /dev/null
 
 # job chain
-MODEL=$(sbatch --parsable model.slurm)
-STUDY=$(sbatch --parsable --dependency=afterok:$MODEL study.slurm)
+MODEL1=$(sbatch --parsable model.slurm)
+STUDY=$(sbatch --parsable --dependency=afterok:$MODEL1 study.slurm)
 MODEL2=$(sbatch --parsable --dependency=afterok:$STUDY model.slurm)
 QUANT=$(sbatch --parsable --dependency=afterok:$MODEL2 quant.slurm)
 if [ -d "qprot" ]; then
@@ -15,11 +15,13 @@ EXITCODE=$?
 
 # clean up
 if [[ $EXITCODE != 0 ]]; then
-  scancel $MODEL $STUDY $MODEL2 $QUANT $QPROT $DE
+  scancel $MODEL1 $STUDY $MODEL2 $QUANT $QPROT $DE
   echo Failed to submit jobs!
 else
-  echo Submitted jobs! To cancel execute:
-  echo scancel $MODEL $STUDY $MODEL2 $QUANT $QPROT $DE
+  echo Submitted jobs! To cancel execute $DIR/cancel.sh
+  echo '#!/bin/bash' > $DIR/cancel.sh
+  echo scancel $MODEL1 $STUDY $MODEL2 $QUANT $QPROT $DE >> $DIR/cancel.sh
+  chmod u+x $DIR/cancel.sh
 fi
 
 popd > /dev/null

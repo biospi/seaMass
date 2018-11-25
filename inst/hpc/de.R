@@ -47,9 +47,9 @@ for (ct in cts) {
   filename.qprot <- file.path("qprot", "_point_est.tsv")
   fwrite(as.data.table(dd.qprot), filename.qprot, sep = "\t")
   if (params$de.paired) {
-    system2(paste0(params$qprot.path, "qprot-paired"), args = c(filename.qprot, params$qprot.burnin, params$qprot.nitt - params$qprot.burnin, "0"))
+    system2(paste0(params$qprot.path, "qprot-paired"), args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"))
   } else {
-    system2(paste0(params$qprot.path, "qprot-param"), args = c(filename.qprot, params$qprot.burnin, params$qprot.nitt - params$qprot.burnin, "0"))
+    system2(paste0(params$qprot.path, "qprot-param"), args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"))
   }
   system2(paste0(params$qprot.path, "getfdr"), arg = c(paste0(filename.qprot, "_qprot")))
   dd.fdr <- fread(paste0(filename.qprot, "_qprot_fdr"))

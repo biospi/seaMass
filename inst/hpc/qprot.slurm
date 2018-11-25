@@ -4,12 +4,13 @@
 #SBATCH --output=../slurm-%A_%a.out
 #SBATCH --requeue
 #SBATCH --mail-type=FAIL
+
 #SBATCH --nodes=1
 #SBATCH --tasks-per-node=1
 #SBATCH --cpus-per-task=14
+#SBATCH --mem=64000m
 
 #SBATCH --partition=cpu
-#SBATCH --mem=64000m
 #SBATCH --time=14-00:00:00
 
 #SBATCH --job-name=bp.qprot

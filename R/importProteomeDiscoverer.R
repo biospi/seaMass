@@ -22,12 +22,18 @@ importProteomeDiscoverer <- function(datafile, dd.fractions) {
   setorder(dd.raw, Feature, Confidence, -Intensity)
   dd.raw <- unique(dd.raw, by = "Feature")
 
-  #dd.raw[, Adduct := factor(paste0(dd.raw$Run, " : ", dd.raw$Sequence, " : ", dd.raw$Modifications, " : ", dd.raw$Charge, "+"))]
+  # create wide data table
+  dd.wide <- dd.raw[ , list(
+    Protein = factor(`Master Protein Accessions`),
+    Peptide = factor(paste(Sequence, ":", Modifications)),
+    Assay = Run
+  )]
 
   # create wide data table
   dd.wide <- dd.raw[ , list(
     Protein = factor(`Master Protein Accessions`),
     Peptide = factor(paste(Sequence, ":", Modifications)),
+    #Feature1 = factor(paste0(Charge, "+ ", Sequence, " : ", Modifications)), # SILAC would benefit from matching features across runs... maybe
     Feature = factor(paste(`Spectrum File`, ":", `First Scan`)),
     Assay = Run
   )]

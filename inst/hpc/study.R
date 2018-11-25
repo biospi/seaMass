@@ -275,7 +275,7 @@ if (params$assay.stdevs) {
 plot.fit.xmax <- function(x.var) {
   x.var.plot <- x.var / log(2)
   dens.x.var <- logdensity(x.var.plot, n = 10000, from = 0.0000001, to = quantile(x.var.plot, probs = 0.95, na.rm = T), na.rm = T)[c("x","y")]
-  dens.x.var$x[which.min(abs(dens.x.var$y - 0.25 * max(dens.x.var$y)))]
+  dens.x.var$x[which.min(abs(dens.x.var$y - 0.1 * max(dens.x.var$y)))]
 }
 
 x.max <- max(plot.fit.xmax(peptides.var), plot.fit.xmax(features.var))
@@ -319,7 +319,7 @@ g <- g + coord_cartesian(xlim = c(0, x.max), ylim = c(0, 1.1 * max(dd.plot$y)), 
 g <- g + theme(legend.position="top")
 g <- g + xlab("Ln Variance")
 g <- g + ylab("Density")
-ggsave("study.pdf", g, width = 8, height = 1.5 + 0.75 * (2 + ifelse(params$assay.stdevs, nA, 0)), limitsize = F)
+ggsave(file.path(stats.dir, "variances.pdf"), g, width = 8, height = 1.5 + 0.75 * (2 + ifelse(params$assay.stdevs, nA, 0)), limitsize = F)
 
 
 # create zip file and clean up

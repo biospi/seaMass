@@ -37,10 +37,10 @@ for (a in 1:nA) {
 # set up parallel processing, seed and go
 cl <- makeCluster(params$nthread)
 registerDoParallel(cl)
-set.seed(params$seed * params$quant.nchain + chain - 1)
+set.seed(params$seed * params$quant.nchain + chain - 1) # pointless - can't set qprot seed anyway
 
 cts <- levels(dd.de.design$Condition)[2:length(levels(dd.de.design$Condition))]
-output <- foreach(ct = rep(1:length(cts), each = nsamp), s = rep(1:nsamp, length(cts))) %dorng% {
+output <- foreach(ct = rep(1:length(cts), each = nsamp), s = rep(1:nsamp, length(cts)), .packages = "data.table", .options.multicore = list(preschedule = F, silent = T)) %dorng% {
   suppressPackageStartupMessages(library(data.table))
 
   # process samp s
@@ -63,9 +63,9 @@ output <- foreach(ct = rep(1:length(cts), each = nsamp), s = rep(1:nsamp, length
   filename.qprot <- paste0("_", ct, ".", chain, ".", s, ".tsv")
   fwrite(dd.qprot, filename.qprot, sep = "\t")
   if (params$de.paired) {
-    system2(paste0(params$qprot.path, "qprot-paired"), args = c(filename.qprot, params$qprot.burnin, params$qprot.nitt - params$qprot.burnin, "0"))
+    system2(paste0(params$qprot.path, "qprot-paired"), args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"))
   } else {
-    system2(paste0(params$qprot.path, "qprot-param"), args = c(filename.qprot, params$qprot.burnin, params$qprot.nitt - params$qprot.burnin, "0"))
+    system2(paste0(params$qprot.path, "qprot-param"), args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"))
   }
   system2(paste0(params$qprot.path, "getfdr"), arg = c(paste0(filename.qprot, "_qprot")))
   dd.fdr <- fread(paste0(filename.qprot, "_qprot_fdr"))

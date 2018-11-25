@@ -4,10 +4,11 @@
 #PBS -j oe
 #PBS -r y
 #PBS -m ae
+
 #PBS -l nodes=1:ppn=1
+#PBS -l mem=4000m
 
 #PBS -q veryshort
-#PBS -l mem=3gb
 #PBS -l walltime=12:00:00
 
 #PBS -N bp.quant
@@ -15,8 +16,13 @@
 
 cd $PBS_O_WORKDIR/quant/results
 Rscript ../../quant.R
-../../pbs3.sh
+
+if [ $? -eq 0 ]
+then
+  ../../_pbs3.sh
+fi
 
 EXITCODE=$?
 qstat -f $PBS_JOBID
 exit $EXITCODE
+
