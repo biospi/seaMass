@@ -29,9 +29,9 @@ bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), de.design
   if (is.null(params$quant.burnin)) params$quant.burnin <- 10000
   if (is.null(params$quant.thin)) params$quant.thin <- 100
   if (is.null(params$quant.nchain)) params$quant.nchain <- 10
-  if (is.null(params$aquant.nitt)) params$qprot.nitt <- 110000
-  if (is.null(params$quant.burnin)) params$qprot.burnin <- 10000
-  if (is.null(params$ssay.stdevs)) params$assay.stdevs <- F
+  if (is.null(params$aqpro.nitt)) params$qprot.nitt <- 110000
+  if (is.null(params$qupro.burnin)) params$qprot.burnin <- 10000
+  if (is.null(params$sasay.stdevs)) params$assay.stdevs <- F
   if (is.null(params$de.paired)) params$de.paired <- F
   if (is.null(params$qprot.path)) params$qprot.path <- ""
   if (params$qprot.path != "") params$qprot.path <- paste0(params$qprot.path, "/")
