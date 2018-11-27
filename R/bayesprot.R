@@ -21,6 +21,7 @@ bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), de.design
   if (is.null(params$missing)) params$missing <- "censored"
   if (is.null(params$seed)) params$seed <- 0
   if (is.null(params$nthread)) params$nthread <- 14
+  if (is.null(params$study.npeptide)) params$study.npeptide <- 5
   if (is.null(params$study.nitt)) params$study.nitt <- 20000
   if (is.null(params$study.burnin)) params$study.burnin <- 10000
   if (is.null(params$study.thin)) params$study.thin <- 100
@@ -29,8 +30,8 @@ bayesprot <- function(dd, id = "input", ref.assays = levels(dd$Assay), de.design
   if (is.null(params$quant.burnin)) params$quant.burnin <- 10000
   if (is.null(params$quant.thin)) params$quant.thin <- 100
   if (is.null(params$quant.nchain)) params$quant.nchain <- 10
-  if (is.null(params$aqpro.nitt)) params$qprot.nitt <- 110000
-  if (is.null(params$qupro.burnin)) params$qprot.burnin <- 10000
+  if (is.null(params$qprot.nitt)) params$qprot.nitt <- 110000
+  if (is.null(params$qprot.burnin)) params$qprot.burnin <- 10000
   if (is.null(params$sasay.stdevs)) params$assay.stdevs <- F
   if (is.null(params$de.paired)) params$de.paired <- F
   if (is.null(params$qprot.path)) params$qprot.path <- ""

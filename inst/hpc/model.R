@@ -27,15 +27,15 @@ if (informative.priors) {
   burnin <- params$study.burnin
   thin <- params$study.thin
   # preprocess dd to remove features with missing values
-  dd.all <- dd.all[FeatureID %in% dd.all[, .(missing = any(is.na(Count))), by = FeatureID][missing == F, FeatureID], -"missing"]
-  # and where less than 5 peptides
-  thresh <- 5
-  dd.all <- dd.all[ProteinID %in% unique(dd.all[, .(ProteinID, PeptideID)])[, .(thresh = .N >= thresh), by = ProteinID][thresh == T, ProteinID],]
+  dd.all <- dd.all[FeatureID %in% dd.all[, .(missing = any(is.na(Count))), by = FeatureID][missing == F, FeatureID],]
+  # and where an assay for a protein has less than params$study.npeptide peptide measurements
+  dd.all <- merge(dd.all, unique(dd.all[, .(ProteinID, PeptideID, AssayID)])[, .(thresh = .N >= params$study.npeptide), by = .(ProteinID, AssayID)][thresh == T, -"thresh"])
   dd.all[, ProteinID := factor(ProteinID)]
   dd.all[, PeptideID := factor(PeptideID)]
   dd.all[, FeatureID := factor(FeatureID)]
   dd.all[, AssayID := factor(AssayID)]
 }
+
 
 # process arguments
 args <- commandArgs(T)
@@ -47,10 +47,8 @@ gc()
 registerDoParallel(params$nthread)
 set.seed(params$seed * nchain + chain - 1)
 output <- foreach(p = levels(dd.all$ProteinID), .packages = c("data.table", "MCMCglmm", "methods"), .options.multicore = list(preschedule = F, silent = T)) %dorng% {
-  sink(paste0(chain, ".", Sys.getpid(), ".out"), append = T)
-  print(paste0("[", Sys.time(), " Started Protein ", p, "]"))
 
-  # prepare dd for MCMCglmm
+    # prepare dd for MCMCglmm
   dd <- dd.all[ProteinID == p,]
   dd[, ProteinID := factor(ProteinID)]
   dd[, PeptideID := factor(PeptideID)]
@@ -119,9 +117,10 @@ output <- foreach(p = levels(dd.all$ProteinID), .packages = c("data.table", "MCM
   }
 
   #run model
-  output <- list(timing = NULL, mcmc.protein.quants = NULL, mcmc.peptide.deviations = NULL, mcmc.assay.vars = NULL, mcmc.peptide.vars = NULL, mcmc.feature.vars = NULL)
+  output <- list(summary = NULL, timing = NULL, mcmc.protein.quants = NULL, mcmc.peptide.deviations = NULL, mcmc.assay.vars = NULL, mcmc.peptide.vars = NULL, mcmc.feature.vars = NULL)
 
   gc()
+  output$summary <- Sys.time()
   output$timing <- system.time(model <- (MCMCglmm(
     as.formula(paste(ifelse(is.null(dd$MaxCount), "Count", "c(Count, MaxCount)"), "~ ", ifelse(nF==1, "QuantID", "FeatureID - 1 + QuantID"))),
     random = as.formula(paste0("~ ", ifelse(params$assay.stdevs, "idh(AssayID):PeptideID + ", ""), ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":AssayID")),
@@ -129,7 +128,7 @@ output <- foreach(p = levels(dd.all$ProteinID), .packages = c("data.table", "MCM
     family = ifelse(is.null(dd$MaxCount), "poisson", "cenpoisson"),
     data = dd, prior = prior, nitt = nitt, burnin = burnin, thin = thin, pr = T, verbose = F
   )))
-  print(summary(model))
+  output$summary <- c(output$summary, capture.output(print(summary(model))), Sys.time())
 
   if (length(colnames(model$Sol)[grep("^QuantID[0-9]+\\.[0-9]+\\.[0-9]+$", colnames(model$Sol))]) != nQ - 1) {
     stop("Some contrasts were dropped unexpectedly")
@@ -178,9 +177,6 @@ output <- foreach(p = levels(dd.all$ProteinID), .packages = c("data.table", "MCM
 
   model <- NULL
   gc()
-
-  print(paste0("[", Sys.time(), " Finished Protein ", p, "]"))
-  sink()
 
   output
 }

@@ -18,16 +18,15 @@ nP <- length(levels(dd.proteins$ProteinID))
 if (!is.factor(dd.de.design$Assay)) dd.de.design$Assay <- factor(dd.de.design$Assay, levels = unique(dd.de.design$Assay))
 if (!is.factor(dd.de.design$Condition)) dd.de.design$Condition <- factor(dd.de.design$Condition, levels = unique(dd.de.design$Condition))
 dd.de.design <- as.data.table(merge(dd.assays, dd.de.design))
+ct0 <- levels(dd.de.design$Condition)[1]
+cts <- levels(dd.de.design$Condition)[2:length(levels(dd.de.design$Condition))]
 
+# QPROT ON POSTERIOR MEANS ONLY, FOR FUN
 prefix <- ifelse(file.exists("protein_quants.csv"), ".", file.path("..", "..", "quant", "results", paste0(params$id, ".bayesprot.quant")))
 dd <- fread(file.path(prefix, "protein_quants.csv"))
 colnames(dd)[grep("^x ", colnames(dd))] <- substring(colnames(dd)[grep("^x ", colnames(dd))], 3)
-
-ct0 <- levels(dd.de.design$Condition)[1]
-cts <- levels(dd.de.design$Condition)[2:length(levels(dd.de.design$Condition))]
 for (ct in cts) {
 
-  # QPROT ON POSTERIOR MEANS ONLY, FOR FUN
   dd.0 <- dd[, dd.de.design[Condition == ct0, Assay], with = F]
   colnames(dd.0) <- rep("0", ncol(dd.0))
 
@@ -42,6 +41,9 @@ for (ct in cts) {
 
   # exponent as qprot needs intensities, not log ratios
   for (j in 2:ncol(dd.qprot)) dd.qprot[[j]] <- 2^dd.qprot[[j]]
+
+  # because we can't pass seed to qprot, randomise the rows to get the desired effect
+  dd.qprot <- dd.qprot[sample(1:nrow(dd.qprot), nrow(dd.qprot)),]
 
   # run qprot
   filename.qprot <- file.path("qprot", "_point_est.tsv")
@@ -90,7 +92,7 @@ dd.fdr.mcmc <- rbindlist(dd.fdr.mcmc)[, .(ProteinID, LogFoldChange, Zstatistic, 
 
 for (ct in cts) {
   # Method A: rank by mean PEPs
-  dd.fdr.mcmc.mean <- dd.fdr.mcmc[Condition == ct,]
+  dd.fdr.mcmc.mean <- dd.fdr.mcmc[Condition == ct & !is.na(PEP),]
   dd.fdr.mcmc.mean[, PEP.mean := mean(PEP), by = ProteinID]
   setorder(dd.fdr.mcmc.mean, PEP.mean)
   dd.fdr.mcmc.mean[, Discoveries := 1:length(ProteinID), by = .(chain, samp)]
@@ -136,7 +138,7 @@ for (ct in cts) {
   ggsave(file.path(stats.dir, paste0("protein_de__", ct0, "_vs_", ct, ".pdf")), g, width=8, height=8)
 
   # Method B: rank by PEP in individual samples
-  dd.fdr.mcmc.samp <- data.table(dd.fdr.mcmc[Condition == ct,], key = c("chain", "samp", "PEP"))
+  dd.fdr.mcmc.samp <- data.table(dd.fdr.mcmc[Condition == ct & !is.na(PEP),], key = c("chain", "samp", "PEP"))
   dd.fdr.mcmc.samp[, Discoveries := 1:length(ProteinID), by = .(chain, samp)]
   dd.fdr.mcmc.samp[, FDR := cumsum(PEP) / Discoveries, by = .(chain, samp)]
 
