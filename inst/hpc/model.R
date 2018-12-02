@@ -9,9 +9,9 @@ options(max.print = 99999)
 # load metadata
 prefix <- ifelse(file.exists("metadata.Rdata"), ".", file.path("..", "..", "input"))
 load(file.path(prefix, "metadata.Rdata"))
+dd.all <- readRDS(file.path(prefix, "data.rds"))
 
 # load and prepare data
-dd.all <- readRDS(file.path(prefix, "data.rds"))
 prefix.study <- ifelse(file.exists("study.Rdata"), ".", file.path("..", "..", "study", "results"))
 informative.priors <- file.exists(file.path(prefix.study, "study.Rdata"))
 if (informative.priors) {
@@ -28,8 +28,11 @@ if (informative.priors) {
   thin <- params$study.thin
   # preprocess dd to remove features with missing values
   dd.all <- dd.all[FeatureID %in% dd.all[, .(missing = any(is.na(Count))), by = FeatureID][missing == F, FeatureID],]
+  # and where less than 6 assay measurements for a feature
+  dd.all <- merge(dd.all, dd.all[, .N, by=FeatureID][N >= 6, -"N"])
+  dd.all <- merge(dd.all, unique(dd.all[, .(ProteinID, PeptideID)])[, .N, by=ProteinID][N >= params$study.npeptide, -"N"], by="ProteinID")
   # and where an assay for a protein has less than params$study.npeptide peptide measurements
-  dd.all <- merge(dd.all, unique(dd.all[, .(ProteinID, PeptideID, AssayID)])[, .(thresh = .N >= params$study.npeptide), by = .(ProteinID, AssayID)][thresh == T, -"thresh"])
+  #dd.all <- merge(dd.all, unique(dd.all[, .(ProteinID, PeptideID, AssayID)])[, .(thresh = .N >= params$study.npeptide), by = .(ProteinID, AssayID)][thresh == T, -"thresh"])
   dd.all[, ProteinID := factor(ProteinID)]
   dd.all[, PeptideID := factor(PeptideID)]
   dd.all[, FeatureID := factor(FeatureID)]
@@ -120,7 +123,7 @@ output <- foreach(p = levels(dd.all$ProteinID), .packages = c("data.table", "MCM
   output <- list(summary = NULL, timing = NULL, mcmc.protein.quants = NULL, mcmc.peptide.deviations = NULL, mcmc.assay.vars = NULL, mcmc.peptide.vars = NULL, mcmc.feature.vars = NULL)
 
   gc()
-  output$summary <- Sys.time()
+  output$summary <- as.character(Sys.time())
   output$timing <- system.time(model <- (MCMCglmm(
     as.formula(paste(ifelse(is.null(dd$MaxCount), "Count", "c(Count, MaxCount)"), "~ ", ifelse(nF==1, "QuantID", "FeatureID - 1 + QuantID"))),
     random = as.formula(paste0("~ ", ifelse(params$assay.stdevs, "idh(AssayID):PeptideID + ", ""), ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":AssayID")),
@@ -128,7 +131,7 @@ output <- foreach(p = levels(dd.all$ProteinID), .packages = c("data.table", "MCM
     family = ifelse(is.null(dd$MaxCount), "poisson", "cenpoisson"),
     data = dd, prior = prior, nitt = nitt, burnin = burnin, thin = thin, pr = T, verbose = F
   )))
-  output$summary <- c(output$summary, capture.output(print(summary(model))), Sys.time())
+  output$summary <- c(output$summary, capture.output(print(summary(model))), as.character(Sys.time()))
 
   if (length(colnames(model$Sol)[grep("^QuantID[0-9]+\\.[0-9]+\\.[0-9]+$", colnames(model$Sol))]) != nQ - 1) {
     stop("Some contrasts were dropped unexpectedly")

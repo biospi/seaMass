@@ -93,6 +93,7 @@ dd.fdr.mcmc <- rbindlist(dd.fdr.mcmc)[, .(ProteinID, LogFoldChange, Zstatistic, 
 for (ct in cts) {
   # Method A: rank by mean PEPs
   dd.fdr.mcmc.mean <- dd.fdr.mcmc[Condition == ct & !is.na(PEP),]
+
   dd.fdr.mcmc.mean[, PEP.mean := mean(PEP), by = ProteinID]
   setorder(dd.fdr.mcmc.mean, PEP.mean)
   dd.fdr.mcmc.mean[, Discoveries := 1:length(ProteinID), by = .(chain, samp)]

@@ -33,8 +33,9 @@ importProteomeDiscoverer <- function(datafile, dd.fractions) {
   dd.wide <- dd.raw[ , list(
     Protein = factor(`Master Protein Accessions`),
     Peptide = factor(paste(Sequence, ":", Modifications)),
-    #Feature1 = factor(paste0(Charge, "+ ", Sequence, " : ", Modifications)), # SILAC would benefit from matching features across runs... maybe
-    Feature = factor(paste(`Spectrum File`, ":", `First Scan`)),
+    Feature = factor(paste0(Charge, "+ ", Sequence, " : ", Modifications)), # SILAC would benefit from matching features across runs... maybe
+
+    #Feature = factor(paste(`Spectrum File`, ":", `First Scan`)),
     Assay = Run
   )]
   if("Light" %in% colnames(dd.raw)) dd.wide$Label.Light <- dd.raw$Light
