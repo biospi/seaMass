@@ -3,7 +3,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 pushd $DIR > /dev/null
 
 # job chain
-MODEL2=$(qsub model.pbs)
+MODEL2=$(qsub model2.pbs)
 QUANT=$(qsub -W depend=afterokarray:$MODEL2 quant.pbs)
 EXITCODE=$?
 

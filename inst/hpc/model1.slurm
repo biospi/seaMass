@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --workdir=model/results
+#SBATCH --workdir=model1/results
 #SBATCH --output=../slurm-%A_%a.out
 #SBATCH --requeue
 #SBATCH --mail-type=FAIL
@@ -13,7 +13,7 @@
 #SBATCH --partition=cpu
 #SBATCH --time=14-00:00:00
 
-#SBATCH --job-name=bp.model
+#SBATCH --job-name=bp.model1
 #SBATCH --mail-user=andrew.dowsey@bristol.ac.uk
 
 #SBATCH --array=1-4

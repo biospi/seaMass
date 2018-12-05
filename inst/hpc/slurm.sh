@@ -3,9 +3,9 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 pushd $DIR > /dev/null
 
 # job chain
-MODEL1=$(sbatch --parsable model.slurm)
+MODEL1=$(sbatch --parsable model1.slurm)
 STUDY=$(sbatch --parsable --dependency=afterok:$MODEL1 study.slurm)
-MODEL2=$(sbatch --parsable --dependency=afterok:$STUDY model.slurm)
+MODEL2=$(sbatch --parsable --dependency=afterok:$STUDY model2.slurm)
 QUANT=$(sbatch --parsable --dependency=afterok:$MODEL2 quant.slurm)
 if [ -d "qprot" ]; then
   QPROT=$(sbatch --parsable --dependency=afterok:$QUANT qprot.slurm)

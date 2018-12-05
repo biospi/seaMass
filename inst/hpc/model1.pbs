@@ -1,0 +1,22 @@
+#!/bin/bash
+
+#PBS -o model1
+#PBS -j oe
+#PBS -r y
+
+#PBS -l nodes=1:ppn=14
+#PBS -l mem=64000m
+
+#PBS -q veryshort
+#PBS -l walltime=12:00:00
+
+#PBS -N bp.model1
+#PBS -M andrew.dowsey@bristol.ac.uk
+
+#PBS -t 1-4
+cd $PBS_O_WORKDIR/model1/results
+Rscript --vanilla ../../model.R $PBS_ARRAYID
+
+EXITCODE=$?
+qstat -f $PBS_JOBID
+exit $EXITCODE
