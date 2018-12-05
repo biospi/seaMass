@@ -5,7 +5,7 @@
 #' @import data.table
 #' @export
 
-importProgenesis <- function(datafile) {
+import.Progenesis <- function(datafile) {
   # read Progenesis PeptideIons
   message(paste0("reading: ", datafile, "..."))
   dd.raw <- fread(datafile, header = F)

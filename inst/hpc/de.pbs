@@ -15,7 +15,7 @@
 #PBS -M andrew.dowsey@bristol.ac.uk
 
 cd $PBS_O_WORKDIR/de/results
-Rscript ../../de.R
+Rscript --vanilla ../../de.R
 
 EXITCODE=$?
 qstat -f $PBS_JOBID

@@ -16,4 +16,4 @@
 #SBATCH --job-name=bp.de
 #SBATCH --mail-user=andrew.dowsey@bristol.ac.uk
 
-srun Rscript ../../de.R
+srun Rscript --vanilla ../../de.R

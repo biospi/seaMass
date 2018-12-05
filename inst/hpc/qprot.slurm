@@ -16,5 +16,5 @@
 #SBATCH --job-name=bp.qprot
 #SBATCH --mail-user=andrew.dowsey@bristol.ac.uk
 
-#SBATCH --array=1-10
+#SBATCH --array=1-4
 srun Rscript ../../qprot.R $SLURM_ARRAY_TASK_ID

@@ -5,7 +5,7 @@
 #' @import data.table
 #' @export
 
-importMSstats <- function(dd.input) {
+import.MSstats <- function(dd.input) {
   dd <- data.table(
     Protein = factor(dd.input$ProteinName),
     Peptide = factor(dd.input$PeptideSequence),

@@ -13,14 +13,14 @@ Encoding: UTF-8
 LazyData: true
 Depends: R (>= 3.4.0)
 Imports: 
+    actuar (>= 2.3-1),
     data.table (>= 1.11.4),
-Suggests:
     doParallel (>= 1.0.14),
     doRNG (>= 1.7.1),
-    MCMCglmm (>= 2.26),
     fitdistrplus (>= 1.0-11),
-    actuar (>= 2.3-1),
-    logKDE (>= 0.3.2),
     ggfortify (>= 0.4.5),
-    ggrepel (>= 0.8.0)
-RoxygenNote: 6.1.0
+    ggrepel (>= 0.8.0),
+    logKDE (>= 0.3.2),
+    MCMCglmm (>= 2.26),
+    utf8 (>= 1.1.4)
+RoxygenNote: 6.1.1

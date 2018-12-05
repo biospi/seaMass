@@ -5,7 +5,7 @@
 #' @import data.table
 #' @export
 
-importProteomeDiscoverer <- function(datafile, dd.fractions) {
+import.ProteomeDiscoverer <- function(datafile, dd.fractions) {
   # read ProteomeDiscoverer PSMs
   message(paste0("reading: ", datafile, "..."))
   dd.raw <- fread(datafile)

@@ -13,7 +13,7 @@
 #PBS -N bp.qprot
 #PBS -M andrew.dowsey@bristol.ac.uk
 
-#PBS -t 1-10
+#PBS -t 1-4
 cd $PBS_O_WORKDIR/qprot/results
 Rscript ../../qprot.R $PBS_ARRAYID
 

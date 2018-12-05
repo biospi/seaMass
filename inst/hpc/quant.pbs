@@ -15,7 +15,7 @@
 #PBS -M andrew.dowsey@bristol.ac.uk
 
 cd $PBS_O_WORKDIR/quant/results
-Rscript ../../quant.R
+Rscript --vanilla ../../quant.R model2
 
 if [ $? -eq 0 ]
 then

@@ -15,7 +15,7 @@
 #PBS -M andrew.dowsey@bristol.ac.uk
 
 cd $PBS_O_WORKDIR/study/results
-Rscript ../../study.R
+Rscript --vanilla ../../study.R model1
 
 if [ $? -eq 0 ]
 then

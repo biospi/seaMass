@@ -16,4 +16,4 @@
 #SBATCH --job-name=bp.quant
 #SBATCH --mail-user=andrew.dowsey@bristol.ac.uk
 
-srun Rscript ../../quant.R
+srun Rscript --vanilla ../../quant.R model2

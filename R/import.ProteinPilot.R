@@ -5,7 +5,7 @@
 #' @import data.table
 #' @export
 
-importProteinPilot <- function(datafile, dd.fractions) {
+import.ProteinPilot <- function(datafile, dd.fractions) {
   # read ProteinPilot peptide summary
   message(paste0("reading: ", datafile, "..."))
   dd.raw <- fread(datafile, check.names = T, showProgress = T)
