@@ -3,8 +3,6 @@
 #' @param datafile A number.
 #' @return The sum of \code{x} and \code{y}.
 #' @import data.table
-#' @importFrom foreach %dopar%
-#' @importFrom doRNG %dorng%
 #' @export
 
 process.qprot <- function(chain) {
@@ -40,6 +38,8 @@ process.qprot <- function(chain) {
   doParallel::registerDoParallel(params$nthread)
   set.seed(params$seed * params$quant.nchain + chain - 1)
   cts <- levels(dd.de.design$Condition)[2:length(levels(dd.de.design$Condition))]
+  `%dopar%` <- foreach::`%dopar%`
+  `%dorng%` <- doRNG::`%dorng%`
   output <- foreach::foreach(ct = rep(1:length(cts), each = nsamp), s = rep(1:nsamp, length(cts)), .packages = "data.table", .options.multicore = list(preschedule = F, silent = T)) %dorng% {
     # process samp s
     dd.0 <- as.data.table(mcmc.quants.all[s,, dd.de.design[Condition == levels(dd.de.design$Condition)[1], AssayID]])

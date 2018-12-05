@@ -182,14 +182,14 @@ process.quant <- function(input_dir) {
     y_range <- max(dd.exposures.density$y) * 1.35
     x_range <- max(-min(dd.exposures.density$x[dd.exposures.density$y > y_range/100]), max(dd.exposures.density$x[dd.exposures.density$y > y_range/100])) * 1.2
 
-    g <- ggplot2::ggplot(dd.exposures, aes(x = mean))
+    g <- ggplot2::ggplot(dd.exposures, ggplot2::aes(x = mean))
     g <- g + ggplot2::theme_bw()
-    g <- g + ggplot2::theme(panel.border = element_rect(colour = "black", size = 1),
-                   panel.grid.major = element_line(size = 0.5),
-                   axis.ticks = element_blank(),
-                   axis.text.y = element_blank(),
-                   plot.title = element_text(size = 10),
-                   strip.background=element_blank())
+    g <- g + ggplot2::theme(panel.border = ggplot2::element_rect(colour = "black", size = 1),
+                   panel.grid.major = ggplot2::element_line(size = 0.5),
+                   axis.ticks = ggplot2::element_blank(),
+                   axis.text.y = ggplot2::element_blank(),
+                   plot.title = ggplot2::element_text(size = 10),
+                   strip.background = ggplot2::element_blank())
     g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
     g <- g + ggplot2::scale_y_continuous(expand = c(0, 0))
     g <- g + ggplot2::facet_grid(Assay ~ .)
@@ -197,10 +197,10 @@ process.quant <- function(input_dir) {
     g <- g + ggplot2::xlab(expression('Log'[2]*' Ratio'))
     g <- g + ggplot2::ylab("Probability Density")
     g <- g + ggplot2::geom_vline(xintercept = 0,size = 1/2, colour = "darkgrey")
-    g <- g + ggplot2::geom_ribbon(data = dd.exposures.density,aes(x = x, ymax = y), ymin = 0,size = 1/2, alpha = 0.3)
-    g <- g + ggplot2::geom_line(data = dd.exposures.density, aes(x = x,y = y), size = 1/2)
-    g <- g + ggplot2::geom_vline(data = dd.exposures.meta,aes(xintercept = mean), size = 1/2)
-    g <- g + ggplot2::geom_text(data = dd.exposures.meta, aes(x = mean, label = fc), y = max(dd.exposures.density$y) * 1.22, hjust = 0, vjust = 1, size = 3)
+    g <- g + ggplot2::geom_ribbon(data = dd.exposures.density,ggplot2::aes(x = x, ymax = y), ymin = 0,size = 1/2, alpha = 0.3)
+    g <- g + ggplot2::geom_line(data = dd.exposures.density, ggplot2::aes(x = x,y = y), size = 1/2)
+    g <- g + ggplot2::geom_vline(data = dd.exposures.meta,ggplot2::aes(xintercept = mean), size = 1/2)
+    g <- g + ggplot2::geom_text(data = dd.exposures.meta, ggplot2::aes(x = mean, label = fc), y = max(dd.exposures.density$y) * 1.22, hjust = 0, vjust = 1, size = 3)
     g
   }
 
@@ -244,22 +244,23 @@ process.quant <- function(input_dir) {
 
 
   #  QUALITY CONTROL
+  suppressPackageStartupMessages(require(ggfortify))
 
   # write out pca plot
   protein.quantspca <- t(protein.quants.mean[complete.cases(protein.quants.mean),])
   protein.quantspca.var <- rowMeans(protein.quants.stdev[complete.cases(protein.quants.mean),]^2)
 
   pca.assays <- prcomp(protein.quantspca, center = T, scale = protein.quantspca.var)
-  dd.pca.assays <- fortify(pca.assays)
+  dd.pca.assays <- ggplot2::fortify(pca.assays)
   dd.pca.assays <- cbind(dd.pca.assays, dd.assays)
 
   g <- ggplot2::autoplot(pca.assays, data = dd.pca.assays)
   g <- g + ggplot2::theme_bw()
-  g <- g + ggplot2::theme(panel.border = element_rect(colour = "black", size = 1),
-                 panel.grid.major = element_line(size = 0.5),
-                 strip.background = element_blank())
-  g <- g + ggrepel::geom_label_repel(aes(label = Assay))
-  g <- g + ggplot2::theme(aspect.ratio=1) + coord_equal()
+  g <- g + ggplot2::theme(panel.border = ggplot2::element_rect(colour = "black", size = 1),
+                 panel.grid.major = ggplot2::element_line(size = 0.5),
+                 strip.background = ggplot2::element_blank())
+  g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = Assay))
+  g <- g + ggplot2::theme(aspect.ratio=1) + ggplot2::coord_equal()
   if (!all(dd.assays$isRef)) g <- g + ggtitle(paste("ref.assays =", paste(dd.assays[isRef == T, Assay], collapse = "; ")))
   ggplot2::ggsave(file.path(stats.dir, "pca.pdf"), g, width=8, height=8)
 
@@ -304,7 +305,7 @@ process.quant <- function(input_dir) {
   #   g <- g + theme(panel.border = element_rect(colour = "black", size = 1),
   #                  panel.grid.major = element_line(size = 0.5),
   #                  strip.background = element_blank())
-  #   g <- g + geom_label_repel(aes(label = Assay))
+  #   g <- g + geom_label_repel(ggplot2::aes(label = Assay))
   #   g <- g + theme(aspect.ratio=1) + coord_equal()
   #   g <- g + ggtitle(paste("ref.assays =", paste(dd.assays[isRef == T, Assay], collapse = "; ")))
   #   ggplot2::ggsave(file.path(stats.dir, "pca_noref.pdf"), g, width=8, height=8)
@@ -370,7 +371,7 @@ process.quant <- function(input_dir) {
   #   y_range <- max(dd.assays2.density$y) * 1.35
   #   x_range <- max(-min(dd.assays2.density$x[dd.assays2.density$y > y_range/100]), max(dd.assays2.density$x[dd.assays2.density$y > y_range/100])) * 1.2
   #
-  #   g <- ggplot2::ggplot(dd.assays2, aes(x = mean))
+  #   g <- ggplot2::ggplot(dd.assays2, ggplot2::aes(x = mean))
   #   g <- g + theme_bw()
   #   g <- g + theme(panel.border = element_rect(colour = "black", size = 1),
   #                  panel.grid.major = element_line(size = 0.5),
@@ -385,9 +386,9 @@ process.quant <- function(input_dir) {
   #   g <- g + xlab(expression('Standard Deviation of Digestion (Log'[2]*' Intensity)'))
   #   g <- g + ylab("Probability Density")
   #   g <- g + geom_vline(xintercept = 0,size = 1/2, colour = "darkgrey")
-  #   g <- g + geom_ribbon(data = dd.assays2.density,aes(x = x, ymax = y), ymin = 0,size = 1/2, alpha = 0.3)
-  #   g <- g + geom_line(data = dd.assays2.density, aes(x = x,y = y), size = 1/2)
-  #   g <- g + geom_vline(data = dd.assays2.meta,aes(xintercept = mean), size = 1/2)
+  #   g <- g + geom_ribbon(data = dd.assays2.density,ggplot2::aes(x = x, ymax = y), ymin = 0,size = 1/2, alpha = 0.3)
+  #   g <- g + geom_line(data = dd.assays2.density, ggplot2::aes(x = x,y = y), size = 1/2)
+  #   g <- g + geom_vline(data = dd.assays2.meta,ggplot2::aes(xintercept = mean), size = 1/2)
   #   g
   # }
 }

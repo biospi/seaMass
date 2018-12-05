@@ -12,7 +12,7 @@ bayesprot.hpc <- function(dd, nthread, id = "bayesprot", ...) {
 
   # setup input
   tmp.dir <- tempfile("bayesprot.")
-  process.input(dd, file.path(tmp.dir, id), nthread, ...)
+  process.input(dd, file.path(tmp.dir, id), nthread = nthread, ...)
 
   # create zip file
   wd <- getwd()

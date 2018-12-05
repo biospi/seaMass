@@ -3,7 +3,6 @@
 #' @param datafile A number.
 #' @return The sum of \code{x} and \code{y}.
 #' @import data.table
-#' @importFrom actuar dinvgamma
 #' @export
 
 process.study <- function(input_dir) {
@@ -21,7 +20,7 @@ process.study <- function(input_dir) {
 
   # create subdirectories
   prefix <- ifelse(file.exists("1.Rdata"), ".", file.path("..", "..", input_dir, "results"))
-  stats.dir <- paste0(params$id, ".bayesprot.study")
+  stats.dir <- paste0(params$id, ".study")
   dir.create(stats.dir, showWarnings = F)
 
   # LOAD MODEL OUTPUT, COMPUTE EXPOSURES
@@ -105,6 +104,7 @@ process.study <- function(input_dir) {
 
 
   # FIT INVERSE GAMMA DISTRIBUTIONS TO VARIANCES
+  suppressPackageStartupMessages(require(actuar))
 
   # fit assay posterior means
   assays.nu <- array(NA, nA)
@@ -177,29 +177,29 @@ process.study <- function(input_dir) {
     y_range <- max(dd.exposures.density$y) * 1.35
     x_range <- max(-min(dd.exposures.density$x[dd.exposures.density$y > y_range/100]), max(dd.exposures.density$x[dd.exposures.density$y > y_range/100])) * 1.2
 
-    g <- ggplot(dd.exposures, aes(x = mean))
-    g <- g + theme_bw()
-    g <- g + theme(panel.border = element_rect(colour = "black", size = 1),
-                   panel.grid.major = element_line(size = 0.5),
-                   axis.ticks = element_blank(),
-                   axis.text.y = element_blank(),
-                   plot.title = element_text(size = 10),
-                   strip.background=element_blank())
-    g <- g + scale_x_continuous(expand = c(0, 0))
-    g <- g + scale_y_continuous(expand = c(0, 0))
-    g <- g + facet_grid(Assay ~ .)
-    g <- g + coord_cartesian(xlim = c(-x_range, x_range), ylim = c(-0.0, y_range))
-    g <- g + xlab(expression('Ln Ratio'))
-    g <- g + ylab("Probability Density")
-    g <- g + geom_vline(xintercept = 0,size = 1/2, colour = "darkgrey")
-    g <- g + geom_ribbon(data = dd.exposures.density,aes(x = x, ymax = y), ymin = 0,size = 1/2, alpha = 0.3)
-    g <- g + geom_line(data = dd.exposures.density, aes(x = x,y = y), size = 1/2)
-    g <- g + geom_vline(data = dd.exposures.meta,aes(xintercept = mean), size = 1/2)
-    g <- g + geom_text(data = dd.exposures.meta, aes(x = mean, label = fc), y = max(dd.exposures.density$y) * 1.1, hjust = 0, vjust = 1, size = 3)
+    g <- ggplot2::ggplot(dd.exposures, ggplot2::aes(x = mean))
+    g <- g + ggplot2::theme_bw()
+    g <- g + ggplot2::theme(panel.border = ggplot2::element_rect(colour = "black", size = 1),
+                   panel.grid.major = ggplot2::element_line(size = 0.5),
+                   axis.ticks = ggplot2::element_blank(),
+                   axis.text.y = ggplot2::element_blank(),
+                   plot.title = ggplot2::element_text(size = 10),
+                   strip.background = ggplot2::element_blank())
+    g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
+    g <- g + ggplot2::scale_y_continuous(expand = c(0, 0))
+    g <- g + ggplot2::facet_grid(Assay ~ .)
+    g <- g + ggplot2::coord_cartesian(xlim = c(-x_range, x_range), ylim = c(-0.0, y_range))
+    g <- g + ggplot2::xlab(expression('Ln Ratio'))
+    g <- g + ggplot2::ylab("Probability Density")
+    g <- g + ggplot2::geom_vline(xintercept = 0,size = 1/2, colour = "darkgrey")
+    g <- g + ggplot2::geom_ribbon(data = dd.exposures.density, ggplot2::aes(x = x, ymax = y), ymin = 0,size = 1/2, alpha = 0.3)
+    g <- g + ggplot2::geom_line(data = dd.exposures.density, ggplot2::aes(x = x,y = y), size = 1/2)
+    g <- g + ggplot2::geom_vline(data = dd.exposures.meta, ggplot2::aes(xintercept = mean), size = 1/2)
+    g <- g + ggplot2::geom_text(data = dd.exposures.meta, ggplot2::aes(x = mean, label = fc), y = max(dd.exposures.density$y) * 1.1, hjust = 0, vjust = 1, size = 3)
     g
   }
 
-  ggsave(file.path(stats.dir, "exposures.pdf"), plot.exposures(mcmc.exposures), width = 8, height = 0.5 + 0.5 * nA, limitsize = F)
+  ggplot2::ggsave(file.path(stats.dir, "exposures.pdf"), plot.exposures(mcmc.exposures), width = 8, height = 0.5 + 0.5 * nA, limitsize = F)
 
 
   # assays plot
@@ -247,29 +247,29 @@ process.study <- function(input_dir) {
       }
       dd.assays.sd.density <- dd.assays.sd[, as.list(dd.assays.sd.density.func(Exposure)), by = list(Assay)]
 
-      g <- ggplot(dd.assays.sd, aes(x = median))
-      g <- g + theme_bw()
-      g <- g + theme(panel.border = element_rect(colour = "black", size = 1),
-                     panel.grid.major = element_line(size = 0.5),
-                     axis.ticks = element_blank(),
-                     axis.text.y = element_blank(),
-                     plot.title = element_text(size = 10),
-                     strip.background=element_blank())
-      g <- g + scale_x_continuous(expand = c(0, 0))
-      g <- g + scale_y_continuous(expand = c(0, 0))
-      g <- g + facet_grid(Assay ~ .)
-      g <- g + coord_cartesian(xlim = c(0, x_range), ylim = c(-0.0, y_range))
-      g <- g + xlab(expression('Log'[2]*' Standard Deviation'))
-      g <- g + ylab("Probability Density")
-      g <- g + geom_vline(xintercept = 0,size = 1/2, colour = "darkgrey")
-      g <- g + geom_ribbon(data = dd.assays.sd.density,aes(x = x, ymax = y), ymin = 0,size = 1/2, alpha = 0.3)
-      g <- g + geom_line(data = dd.assays.sd.density, aes(x = x,y = y), size = 1/2)
-      g <- g + geom_vline(data = dd.assays.sd.meta,aes(xintercept = median), size = 1/2)
-      g <- g + geom_text(data = dd.assays.sd.meta, aes(x = median, label = fc), y = max(dd.assays.sd.density$y) * 1.1, hjust = 0, vjust = 1, size = 3)
+      g <- ggplot2::ggplot(dd.assays.sd, ggplot2::aes(x = median))
+      g <- g + ggplot2::theme_bw()
+      g <- g + ggplot2::theme(panel.border = ggplot2::element_rect(colour = "black", size = 1),
+                     panel.grid.major = ggplot2::element_line(size = 0.5),
+                     axis.ticks = ggplot2::element_blank(),
+                     axis.text.y = ggplot2::element_blank(),
+                     plot.title = ggplot2::element_text(size = 10),
+                     strip.background = ggplot2::element_blank())
+      g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
+      g <- g + ggplot2::scale_y_continuous(expand = c(0, 0))
+      g <- g + ggplot2::facet_grid(Assay ~ .)
+      g <- g + ggplot2::coord_cartesian(xlim = c(0, x_range), ylim = c(-0.0, y_range))
+      g <- g + ggplot2::xlab(expression('Log'[2]*' Standard Deviation'))
+      g <- g + ggplot2::ylab("Probability Density")
+      g <- g + ggplot2::geom_vline(xintercept = 0,size = 1/2, colour = "darkgrey")
+      g <- g + ggplot2::geom_ribbon(data = dd.assays.sd.density,ggplot2::aes(x = x, ymax = y), ymin = 0,size = 1/2, alpha = 0.3)
+      g <- g + ggplot2::geom_line(data = dd.assays.sd.density, ggplot2::aes(x = x,y = y), size = 1/2)
+      g <- g + ggplot2::geom_vline(data = dd.assays.sd.meta, ggplot2::aes(xintercept = median), size = 1/2)
+      g <- g + ggplot2::geom_text(data = dd.assays.sd.meta, ggplot2::aes(x = median, label = fc), y = max(dd.assays.sd.density$y) * 1.1, hjust = 0, vjust = 1, size = 3)
       g
     }
 
-    ggsave(file.path(stats.dir, "assay_stdevs.pdf"), plot.assays(sqrt(assays.var / log(2))), width = 8, height = 0.5 + 0.5 * nA, limitsize = F)
+    ggplot2::ggsave(file.path(stats.dir, "assay_stdevs.pdf"), plot.assays(sqrt(assays.var / log(2))), width = 8, height = 0.5 + 0.5 * nA, limitsize = F)
   }
 
   # fit plot
@@ -306,21 +306,21 @@ process.study <- function(input_dir) {
   dd.plot[, Label := factor(Label, levels = unique(Label))]
   dd.plot[, Type := factor(Type, levels = unique(Type))]
 
-  g <- ggplot(dd.plot, aes(x = x, y = y, colour = Type))
-  g <- g + theme_bw()
-  g <- g + theme(panel.border = element_rect(colour = "black", size = 1),
-                 panel.grid.major = element_line(size = 0.5),
-                 axis.ticks = element_blank(),
-                 axis.text.y = element_blank(),
-                 plot.title = element_text(size = 10),
-                 strip.background=element_blank())
-  g <- g + facet_wrap(~ Label, ncol = 1)
-  g <- g + geom_line()
-  g <- g + coord_cartesian(xlim = c(0, x.max), ylim = c(0, 1.1 * max(dd.plot$y)), expand = F)
-  g <- g + theme(legend.position="top")
-  g <- g + xlab("Ln Variance")
-  g <- g + ylab("Density")
-  ggsave(file.path(stats.dir, "variances.pdf"), g, width = 8, height = 1.5 + 0.75 * (2 + ifelse(params$assay.stdevs, nA, 0)), limitsize = F)
+  g <- ggplot2::ggplot(dd.plot, ggplot2::aes(x = x, y = y, colour = Type))
+  g <- g + ggplot2::theme_bw()
+  g <- g + ggplot2::theme(panel.border = ggplot2::element_rect(colour = "black", size = 1),
+                 panel.grid.major = ggplot2::element_line(size = 0.5),
+                 axis.ticks = ggplot2::element_blank(),
+                 axis.text.y = ggplot2::element_blank(),
+                 plot.title = ggplot2::element_text(size = 10),
+                 strip.background = ggplot2::element_blank())
+  g <- g + ggplot2::facet_wrap(~ Label, ncol = 1)
+  g <- g + ggplot2::geom_line()
+  g <- g + ggplot2::coord_cartesian(xlim = c(0, x.max), ylim = c(0, 1.1 * max(dd.plot$y)), expand = F)
+  g <- g + ggplot2::theme(legend.position="top")
+  g <- g + ggplot2::xlab("Ln Variance")
+  g <- g + ggplot2::ylab("Density")
+  ggplot2::ggsave(file.path(stats.dir, "variances.pdf"), g, width = 8, height = 1.5 + 0.75 * (2 + ifelse(params$assay.stdevs, nA, 0)), limitsize = F)
 
 
   # create zip file and clean up

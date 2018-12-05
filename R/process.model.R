@@ -3,8 +3,6 @@
 #' @param datafile A number.
 #' @return The sum of \code{x} and \code{y}.
 #' @import data.table
-#' @importFrom foreach %dopar%
-#' @importFrom doRNG %dorng%
 #' @export
 
 process.model <- function(chain) {
@@ -47,7 +45,10 @@ process.model <- function(chain) {
   set.seed(params$seed * nchain + chain - 1)
   options(max.print = 99999)
   gc()
-  output <- foreach::foreach(p = levels(dd.all$ProteinID), .options.multicore = list(preschedule = F)) %dorng% {
+  `%dopar%` <- foreach::`%dopar%`
+  `%dorng%` <- doRNG::`%dorng%`
+  output <- foreach::foreach(p = levels(dd.all$ProteinID), .options.multicore = list(preschedule = F, silent = T)) %dorng% {
+
     # prepare dd for MCMCglmm
     dd <- dd.all[ProteinID == p,]
     dd[, ProteinID := factor(ProteinID)]
