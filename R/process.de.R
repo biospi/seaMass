@@ -53,11 +53,15 @@ process.de <- function() {
     filename.qprot <- file.path("qprot", "_point_est.tsv")
     fwrite(as.data.table(dd.qprot), filename.qprot, sep = "\t")
     if (params$de.paired) {
-      system2(paste0(params$qprot.path, "qprot-paired"), args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"))
+      system2(paste0(params$qprot.path, "qprot-paired"),
+              args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"),
+              stdout = NULL, stderr = NULL)
     } else {
-      system2(paste0(params$qprot.path, "qprot-param"), args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"))
+      system2(paste0(params$qprot.path, "qprot-param"),
+              args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"),
+              stdout = NULL, stderr = NULL)
     }
-    system2(paste0(params$qprot.path, "getfdr"), arg = c(paste0(filename.qprot, "_qprot")))
+    system2(paste0(params$qprot.path, "getfdr"), arg = c(paste0(filename.qprot, "_qprot")), stdout = NULL, stderr = NULL)
     dd.fdr <- fread(paste0(filename.qprot, "_qprot_fdr"))
     setnames(dd.fdr, c("Protein", "fdr", "FDRup", "FDRdown"), c("ProteinID", "PEP", "PEPup", "PEPdown"))
 
@@ -104,21 +108,21 @@ process.de <- function() {
     dd.fdr.mcmc.mean[, FDR := cumsum(PEP) / Discoveries, by = .(chain, samp)]
 
     dd.fdr.mcmc.mean.stats <- dd.fdr.mcmc.mean[, .(
-      PEPup.lower = HPDinterval(as.mcmc(PEPup))[, "lower"],
+      PEPup.lower = coda::HPDinterval(coda::as.mcmc(PEPup))[, "lower"],
       PEPup.mean = mean(PEPup),
-      PEPup.upper = HPDinterval(as.mcmc(PEPup))[, "upper"],
-      PEPdown.lower = HPDinterval(as.mcmc(PEPdown))[, "lower"],
+      PEPup.upper = coda::HPDinterval(coda::as.mcmc(PEPup))[, "upper"],
+      PEPdown.lower = coda::HPDinterval(coda::as.mcmc(PEPdown))[, "lower"],
       PEPdown.mean = mean(PEPdown),
-      PEPdown.upper = HPDinterval(as.mcmc(PEPdown))[, "upper"],
-      PEP.lower = HPDinterval(as.mcmc(PEP))[, "lower"],
+      PEPdown.upper = coda::HPDinterval(coda::as.mcmc(PEPdown))[, "upper"],
+      PEP.lower = coda::HPDinterval(coda::as.mcmc(PEP))[, "lower"],
       PEP.mean = mean(PEP),
-      PEP.upper = HPDinterval(as.mcmc(PEP))[, "upper"],
-      log2FC.lower = HPDinterval(as.mcmc(LogFoldChange))[, "lower"],
+      PEP.upper = coda::HPDinterval(coda::as.mcmc(PEP))[, "upper"],
+      log2FC.lower = coda::HPDinterval(coda::as.mcmc(LogFoldChange))[, "lower"],
       log2FC.mean = mean(LogFoldChange),
-      log2FC.upper = HPDinterval(as.mcmc(LogFoldChange))[, "upper"],
-      FDR.lower = HPDinterval(as.mcmc(FDR))[, "lower"],
+      log2FC.upper = coda::HPDinterval(coda::as.mcmc(LogFoldChange))[, "upper"],
+      FDR.lower = coda::HPDinterval(coda::as.mcmc(FDR))[, "lower"],
       FDR.mean = mean(FDR),
-      FDR.upper = HPDinterval(as.mcmc(FDR))[, "upper"],
+      FDR.upper = coda::HPDinterval(coda::as.mcmc(FDR))[, "upper"],
       Discoveries = Discoveries[1],
       FDR = mean(FDR)
     ), by = ProteinID]
@@ -148,9 +152,9 @@ process.de <- function() {
     dd.fdr.mcmc.samp[, FDR := cumsum(PEP) / Discoveries, by = .(chain, samp)]
 
     dd.fdr.mcmc.samp.stats <- dd.fdr.mcmc.samp[, .(
-      FDR.lower = HPDinterval(as.mcmc(FDR))[, "lower"],
+      FDR.lower = coda::HPDinterval(coda::as.mcmc(FDR))[, "lower"],
       FDR.mean = mean(FDR),
-      FDR.upper = HPDinterval(as.mcmc(FDR))[, "upper"]
+      FDR.upper = coda::HPDinterval(coda::as.mcmc(FDR))[, "upper"]
     ), by = Discoveries]
 
     # plot FDR vs Discoveries
@@ -169,9 +173,9 @@ process.de <- function() {
     ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", ct0, "_vs_", ct, "__all_rankings.pdf")), g, width=8, height=8)
 
     dd.fdr.mcmc.samp.stats2 <- dd.fdr.mcmc.samp[, .(
-      FDR.lower = HPDinterval(as.mcmc(FDR))[, "lower"],
+      FDR.lower = coda::HPDinterval(coda::as.mcmc(FDR))[, "lower"],
       FDR.mean = mean(FDR),
-      FDR.upper = HPDinterval(as.mcmc(FDR))[, "upper"]
+      FDR.upper = coda::HPDinterval(coda::as.mcmc(FDR))[, "upper"]
     ), by = ProteinID]
     setorder(dd.fdr.mcmc.samp.stats2, FDR.mean)
     dd.fdr.mcmc.samp.stats2[, Discoveries := 1:length(ProteinID)]

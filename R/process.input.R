@@ -20,7 +20,7 @@ process.input <- function(dd, id = "bayesprot", ref.assays = levels(dd$Assay), d
   params$version <- packageVersion("bayesprot")
 
   # default parameters
-  if (is.null(params$id)) params$id <- id
+  if (is.null(params$id)) params$id <- basename(id)
   if (is.null(params$missing)) params$missing <- "censored"
   if (is.null(params$seed)) params$seed <- 0
   if (is.null(params$nthread)) params$nthread <- parallel::detectCores(logical = F)

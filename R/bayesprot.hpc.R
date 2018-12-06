@@ -4,7 +4,7 @@
 #' @return The sum of \code{x} and \code{y}.
 #' @export
 
-bayesprot.hpc <- function(dd, nthread, id = "bayesprot", ...) {
+bayesprot.hpc <- function(dd, nthread, id = "bayesprot.hpc", ...) {
   message(paste0("BayesProt HPC v", packageVersion("bayesprot"), " | © 2015-2018 BioSP", utf8::utf8_encode("\U0001f441"), " Laboratory"))
   message("This program comes with ABSOLUTELY NO WARRANTY.")
   message("This is free software, and you are welcome to redistribute it under certain conditions.")

@@ -64,11 +64,15 @@ process.qprot <- function(chain) {
     filename.qprot <- paste0("_", ct, ".", chain, ".", s, ".tsv")
     fwrite(dd.qprot, filename.qprot, sep = "\t")
     if (params$de.paired) {
-      system2(paste0(params$qprot.path, "qprot-paired"), args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"), stdout = NULL, stderr = NULL)
+      system2(paste0(params$qprot.path, "qprot-paired"),
+              args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"),
+              stdout = NULL, stderr = NULL)
     } else {
-      system2(paste0(params$qprot.path, "qprot-param"), args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"), stdout = NULL, stderr = NULL)
+      system2(paste0(params$qprot.path, "qprot-param"),
+              args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"),
+              stdout = NULL, stderr = NULL)
     }
-    system2(paste0(params$qprot.path, "getfdr"), arg = c(paste0(filename.qprot, "_qprot")))
+    system2(paste0(params$qprot.path, "getfdr"), arg = c(paste0(filename.qprot, "_qprot")), stdout = NULL, stderr = NULL)
     dd.fdr <- fread(paste0(filename.qprot, "_qprot_fdr"))
 
     file.remove(filename.qprot)

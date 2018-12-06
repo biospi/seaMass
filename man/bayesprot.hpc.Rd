@@ -4,7 +4,7 @@
 \alias{bayesprot.hpc}
 \title{Add together two numbers.}
 \usage{
-bayesprot.hpc(dd, nthread, id = "bayesprot", ...)
+bayesprot.hpc(dd, nthread, id = "bayesprot.hpc", ...)
 }
 \arguments{
 \item{datafile}{A number.}
