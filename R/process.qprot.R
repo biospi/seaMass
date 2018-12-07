@@ -26,8 +26,6 @@ process.qprot <- function(chain) {
   # read MCMC samps
   mcmc.quants.all <- array(NA, c(nsamp, nP, nA))
   for (a in 1:nA) {
-    print(paste0("[", Sys.time(), " Reading ", a, ".", chain, ".rds ...]"))
-
     mcmc.quants <- readRDS(file.path(prefix, paste0(a, ".", chain, ".rds")))
 
     # todo: check baseline

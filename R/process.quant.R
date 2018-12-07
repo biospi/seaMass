@@ -265,24 +265,26 @@ process.quant <- function(input_dir) {
   ggplot2::ggsave(file.path(stats.dir, "pca.pdf"), g, width=8, height=8)
 
   # write out Rhat
-  protein.quants.rhat <- matrix(NA, nP, nA)
-  for (a in 1:nA) {
-    message("[", paste0(Sys.time(), "]  calculating Rhat for assay ", a, "..."))
+  if (params$quant.nchain > 1) {
+    protein.quants.rhat <- matrix(NA, nP, nA)
+    for (a in 1:nA) {
+      message("[", paste0(Sys.time(), "]  calculating Rhat for assay ", a, "..."))
 
-    # load data
-    mcmc.protein.quants <- vector("list", params$quant.nchain)
-    for (j in 1:params$quant.nchain) {
-      mcmc.protein.quants[[j]] <- readRDS(file.path("quants", paste0(a, ".", j, ".rds")))
-    }
-    mcmc.protein.quants <- coda::as.mcmc.list(mcmc.protein.quants)
+      # load data
+      mcmc.protein.quants <- vector("list", params$quant.nchain)
+      for (j in 1:params$quant.nchain) {
+        mcmc.protein.quants[[j]] <- readRDS(file.path("quants", paste0(a, ".", j, ".rds")))
+      }
+      mcmc.protein.quants <- coda::as.mcmc.list(mcmc.protein.quants)
 
-    # Rhat
-    for (k in 1:ncol(mcmc.protein.quants[[1]])) {
-      protein.quants.rhat[as.integer(sub("^([0-9]+)\\.[0-9]+$", "\\1", colnames(mcmc.protein.quants[[1]])[k])), a] <- coda::gelman.diag(mcmc.protein.quants[, k, drop = F], autoburnin = F)$psrf[1]
+      # Rhat
+      for (k in 1:ncol(mcmc.protein.quants[[1]])) {
+        protein.quants.rhat[as.integer(sub("^([0-9]+)\\.[0-9]+$", "\\1", colnames(mcmc.protein.quants[[1]])[k])), a] <- coda::gelman.diag(mcmc.protein.quants[, k, drop = F], autoburnin = F)$psrf[1]
+      }
     }
+    colnames(protein.quants.rhat) <- dd.assays$Assay
+    fwrite(cbind(dd.proteins, protein.quants.rhat), file.path(stats.dir, "protein_rhats.csv"))
   }
-  colnames(protein.quants.rhat) <- dd.assays$Assay
-  fwrite(cbind(dd.proteins, protein.quants.rhat), file.path(stats.dir, "protein_rhats.csv"))
 
   # create zip file and clean up
   stats.zip <- file.path("..", "..", "..", paste0(stats.dir, ".zip"))

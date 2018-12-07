@@ -1,2 +1,2 @@
 library(bayesprot)
-process.de(commandArgs(T)[1])
+process.de()

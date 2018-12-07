@@ -38,15 +38,16 @@ process.model <- function(chain) {
     dd.all[, AssayID := factor(AssayID)]
   }
 
-  message(paste0("[", Sys.time(), "] MODEL started, quant=", for.quant, ", chain=", chain, "/", nchain))
+  message(paste0("[", Sys.time(), "] MODEL started, type=", ifelse(for.quant, "QUANT", "STUDY"), ", chain=", chain, "/", nchain))
 
   # set up parallel processing, seed and go
+  suppressPackageStartupMessages(require(doParallel))
+  suppressPackageStartupMessages(require(doRNG))
+
   doParallel::registerDoParallel(params$nthread)
   set.seed(params$seed * nchain + chain - 1)
   options(max.print = 99999)
   gc()
-  `%dopar%` <- foreach::`%dopar%`
-  `%dorng%` <- doRNG::`%dorng%`
   output <- foreach::foreach(p = levels(dd.all$ProteinID), .options.multicore = list(preschedule = F, silent = T)) %dorng% {
 
     # prepare dd for MCMCglmm

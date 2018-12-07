@@ -9,7 +9,7 @@ process.input <- function(dd, id = "bayesprot", ref.assays = levels(dd$Assay), d
   message(paste0("[", Sys.time(), "] INPUT started"))
 
   if (length(levels(dd$Assay)) < 6) {
-    stop("ERROR: BayesProt cannot process datasets with less than 6 assays - use something else")
+    stop("ERROR: BayesProt cannot process datasets with less than 6 assays - use something else.")
   }
 
   # remove output if exists
@@ -39,6 +39,10 @@ process.input <- function(dd, id = "bayesprot", ref.assays = levels(dd$Assay), d
   if (is.null(params$de.paired)) params$de.paired <- F
   if (is.null(params$qprot.path)) params$qprot.path <- ""
   if (params$qprot.path != "") params$qprot.path <- paste0(params$qprot.path, "/")
+
+  if (params$quant.nchain == 1) {
+    message("WARNING: You are running a single MCMC chain, convergance diagnostics will be unavailable. It is recommended to specify at least quant.nchain=4 for publishable results.")
+  }
 
   # build Protein index
   dd.proteins <- dd[, .(

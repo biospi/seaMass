@@ -4,14 +4,22 @@
 #' @return The sum of \code{x} and \code{y}.
 #' @export
 
-bayesprot <- function(dd, id = "bayesprot", ...) {
+bayesprot <- function(dd, id = "bayesprot",
+                      study.nitt = 1300, study.burnin = 300, study.thin = 1, study.nchain = 1,
+                      quant.nitt = 1300, quant.burnin = 300, quant.thin = 1, quant.nchain = 1,
+                      qprot.nitt = 12000, qprot.burnin = 2000,
+                      ...) {
+
   message(paste0("BayesProt v", packageVersion("bayesprot"), " | © 2015-2018 BioSP", utf8::utf8_encode("\U0001f441"), " Laboratory"))
   message("This program comes with ABSOLUTELY NO WARRANTY.")
   message("This is free software, and you are welcome to redistribute it under certain conditions.")
   message("---")
 
   # setup input
-  process.input(dd, id, ...)
+  process.input(dd, id,
+                study.nitt = study.nitt, study.burnin = study.burnin, study.thin = study.thin, study.nchain = study.nchain,
+                quant.nitt = quant.nitt, quant.burnin = quant.burnin, quant.thin = quant.thin, quant.nchain = quant.nchain,
+                qprot.nitt = qprot.nitt, qprot.burnin = qprot.burnin, ...)
 
   # load params
   load(file.path(id, "input", "metadata.Rdata"))
