@@ -158,7 +158,7 @@ process.de <- function() {
     ), by = Discoveries]
 
     # plot FDR vs Discoveries
-    g <- ggplot(dd.fdr.mcmc.samp.stats, ggplot2::aes(x = Discoveries, y = FDR.mean))
+    g <- ggplot2::ggplot(dd.fdr.mcmc.samp.stats, ggplot2::aes(x = Discoveries, y = FDR.mean))
     g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype="dotted")
     g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype="dotted")
     g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype="dotted")
