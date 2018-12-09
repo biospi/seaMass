@@ -132,14 +132,14 @@ process.bmc <- function(chain) {
       }
       system2(paste0(params$qprot.path, "getfdr"), arg = c(paste0(filename.qprot, "_qprot")), stdout = NULL, stderr = NULL)
       dd.qprot <- fread(paste0(filename.qprot, "_qprot_fdr"))[, .(ProteinID = Protein, log2fc.mean = LogFoldChange, Z = Zstatistic, PEP = fdr, Baseline = cts[1, ct], Condition = cts[2, ct], samp = s)]
-      setorder(dd.qprot, PEP)
 
       file.remove(filename.qprot)
       file.remove(paste0(filename.qprot, "_qprot"))
       file.remove(paste0(filename.qprot, "_qprot_density"))
       file.remove(paste0(filename.qprot, "_qprot_fdr"))
 
-      dd.fdr
+      setorder(dd.qprot, PEP)
+      dd.qprot
     }
     doParallel::stopImplicitCluster()
     dd.output[, ProteinID := factor(ProteinID)]
