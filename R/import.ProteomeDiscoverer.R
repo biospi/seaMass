@@ -59,8 +59,8 @@ import.ProteomeDiscoverer <- function(datafile, dd.fractions) {
   if("131N" %in% colnames(dd.raw)) dd.wide$Label.131N <- dd.raw$`131N`
   if("131" %in% colnames(dd.raw)) dd.wide$Label.131 <- dd.raw$`131`
 
-  # need to sort out protein quant prior before we can get rid of this
-  warning("importProteomeDiscoverer currently discards all features with missing values")
+  # need to sort out protein quant prior before we can use censored observations
+  warning("import.ProteomeDiscoverer currently discards all features with missing values")
   dd.wide <- dd.wide[complete.cases(dd.wide),]
   dd.wide[, Protein := factor(Protein)]
   dd.wide[, Peptide := factor(Peptide)]

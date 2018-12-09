@@ -38,6 +38,14 @@ import.ProteinPilot <- function(datafile, dd.fractions) {
   if("Area.119" %in% colnames(dd.raw)) dd.wide$Label.119 <- dd.raw$Area.119
   if("Area.121" %in% colnames(dd.raw)) dd.wide$Label.121 <- dd.raw$Area.121
 
+  # need to sort out protein quant prior before we can use censored observations
+  warning("import.ProteinPilot currently discards all features with missing values")
+  dd.wide <- dd.wide[complete.cases(dd.wide),]
+  dd.wide[, Protein := factor(Protein)]
+  dd.wide[, Peptide := factor(Peptide)]
+  dd.wide[, Feature := factor(Feature)]
+  dd.wide[, Assay := factor(Assay)]
+
   # melt label counts
   dd <- melt(dd.wide, variable.name = "Label", value.name = "Count",
              measure.vars = colnames(dd.wide)[grep("^Label\\.", colnames(dd.wide))])

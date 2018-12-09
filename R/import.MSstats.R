@@ -17,5 +17,13 @@ import.MSstats <- function(dd.input) {
   if (is.null(dd$Assay)) dd$Assay <- paste(dd$Run, dd$Label, sep = ".")
   dd$Count = as.numeric(dd.input$Intensity)
 
+  # need to sort out protein quant prior before we can use censored observations
+  warning("import.MSstats currently discards all features with missing values")
+  dd <- merge(dd, dd[, .(n = sum(!is.na(Count))), by = Feature][n == length(levels(dd$Assay)), ])
+  dd[, n:= NULL]
+  dd[, Protein := factor(Protein)]
+  dd[, Peptide := factor(Peptide)]
+  dd[, Feature := factor(Feature)]
+
   dd
 }

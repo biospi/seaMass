@@ -34,6 +34,14 @@ import.Progenesis <- function(datafile) {
   dd.wide[ , Peptide := paste(Peptide, collapse = " : "), by = Feature]
   dd.wide <- unique(dd.wide)
 
+  # need to sort out protein quant prior before we can use censored observations
+  warning("import.Progenesis currently discards all features with missing values")
+  dd.wide <- dd.wide[complete.cases(dd.wide),]
+  dd.wide[, Protein := factor(Protein)]
+  dd.wide[, Peptide := factor(Peptide)]
+  dd.wide[, Feature := factor(Feature)]
+  dd.wide[, Assay := factor(Assay)]
+
   # melt assay counts
   dd <- melt(dd.wide, variable.name = "Assay", value.name = "Count",
              measure.vars = colnames(dd.wide)[grep("^Raw abundance ", colnames(dd.wide))])

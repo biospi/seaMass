@@ -30,7 +30,7 @@ process.input <- function(dd, id, ref.assays, de.design, ...) {
   dd.proteins <- dd[, .(
     nPeptide = length(unique(as.character(Peptide))),
     nFeature = length(unique(as.character(Feature))),
-    nMeasure = .N
+    nMeasure = sum(!is.na(Count))
   ), by = Protein]
   # use pre-trained regression model to estimate how long each Protein will take to process in order to assign Proteins to batches
   # Intercept, nPeptide, nFeature, nPeptide^2, nFeature^2, nPeptide*nFeature
@@ -46,7 +46,7 @@ process.input <- function(dd, id, ref.assays, de.design, ...) {
   # build Peptide index
   dd.peptides <- dd[, .(
     nFeature = length(unique(as.character(Feature))),
-    nMeasure = .N,
+    nMeasure = sum(!is.na(Count)),
     TopProteinID = min(as.integer(as.character(ProteinID))),
     ProteinIDs = paste(unique(as.integer(as.character(ProteinID))), collapse = "")
   ), by = Peptide]
@@ -60,7 +60,7 @@ process.input <- function(dd, id, ref.assays, de.design, ...) {
 
   # build Feature index
   dd.features <- dd[, .(
-    nMeasure = .N,
+    nMeasure = sum(!is.na(Count)),
     TopPeptideID = min(as.integer(as.character(PeptideID))),
     PeptideIDs = paste(unique(as.integer(as.character(PeptideID))), collapse = "")
   ), by = Feature]
