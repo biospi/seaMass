@@ -33,20 +33,20 @@ process.quant <- function(input_dir) {
 
   timings <- array(NA, c(nP, params$quant.nchain))
 
-  feature.stdevs.sum <- array(NA, c(nF, params$quant.nchain))
-  feature.stdevs.n <- array(NA, c(nF, params$quant.nchain))
+  feature.stdevs.sum <- array(0, c(nF, params$quant.nchain))
+  feature.stdevs.n <- array(0, c(nF, params$quant.nchain))
 
-  peptide.stdevs.sum <- array(NA, c(nT, params$quant.nchain))
-  peptide.stdevs.n <- array(NA, c(nT, params$quant.nchain))
+  peptide.stdevs.sum <- array(0, c(nT, params$quant.nchain))
+  peptide.stdevs.n <- array(0, c(nT, params$quant.nchain))
 
-  peptide.deviations.sum <- array(NA, c(nT, nA, params$quant.nchain))
-  peptide.deviations.sumsqrs <- array(NA, c(nT, nA, params$quant.nchain))
-  peptide.deviations.n <- array(NA, c(nT, nA, params$quant.nchain))
+  peptide.deviations.sum <- array(0, c(nT, nA, params$quant.nchain))
+  peptide.deviations.sumsqrs <- array(0, c(nT, nA, params$quant.nchain))
+  peptide.deviations.n <- array(0, c(nT, nA, params$quant.nchain))
 
   mcmc.exposures <- matrix(NA, nsamp * params$quant.nchain, nA)
-  protein.quants.sum <- array(NA, c(nP, nA, params$quant.nchain))
-  protein.quants.sumsqrs <- array(NA, c(nP, nA, params$quant.nchain))
-  protein.quants.n <- array(NA, c(nP, nA, params$quant.nchain))
+  protein.quants.sum <- array(0, c(nP, nA, params$quant.nchain))
+  protein.quants.sumsqrs <- array(0, c(nP, nA, params$quant.nchain))
+  protein.quants.n <- array(0, c(nP, nA, params$quant.nchain))
 
   for (j in 1:params$quant.nchain) {
     message("[", paste0(Sys.time(), "]  reading chain ", j, "/", params$quant.nchain, "..."))
@@ -234,7 +234,7 @@ process.quant <- function(input_dir) {
   colnames(peptide.deviations.mean) <- paste("x", dd.assays$Assay)
   fwrite(cbind(dd.peptides, peptide.deviations.mean), file.path(stats.dir, "peptide_deviations.csv"))
 
-  peptide.deviations.stdev <- sqrt(peptide.deviations.sumsqrs + peptide.deviations.sum^2 / peptide.deviations.n)
+  peptide.deviations.stdev <- sqrt(peptide.deviations.sumsqrs / peptide.deviations.n - peptide.deviations.mean^2)
   colnames(peptide.deviations.stdev) <- paste("x", dd.assays$Assay)
   fwrite(cbind(dd.peptides, peptide.deviations.stdev), file.path(stats.dir, "peptide_deviations_stdevs.csv"))
 
@@ -243,7 +243,7 @@ process.quant <- function(input_dir) {
   colnames(protein.quants.mean) <- paste("x", dd.assays$Assay)
   fwrite(cbind(dd.proteins, protein.quants.mean), file.path(stats.dir, "protein_quants.csv"))
 
-  protein.quants.stdev <- sqrt(protein.quants.sumsqrs + protein.quants.sum^2 / protein.quants.n)
+  protein.quants.stdev <- sqrt(protein.quants.sumsqrs / protein.quants.n - protein.quants.mean^2)
   colnames(protein.quants.stdev) <- paste("x", dd.assays$Assay)
   fwrite(cbind(dd.proteins, protein.quants.stdev), file.path(stats.dir, "protein_quants_stdevs.csv"))
 
