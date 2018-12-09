@@ -96,6 +96,7 @@ process.bmc <- function(chain) {
 
   if (params$qprot) {
     # set up parallel processing, seed and go
+    message(paste0("[", Sys.time(), "]  qprot..."))
     doParallel::registerDoParallel(params$nthread)
     set.seed(params$qprot.seed * params$quant.nchain + chain - 1)
     `%dopar%` <- foreach::`%dopar%`
