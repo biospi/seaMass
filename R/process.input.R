@@ -18,7 +18,7 @@ process.input <- function(dd, id, ref.assays, de.design, ...) {
 
   # read params
   params <- list(...)
-  params$id <- id
+  params$id <- basename(id)
   params$version <- packageVersion("bayesprot")
   params$assay.stdevs <- F
   if (params$qprot.path != "") params$qprot.path <- paste0(params$qprot.path, "/")
