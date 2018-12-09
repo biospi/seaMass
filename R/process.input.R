@@ -98,11 +98,8 @@ process.input <- function(dd, id, ref.assays, de.design, ...) {
     dir.create(file.path(id, "bmc", "results"), recursive = T)
     dir.create(file.path(id, "de", "results"), recursive = T)
   }
-  if (params$qprot) {
-    dir.create(file.path(id, "qprot", "results"), recursive = T)
-  }
   for (file in list.files(system.file("hpc", package = "bayesprot"))) {
-    if (!(is.null(dd.de.design) & grepl("^bmc", file)) & !(is.null(dd.de.design) & grepl("^de", file)) & !(is.null(params$qprot) & grepl("^qprot", file))) {
+    if (!(is.null(dd.de.design) & grepl("^bmc", file)) & !(is.null(dd.de.design) & grepl("^de", file))) {
       file.copy(file.path(system.file("hpc", package = "bayesprot"), file), id, recursive = T)
     }
   }

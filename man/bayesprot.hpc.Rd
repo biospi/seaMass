@@ -7,9 +7,9 @@
 bayesprot.hpc(dd, id = "bayesprot.hpc", de.design = NULL,
   de.paired = F, ref.assays = levels(dd$Assay), missing = "censored",
   truth = NULL, study.nitt = 1300, study.burnin = 300,
-  study.thin = 1, study.nchain = 1, study.seed = 0,
+  study.thin = 4, study.nchain = 4, study.seed = 0,
   study.npeptide = 5, quant.nitt = 1300, quant.burnin = 300,
-  quant.thin = 1, quant.nchain = 1, quant.seed = 0, qprot = F,
+  quant.thin = 4, quant.nchain = 4, quant.seed = 0, qprot = F,
   qprot.path = "", qprot.nitt = 12000, qprot.burnin = 2000,
   qprot.seed = 0, nthread = parallel::detectCores(), ...)
 }
