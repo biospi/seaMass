@@ -81,7 +81,7 @@ process.input <- function(dd, id, ref.assays, de.design, ...) {
 
   dd <- merge(dd, dd.assays[, .(Assay, AssayID)], by = "Assay")[, !"Assay"]
   dd.assays[, Assay := as.character(Assay)]
-  if (!is.null(dd.de.design)) {
+  if (!is.null(de.design)) {
     dd.assays <- merge(dd.assays, de.design)
   }
 
@@ -94,12 +94,12 @@ process.input <- function(dd, id, ref.assays, de.design, ...) {
   dir.create(file.path(id, "study", "results"), recursive = T)
   dir.create(file.path(id, "model2", "results"), recursive = T)
   dir.create(file.path(id, "quant", "results"), recursive = T)
-  if (!is.null(dd.de.design)) {
+  if (!is.null(de.design)) {
     dir.create(file.path(id, "bmc", "results"), recursive = T)
     dir.create(file.path(id, "de", "results"), recursive = T)
   }
   for (file in list.files(system.file("hpc", package = "bayesprot"))) {
-    if (!(is.null(dd.de.design) & grepl("^bmc", file)) & !(is.null(dd.de.design) & grepl("^de", file))) {
+    if (!(is.null(de.design) & grepl("^bmc", file)) & !(is.null(de.design) & grepl("^de", file))) {
       file.copy(file.path(system.file("hpc", package = "bayesprot"), file), id, recursive = T)
     }
   }

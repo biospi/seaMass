@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#PBS -o qprot
+#PBS -o bmc
 #PBS -j oe
 #PBS -r y
 
@@ -10,12 +10,12 @@
 #PBS -q veryshort
 #PBS -l walltime=12:00:00
 
-#PBS -N bp.qprot
+#PBS -N bp.bmc
 #PBS -M andrew.dowsey@bristol.ac.uk
 
 #PBS -t 1-4
-cd $PBS_O_WORKDIR/qprot/results
-Rscript ../../qprot.R $PBS_ARRAYID
+cd $PBS_O_WORKDIR/bmc/results
+Rscript ../../bmc.R $PBS_ARRAYID
 
 EXITCODE=$?
 qstat -f $PBS_JOBID
