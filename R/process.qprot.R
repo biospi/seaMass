@@ -1,7 +1,7 @@
-#' Add together two numbers.
+#' process.qprot (BayesProt internal function)
 #'
-#' @param datafile A number.
-#' @return The sum of \code{x} and \code{y}.
+#' @param chain .
+#' @return .
 #' @import data.table
 #' @export
 

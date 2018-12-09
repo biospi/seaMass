@@ -2,16 +2,16 @@
 % Please edit documentation in R/process.model.R
 \name{process.model}
 \alias{process.model}
-\title{Add together two numbers.}
+\title{process.model (BayesProt internal function)}
 \usage{
 process.model(chain)
 }
 \arguments{
-\item{datafile}{A number.}
+\item{chain}{.}
 }
 \value{
-The sum of \code{x} and \code{y}.
+.
 }
 \description{
-Add together two numbers.
+process.model (BayesProt internal function)
 }

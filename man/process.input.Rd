@@ -2,17 +2,18 @@
 % Please edit documentation in R/process.input.R
 \name{process.input}
 \alias{process.input}
-\title{Add together two numbers.}
+\title{process.input (BayesProt internal function)}
 \usage{
-process.input(dd, id = "bayesprot", ref.assays = levels(dd$Assay),
-  de.design = NULL, ...)
+process.input(dd, id, ref.assays, de.design, ...)
 }
 \arguments{
-\item{datafile}{A number.}
+\item{dd}{The dataset returned by a BayesProt import() function.}
+
+\item{...}{Other arguments in the bayesprot() or bayesprot.hpc() call}
 }
 \value{
-The sum of \code{x} and \code{y}.
+BayesProt output directory structure created with the input populated in the 'input' sub-directory
 }
 \description{
-Add together two numbers.
+process.input (BayesProt internal function)
 }

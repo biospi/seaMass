@@ -1,7 +1,7 @@
-#' Add together two numbers.
+#' process.study (BayesProt internal function)
 #'
-#' @param datafile A number.
-#' @return The sum of \code{x} and \code{y}.
+#' @param input_dir .
+#' @return .
 #' @import data.table
 #' @export
 
@@ -9,8 +9,12 @@ process.study <- function(input_dir) {
   message(paste0("[", Sys.time(), "] STUDY started"))
 
   # load parameters
-  prefix <- ifelse(file.exists("metadata.Rdata"), ".", file.path("..", "..", "input"))
-  load(file.path(prefix, "metadata.Rdata"))
+  prefix <- ifelse(file.exists("params.rds"), ".", file.path("..", "..", "input"))
+  params <- readRDS(file.path(prefix, "params.rds"))
+  dd.assays <- fst::read.fst(file.path(prefix, "assays.fst"), as.data.table = T)
+  dd.proteins <- fst::read.fst(file.path(prefix, "proteins.fst"), as.data.table = T)
+  dd.peptides <- fst::read.fst(file.path(prefix, "peptides.fst"), as.data.table = T)
+  dd.features <- fst::read.fst(file.path(prefix, "features.fst"), as.data.table = T)
   nsamp <- (params$study.nitt - params$study.burnin) / params$study.thin
 
   nA <- length(levels(dd.assays$AssayID))

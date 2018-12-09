@@ -2,16 +2,16 @@
 % Please edit documentation in R/process.quant.R
 \name{process.quant}
 \alias{process.quant}
-\title{Add together two numbers.}
+\title{process.quant (BayesProt internal function)}
 \usage{
 process.quant(input_dir)
 }
 \arguments{
-\item{datafile}{A number.}
+\item{input_dir}{.}
 }
 \value{
-The sum of \code{x} and \code{y}.
+.
 }
 \description{
-Add together two numbers.
+process.quant (BayesProt internal function)
 }

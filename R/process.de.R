@@ -1,204 +1,105 @@
-#' Add together two numbers.
+#' process.de (BayesProt internal function)
 #'
-#' @param datafile A number.
-#' @return The sum of \code{x} and \code{y}.
+#' @return .
 #' @import data.table
 #' @export
 
 process.de <- function() {
-  message(paste0("[", Sys.time(), ": DE started]"))
+  message(paste0("[", Sys.time(), "] DE started"))
 
   # load parameters
-  prefix <- ifelse(file.exists("metadata.Rdata"), ".", file.path("..", "..", "input"))
-  load(file.path(prefix, "metadata.Rdata"))
-  stats.dir <- paste0(params$id, ".bayesprot.de")
-  dir.create(stats.dir, showWarnings = F)
-  dir.create("qprot", showWarnings = F)
-  dir.create("peps", showWarnings = F)
+  prefix <- ifelse(file.exists("params.rds"), ".", file.path("..", "..", "input"))
+  params <- readRDS(file.path(prefix, "params.rds"))
+  dd.assays <- fst::read.fst(file.path(prefix, "assays.fst"), as.data.table = T)
+  dd.proteins <- fst::read.fst(file.path(prefix, "proteins.fst"), as.data.table = T)
   nsamp <- (params$quant.nitt - params$quant.burnin) / params$quant.thin
+
+  stats.dir <- paste0(params$id, ".de")
+  dir.create(stats.dir, showWarnings = F)
+
   nP <- length(levels(dd.proteins$ProteinID))
+  nA <- length(levels(dd.assays$AssayID))
 
-  # process design
-  if (!is.factor(dd.de.design$Assay)) dd.de.design$Assay <- factor(dd.de.design$Assay, levels = unique(dd.de.design$Assay))
-  if (!is.factor(dd.de.design$Condition)) dd.de.design$Condition <- factor(dd.de.design$Condition, levels = unique(dd.de.design$Condition))
-  dd.de.design <- as.data.table(merge(dd.assays, dd.de.design))
-  ct0 <- levels(dd.de.design$Condition)[1]
-  cts <- levels(dd.de.design$Condition)[2:length(levels(dd.de.design$Condition))]
+  cts <- combn(levels(dd.assays$Condition), 2)
 
-  # QPROT ON POSTERIOR MEANS ONLY, FOR FUN
-  prefix <- ifelse(file.exists("protein_quants.csv"), ".", file.path("..", "..", "quant", "results", paste0(params$id, ".bayesprot.quant")))
+  prefix <- ifelse(file.exists("protein_quants.csv"), ".", file.path("..", "..", "quant", "results", paste0(params$id, ".quant")))
   dd <- fread(file.path(prefix, "protein_quants.csv"))
-  colnames(dd)[grep("^x ", colnames(dd))] <- substring(colnames(dd)[grep("^x ", colnames(dd))], 3)
-  for (ct in cts) {
+  prefix <- ifelse(file.exists("1.fst"), ".", file.path("..", "..", "bmc", "results"))
+  for (ct in 1:ncol(cts)) {
 
-    dd.0 <- dd[, dd.de.design[Condition == ct0, Assay], with = F]
-    colnames(dd.0) <- rep("0", ncol(dd.0))
+    # BMC ON POSTERIOR MEANS ONLY, FOR FUN
+    dd.bmc <- as.data.table(bayesmodelquant::modelComparisonBatch(dd, list(paste("x", dd.assays[Condition == cts[1, ct], Assay]), paste("x", dd.assays[Condition == cts[2, ct], Assay]))))
+    dd.bmc <- cbind(dd.proteins, dd.bmc[, .(log2fc.lower = lower, log2fc.mean = mean, log2fc.upper = upper, PEP)])
+    setorder(dd.bmc, PEP)
+    dd.bmc[, FDR := cumsum(PEP) / 1:nrow(dd.bmc)]
+    fwrite(dd.bmc, file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc__point_est.csv")))
 
-    dd.1 <- dd[, dd.de.design[Condition == ct, Assay], with = F]
-    colnames(dd.1) <- rep("1", ncol(dd.1))
+    bmc3 <- bayesmodelquant::populationLevel(dd, list(paste("x", dd.assays[Condition == cts[1, ct], Assay]), paste("x", dd.assays[Condition == cts[2, ct], Assay])))
+    dd.bmc3 <- cbind(dd.proteins, data.table(log2fc.mean = bmc3$mean, PEP = bmc3$PEP))
+    setorder(dd.bmc3, PEP)
+    dd.bmc3[, FDR := cumsum(PEP) / 1:nrow(dd.bmc3)]
+    fwrite(dd.bmc3, file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc3__point_est.csv")))
 
-    dd.qprot <- cbind(dd[, ProteinID], dd.0, dd.1)
-    colnames(dd.qprot)[1] <- "Protein"
+    bmc11 <- bayesmodelquant::populationLevel(dd, list(paste("x", dd.assays[Condition == cts[1, ct], Assay]), paste("x", dd.assays[Condition == cts[2, ct], Assay])), K = 11)
+    dd.bmc11 <- cbind(dd.proteins, data.table(log2fc.mean = bmc11$mean, PEP = bmc11$PEP))
+    setorder(dd.bmc11, PEP)
+    dd.bmc11[, FDR := cumsum(PEP) / 1:nrow(dd.bmc11)]
+    fwrite(dd.bmc11, file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc11__point_est.csv")))
 
-    # remove NAs (check qprot requirements)
-    dd.qprot <- dd.qprot[complete.cases(dd.qprot[, 2:ncol(dd.qprot)]),]
+    dds <- list("BayesProt/BMC" = dd.bmc, "BayesProt/BMC3" = dd.bmc3, "BayesProt/BMC11" = dd.bmc11)
+    g <- fdr.plot(dds)
+    ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc__point_est.pdf")), g, width=8, height=8)
 
-    # exponent as qprot needs intensities, not log ratios
-    for (j in 2:ncol(dd.qprot)) dd.qprot[[j]] <- 2^dd.qprot[[j]]
-
-    # because we can't pass seed to qprot, randomise the rows to get the desired effect
-    dd.qprot <- dd.qprot[sample(1:nrow(dd.qprot), nrow(dd.qprot)),]
-
-    # run qprot
-    filename.qprot <- file.path("qprot", "_point_est.tsv")
-    fwrite(as.data.table(dd.qprot), filename.qprot, sep = "\t")
-    if (params$de.paired) {
-      system2(paste0(params$qprot.path, "qprot-paired"),
-              args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"),
-              stdout = NULL, stderr = NULL)
-    } else {
-      system2(paste0(params$qprot.path, "qprot-param"),
-              args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"),
-              stdout = NULL, stderr = NULL)
+    if (!is.null(params$truth)) {
+      g <- pr.plot(dds, params$truth, 0.21)
+      ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc__point_est__fdp.pdf")) , g, width=8, height=8)
     }
-    system2(paste0(params$qprot.path, "getfdr"), arg = c(paste0(filename.qprot, "_qprot")), stdout = NULL, stderr = NULL)
-    dd.fdr <- fread(paste0(filename.qprot, "_qprot_fdr"))
-    setnames(dd.fdr, c("Protein", "fdr", "FDRup", "FDRdown"), c("ProteinID", "PEP", "PEPup", "PEPdown"))
 
-    # write output
-    dd.fdr <- merge(dd.proteins, dd.fdr[, .(ProteinID, LogFoldChange, Zstatistic, PEPup, PEPdown, PEP)])
-    setorder(dd.fdr, PEP)
-    dd.fdr[, Discoveries := 1:nrow(dd.fdr)]
-    dd.fdr[, FDR := cumsum(PEP) / Discoveries]
-    fwrite(dd.fdr, file.path(stats.dir, paste0("protein_de__", ct0, "_vs_", ct, "__point_est.csv")))
+    # GATHER PEPs FROM BMC ON MCMC SAMPLES
+    bmc.mcmc <- function(method) {
+      dd.bmc.mcmc <- vector("list", params$quant.nchain)
+      for (j in 1:params$quant.nchain) {
+        dd.bmc.mcmc[[j]] <- fst::read.fst(file.path(prefix, paste0(j, method, ".fst")), as.data.table = T)[Baseline == cts[1, ct] & Condition == cts[2, ct],]
+        dd.bmc.mcmc[[j]][, chain := j]
+      }
+      dd.bmc.mcmc <- rbindlist(dd.bmc.mcmc)
 
-    # plot FDR vs Discoveries
-    g <- ggplot2::ggplot(dd.fdr, ggplot2::aes(x = Discoveries, y = FDR))
-    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype="dotted")
-    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype="dotted")
-    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype="dotted")
-    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.20), linetype="dotted")
-    g <- g + ggplot2::geom_line()
-    g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
-    g <- g + ggplot2::scale_y_reverse(breaks = c(0.0, 0.01, 0.05, 0.1, 0.2, 0.5, 1.0), expand = c(0, 0))
-    g <- g + ggplot2::coord_cartesian(xlim = c(0, nrow(dd.fdr)), ylim = c(1.0, 0))
-    g <- g + ggplot2::ylab("Discoveries")
-    g <- g + ggplot2::ylab("Estimated FDR")
-    ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", ct0, "_vs_", ct, "__point_est.pdf")), g, width=8, height=8)
-  }
+      # Discoveries based on mean FDRs
+      dd.bmc.fdr <- merge(dd.proteins, dd.bmc.mcmc[, .(
+        log2fc.mean = mean(log2fc.mean),
+        PEP.lower = coda::HPDinterval(coda::as.mcmc(PEP))[, "lower"], PEP.mean = mean(PEP), PEP.upper = coda::HPDinterval(coda::as.mcmc(PEP))[, "upper"],
+        FDR.mean = mean(FDR)
+      ), by = ProteinID], sort = F)
+      setorder(dd.bmc.fdr, FDR.mean)
+      dd.bmc.fdr[, FDR.mean := NULL]
+      dd.bmc.fdr[, Discoveries := 1:nrow(dd.bmc.fdr)]
 
+      # with this Discoveries, recompute FDR for each samp to derive credible interval
+      dd.bmc.mcmc.fdr <- merge(dd.bmc.fdr[, .(ProteinID, Discoveries)], dd.bmc.mcmc[, .(ProteinID, PEP, samp, chain)], sort = F)
+      setorder(dd.bmc.mcmc.fdr, Discoveries, samp, chain)
+      dd.bmc.mcmc.fdr <- dd.bmc.mcmc.fdr[, .(Discoveries, FDR = cumsum(PEP) / Discoveries), by = .(samp, chain)]
+      dd.bmc.fdr <- merge(dd.bmc.fdr, dd.bmc.mcmc.fdr[, .(
+        FDR.lower = coda::HPDinterval(coda::as.mcmc(FDR))[, "lower"], FDR.mean = mean(FDR), FDR.upper = coda::HPDinterval(coda::as.mcmc(FDR))[, "upper"]
+      ), by = Discoveries])
+      dd.bmc.fdr[, Discoveries := NULL]
+      dd.bmc.fdr[, FDR := FDR.mean]
 
-  # GATHER PEPs FROM QPROTS ON MCMC SAMPLES
-  prefix <- ifelse(file.exists("1.rds"), ".", file.path("..", "..", "qprot", "results"))
+      fwrite(dd.bmc.fdr, file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc", method, ".csv")))
 
-  dd.fdr.mcmc <- vector("list", params$quant.nchain)
-  for (j in 1:params$quant.nchain) {
-    dd.fdr.mcmc[[j]] <- readRDS(file.path(prefix, paste0(j, ".rds")))
-    dd.fdr.mcmc[[j]][, chain := j]
-  }
-  dd.fdr.mcmc <- rbindlist(dd.fdr.mcmc)[, .(ProteinID, LogFoldChange, Zstatistic, PEP, PEPup, PEPdown, Condition, samp, chain)]
+      dd.bmc.fdr
+    }
 
-  for (ct in cts) {
-    # Method A: rank by mean PEPs
-    dd.fdr.mcmc.mean <- dd.fdr.mcmc[Condition == ct & !is.na(PEP),]
+    dd.bmc.fdr <- bmc.mcmc("")
+    dd.bmc3.fdr <- bmc.mcmc(".3")
+    dd.bmc11.fdr <- bmc.mcmc(".11")
+    dds <- list("BayesProtMCMC/BMC" = dd.bmc.fdr, "BayesProtMCMC/BMC3" = dd.bmc3.fdr, "BayesProtMCMC/BMC11" = dd.bmc11.fdr)
+    g <- fdr.plot(dds)
+    ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc.pdf")), g, width=8, height=8)
 
-    dd.fdr.mcmc.mean[, PEP.mean := mean(PEP), by = ProteinID]
-    setorder(dd.fdr.mcmc.mean, PEP.mean)
-    dd.fdr.mcmc.mean[, Discoveries := 1:length(ProteinID), by = .(chain, samp)]
-    dd.fdr.mcmc.mean[, FDR := cumsum(PEP) / Discoveries, by = .(chain, samp)]
-
-    dd.fdr.mcmc.mean.stats <- dd.fdr.mcmc.mean[, .(
-      PEPup.lower = coda::HPDinterval(coda::as.mcmc(PEPup))[, "lower"],
-      PEPup.mean = mean(PEPup),
-      PEPup.upper = coda::HPDinterval(coda::as.mcmc(PEPup))[, "upper"],
-      PEPdown.lower = coda::HPDinterval(coda::as.mcmc(PEPdown))[, "lower"],
-      PEPdown.mean = mean(PEPdown),
-      PEPdown.upper = coda::HPDinterval(coda::as.mcmc(PEPdown))[, "upper"],
-      PEP.lower = coda::HPDinterval(coda::as.mcmc(PEP))[, "lower"],
-      PEP.mean = mean(PEP),
-      PEP.upper = coda::HPDinterval(coda::as.mcmc(PEP))[, "upper"],
-      log2FC.lower = coda::HPDinterval(coda::as.mcmc(LogFoldChange))[, "lower"],
-      log2FC.mean = mean(LogFoldChange),
-      log2FC.upper = coda::HPDinterval(coda::as.mcmc(LogFoldChange))[, "upper"],
-      FDR.lower = coda::HPDinterval(coda::as.mcmc(FDR))[, "lower"],
-      FDR.mean = mean(FDR),
-      FDR.upper = coda::HPDinterval(coda::as.mcmc(FDR))[, "upper"],
-      Discoveries = Discoveries[1],
-      FDR = mean(FDR)
-    ), by = ProteinID]
-    dd.fdr.mcmc.mean.stats[, ProteinID := factor(ProteinID)]
-    dd.fdr.mcmc.mean.stats <- merge(dd.fdr.mcmc.mean.stats, dd.proteins, by = "ProteinID", sort = F)
-    setcolorder(dd.fdr.mcmc.mean.stats, c("ProteinID", "Protein", "nPeptide", "nFeature", "nMeasure", "predTiming"))
-    fwrite(dd.fdr.mcmc.mean.stats, file.path(stats.dir, paste0("protein_de__", ct0, "_vs_", ct, ".csv")))
-
-    # plot FDR vs Discoveries
-    g <- ggplot2::ggplot(dd.fdr.mcmc.mean.stats, ggplot2::aes(x = Discoveries, y = FDR.mean))
-    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype="dotted")
-    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype="dotted")
-    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype="dotted")
-    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.20), linetype="dotted")
-    g <- g + ggplot2::geom_ribbon(ggplot2::aes(ymin = FDR.lower, ymax = FDR.upper), alpha = 0.5)
-    g <- g + ggplot2::geom_line()
-    g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
-    g <- g + ggplot2::scale_y_reverse(breaks = c(0.0, 0.01, 0.05, 0.1, 0.2, 0.5, 1.0), expand = c(0, 0))
-    g <- g + ggplot2::coord_cartesian(xlim = c(0, nrow(dd.fdr)), ylim = c(1.0, 0))
-    g <- g + ggplot2::ylab("Discoveries")
-    g <- g + ggplot2::ylab("Estimated FDR")
-    ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", ct0, "_vs_", ct, ".pdf")), g, width=8, height=8)
-
-    # Method B: rank by PEP in individual samples
-    dd.fdr.mcmc.samp <- data.table(dd.fdr.mcmc[Condition == ct & !is.na(PEP),], key = c("chain", "samp", "PEP"))
-    dd.fdr.mcmc.samp[, Discoveries := 1:length(ProteinID), by = .(chain, samp)]
-    dd.fdr.mcmc.samp[, FDR := cumsum(PEP) / Discoveries, by = .(chain, samp)]
-
-    dd.fdr.mcmc.samp.stats <- dd.fdr.mcmc.samp[, .(
-      FDR.lower = coda::HPDinterval(coda::as.mcmc(FDR))[, "lower"],
-      FDR.mean = mean(FDR),
-      FDR.upper = coda::HPDinterval(coda::as.mcmc(FDR))[, "upper"]
-    ), by = Discoveries]
-
-    # plot FDR vs Discoveries
-    g <- ggplot2::ggplot(dd.fdr.mcmc.samp.stats, ggplot2::aes(x = Discoveries, y = FDR.mean))
-    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype="dotted")
-    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype="dotted")
-    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype="dotted")
-    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.20), linetype="dotted")
-    g <- g + ggplot2::geom_ribbon(ggplot2::aes(ymin = FDR.lower, ymax = FDR.upper), alpha = 0.5)
-    g <- g + ggplot2::geom_line()
-    g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
-    g <- g + ggplot2::scale_y_reverse(breaks = c(0.0, 0.01, 0.05, 0.1, 0.2, 0.5, 1.0), expand = c(0, 0))
-    g <- g + ggplot2::coord_cartesian(xlim = c(0, nrow(dd.fdr)), ylim = c(1.0, 0))
-    g <- g + ggplot2::ylab("Discoveries")
-    g <- g + ggplot2::ylab("Estimated FDR")
-    ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", ct0, "_vs_", ct, "__all_rankings.pdf")), g, width=8, height=8)
-
-    dd.fdr.mcmc.samp.stats2 <- dd.fdr.mcmc.samp[, .(
-      FDR.lower = coda::HPDinterval(coda::as.mcmc(FDR))[, "lower"],
-      FDR.mean = mean(FDR),
-      FDR.upper = coda::HPDinterval(coda::as.mcmc(FDR))[, "upper"]
-    ), by = ProteinID]
-    setorder(dd.fdr.mcmc.samp.stats2, FDR.mean)
-    dd.fdr.mcmc.samp.stats2[, Discoveries := 1:length(ProteinID)]
-    dd.fdr.mcmc.samp.stats2[, FDR := FDR.mean]
-    dd.fdr.mcmc.samp.stats2[, ProteinID := factor(ProteinID)]
-    dd.fdr.mcmc.samp.stats2 <- merge(dd.fdr.mcmc.samp.stats2, dd.proteins, by = "ProteinID", sort = F)
-    setcolorder(dd.fdr.mcmc.samp.stats2, c("ProteinID", "Protein", "nPeptide", "nFeature", "nMeasure", "predTiming"))
-    fwrite(dd.fdr.mcmc.samp.stats2, file.path(stats.dir, paste0("protein_de__", ct0, "_vs_", ct, "__all_rankings.csv")))
-
-    # plot FDR vs Discoveries
-    g <- ggplot2::ggplot(dd.fdr.mcmc.samp.stats2, ggplot2::aes(x = Discoveries, y = FDR.mean))
-    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype="dotted")
-    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype="dotted")
-    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype="dotted")
-    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.20), linetype="dotted")
-    g <- g + ggplot2::geom_ribbon(ggplot2::aes(ymin = FDR.lower, ymax = FDR.upper), alpha = 0.5)
-    g <- g + ggplot2::geom_line()
-    g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
-    g <- g + ggplot2::scale_y_reverse(breaks = c(0.0, 0.01, 0.05, 0.1, 0.2, 0.5, 1.0), expand = c(0, 0))
-    g <- g + ggplot2::coord_cartesian(xlim = c(0, nrow(dd.fdr)), ylim = c(1.0, 0))
-    g <- g + ggplot2::ylab("Discoveries")
-    g <- g + ggplot2::ylab("Estimated FDR")
-    ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", ct0, "_vs_", ct, "__all_rankings__per_protein.pdf")), g, width=8, height=8)
+    if (!is.null(params$truth)) {
+      g <- pr.plot(dds, params$truth, 0.21)
+      ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc__fdp.pdf")) , g, width=8, height=8)
+    }
   }
 
   # create zip file and clean up

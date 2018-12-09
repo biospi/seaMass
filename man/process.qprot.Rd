@@ -2,16 +2,16 @@
 % Please edit documentation in R/process.qprot.R
 \name{process.qprot}
 \alias{process.qprot}
-\title{Add together two numbers.}
+\title{process.qprot (BayesProt internal function)}
 \usage{
 process.qprot(chain)
 }
 \arguments{
-\item{datafile}{A number.}
+\item{chain}{.}
 }
 \value{
-The sum of \code{x} and \code{y}.
+.
 }
 \description{
-Add together two numbers.
+process.qprot (BayesProt internal function)
 }

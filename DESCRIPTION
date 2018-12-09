@@ -1,6 +1,6 @@
 Package: bayesprot
 Type: Package
-Title: Bayesian Mixed-Effects Modelling for Proteomics
+Title: Bayesian Protein-level Quantification for Proteomics
 Version: 1.2.0
 Authors@R: as.person(c(
     "Andrew Dowsey <andrew.dowsey@bristol.ac.uk> [aut, cre]",
@@ -14,10 +14,12 @@ LazyData: true
 Depends: R (>= 3.4.0)
 Imports: 
     actuar (>= 2.3-1),
+    bayesmodelquant (>= 0.3),
     data.table (>= 1.11.4),
     doParallel (>= 1.0.14),
     doRNG (>= 1.7.1),
     fitdistrplus (>= 1.0-11),
+    fst (>= 0.8.8),
     ggfortify (>= 0.4.5),
     ggrepel (>= 0.8.0),
     logKDE (>= 0.3.2),

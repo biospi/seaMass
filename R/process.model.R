@@ -1,15 +1,16 @@
-#' Add together two numbers.
+#' process.model (BayesProt internal function)
 #'
-#' @param datafile A number.
-#' @return The sum of \code{x} and \code{y}.
+#' @param chain .
+#' @return .
 #' @import data.table
 #' @export
 
 process.model <- function(chain) {
   # load metadata
-  prefix <- ifelse(file.exists("metadata.Rdata"), ".", file.path("..", "..", "input"))
-  load(file.path(prefix, "metadata.Rdata"))
-  dd.all <- readRDS(file.path(prefix, "data.rds"))
+  prefix <- ifelse(file.exists("params.rds"), ".", file.path("..", "..", "input"))
+  params <- readRDS(file.path(prefix, "params.rds"))
+  dd.all <- fst::read.fst(file.path(prefix, "data.fst"), as.data.table = T)
+  dd.assays <- fst::read.fst(file.path(prefix, "assays.fst"), as.data.table = T)
 
   # load and prepare data
   prefix.study <- ifelse(file.exists("study.Rdata"), ".", file.path("..", "..", "study", "results"))
@@ -19,6 +20,7 @@ process.model <- function(chain) {
     nitt <- params$quant.nitt
     burnin <- params$quant.burnin
     thin <- params$quant.thin
+    seed <- params$quant.seed
     # load priors if study.R has been run
     load(file.path(prefix.study, "study.Rdata"))
   } else {
@@ -26,6 +28,7 @@ process.model <- function(chain) {
     nitt <- params$study.nitt
     burnin <- params$study.burnin
     thin <- params$study.thin
+    seed <- params$study.seed
     # preprocess dd to remove features with missing values
     dd.all <- dd.all[FeatureID %in% dd.all[, .(missing = any(is.na(Count))), by = FeatureID][missing == F, FeatureID],]
     # and where less than 6 assay measurements for a feature
@@ -45,7 +48,7 @@ process.model <- function(chain) {
   suppressPackageStartupMessages(require(doRNG))
 
   doParallel::registerDoParallel(params$nthread)
-  set.seed(params$seed * nchain + chain - 1)
+  set.seed(seed * nchain + chain - 1)
   options(max.print = 99999)
   gc()
   output <- foreach::foreach(p = levels(dd.all$ProteinID), .options.multicore = list(preschedule = F, silent = T)) %dorng% {
@@ -90,7 +93,7 @@ process.model <- function(chain) {
     nQ <- length(levels(dd$QuantID))
 
     # set prior
-    if (exists("peptide.V")) {
+    if (for.quant) {
       if (params$assay.stdevs) {
         prior <- list(
           G = list(G1 = list(V = diag(assays.V), nu = median(assays.nu)),

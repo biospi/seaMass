@@ -1,11 +1,12 @@
-#' Add together two numbers.
+#' process.input (BayesProt internal function)
 #'
-#' @param datafile A number.
-#' @return The sum of \code{x} and \code{y}.
+#' @param dd The dataset returned by a BayesProt import() function.
+#' @param ... Other arguments in the bayesprot() or bayesprot.hpc() call
+#' @return BayesProt output directory structure created with the input populated in the 'input' sub-directory
 #' @import data.table
 #' @export
 
-process.input <- function(dd, id = "bayesprot", ref.assays = levels(dd$Assay), de.design = NULL, ...) {
+process.input <- function(dd, id, ref.assays, de.design, ...) {
   message(paste0("[", Sys.time(), "] INPUT started"))
 
   if (length(levels(dd$Assay)) < 6) {
@@ -15,33 +16,14 @@ process.input <- function(dd, id = "bayesprot", ref.assays = levels(dd$Assay), d
   # remove output if exists
   if (file.exists(id)) unlink(id, recursive = T)
 
-  dd.de.design <- de.design
+  # read params
   params <- list(...)
+  params$id <- id
   params$version <- packageVersion("bayesprot")
-
-  # default parameters
-  if (is.null(params$id)) params$id <- basename(id)
-  if (is.null(params$missing)) params$missing <- "censored"
-  if (is.null(params$seed)) params$seed <- 0
-  if (is.null(params$nthread)) params$nthread <- parallel::detectCores(logical = F)
-  if (is.null(params$study.npeptide)) params$study.npeptide <- 5
-  if (is.null(params$study.nitt)) params$study.nitt <- 1300
-  if (is.null(params$study.burnin)) params$study.burnin <- 300
-  if (is.null(params$study.thin)) params$study.thin <- 4
-  if (is.null(params$study.nchain)) params$study.nchain <- 4
-  if (is.null(params$quant.nitt)) params$quant.nitt <- 1300
-  if (is.null(params$quant.burnin)) params$quant.burnin <- 300
-  if (is.null(params$quant.thin)) params$quant.thin <- 4
-  if (is.null(params$quant.nchain)) params$quant.nchain <- 4
-  if (is.null(params$qprot.nitt)) params$qprot.nitt <- 12000
-  if (is.null(params$qprot.burnin)) params$qprot.burnin <- 2000
-  if (is.null(params$sasay.stdevs)) params$assay.stdevs <- F
-  if (is.null(params$de.paired)) params$de.paired <- F
-  if (is.null(params$qprot.path)) params$qprot.path <- ""
+  params$assay.stdevs <- F
   if (params$qprot.path != "") params$qprot.path <- paste0(params$qprot.path, "/")
-
   if (params$quant.nchain == 1) {
-    message("WARNING: You are running a single MCMC chain, convergance diagnostics will be unavailable. It is recommended to specify at least quant.nchain=4 for publishable results.")
+    message("WARNING: You are specifying only a single MCMC chain, convergance diagnostics will be unavailable. It is recommended to specify at least quant.nchain=4 for publishable results.")
   }
 
   # build Protein index
@@ -59,6 +41,7 @@ process.input <- function(dd, id = "bayesprot", ref.assays = levels(dd$Assay), d
   setcolorder(dd.proteins, c("ProteinID"))
 
   dd <- merge(dd, dd.proteins[, .(Protein, ProteinID)], by = "Protein")[, !"Protein"]
+  dd.proteins[, Protein := as.character(Protein)]
 
   # build Peptide index
   dd.peptides <- dd[, .(
@@ -73,6 +56,7 @@ process.input <- function(dd, id = "bayesprot", ref.assays = levels(dd$Assay), d
   setcolorder(dd.peptides, c("ProteinIDs", "PeptideID"))
 
   dd <- merge(dd, dd.peptides[, .(Peptide, PeptideID)], by = "Peptide")[, !"Peptide"]
+  dd.peptides[, Peptide := as.character(Peptide)]
 
   # build Feature index
   dd.features <- dd[, .(
@@ -84,18 +68,24 @@ process.input <- function(dd, id = "bayesprot", ref.assays = levels(dd$Assay), d
   dd.features[, TopPeptideID := NULL]
   dd.features[, FeatureID := factor(as.integer(factor(dd.features$Feature, unique(dd.features$Feature))))]
   setcolorder(dd.features, c("PeptideIDs", "FeatureID"))
+
   dd <- merge(dd, dd.features[, .(Feature, FeatureID)], by = "Feature")[, !"Feature"]
+  dd.features[, Feature := as.character(Feature)]
 
   # build Assay index
   dd.assays <- dd[, .(
-    Assay = factor(levels(dd$Assay)),
+    Assay = as.character(levels(dd$Assay)),
     AssayID = factor(1:length(levels(dd$Assay))),
     isRef = factor(levels(dd$Assay))%in% ref.assays
   )]
 
   dd <- merge(dd, dd.assays[, .(Assay, AssayID)], by = "Assay")[, !"Assay"]
+  dd.assays[, Assay := as.character(Assay)]
+  if (!is.null(dd.de.design)) {
+    dd.assays <- merge(dd.assays, de.design)
+  }
 
-  # prepare dd,  setcolorder(dd, c("ProteinID", "PeptideID", "FeatureID", "AssayID"), "Count")
+  # prepare dd
   setorder(dd, ProteinID, PeptideID, FeatureID, AssayID)
 
   # build submission folder
@@ -104,17 +94,26 @@ process.input <- function(dd, id = "bayesprot", ref.assays = levels(dd$Assay), d
   dir.create(file.path(id, "study", "results"), recursive = T)
   dir.create(file.path(id, "model2", "results"), recursive = T)
   dir.create(file.path(id, "quant", "results"), recursive = T)
-  if (!is.null(dd.de.design)) dir.create(file.path(id, "qprot", "results"), recursive = T)
-  if (!is.null(dd.de.design)) dir.create(file.path(id, "de", "results"), recursive = T)
+  if (!is.null(dd.de.design)) {
+    dir.create(file.path(id, "bmc", "results"), recursive = T)
+    dir.create(file.path(id, "de", "results"), recursive = T)
+  }
+  if (params$qprot) {
+    dir.create(file.path(id, "qprot", "results"), recursive = T)
+  }
   for (file in list.files(system.file("hpc", package = "bayesprot"))) {
-    if (!(is.null(dd.de.design) & grepl("^qprot", file)) & !(is.null(dd.de.design) & grepl("^de", file))) {
+    if (!(is.null(dd.de.design) & grepl("^bmc", file)) & !(is.null(dd.de.design) & grepl("^de", file)) & !(is.null(params$qprot) & grepl("^qprot", file))) {
       file.copy(file.path(system.file("hpc", package = "bayesprot"), file), id, recursive = T)
     }
   }
 
   # save data and metadata
-  saveRDS(dd, file = file.path(id, "input", "data.rds"))
-  save(params, dd.proteins, dd.peptides, dd.features, dd.assays, dd.de.design, file = file.path(id, "input", "metadata.Rdata"))
+  saveRDS(params, file.path(id, "input", "params.rds"))
+  fst::write.fst(dd, file.path(id, "input", "data.fst"))
+  fst::write.fst(dd.proteins, file.path(id, "input", "proteins.fst"))
+  fst::write.fst(dd.peptides, file.path(id, "input", "peptides.fst"))
+  fst::write.fst(dd.features, file.path(id, "input", "features.fst"))
+  fst::write.fst(dd.assays, file.path(id, "input", "assays.fst"))
 
   message(paste0("[", Sys.time(), "] INPUT finished"))
 }

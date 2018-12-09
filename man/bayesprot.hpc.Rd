@@ -2,16 +2,71 @@
 % Please edit documentation in R/bayesprot.hpc.R
 \name{bayesprot.hpc}
 \alias{bayesprot.hpc}
-\title{Add together two numbers.}
+\title{Bayesian Protein-level Quantification for Proteomics (HPC version)}
 \usage{
-bayesprot.hpc(dd, nthread, id = "bayesprot.hpc", ...)
+bayesprot.hpc(dd, id = "bayesprot.hpc", de.design = NULL,
+  de.paired = F, ref.assays = levels(dd$Assay), missing = "censored",
+  truth = NULL, study.nitt = 1300, study.burnin = 300,
+  study.thin = 1, study.nchain = 1, study.seed = 0,
+  study.npeptide = 5, quant.nitt = 1300, quant.burnin = 300,
+  quant.thin = 1, quant.nchain = 1, quant.seed = 0, qprot = F,
+  qprot.path = "", qprot.nitt = 12000, qprot.burnin = 2000,
+  qprot.seed = 0, nthread = parallel::detectCores(), ...)
 }
 \arguments{
-\item{datafile}{A number.}
+\item{dd}{dataset returned by a bayesprot::import.() function}
+
+\item{id}{path and filename for the output files (if path omitted, current working directory is used)}
+
+\item{de.design}{.}
+
+\item{de.paired}{.}
+
+\item{ref.assays}{.}
+
+\item{missing}{.}
+
+\item{truth}{.}
+
+\item{study.nitt}{.}
+
+\item{study.burnin}{.}
+
+\item{study.thin}{.}
+
+\item{study.nchain}{.}
+
+\item{study.seed}{.}
+
+\item{study.npeptide}{.}
+
+\item{quant.nitt}{.}
+
+\item{quant.burnin}{.}
+
+\item{quant.thin}{.}
+
+\item{quant.nchain}{.}
+
+\item{quant.seed}{.}
+
+\item{qprot}{.}
+
+\item{qprot.path}{.}
+
+\item{qprot.nitt}{.}
+
+\item{qprot.burnin}{.}
+
+\item{qprot.seed}{.}
+
+\item{nthread}{.}
+
+\item{...}{any other HPC backend parameters}
 }
 \value{
-The sum of \code{x} and \code{y}.
+Lots of interesting stuff.
 }
 \description{
-Add together two numbers.
+Bayesian Protein-level Quantification for Proteomics (HPC version)
 }

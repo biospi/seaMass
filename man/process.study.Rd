@@ -2,16 +2,16 @@
 % Please edit documentation in R/process.study.R
 \name{process.study}
 \alias{process.study}
-\title{Add together two numbers.}
+\title{process.study (BayesProt internal function)}
 \usage{
 process.study(input_dir)
 }
 \arguments{
-\item{datafile}{A number.}
+\item{input_dir}{.}
 }
 \value{
-The sum of \code{x} and \code{y}.
+.
 }
 \description{
-Add together two numbers.
+process.study (BayesProt internal function)
 }
