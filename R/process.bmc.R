@@ -144,7 +144,7 @@ process.bmc <- function(chain) {
                 stdout = NULL, stderr = NULL)
       }
       system2(paste0(params$qprot.path, "getfdr"), arg = c(paste0(filename.qprot, "_qprot")), stdout = NULL, stderr = NULL)
-      dd.qprot <- fread(paste0(filename.qprot, "_qprot_fdr"))[, .(ProteinID = Protein, log2fc.mean = LogFoldChange, Z = Zstatistic, PEP = fdr, Baseline = cts[1, ct], Condition = cts[2, ct], samp = s)]
+      dd.qprot <- fread(paste0(filename.qprot, "_qprot_fdr"))[, .(ProteinID = Protein, log2fc.mean = LogFoldChange / log(2), Z = Zstatistic, PEP = fdr, Baseline = cts[1, ct], Condition = cts[2, ct], samp = s)]
       setorder(dd.qprot, PEP)
       dd.qprot[, Discoveries := 1:nrow(dd.qprot)]
       dd.qprot[, FDR := cumsum(PEP) / 1:nrow(dd.qprot)]

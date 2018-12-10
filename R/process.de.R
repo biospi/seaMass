@@ -90,7 +90,7 @@ process.de <- function() {
                 stdout = NULL, stderr = NULL)
       }
       system2(paste0(params$qprot.path, "getfdr"), arg = c(paste0(filename.qprot, "_qprot")), stdout = NULL, stderr = NULL)
-      dd.qprot <- fread(paste0(filename.qprot, "_qprot_fdr"))[, .(ProteinID = Protein, log2fc.mean = LogFoldChange, Z = Zstatistic, PEP = fdr)]
+      dd.qprot <- fread(paste0(filename.qprot, "_qprot_fdr"))[, .(ProteinID = Protein, log2fc.mean = LogFoldChange / log(2), Z = Zstatistic, PEP = fdr)]
       dd.qprot <- merge(dd.proteins, dd.qprot)
       setorder(dd.qprot, PEP, na.last = T)
       dd.qprot[, FDR := cumsum(PEP) / 1:nrow(dd.qprot)]
