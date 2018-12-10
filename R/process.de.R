@@ -52,7 +52,56 @@ process.de <- function() {
     dd.bmc11[, FDR := cumsum(PEP) / 1:nrow(dd.bmc11)]
     fwrite(dd.bmc11, file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc11__point_est.csv")))
 
-    dds <- list("BayesProt/BMC" = dd.bmc, "BayesProt/BMC3" = dd.bmc3, "BayesProt/BMC11" = dd.bmc11)
+    if (params$qprot) {
+      # QPROT
+
+      dd.0 <- dd[, paste("x", dd.assays[Condition == cts[1, ct], Assay]), with = F]
+      colnames(dd.0) <- rep("0", ncol(dd.0))
+
+      dd.1 <- dd[, paste("x", dd.assays[Condition == cts[2, ct], Assay]), with = F]
+      colnames(dd.1) <- rep("1", ncol(dd.1))
+
+      dd.qprot <- cbind(dd.proteins$ProteinID, dd.0, dd.1)
+      colnames(dd.qprot)[1] <- "Protein"
+
+      # exponent as qprot needs intensities, not log ratios
+      for (j in 2:ncol(dd.qprot)) dd.qprot[[j]] <- 2^dd.qprot[[j]]
+
+      # because we can't pass seed to qprot, randomise the rows to get the desired effect
+      set.seed(params$qprot.seed)
+      dd.qprot <- dd.qprot[sample(1:nrow(dd.qprot), nrow(dd.qprot)),]
+
+      # run qprot
+      filename.qprot <- paste0("_", ct, ".tsv")
+      fwrite(dd.qprot, filename.qprot, sep = "\t")
+      if (params$de.paired) {
+        system2(paste0(params$qprot.path, "qprot-paired"),
+                args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"),
+                stdout = NULL, stderr = NULL)
+      } else {
+        system2(paste0(params$qprot.path, "qprot-param"),
+                args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"),
+                stdout = NULL, stderr = NULL)
+      }
+      system2(paste0(params$qprot.path, "getfdr"), arg = c(paste0(filename.qprot, "_qprot")), stdout = NULL, stderr = NULL)
+      dd.qprot <- fread(paste0(filename.qprot, "_qprot_fdr"))[, .(ProteinID = Protein, log2fc.mean = LogFoldChange, Z = Zstatistic, PEP = fdr)]
+
+      file.remove(filename.qprot)
+      file.remove(paste0(filename.qprot, "_qprot"))
+      file.remove(paste0(filename.qprot, "_qprot_density"))
+      file.remove(paste0(filename.qprot, "_qprot_fdr"))
+
+      dd.qprot <- merge(dd.proteins, dd.qprot)
+      setorder(dd.qprot, PEP)
+      dd.qprot[, FDR := cumsum(PEP) / 1:nrow(dd.qprot)]
+      fwrite(dd.qprot, file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__qprot__point_est.csv")))
+
+      dds <- list("BayesProt/BMC" = dd.bmc, "BayesProt/BMC3" = dd.bmc3, "BayesProt/BMC11" = dd.bmc11, "BayesProt/Qprot" = dd.qprot)
+    } else {
+      dds <- list("BayesProt/BMC" = dd.bmc, "BayesProt/BMC3" = dd.bmc3, "BayesProt/BMC11" = dd.bmc11)
+    }
+
+    # plot
     g <- fdr.plot(dds)
     ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc__point_est.pdf")), g, width=8, height=8)
 
@@ -80,7 +129,7 @@ process.de <- function() {
       dd.bmc.fdr[, FDR.mean := NULL]
       dd.bmc.fdr[, Discoveries := 1:nrow(dd.bmc.fdr)]
 
-      # for each Discoveries, recompute FDR for each samp to derive credible interval
+      # for each number of Discoveries, recompute FDR for each samp to derive credible interval
       dd.bmc.mcmc.fdr <- merge(dd.bmc.fdr[, .(ProteinID, Discoveries)], dd.bmc.mcmc[, .(ProteinID, PEP, samp, chain)], sort = F)
       setorder(dd.bmc.mcmc.fdr, Discoveries, samp, chain)
       dd.bmc.mcmc.fdr <- dd.bmc.mcmc.fdr[, .(Discoveries, FDR = cumsum(PEP) / Discoveries), by = .(samp, chain)]
@@ -98,7 +147,12 @@ process.de <- function() {
     dd.bmc.fdr <- bmc.mcmc("")
     dd.bmc3.fdr <- bmc.mcmc(".3")
     dd.bmc11.fdr <- bmc.mcmc(".11")
-    dds <- list("BayesProtMCMC/BMC" = dd.bmc.fdr, "BayesProtMCMC/BMC3" = dd.bmc3.fdr, "BayesProtMCMC/BMC11" = dd.bmc11.fdr)
+    if (params$qprot) {
+      dd.qprot.fdr <- bmc.mcmc(".qprot")
+      dds <- list("BayesProtMCMC/BMC" = dd.bmc.fdr, "BayesProtMCMC/BMC3" = dd.bmc3.fdr, "BayesProtMCMC/BMC11" = dd.bmc11.fdr, "BayesProtMCMC/Qprot" = dd.qprot.fdr)
+    } else {
+      dds <- list("BayesProtMCMC/BMC" = dd.bmc.fdr, "BayesProtMCMC/BMC3" = dd.bmc3.fdr, "BayesProtMCMC/BMC11" = dd.bmc11.fdr)
+    }
     g <- fdr.plot(dds)
     ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc.pdf")), g, width=8, height=8)
 

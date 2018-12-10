@@ -38,7 +38,9 @@ process.bmc <- function(chain) {
   dd.output <- foreach::foreach(ct = rep(1:ncol(cts), each = nsamp), s = rep(1:nsamp, ncol(cts)), .combine = rbind, .options.multicore = list(preschedule = F, silent = T)) %dopar% {
     dd <- as.data.table(mcmc.quants.all[s,,])
     colnames(dd) <- dd.assays[, Assay]
-    dd.bmc <- as.data.table(bayesmodelquant::modelComparisonBatch(dd, list(dd.assays[Condition == cts[1, ct], Assay], dd.assays[Condition == cts[2, ct], Assay])))
+    suppressMessages({
+      dd.bmc <- as.data.table(bayesmodelquant::modelComparisonBatch(dd, list(dd.assays[Condition == cts[1, ct], Assay], dd.assays[Condition == cts[2, ct], Assay])))
+    })
     dd.bmc <- cbind(dd.proteins[, .(ProteinID)], dd.bmc[, .(log2fc.lower = lower, log2fc.mean = mean, log2fc.upper = upper, PEP, Baseline = cts[1, ct], Condition = cts[2, ct], samp = s)])
     setorder(dd.bmc, PEP)
     dd.bmc[, Discoveries := 1:nrow(dd.bmc)]
@@ -59,7 +61,9 @@ process.bmc <- function(chain) {
   dd.output <- foreach::foreach(ct = rep(1:ncol(cts), each = nsamp), s = rep(1:nsamp, ncol(cts)), .combine = rbind, .options.multicore = list(preschedule = F, silent = T)) %dopar% {
     dd <- as.data.table(mcmc.quants.all[s,,])
     colnames(dd) <- dd.assays[, Assay]
-    bmc <- bayesmodelquant::populationLevel(dd, list(dd.assays[Condition == cts[1, ct], Assay], dd.assays[Condition == cts[2, ct], Assay]))
+    suppressMessages({
+      bmc <- bayesmodelquant::populationLevel(dd, list(dd.assays[Condition == cts[1, ct], Assay], dd.assays[Condition == cts[2, ct], Assay]))
+    })
     dd.bmc <- cbind(dd.proteins[, .(ProteinID)], data.table(log2fc.mean = bmc$mean, PEP = bmc$PEP, Baseline = cts[1, ct], Condition = cts[2, ct], samp = s))
     setorder(dd.bmc, PEP)
     dd.bmc[, Discoveries := 1:nrow(dd.bmc)]
@@ -80,7 +84,9 @@ process.bmc <- function(chain) {
   dd.output <- foreach::foreach(ct = rep(1:ncol(cts), each = nsamp), s = rep(1:nsamp, ncol(cts)), .combine = rbind, .options.multicore = list(preschedule = F, silent = T)) %dopar% {
     dd <- as.data.table(mcmc.quants.all[s,,])
     colnames(dd) <- dd.assays[, Assay]
-    bmc <- bayesmodelquant::populationLevel(dd, list(dd.assays[Condition == cts[1, ct], Assay], dd.assays[Condition == cts[2, ct], Assay]), K = 11)
+    suppressMessages({
+      bmc <- bayesmodelquant::populationLevel(dd, list(dd.assays[Condition == cts[1, ct], Assay], dd.assays[Condition == cts[2, ct], Assay]), K = 11)
+    })
     dd.bmc <- cbind(dd.proteins[, .(ProteinID)], data.table(log2fc.mean = bmc$mean, PEP = bmc$PEP, Baseline = cts[1, ct], Condition = cts[2, ct], samp = s))
     setorder(dd.bmc, PEP)
     dd.bmc[, Discoveries := 1:nrow(dd.bmc)]
@@ -139,6 +145,8 @@ process.bmc <- function(chain) {
       file.remove(paste0(filename.qprot, "_qprot_fdr"))
 
       setorder(dd.qprot, PEP)
+      dd.qprot[, Discoveries := 1:nrow(dd.qprot)]
+      dd.qprot[, FDR := cumsum(PEP) / 1:nrow(dd.qprot)]
       dd.qprot
     }
     doParallel::stopImplicitCluster()
