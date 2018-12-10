@@ -28,44 +28,50 @@ process.de <- function() {
   for (ct in 1:ncol(cts)) {
 
     # BMC ON POSTERIOR MEANS ONLY, FOR FUN
-    suppressMessages({
-      dd.bmc <- as.data.table(bayesmodelquant::modelComparisonBatch(dd, list(paste("x", dd.assays[Condition == cts[1, ct], Assay]), paste("x", dd.assays[Condition == cts[2, ct], Assay]))))
-    })
-    dd.bmc <- cbind(dd.proteins, dd.bmc[, .(log2fc.lower = lower, log2fc.mean = mean, log2fc.upper = upper, PEP)])
-    setorder(dd.bmc, PEP)
-    dd.bmc[, FDR := cumsum(PEP) / 1:nrow(dd.bmc)]
-    fwrite(dd.bmc, file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc__point_est.csv")))
+    dd.bmc <- dd[, c("ProteinID", paste("x", dd.assays[Condition == cts[1, ct], Assay]), paste("x", dd.assays[Condition == cts[2, ct], Assay])), with = F]
+    dd.bmc <- dd.bmc[complete.cases(dd.bmc),]
+
+    dd.bmc0 <- as.data.table(bayesmodelquant::modelComparisonBatch(dd.bmc, list(paste("x", dd.assays[Condition == cts[1, ct], Assay]), paste("x", dd.assays[Condition == cts[2, ct], Assay])), priorRatio = 0.5))
+    dd.bmc0 <- merge(dd.proteins, cbind(dd.bmc[, .(ProteinID)], dd.bmc0[, .(log2fc.lower = lower, log2fc.mean = mean, log2fc.upper = upper, PEP)]))
+    setorder(dd.bmc0, PEP, na.last = T)
+    dd.bmc0[, FDR := cumsum(PEP) / 1:nrow(dd.bmc0)]
+    fwrite(dd.bmc0, file.path(stats.dir, paste0("protein_de__", cts[2, ct], "_vs_", cts[1, ct], "__bmc0__point_est.csv")))
 
     suppressMessages({
-      bmc3 <- bayesmodelquant::populationLevel(dd, list(paste("x", dd.assays[Condition == cts[1, ct], Assay]), paste("x", dd.assays[Condition == cts[2, ct], Assay])))
+      dd.bmc3 <- bayesmodelquant::populationLevel(dd.bmc, list(paste("x", dd.assays[Condition == cts[1, ct], Assay]), paste("x", dd.assays[Condition == cts[2, ct], Assay])))
     })
-    dd.bmc3 <- cbind(dd.proteins, data.table(log2fc.mean = bmc3$mean, PEP = bmc3$PEP))
-    setorder(dd.bmc3, PEP)
+    dd.bmc3 <- merge(dd.proteins, cbind(dd.bmc[, .(ProteinID)], data.table(log2fc.mean = dd.bmc3$mean, PEP = dd.bmc3$PEP)))
+    setorder(dd.bmc3, PEP, na.last = T)
     dd.bmc3[, FDR := cumsum(PEP) / 1:nrow(dd.bmc3)]
-    fwrite(dd.bmc3, file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc3__point_est.csv")))
+    fwrite(dd.bmc3, file.path(stats.dir, paste0("protein_de__", cts[2, ct], "_vs_", cts[1, ct], "__bmc3__point_est.csv")))
 
     suppressMessages({
-      bmc11 <- bayesmodelquant::populationLevel(dd, list(paste("x", dd.assays[Condition == cts[1, ct], Assay]), paste("x", dd.assays[Condition == cts[2, ct], Assay])), K = 11)
+      dd.bmc11 <- bayesmodelquant::populationLevel(dd.bmc, list(paste("x", dd.assays[Condition == cts[1, ct], Assay]), paste("x", dd.assays[Condition == cts[2, ct], Assay])), K = 11)
     })
-    dd.bmc11 <- cbind(dd.proteins, data.table(log2fc.mean = bmc11$mean, PEP = bmc11$PEP))
-    setorder(dd.bmc11, PEP)
+    dd.bmc11 <- merge(dd.proteins, cbind(dd.bmc[, .(ProteinID)], data.table(log2fc.mean = dd.bmc11$mean, PEP = dd.bmc11$PEP)))
+    setorder(dd.bmc11, PEP, na.last = T)
     dd.bmc11[, FDR := cumsum(PEP) / 1:nrow(dd.bmc11)]
-    fwrite(dd.bmc11, file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc11__point_est.csv")))
+    fwrite(dd.bmc11, file.path(stats.dir, paste0("protein_de__", cts[2, ct], "_vs_", cts[1, ct], "__bmc11__point_est.csv")))
 
     if (params$qprot) {
       # QPROT
 
       dd.0 <- dd[, paste("x", dd.assays[Condition == cts[1, ct], Assay]), with = F]
       colnames(dd.0) <- rep("0", ncol(dd.0))
-
       dd.1 <- dd[, paste("x", dd.assays[Condition == cts[2, ct], Assay]), with = F]
       colnames(dd.1) <- rep("1", ncol(dd.1))
-
-      dd.qprot <- cbind(dd.proteins$ProteinID, dd.0, dd.1)
-      colnames(dd.qprot)[1] <- "Protein"
+      dd.qprot <- cbind(dd.0, dd.1)
 
       # exponent as qprot needs intensities, not log ratios
-      for (j in 2:ncol(dd.qprot)) dd.qprot[[j]] <- 2^dd.qprot[[j]]
+      for (j in 1:ncol(dd.qprot)) dd.qprot[[j]] <- 2^dd.qprot[[j]]
+
+      # missing data needs to be set as zeros, as in qprot vignette!
+      for (j in 1:ncol(dd.qprot)) dd.qprot[[j]][is.na(dd.qprot[[j]])] <- 0
+
+      # remove rows with less than 6 non-zeros
+      dd.qprot$nnz <- apply(dd.qprot, 1, function(x) (length(x) - sum(x == 0)))
+      dd.qprot <- cbind(dd.proteins$ProteinID, dd.qprot)[nnz >= 6, -"nnz"]
+      colnames(dd.qprot)[1] <- "Protein"
 
       # because we can't pass seed to qprot, randomise the rows to get the desired effect
       set.seed(params$qprot.seed)
@@ -85,81 +91,80 @@ process.de <- function() {
       }
       system2(paste0(params$qprot.path, "getfdr"), arg = c(paste0(filename.qprot, "_qprot")), stdout = NULL, stderr = NULL)
       dd.qprot <- fread(paste0(filename.qprot, "_qprot_fdr"))[, .(ProteinID = Protein, log2fc.mean = LogFoldChange, Z = Zstatistic, PEP = fdr)]
+      dd.qprot <- merge(dd.proteins, dd.qprot)
+      setorder(dd.qprot, PEP, na.last = T)
+      dd.qprot[, FDR := cumsum(PEP) / 1:nrow(dd.qprot)]
+      fwrite(dd.qprot, file.path(stats.dir, paste0("protein_de__", cts[2, ct], "_vs_", cts[1, ct], "__qprot__point_est.csv")))
 
       file.remove(filename.qprot)
       file.remove(paste0(filename.qprot, "_qprot"))
       file.remove(paste0(filename.qprot, "_qprot_density"))
       file.remove(paste0(filename.qprot, "_qprot_fdr"))
 
-      dd.qprot <- merge(dd.proteins, dd.qprot)
-      setorder(dd.qprot, PEP)
-      dd.qprot[, FDR := cumsum(PEP) / 1:nrow(dd.qprot)]
-      fwrite(dd.qprot, file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__qprot__point_est.csv")))
-
-      dds <- list("BayesProt/BMC" = dd.bmc, "BayesProt/BMC3" = dd.bmc3, "BayesProt/BMC11" = dd.bmc11, "BayesProt/Qprot" = dd.qprot)
+      dds <- list("BayesProt/BMC0" = dd.bmc0, "BayesProt/BMC3" = dd.bmc3, "BayesProt/BMC11" = dd.bmc11, "BayesProt/Qprot" = dd.qprot)
     } else {
-      dds <- list("BayesProt/BMC" = dd.bmc, "BayesProt/BMC3" = dd.bmc3, "BayesProt/BMC11" = dd.bmc11)
+      dds <- list("BayesProt/BMC0" = dd.bmc0, "BayesProt/BMC3" = dd.bmc3, "BayesProt/BMC11" = dd.bmc11)
     }
 
     # plot
     g <- fdr.plot(dds)
-    ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc__point_est.pdf")), g, width=8, height=8)
+    ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", cts[2, ct], "_vs_", cts[1, ct], "__point_est.pdf")), g, width=8, height=8)
 
     if (!is.null(params$truth)) {
       g <- pr.plot(dds, params$truth, 0.21)
-      ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc__point_est__fdp.pdf")) , g, width=8, height=8)
+      ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", cts[2, ct], "_vs_", cts[1, ct], "__point_est__fdp.pdf")) , g, width=8, height=8)
     }
 
-    # GATHER PEPs FROM BMC ON MCMC SAMPLES
-    bmc.mcmc <- function(method) {
-      dd.bmc.mcmc <- vector("list", params$quant.nchain)
-      for (j in 1:params$quant.nchain) {
-        dd.bmc.mcmc[[j]] <- fst::read.fst(file.path(prefix, paste0(j, method, ".fst")), as.data.table = T)[Baseline == cts[1, ct] & Condition == cts[2, ct],]
-        dd.bmc.mcmc[[j]][, chain := j]
-      }
-      dd.bmc.mcmc <- rbindlist(dd.bmc.mcmc)
-
-      # Discoveries based on mean FDRs
-      dd.bmc.fdr <- merge(dd.proteins, dd.bmc.mcmc[, .(
-        log2fc.mean = mean(log2fc.mean),
-        PEP.lower = coda::HPDinterval(coda::as.mcmc(PEP))[, "lower"], PEP.mean = mean(PEP), PEP.upper = coda::HPDinterval(coda::as.mcmc(PEP))[, "upper"],
-        FDR.mean = mean(FDR)
-      ), by = ProteinID], sort = F)
-      setorder(dd.bmc.fdr, FDR.mean)
-      dd.bmc.fdr[, FDR.mean := NULL]
-      dd.bmc.fdr[, Discoveries := 1:nrow(dd.bmc.fdr)]
-
-      # for each number of Discoveries, recompute FDR for each samp to derive credible interval
-      dd.bmc.mcmc.fdr <- merge(dd.bmc.fdr[, .(ProteinID, Discoveries)], dd.bmc.mcmc[, .(ProteinID, PEP, samp, chain)], sort = F)
-      setorder(dd.bmc.mcmc.fdr, Discoveries, samp, chain)
-      dd.bmc.mcmc.fdr <- dd.bmc.mcmc.fdr[, .(Discoveries, FDR = cumsum(PEP) / Discoveries), by = .(samp, chain)]
-      dd.bmc.fdr <- merge(dd.bmc.fdr, dd.bmc.mcmc.fdr[, .(
-        FDR.lower = coda::HPDinterval(coda::as.mcmc(FDR))[, "lower"], FDR.mean = mean(FDR), FDR.upper = coda::HPDinterval(coda::as.mcmc(FDR))[, "upper"]
-      ), by = Discoveries])
-      dd.bmc.fdr[, Discoveries := NULL]
-      dd.bmc.fdr[, FDR := FDR.mean]
-
-      fwrite(dd.bmc.fdr, file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc", method, ".csv")))
-
-      dd.bmc.fdr
-    }
-
-    dd.bmc.fdr <- bmc.mcmc("")
-    dd.bmc3.fdr <- bmc.mcmc(".3")
-    dd.bmc11.fdr <- bmc.mcmc(".11")
-    if (params$qprot) {
-      dd.qprot.fdr <- bmc.mcmc(".qprot")
-      dds <- list("BayesProtMCMC/BMC" = dd.bmc.fdr, "BayesProtMCMC/BMC3" = dd.bmc3.fdr, "BayesProtMCMC/BMC11" = dd.bmc11.fdr, "BayesProtMCMC/Qprot" = dd.qprot.fdr)
-    } else {
-      dds <- list("BayesProtMCMC/BMC" = dd.bmc.fdr, "BayesProtMCMC/BMC3" = dd.bmc3.fdr, "BayesProtMCMC/BMC11" = dd.bmc11.fdr)
-    }
-    g <- fdr.plot(dds)
-    ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc.pdf")), g, width=8, height=8)
-
-    if (!is.null(params$truth)) {
-      g <- pr.plot(dds, params$truth, 0.21)
-      ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc__fdp.pdf")) , g, width=8, height=8)
-    }
+    # # GATHER PEPs FROM BMC ON MCMC SAMPLES
+    # bmc.mcmc <- function(method) {
+    #   dd.bmc.mcmc <- vector("list", params$quant.nchain)
+    #   for (j in 1:params$quant.nchain) {
+    #     dd.bmc.mcmc[[j]] <- fst::read.fst(file.path(prefix, paste0(j, method, ".fst")), as.data.table = T)[Baseline == cts[1, ct] & Condition == cts[2, ct],]
+    #     dd.bmc.mcmc[[j]][, chain := j]
+    #   }
+    #   dd.bmc.mcmc <- rbindlist(dd.bmc.mcmc)
+    #
+    #   # Discoveries based on mean FDRs
+    #   dd.bmc.fdr <- merge(dd.proteins, dd.bmc.mcmc[, .(
+    #     log2fc.mean = mean(log2fc.mean),
+    #     PEP.lower = coda::HPDinterval(coda::as.mcmc(PEP))[, "lower"], PEP.mean = mean(PEP), PEP.upper = coda::HPDinterval(coda::as.mcmc(PEP))[, "upper"],
+    #     FDR.mean = mean(FDR)
+    #   ), by = ProteinID], sort = F)
+    #   setorder(dd.bmc.fdr, FDR.mean)
+    #   dd.bmc.fdr[, FDR.mean := NULL]
+    #   dd.bmc.fdr[, Discoveries := 1:nrow(dd.bmc.fdr)]
+    #
+    #   # for each number of Discoveries, recompute FDR for each samp to derive credible interval
+    #   dd.bmc.mcmc.fdr <- merge(dd.bmc.fdr[, .(ProteinID, Discoveries)], dd.bmc.mcmc[, .(ProteinID, PEP, samp, chain)], sort = F)
+    #   setorder(dd.bmc.mcmc.fdr, Discoveries, samp, chain)
+    #   dd.bmc.mcmc.fdr <- dd.bmc.mcmc.fdr[, .(Discoveries, FDR = cumsum(PEP) / Discoveries), by = .(samp, chain)]
+    #   dd.bmc.fdr <- merge(dd.bmc.fdr, dd.bmc.mcmc.fdr[, .(
+    #     FDR.lower = coda::HPDinterval(coda::as.mcmc(FDR))[, "lower"], FDR.mean = mean(FDR), FDR.upper = coda::HPDinterval(coda::as.mcmc(FDR))[, "upper"]
+    #   ), by = Discoveries])
+    #   dd.bmc.fdr[, Discoveries := NULL]
+    #   dd.bmc.fdr[, FDR := FDR.mean]
+    #
+    #   fwrite(dd.bmc.fdr, file.path(stats.dir, paste0("protein_de__", cts[2, ct], "_vs_", cts[1, ct], "__", method, ".csv")))
+    #
+    #   dd.bmc.fdr
+    # }
+    #
+    # dd.bmc.fdr <- bmc.mcmc("bmc0")
+    # dd.bmc3.fdr <- bmc.mcmc("bmc3")
+    # dd.bmc11.fdr <- bmc.mcmc("bmc11")
+    # if (params$qprot) {
+    #   dd.qprot.fdr <- bmc.mcmc("qprot")
+    #   dds <- list("BayesProtMCMC/BMC" = dd.bmc.fdr, "BayesProtMCMC/BMC3" = dd.bmc3.fdr, "BayesProtMCMC/BMC11" = dd.bmc11.fdr, "BayesProtMCMC/Qprot" = dd.qprot.fdr)
+    # } else {
+    #   dds <- list("BayesProtMCMC/BMC" = dd.bmc.fdr, "BayesProtMCMC/BMC3" = dd.bmc3.fdr, "BayesProtMCMC/BMC11" = dd.bmc11.fdr)
+    # }
+    # g <- fdr.plot(dds)
+    # ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", cts[2, ct], "_vs_", cts[1, ct], ".pdf")), g, width=8, height=8)
+    #
+    # if (!is.null(params$truth)) {
+    #   g <- pr.plot(dds, params$truth, 0.21)
+    #   ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", cts[2, ct], "_vs_", cts[1, ct], "__fdp.pdf")) , g, width=8, height=8)
+    # }
   }
 
   # create zip file and clean up

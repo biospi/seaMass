@@ -36,10 +36,33 @@ process.bmc <- function(chain) {
   doParallel::registerDoParallel(params$nthread)
   `%dopar%` <- foreach::`%dopar%`
   dd.output <- foreach::foreach(ct = rep(1:ncol(cts), each = nsamp), s = rep(1:nsamp, ncol(cts)), .combine = rbind, .options.multicore = list(preschedule = F, silent = T)) %dopar% {
-    dd <- as.data.table(mcmc.quants.all[s,,])
-    colnames(dd) <- dd.assays[, Assay]
+    dd <- cbind(dd.proteins[, .(ProteinID)], as.data.table(mcmc.quants.all[s,, c(dd.assays[Condition == cts[1, ct], AssayID], dd.assays[Condition == cts[2, ct], AssayID])]))
+    dd <- dd[complete.cases(dd),]
+    colnames(dd)[2:ncol(dd)] <- c(dd.assays[Condition == cts[1, ct], Assay], dd.assays[Condition == cts[2, ct], Assay])
+    dd.bmc <- as.data.table(bayesmodelquant::modelComparisonBatch(dd, list(dd.assays[Condition == cts[1, ct], Assay], dd.assays[Condition == cts[2, ct], Assay])))
+    dd.bmc <- cbind(dd.proteins[, .(ProteinID)], dd.bmc[, .(log2fc.lower = lower, log2fc.mean = mean, log2fc.upper = upper, PEP, Baseline = cts[1, ct], Condition = cts[2, ct], samp = s)])
+    setorder(dd.bmc, PEP)
+    dd.bmc[, Discoveries := 1:nrow(dd.bmc)]
+    dd.bmc[, FDR := cumsum(PEP) / Discoveries]
+    dd.bmc
+  }
+  doParallel::stopImplicitCluster()
+  dd.output[, ProteinID := factor(ProteinID)]
+  dd.output[, Baseline := factor(Baseline)]
+  dd.output[, Condition := factor(Condition)]
+  dd.output[, samp := factor(samp)]
+  fst::write.fst(dd.output, paste0(chain, ".bmc0.fst"))
+
+  # parallel processing - populationLevel K = 3
+  message(paste0("[", Sys.time(), "]  populationLevel K = 3 ..."))
+  doParallel::registerDoParallel(params$nthread)
+  `%dopar%` <- foreach::`%dopar%`
+  dd.output <- foreach::foreach(ct = rep(1:ncol(cts), each = nsamp), s = rep(1:nsamp, ncol(cts)), .combine = rbind, .options.multicore = list(preschedule = F, silent = T)) %dopar% {
+    dd <- cbind(dd.proteins[, .(ProteinID)], as.data.table(mcmc.quants.all[s,, c(dd.assays[Condition == cts[1, ct], AssayID], dd.assays[Condition == cts[2, ct], AssayID])]))
+    dd <- dd[complete.cases(dd),]
+    colnames(dd)[2:ncol(dd)] <- c(dd.assays[Condition == cts[1, ct], Assay], dd.assays[Condition == cts[2, ct], Assay])
     suppressMessages({
-      dd.bmc <- as.data.table(bayesmodelquant::modelComparisonBatch(dd, list(dd.assays[Condition == cts[1, ct], Assay], dd.assays[Condition == cts[2, ct], Assay])))
+      bmc <- bayesmodelquant::populationLevel(dd, list(dd.assays[Condition == cts[1, ct], Assay], dd.assays[Condition == cts[2, ct], Assay]))
     })
     dd.bmc <- cbind(dd.proteins[, .(ProteinID)], dd.bmc[, .(log2fc.lower = lower, log2fc.mean = mean, log2fc.upper = upper, PEP, Baseline = cts[1, ct], Condition = cts[2, ct], samp = s)])
     setorder(dd.bmc, PEP)
@@ -52,45 +75,23 @@ process.bmc <- function(chain) {
   dd.output[, Baseline := factor(Baseline)]
   dd.output[, Condition := factor(Condition)]
   dd.output[, samp := factor(samp)]
-  fst::write.fst(dd.output, paste0(chain, ".fst"))
-
-  # parallel processing - populationLevel K = 3
-  message(paste0("[", Sys.time(), "]  populationLevel K = 3 ..."))
-  doParallel::registerDoParallel(params$nthread)
-  `%dopar%` <- foreach::`%dopar%`
-  dd.output <- foreach::foreach(ct = rep(1:ncol(cts), each = nsamp), s = rep(1:nsamp, ncol(cts)), .combine = rbind, .options.multicore = list(preschedule = F, silent = T)) %dopar% {
-    dd <- as.data.table(mcmc.quants.all[s,,])
-    colnames(dd) <- dd.assays[, Assay]
-    suppressMessages({
-      bmc <- bayesmodelquant::populationLevel(dd, list(dd.assays[Condition == cts[1, ct], Assay], dd.assays[Condition == cts[2, ct], Assay]))
-    })
-    dd.bmc <- cbind(dd.proteins[, .(ProteinID)], data.table(log2fc.mean = bmc$mean, PEP = bmc$PEP, Baseline = cts[1, ct], Condition = cts[2, ct], samp = s))
-    setorder(dd.bmc, PEP)
-    dd.bmc[, Discoveries := 1:nrow(dd.bmc)]
-    dd.bmc[, FDR := cumsum(PEP) / 1:nrow(dd.bmc)]
-    dd.bmc
-  }
-  doParallel::stopImplicitCluster()
-  dd.output[, ProteinID := factor(ProteinID)]
-  dd.output[, Baseline := factor(Baseline)]
-  dd.output[, Condition := factor(Condition)]
-  dd.output[, samp := factor(samp)]
-  fst::write.fst(dd.output, paste0(chain, ".3.fst"))
+  fst::write.fst(dd.output, paste0(chain, ".bmc3.fst"))
 
   # parallel processing - populationLevel K = 11
   message(paste0("[", Sys.time(), "]  populationLevel K = 11 ..."))
   doParallel::registerDoParallel(params$nthread)
   `%dopar%` <- foreach::`%dopar%`
   dd.output <- foreach::foreach(ct = rep(1:ncol(cts), each = nsamp), s = rep(1:nsamp, ncol(cts)), .combine = rbind, .options.multicore = list(preschedule = F, silent = T)) %dopar% {
-    dd <- as.data.table(mcmc.quants.all[s,,])
-    colnames(dd) <- dd.assays[, Assay]
+    dd <- cbind(dd.proteins[, .(ProteinID)], as.data.table(mcmc.quants.all[s,, c(dd.assays[Condition == cts[1, ct], AssayID], dd.assays[Condition == cts[2, ct], AssayID])]))
+    dd <- dd[complete.cases(dd),]
+    colnames(dd)[2:ncol(dd)] <- c(dd.assays[Condition == cts[1, ct], Assay], dd.assays[Condition == cts[2, ct], Assay])
     suppressMessages({
       bmc <- bayesmodelquant::populationLevel(dd, list(dd.assays[Condition == cts[1, ct], Assay], dd.assays[Condition == cts[2, ct], Assay]), K = 11)
     })
-    dd.bmc <- cbind(dd.proteins[, .(ProteinID)], data.table(log2fc.mean = bmc$mean, PEP = bmc$PEP, Baseline = cts[1, ct], Condition = cts[2, ct], samp = s))
+    dd.bmc <- cbind(dd.proteins[, .(ProteinID)], dd.bmc[, .(log2fc.lower = lower, log2fc.mean = mean, log2fc.upper = upper, PEP, Baseline = cts[1, ct], Condition = cts[2, ct], samp = s)])
     setorder(dd.bmc, PEP)
     dd.bmc[, Discoveries := 1:nrow(dd.bmc)]
-    dd.bmc[, FDR := cumsum(PEP) / 1:nrow(dd.bmc)]
+    dd.bmc[, FDR := cumsum(PEP) / Discoveries]
     dd.bmc
   }
   doParallel::stopImplicitCluster()
@@ -98,7 +99,7 @@ process.bmc <- function(chain) {
   dd.output[, Baseline := factor(Baseline)]
   dd.output[, Condition := factor(Condition)]
   dd.output[, samp := factor(samp)]
-  fst::write.fst(dd.output, paste0(chain, ".11.fst"))
+  fst::write.fst(dd.output, paste0(chain, ".bmc11.fst"))
 
   if (params$qprot) {
     # set up parallel processing, seed and go
@@ -111,17 +112,23 @@ process.bmc <- function(chain) {
       # process samp s
       dd.0 <- as.data.table(mcmc.quants.all[s,, dd.assays[Condition == cts[1, ct], AssayID]])
       colnames(dd.0) <- rep("0", ncol(dd.0))
-
       dd.1 <- as.data.table(mcmc.quants.all[s,, dd.assays[Condition == cts[2, ct], AssayID]])
       colnames(dd.1) <- rep("1", ncol(dd.1))
-
-      dd.qprot <- cbind(dd.proteins$ProteinID, dd.0, dd.1)
-      colnames(dd.qprot)[1] <- "Protein"
+      dd.qprot <- cbind(dd.0, dd.1)
 
       # exponent as qprot needs intensities, not log ratios
-      for (j in 2:ncol(dd.qprot)) dd.qprot[[j]] <- 2^dd.qprot[[j]]
+      for (j in 1:ncol(dd.qprot)) dd.qprot[[j]] <- 2^dd.qprot[[j]]
+
+      # missing data needs to be set as zeros, as in qprot vignette!
+      for (j in 1:ncol(dd.qprot)) dd.qprot[[j]][is.na(dd.qprot[[j]])] <- 0
+
+      # remove rows with less than 6 non-zeros
+      dd.qprot$nnz <- apply(dd.qprot, 1, function(x) (length(x) - sum(x == 0)))
+      dd.qprot <- cbind(dd.proteins$ProteinID, dd.qprot)[nnz >= 6, -"nnz"]
+      colnames(dd.qprot)[1] <- "Protein"
 
       # because we can't pass seed to qprot, randomise the rows to get the desired effect
+      set.seed(params$qprot.seed)
       dd.qprot <- dd.qprot[sample(1:nrow(dd.qprot), nrow(dd.qprot)),]
 
       # run qprot
@@ -138,15 +145,15 @@ process.bmc <- function(chain) {
       }
       system2(paste0(params$qprot.path, "getfdr"), arg = c(paste0(filename.qprot, "_qprot")), stdout = NULL, stderr = NULL)
       dd.qprot <- fread(paste0(filename.qprot, "_qprot_fdr"))[, .(ProteinID = Protein, log2fc.mean = LogFoldChange, Z = Zstatistic, PEP = fdr, Baseline = cts[1, ct], Condition = cts[2, ct], samp = s)]
+      setorder(dd.qprot, PEP)
+      dd.qprot[, Discoveries := 1:nrow(dd.qprot)]
+      dd.qprot[, FDR := cumsum(PEP) / 1:nrow(dd.qprot)]
 
       file.remove(filename.qprot)
       file.remove(paste0(filename.qprot, "_qprot"))
       file.remove(paste0(filename.qprot, "_qprot_density"))
       file.remove(paste0(filename.qprot, "_qprot_fdr"))
 
-      setorder(dd.qprot, PEP)
-      dd.qprot[, Discoveries := 1:nrow(dd.qprot)]
-      dd.qprot[, FDR := cumsum(PEP) / 1:nrow(dd.qprot)]
       dd.qprot
     }
     doParallel::stopImplicitCluster()
