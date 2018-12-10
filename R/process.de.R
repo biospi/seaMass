@@ -28,19 +28,25 @@ process.de <- function() {
   for (ct in 1:ncol(cts)) {
 
     # BMC ON POSTERIOR MEANS ONLY, FOR FUN
-    dd.bmc <- as.data.table(bayesmodelquant::modelComparisonBatch(dd, list(paste("x", dd.assays[Condition == cts[1, ct], Assay]), paste("x", dd.assays[Condition == cts[2, ct], Assay]))))
+    suppressMessages({
+      dd.bmc <- as.data.table(bayesmodelquant::modelComparisonBatch(dd, list(paste("x", dd.assays[Condition == cts[1, ct], Assay]), paste("x", dd.assays[Condition == cts[2, ct], Assay]))))
+    })
     dd.bmc <- cbind(dd.proteins, dd.bmc[, .(log2fc.lower = lower, log2fc.mean = mean, log2fc.upper = upper, PEP)])
     setorder(dd.bmc, PEP)
     dd.bmc[, FDR := cumsum(PEP) / 1:nrow(dd.bmc)]
     fwrite(dd.bmc, file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc__point_est.csv")))
 
-    bmc3 <- bayesmodelquant::populationLevel(dd, list(paste("x", dd.assays[Condition == cts[1, ct], Assay]), paste("x", dd.assays[Condition == cts[2, ct], Assay])))
+    suppressMessages({
+      bmc3 <- bayesmodelquant::populationLevel(dd, list(paste("x", dd.assays[Condition == cts[1, ct], Assay]), paste("x", dd.assays[Condition == cts[2, ct], Assay])))
+    })
     dd.bmc3 <- cbind(dd.proteins, data.table(log2fc.mean = bmc3$mean, PEP = bmc3$PEP))
     setorder(dd.bmc3, PEP)
     dd.bmc3[, FDR := cumsum(PEP) / 1:nrow(dd.bmc3)]
     fwrite(dd.bmc3, file.path(stats.dir, paste0("protein_de__", cts[1, ct], "_vs_", cts[2, ct], "__bmc3__point_est.csv")))
 
-    bmc11 <- bayesmodelquant::populationLevel(dd, list(paste("x", dd.assays[Condition == cts[1, ct], Assay]), paste("x", dd.assays[Condition == cts[2, ct], Assay])), K = 11)
+    suppressMessages({
+      bmc11 <- bayesmodelquant::populationLevel(dd, list(paste("x", dd.assays[Condition == cts[1, ct], Assay]), paste("x", dd.assays[Condition == cts[2, ct], Assay])), K = 11)
+    })
     dd.bmc11 <- cbind(dd.proteins, data.table(log2fc.mean = bmc11$mean, PEP = bmc11$PEP))
     setorder(dd.bmc11, PEP)
     dd.bmc11[, FDR := cumsum(PEP) / 1:nrow(dd.bmc11)]
@@ -74,7 +80,7 @@ process.de <- function() {
       dd.bmc.fdr[, FDR.mean := NULL]
       dd.bmc.fdr[, Discoveries := 1:nrow(dd.bmc.fdr)]
 
-      # with this Discoveries, recompute FDR for each samp to derive credible interval
+      # for each Discoveries, recompute FDR for each samp to derive credible interval
       dd.bmc.mcmc.fdr <- merge(dd.bmc.fdr[, .(ProteinID, Discoveries)], dd.bmc.mcmc[, .(ProteinID, PEP, samp, chain)], sort = F)
       setorder(dd.bmc.mcmc.fdr, Discoveries, samp, chain)
       dd.bmc.mcmc.fdr <- dd.bmc.mcmc.fdr[, .(Discoveries, FDR = cumsum(PEP) / Discoveries), by = .(samp, chain)]
