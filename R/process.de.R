@@ -81,15 +81,16 @@ process.de <- function() {
       filename.qprot <- paste0("_", ct, ".tsv")
       fwrite(dd.qprot, filename.qprot, sep = "\t")
       if (params$de.paired) {
-        system2(file.path(params$qprot.path, "qprot-paired"),
+        system2(ifelse(params$qprot.path == "", "qprot-paired", file.path(params$qprot.path, "qprot-paired")),
                 args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"),
                 stdout = NULL, stderr = NULL)
       } else {
-        system2(file.path(params$qprot.path, "qprot-param"),
+        system2(ifelse(params$qprot.path == "", "qprot-param", file.path(params$qprot.path, "qprot-param")),
                 args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"),
                 stdout = NULL, stderr = NULL)
       }
-      system2(file.path(params$qprot.path, "getfdr"), arg = c(paste0(filename.qprot, "_qprot")), stdout = NULL, stderr = NULL)
+      system2(ifelse(params$qprot.path == "", "getfdr", file.path(params$qprot.path, "getfdr")),
+              arg = c(paste0(filename.qprot, "_qprot")), stdout = NULL, stderr = NULL)
       dd.qprot <- fread(paste0(filename.qprot, "_qprot_fdr"))[, .(ProteinID = Protein, log2fc.mean = LogFoldChange / log(2), Z = Zstatistic, PEP = fdr)]
       dd.qprot <- merge(dd.proteins, dd.qprot)
       setorder(dd.qprot, PEP, na.last = T)
