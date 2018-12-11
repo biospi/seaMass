@@ -51,7 +51,7 @@ process.model <- function(chain) {
   set.seed(seed * nchain + chain - 1)
   options(max.print = 99999)
   gc()
-  output <- foreach::foreach(p = levels(dd.all$ProteinID), .options.multicore = list(preschedule = F, silent = T)) %dorng% {
+  output <- foreach::foreach(p = levels(dd.all$ProteinID), .options.multicore = list(preschedule = F)) %dorng% {
 
     # prepare dd for MCMCglmm
     dd <- dd.all[ProteinID == p,]

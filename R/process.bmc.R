@@ -35,7 +35,7 @@ process.bmc <- function(chain) {
   message(paste0("[", Sys.time(), "]  modelComparisonBatch..."))
   doParallel::registerDoParallel(params$nthread)
   `%dopar%` <- foreach::`%dopar%`
-  dd.output <- foreach::foreach(ct = rep(1:ncol(cts), each = nsamp), s = rep(1:nsamp, ncol(cts)), .combine = rbind, .options.multicore = list(preschedule = F, silent = T)) %dopar% {
+  dd.output <- foreach::foreach(ct = rep(1:ncol(cts), each = nsamp), s = rep(1:nsamp, ncol(cts)), .combine = rbind, .options.multicore = list(preschedule = F)) %dopar% {
     dd <- cbind(dd.proteins[, .(ProteinID)], as.data.table(mcmc.quants.all[s,, c(dd.assays[Condition == cts[1, ct], AssayID], dd.assays[Condition == cts[2, ct], AssayID])]))
     dd <- dd[complete.cases(dd),]
     colnames(dd)[2:ncol(dd)] <- c(dd.assays[Condition == cts[1, ct], Assay], dd.assays[Condition == cts[2, ct], Assay])
@@ -57,7 +57,7 @@ process.bmc <- function(chain) {
   message(paste0("[", Sys.time(), "]  populationLevel K = 3 ..."))
   doParallel::registerDoParallel(params$nthread)
   `%dopar%` <- foreach::`%dopar%`
-  dd.output <- foreach::foreach(ct = rep(1:ncol(cts), each = nsamp), s = rep(1:nsamp, ncol(cts)), .combine = rbind, .options.multicore = list(preschedule = F, silent = T)) %dopar% {
+  dd.output <- foreach::foreach(ct = rep(1:ncol(cts), each = nsamp), s = rep(1:nsamp, ncol(cts)), .combine = rbind, .options.multicore = list(preschedule = F)) %dopar% {
     dd <- cbind(dd.proteins[, .(ProteinID)], as.data.table(mcmc.quants.all[s,, c(dd.assays[Condition == cts[1, ct], AssayID], dd.assays[Condition == cts[2, ct], AssayID])]))
     dd <- dd[complete.cases(dd),]
     colnames(dd)[2:ncol(dd)] <- c(dd.assays[Condition == cts[1, ct], Assay], dd.assays[Condition == cts[2, ct], Assay])
@@ -81,7 +81,7 @@ process.bmc <- function(chain) {
   message(paste0("[", Sys.time(), "]  populationLevel K = 11 ..."))
   doParallel::registerDoParallel(params$nthread)
   `%dopar%` <- foreach::`%dopar%`
-  dd.output <- foreach::foreach(ct = rep(1:ncol(cts), each = nsamp), s = rep(1:nsamp, ncol(cts)), .combine = rbind, .options.multicore = list(preschedule = F, silent = T)) %dopar% {
+  dd.output <- foreach::foreach(ct = rep(1:ncol(cts), each = nsamp), s = rep(1:nsamp, ncol(cts)), .combine = rbind, .options.multicore = list(preschedule = F)) %dopar% {
     dd <- cbind(dd.proteins[, .(ProteinID)], as.data.table(mcmc.quants.all[s,, c(dd.assays[Condition == cts[1, ct], AssayID], dd.assays[Condition == cts[2, ct], AssayID])]))
     dd <- dd[complete.cases(dd),]
     colnames(dd)[2:ncol(dd)] <- c(dd.assays[Condition == cts[1, ct], Assay], dd.assays[Condition == cts[2, ct], Assay])
@@ -108,7 +108,7 @@ process.bmc <- function(chain) {
     set.seed(params$qprot.seed * params$quant.nchain + chain - 1)
     `%dopar%` <- foreach::`%dopar%`
     `%dorng%` <- doRNG::`%dorng%`
-    dd.output <- foreach::foreach(ct = rep(1:ncol(cts), each = nsamp), s = rep(1:nsamp, ncol(cts)), .combine = rbind, .options.multicore = list(preschedule = F, silent = T)) %dorng% {
+    dd.output <- foreach::foreach(ct = rep(1:ncol(cts), each = nsamp), s = rep(1:nsamp, ncol(cts)), .combine = rbind, .options.multicore = list(preschedule = F)) %dorng% {
       # process samp s
       dd.0 <- as.data.table(mcmc.quants.all[s,, dd.assays[Condition == cts[1, ct], AssayID]])
       colnames(dd.0) <- rep("0", ncol(dd.0))
@@ -135,15 +135,15 @@ process.bmc <- function(chain) {
       filename.qprot <- paste0("_", ct, ".", chain, ".", s, ".tsv")
       fwrite(dd.qprot, filename.qprot, sep = "\t")
       if (params$de.paired) {
-        system2(paste0(params$qprot.path, "qprot-paired"),
+        system2(file.path(params$qprot.path, "qprot-paired"),
                 args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"),
                 stdout = NULL, stderr = NULL)
       } else {
-        system2(paste0(params$qprot.path, "qprot-param"),
+        system2(file.path(params$qprot.path, "qprot-param"),
                 args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"),
                 stdout = NULL, stderr = NULL)
       }
-      system2(paste0(params$qprot.path, "getfdr"), arg = c(paste0(filename.qprot, "_qprot")), stdout = NULL, stderr = NULL)
+      system2(file.path(params$qprot.path, "getfdr"), arg = c(paste0(filename.qprot, "_qprot")), stdout = NULL, stderr = NULL)
       dd.qprot <- fread(paste0(filename.qprot, "_qprot_fdr"))[, .(ProteinID = Protein, log2fc.mean = LogFoldChange / log(2), Z = Zstatistic, PEP = fdr, Baseline = cts[1, ct], Condition = cts[2, ct], samp = s)]
       setorder(dd.qprot, PEP)
       dd.qprot[, Discoveries := 1:nrow(dd.qprot)]
