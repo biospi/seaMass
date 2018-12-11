@@ -64,7 +64,7 @@ process.bmc <- function(chain) {
     suppressMessages({
       bmc <- bayesmodelquant::populationLevel(dd, list(dd.assays[Condition == cts[1, ct], Assay], dd.assays[Condition == cts[2, ct], Assay]))
     })
-    dd.bmc <- cbind(dd.proteins[, .(ProteinID)], dd.bmc[, .(log2fc.lower = lower, log2fc.mean = mean, log2fc.upper = upper, PEP, Baseline = cts[1, ct], Condition = cts[2, ct], samp = s)])
+    dd.bmc <- cbind(dd.proteins[, .(ProteinID)], data.table(log2fc.mean = bmc$mean, PEP = bmc$PEP, Baseline = cts[1, ct], Condition = cts[2, ct], samp = s))
     setorder(dd.bmc, PEP)
     dd.bmc[, Discoveries := 1:nrow(dd.bmc)]
     dd.bmc[, FDR := cumsum(PEP) / Discoveries]
@@ -88,7 +88,7 @@ process.bmc <- function(chain) {
     suppressMessages({
       bmc <- bayesmodelquant::populationLevel(dd, list(dd.assays[Condition == cts[1, ct], Assay], dd.assays[Condition == cts[2, ct], Assay]), K = 11)
     })
-    dd.bmc <- cbind(dd.proteins[, .(ProteinID)], dd.bmc[, .(log2fc.lower = lower, log2fc.mean = mean, log2fc.upper = upper, PEP, Baseline = cts[1, ct], Condition = cts[2, ct], samp = s)])
+    dd.bmc <- cbind(dd.proteins[, .(ProteinID)], data.table(log2fc.mean = bmc$mean, PEP = bmc$PEP, Baseline = cts[1, ct], Condition = cts[2, ct], samp = s))
     setorder(dd.bmc, PEP)
     dd.bmc[, Discoveries := 1:nrow(dd.bmc)]
     dd.bmc[, FDR := cumsum(PEP) / Discoveries]
