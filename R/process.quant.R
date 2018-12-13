@@ -212,7 +212,7 @@ process.quant <- function(input_dir) {
   # plot label exposures
   message("[", paste0(Sys.time(), "]  writing exposures..."))
   g <- plot.exposures(mcmc.exposures)
-  ggplot2::ggsave(file.path(stats.dir, "exposures.pdf"), g, width = 8, height = 0.5 * nA)
+  ggplot2::ggsave(file.path(stats.dir, "exposures.pdf"), g, width = 8, height = 0.5 * nA, limitsize = F)
   saveRDS(mcmc.exposures, "exposures.rds")
 
 
@@ -267,7 +267,7 @@ process.quant <- function(input_dir) {
   g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = Assay))
   g <- g + ggplot2::theme(aspect.ratio=1) + ggplot2::coord_equal()
   if (!all(dd.assays$isRef)) g <- g + ggtitle(paste("ref.assays =", paste(dd.assays[isRef == T, Assay], collapse = "; ")))
-  ggplot2::ggsave(file.path(stats.dir, "pca.pdf"), g, width=8, height=8)
+  ggplot2::ggsave(file.path(stats.dir, "pca.pdf"), g, width=8, height=8, limitsize = F)
 
   # write out Rhat
   if (params$quant.nchain > 1) {
