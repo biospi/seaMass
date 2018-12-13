@@ -252,10 +252,10 @@ process.quant <- function(input_dir) {
   suppressPackageStartupMessages(require(ggfortify))
 
   # write out pca plot
-  protein.quantspca <- t(protein.quants.mean[complete.cases(protein.quants.mean),])
-  protein.quantspca.var <- rowMeans(protein.quants.stdev[complete.cases(protein.quants.mean), drop = F]^2)
+  protein.quants.pca <- t(protein.quants.mean[complete.cases(protein.quants.mean),])
+  protein.quants.pca.var <- rowMeans(protein.quants.stdev[complete.cases(protein.quants.mean),, drop = F]^2)
 
-  pca.assays <- prcomp(protein.quantspca, center = T, scale = protein.quantspca.var)
+  pca.assays <- prcomp(protein.quants.pca, center = T, scale = protein.quants.pca.var)
   dd.pca.assays <- ggplot2::fortify(pca.assays)
   dd.pca.assays <- cbind(dd.pca.assays, dd.assays)
 
