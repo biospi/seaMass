@@ -107,7 +107,7 @@ process.quant <- function(input_dir) {
       for (b in bs[!is.na(bs)]) {
         as <- which(protein.baselines[p,] == b)
         rs <- intersect(as, as.integer(dd.assays[isRef == T, AssayID]))
-        mcmc.protein.quants[, p, as] <- mcmc.protein.quants[, p, as] - rowMeans(mcmc.protein.quants[, p, rs])
+        mcmc.protein.quants[, p, as] <- mcmc.protein.quants[, p, as] - rowMeans(mcmc.protein.quants[, p, rs, drop = F])
       }
     }
 
@@ -253,7 +253,7 @@ process.quant <- function(input_dir) {
 
   # write out pca plot
   protein.quantspca <- t(protein.quants.mean[complete.cases(protein.quants.mean),])
-  protein.quantspca.var <- rowMeans(protein.quants.stdev[complete.cases(protein.quants.mean),]^2)
+  protein.quantspca.var <- rowMeans(protein.quants.stdev[complete.cases(protein.quants.mean), drop = F]^2)
 
   pca.assays <- prcomp(protein.quantspca, center = T, scale = protein.quantspca.var)
   dd.pca.assays <- ggplot2::fortify(pca.assays)

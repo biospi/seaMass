@@ -82,6 +82,8 @@ process.input <- function(dd, id, ref.assays, de.design, ...) {
   dd <- merge(dd, dd.assays[, .(Assay, AssayID)], by = "Assay")[, !"Assay"]
   dd.assays[, Assay := as.character(Assay)]
   if (!is.null(de.design)) {
+    if (!is.factor(de.design$Assay)) de.design$Assay <- factor(de.design$Assay, levels = unique(de.design$Assay))
+    if (!is.factor(de.design$Condition)) de.design$Condition <- factor(de.design$Condition, levels = unique(de.design$Condition))
     dd.assays <- merge(dd.assays, de.design)
   }
 
