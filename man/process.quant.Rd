@@ -4,7 +4,7 @@
 \alias{process.quant}
 \title{process.quant (BayesProt internal function)}
 \usage{
-process.quant(input_dir)
+process.quant()
 }
 \arguments{
 \item{input_dir}{.}

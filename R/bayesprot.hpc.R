@@ -7,31 +7,32 @@
 #' @param de.paired .
 #' @param missing .
 #' @param truth .
-#' @param study.nitt .
-#' @param study.burnin .
+#' @param prior.scale .
+#' @param study.nsample .
+#' @param study.nwarmup .
 #' @param study.thin .
 #' @param study.nchain .
 #' @param study.seed .
 #' @param study.npeptide .
-#' @param quant.nitt .
-#' @param quant.burnin .
+#' @param quant.nsample .
+#' @param quant.nwarmup .
 #' @param quant.thin .
 #' @param quant.nchain .
 #' @param quant.seed .
 #' @param qprot .
 #' @param qprot.path .
-#' @param qprot.nitt .
-#' @param qprot.burnin .
+#' @param qprot.nsample .
+#' @param qprot.nwarmup .
 #' @param qprot.seed .
 #' @param nthread .
 #' @param ... any other HPC backend parameters
 #' @return Lots of interesting stuff.
 #' @export
 
-bayesprot.hpc <- function(dd, id = "bayesprot.hpc", de.design = NULL, de.paired = F, ref.assays = levels(dd$Assay), missing = "censored", truth = NULL,
-                          study.nitt = 1300, study.burnin = 300, study.thin = 4, study.nchain = 4, study.seed = 0, study.npeptide = 5,
-                          quant.nitt = 1300, quant.burnin = 300, quant.thin = 4, quant.nchain = 4, quant.seed = 0,
-                          qprot = F, qprot.path = "", qprot.nitt = 12000, qprot.burnin = 2000, qprot.seed = 0,
+bayesprot.hpc <- function(dd, id = "bayesprot.hpc", de.design = NULL, de.paired = F, ref.assays = levels(dd$Assay), missing = "censored", truth = NULL, prior.scale = 1,
+                          study.nsample = 1024, study.nwarmup = 256, study.thin = 1, study.nchain = 1, study.seed = 0, study.npeptide = 5,
+                          quant.nsample = 1024, quant.nwarmup = 256, quant.thin = 1, quant.nchain = 1, quant.seed = 0,
+                          qprot = F, qprot.path = "", qprot.nsample = 12000, qprot.nwarmup = 2000, qprot.seed = 0,
                           nthread = parallel::detectCores(), ...) {
 
   message(paste0("BayesProt HPC v", packageVersion("bayesprot"), " | © 2015-2018 BioSP", utf8::utf8_encode("\U0001f441"), " Laboratory"))
@@ -41,10 +42,10 @@ bayesprot.hpc <- function(dd, id = "bayesprot.hpc", de.design = NULL, de.paired 
 
   # setup input
   tmp.dir <- tempfile("bayesprot.")
-  process.input(dd, file.path(tmp.dir, id), ref.assays, de.design, de.paired = de.paired, missing = missing, truth = truth,
-                study.nitt = study.nitt, study.burnin = study.burnin, study.thin = study.thin, study.nchain = study.nchain, study.seed = study.seed, study.npeptide = study.npeptide,
-                quant.nitt = quant.nitt, quant.burnin = quant.burnin, quant.thin = quant.thin, quant.nchain = quant.nchain, quant.seed = quant.seed,
-                qprot = qprot, qprot.path = qprot.path, qprot.nitt = qprot.nitt, qprot.burnin = qprot.burnin, qprot.seed = qprot.seed,
+  process.input(dd, file.path(tmp.dir, id), ref.assays, de.design, de.paired = de.paired, missing = missing, truth = truth, prior.scale = prior.scale,
+                study.nsample = study.nsample, study.nwarmup = study.nwarmup, study.thin = study.thin, study.nchain = study.nchain, study.seed = study.seed, study.npeptide = study.npeptide,
+                quant.nsample = quant.nsample, quant.nwarmup = quant.nwarmup, quant.thin = quant.thin, quant.nchain = quant.nchain, quant.seed = quant.seed,
+                qprot = qprot, qprot.path = qprot.path, qprot.nsample = qprot.nsample, qprot.nwarmup = qprot.nwarmup, qprot.seed = qprot.seed,
                 nthread = nthread, ...)
 
   # create zip file

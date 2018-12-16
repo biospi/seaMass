@@ -35,8 +35,8 @@ process.input <- function(dd, id, ref.assays, de.design, ...) {
   # use pre-trained regression model to estimate how long each Protein will take to process in order to assign Proteins to batches
   # Intercept, nPeptide, nFeature, nPeptide^2, nFeature^2, nPeptide*nFeature
   a <- c(5.338861e-01, 9.991205e-02, 2.871998e-01, 4.294391e-05, 6.903229e-04, 2.042114e-04)
-  dd.proteins[, predTiming := a[1] + a[2]*nPeptide + a[3]*nFeature + a[4]*nPeptide*nPeptide + a[5]*nFeature*nFeature + a[6]*nPeptide*nFeature]
-  setorder(dd.proteins, -predTiming)
+  dd.proteins[, timing := a[1] + a[2]*nPeptide + a[3]*nFeature + a[4]*nPeptide*nPeptide + a[5]*nFeature*nFeature + a[6]*nPeptide*nFeature]
+  setorder(dd.proteins, -timing)
   dd.proteins[, ProteinID := factor(1:nrow(dd.proteins))]
   setcolorder(dd.proteins, c("ProteinID"))
 
@@ -87,8 +87,25 @@ process.input <- function(dd, id, ref.assays, de.design, ...) {
     dd.assays <- merge(dd.assays, de.design)
   }
 
-  # prepare dd
+  # update dd.proteins with row numbers for read.fst
   setorder(dd, ProteinID, PeptideID, FeatureID, AssayID)
+  dd.proteins <- merge(dd.proteins, dd[, .(ProteinID = unique(ProteinID), row0 = .I[!duplicated(ProteinID)], row1 = .I[rev(!duplicated(rev(ProteinID)))])], all.x = T)
+
+  # for study model: preprocess dd to remove features with missing values
+  dd.study <- dd[FeatureID %in% dd[, .(missing = any(is.na(Count))), by = FeatureID][missing == F, FeatureID],]
+  # and where less than 6 assay measurements for a feature
+  dd.study <- merge(dd.study, dd.study[, .N, by=FeatureID][N >= 6, -"N"])
+  # and where assay for a peptide has less than 3 feature measurements
+  dd.study <- merge(dd.study, unique(dd.study[, .(PeptideID, FeatureID)])[, .N, by = PeptideID][N >= 3, -"N"], by = "PeptideID")
+  # and where an assay for a protein has less than 3 peptide measurements
+  dd.study <- merge(dd.study, unique(dd.study[, .(ProteinID, PeptideID)])[, .N, by=ProteinID][N >= 3, -"N"], by="ProteinID")
+  dd.study[, ProteinID := factor(ProteinID)]
+  dd.study[, PeptideID := factor(PeptideID)]
+  dd.study[, FeatureID := factor(FeatureID)]
+  dd.study[, AssayID := factor(AssayID)]
+
+  setorder(dd.study, ProteinID, PeptideID, FeatureID, AssayID)
+  dd.proteins <- merge(dd.proteins, dd.study[, .(ProteinID = unique(ProteinID), study.row0 = .I[!duplicated(ProteinID)], study.row1 = .I[rev(!duplicated(rev(ProteinID)))])], all.x = T)
 
   # build submission folder
   dir.create(file.path(id, "input"), recursive = T)
@@ -109,6 +126,7 @@ process.input <- function(dd, id, ref.assays, de.design, ...) {
   # save data and metadata
   saveRDS(params, file.path(id, "input", "params.rds"))
   fst::write.fst(dd, file.path(id, "input", "data.fst"))
+  fst::write.fst(dd.study, file.path(id, "input", "data.study.fst"))
   fst::write.fst(dd.proteins, file.path(id, "input", "proteins.fst"))
   fst::write.fst(dd.peptides, file.path(id, "input", "peptides.fst"))
   fst::write.fst(dd.features, file.path(id, "input", "features.fst"))

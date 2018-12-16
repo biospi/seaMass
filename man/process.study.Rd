@@ -4,7 +4,7 @@
 \alias{process.study}
 \title{process.study (BayesProt internal function)}
 \usage{
-process.study(input_dir)
+process.study()
 }
 \arguments{
 \item{input_dir}{.}

@@ -12,7 +12,7 @@ process.de <- function() {
   params <- readRDS(file.path(prefix, "params.rds"))
   dd.assays <- fst::read.fst(file.path(prefix, "assays.fst"), as.data.table = T)
   dd.proteins <- fst::read.fst(file.path(prefix, "proteins.fst"), as.data.table = T)
-  nsamp <- (params$quant.nitt - params$quant.burnin) / params$quant.thin
+  nsamp <- params$quant.nsample / params$quant.thin
 
   stats.dir <- paste0(params$id, ".de")
   dir.create(stats.dir, showWarnings = F)
@@ -24,41 +24,27 @@ process.de <- function() {
 
   prefix <- ifelse(file.exists("protein_quants.csv"), ".", file.path("..", "..", "quant", "results", paste0(params$id, ".quant")))
   dd <- fread(file.path(prefix, "protein_quants.csv"))
-  prefix <- ifelse(file.exists("1.fst"), ".", file.path("..", "..", "bmc", "results"))
+  prefix <- ifelse(file.exists("1.1.bmc0.fst"), ".", file.path("..", "..", "bmc", "results"))
   for (ct in 1:ncol(cts)) {
 
     # BMC ON POSTERIOR MEANS ONLY, FOR FUN
-    dd.bmc <- dd[, c("ProteinID", paste("x", dd.assays[Condition == cts[1, ct], Assay]), paste("x", dd.assays[Condition == cts[2, ct], Assay])), with = F]
+    dd.bmc <- dd[, c("ProteinID", paste0("log2:", dd.assays[Condition == cts[1, ct], Assay]), paste0("log2:", dd.assays[Condition == cts[2, ct], Assay])), with = F]
     dd.bmc <- dd.bmc[complete.cases(dd.bmc),]
 
-    dd.bmc0 <- as.data.table(bayesmodelquant::modelComparisonBatch(dd.bmc, list(paste("x", dd.assays[Condition == cts[1, ct], Assay]), paste("x", dd.assays[Condition == cts[2, ct], Assay])), priorRatio = 0.5))
-    dd.bmc0 <- merge(dd.proteins, cbind(dd.bmc[, .(ProteinID)], dd.bmc0[, .(log2fc.lower = lower, log2fc.mean = mean, log2fc.upper = upper, PEP)]))
+    dd.bmc0 <- as.data.table(bayesmodelquant::modelComparisonBatch(
+      dd.bmc, list(paste0("log2:", dd.assays[Condition == cts[1, ct], Assay]), paste0("log2:", dd.assays[Condition == cts[2, ct], Assay])), priorRatio = 0.5))
+    dd.bmc0 <- merge(dd.proteins[, .(ProteinID, Protein, nPeptide, nFeature, nMeasure)],
+                     cbind(dd.bmc[, .(ProteinID)], dd.bmc0[, .(log2fc.lower = lower, log2fc.mean = mean, log2fc.upper = upper, PEP)]))
     setorder(dd.bmc0, PEP, na.last = T)
     dd.bmc0[, FDR := cumsum(PEP) / 1:nrow(dd.bmc0)]
     fwrite(dd.bmc0, file.path(stats.dir, paste0("protein_de__", cts[2, ct], "_vs_", cts[1, ct], "__bmc0__point_est.csv")))
 
-    suppressMessages({
-      dd.bmc3 <- bayesmodelquant::populationLevel(dd.bmc, list(paste("x", dd.assays[Condition == cts[1, ct], Assay]), paste("x", dd.assays[Condition == cts[2, ct], Assay])))
-    })
-    dd.bmc3 <- merge(dd.proteins, cbind(dd.bmc[, .(ProteinID)], data.table(log2fc.mean = dd.bmc3$mean, PEP = dd.bmc3$PEP)))
-    setorder(dd.bmc3, PEP, na.last = T)
-    dd.bmc3[, FDR := cumsum(PEP) / 1:nrow(dd.bmc3)]
-    fwrite(dd.bmc3, file.path(stats.dir, paste0("protein_de__", cts[2, ct], "_vs_", cts[1, ct], "__bmc3__point_est.csv")))
-
-    suppressMessages({
-      dd.bmc11 <- bayesmodelquant::populationLevel(dd.bmc, list(paste("x", dd.assays[Condition == cts[1, ct], Assay]), paste("x", dd.assays[Condition == cts[2, ct], Assay])), K = 11)
-    })
-    dd.bmc11 <- merge(dd.proteins, cbind(dd.bmc[, .(ProteinID)], data.table(log2fc.mean = dd.bmc11$mean, PEP = dd.bmc11$PEP)))
-    setorder(dd.bmc11, PEP, na.last = T)
-    dd.bmc11[, FDR := cumsum(PEP) / 1:nrow(dd.bmc11)]
-    fwrite(dd.bmc11, file.path(stats.dir, paste0("protein_de__", cts[2, ct], "_vs_", cts[1, ct], "__bmc11__point_est.csv")))
-
     if (params$qprot) {
       # QPROT
 
-      dd.0 <- dd[, paste("x", dd.assays[Condition == cts[1, ct], Assay]), with = F]
+      dd.0 <- dd[, paste0("log2:", dd.assays[Condition == cts[1, ct], Assay]), with = F]
       colnames(dd.0) <- rep("0", ncol(dd.0))
-      dd.1 <- dd[, paste("x", dd.assays[Condition == cts[2, ct], Assay]), with = F]
+      dd.1 <- dd[, paste0("log2:", dd.assays[Condition == cts[2, ct], Assay]), with = F]
       colnames(dd.1) <- rep("1", ncol(dd.1))
       dd.qprot <- cbind(dd.0, dd.1)
 
@@ -92,7 +78,7 @@ process.de <- function() {
       system2(ifelse(params$qprot.path == "", "getfdr", file.path(params$qprot.path, "getfdr")),
               arg = c(paste0(filename.qprot, "_qprot")), stdout = NULL, stderr = NULL)
       dd.qprot <- fread(paste0(filename.qprot, "_qprot_fdr"))[, .(ProteinID = Protein, log2fc.mean = LogFoldChange / log(2), Z = Zstatistic, PEP = fdr)]
-      dd.qprot <- merge(dd.proteins, dd.qprot)
+      dd.qprot <- merge(dd.proteins[, .(ProteinID, Protein, nPeptide, nFeature, nMeasure)], dd.qprot)
       setorder(dd.qprot, PEP, na.last = T)
       dd.qprot[, FDR := cumsum(PEP) / 1:nrow(dd.qprot)]
       fwrite(dd.qprot, file.path(stats.dir, paste0("protein_de__", cts[2, ct], "_vs_", cts[1, ct], "__qprot__point_est.csv")))
@@ -102,9 +88,9 @@ process.de <- function() {
       file.remove(paste0(filename.qprot, "_qprot_density"))
       file.remove(paste0(filename.qprot, "_qprot_fdr"))
 
-      dds <- list("BayesProt/BMC0" = dd.bmc0, "BayesProt/BMC3" = dd.bmc3, "BayesProt/BMC11" = dd.bmc11, "BayesProt/Qprot" = dd.qprot)
+      dds <- list("BayesProt/BMC0" = dd.bmc0, "BayesProt/Qprot" = dd.qprot)
     } else {
-      dds <- list("BayesProt/BMC0" = dd.bmc0, "BayesProt/BMC3" = dd.bmc3, "BayesProt/BMC11" = dd.bmc11)
+      dds <- list("BayesProt/BMC0" = dd.bmc0)
     }
 
     # plot
@@ -120,17 +106,19 @@ process.de <- function() {
     bmc.mcmc <- function(method) {
       dd.bmc.mcmc <- vector("list", params$quant.nchain)
       for (j in 1:params$quant.nchain) {
-        dd.bmc.mcmc[[j]] <- fst::read.fst(file.path(prefix, paste0(j, ".", method, ".fst")), as.data.table = T)[Baseline == cts[1, ct] & Condition == cts[2, ct],]
-        dd.bmc.mcmc[[j]][, chain := j]
+        dd.bmc.mcmc[[j]] <- fst::read.fst(file.path(prefix, paste0(ct, ".", j, ".", method, ".fst")), as.data.table = T)
+        dd.bmc.mcmc[[j]][, chain := factor(j)]
       }
       dd.bmc.mcmc <- rbindlist(dd.bmc.mcmc)
 
-      # qprot messes up sometimes
+      # qprot hacks
       dd.bmc.mcmc <- dd.bmc.mcmc[!is.nan(dd.bmc.mcmc$FDR), ]
+      if (is.null(dd.bmc.mcmc$log2fc.lower)) dd.bmc.mcmc[, log2fc.lower := NA]
+      if (is.null(dd.bmc.mcmc$log2fc.upper)) dd.bmc.mcmc[, log2fc.upper := NA]
 
       # Discoveries based on mean FDRs
-      dd.bmc.fdr <- merge(dd.proteins, dd.bmc.mcmc[, .(
-        log2fc.mean = mean(log2fc.mean),
+      dd.bmc.fdr <- merge(dd.proteins[, .(ProteinID, Protein, nPeptide, nFeature, nMeasure)], dd.bmc.mcmc[, .(
+        log2fc.lower = mean(log2fc.lower), log2fc.mean = mean(log2fc.mean), log2fc.upper = mean(log2fc.upper),
         PEP.lower = coda::HPDinterval(coda::as.mcmc(PEP))[, "lower"], PEP.mean = mean(PEP), PEP.upper = coda::HPDinterval(coda::as.mcmc(PEP))[, "upper"],
         FDR.mean = mean(FDR)
       ), by = ProteinID], sort = F)
@@ -153,14 +141,12 @@ process.de <- function() {
       dd.bmc.fdr
     }
 
-    dd.bmc.fdr <- bmc.mcmc("bmc0")
-    dd.bmc3.fdr <- bmc.mcmc("bmc3")
-    dd.bmc11.fdr <- bmc.mcmc("bmc11")
+    dd.bmc0.fdr <- bmc.mcmc("bmc0")
     if (params$qprot) {
       dd.qprot.fdr <- bmc.mcmc("qprot")
-      dds <- c(dds, list("BayesProtMCMC/BMC" = dd.bmc.fdr, "BayesProtMCMC/BMC3" = dd.bmc3.fdr, "BayesProtMCMC/BMC11" = dd.bmc11.fdr, "BayesProtMCMC/Qprot" = dd.qprot.fdr))
+      dds <- c(dds, list("BayesProtMCMC/BMC0" = dd.bmc0.fdr, "BayesProtMCMC/Qprot" = dd.qprot.fdr))
     } else {
-      dds <- c(dds, list("BayesProtMCMC/BMC" = dd.bmc.fdr, "BayesProtMCMC/BMC3" = dd.bmc3.fdr, "BayesProtMCMC/BMC11" = dd.bmc11.fdr))
+      dds <- c(dds, list("BayesProtMCMC/BMC0" = dd.bmc0.fdr))
     }
     g <- fdr.plot(dds)
     ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", cts[2, ct], "_vs_", cts[1, ct], ".pdf")), g, width=8, height=8)

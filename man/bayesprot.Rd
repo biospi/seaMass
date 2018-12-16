@@ -6,12 +6,12 @@
 \usage{
 bayesprot(dd, id = "bayesprot", de.design = NULL, de.paired = F,
   ref.assays = levels(dd$Assay), missing = "censored", truth = NULL,
-  study.nitt = 1300, study.burnin = 300, study.thin = 1,
-  study.nchain = 1, study.seed = 0, study.npeptide = 5,
-  quant.nitt = 1300, quant.burnin = 300, quant.thin = 1,
-  quant.nchain = 1, quant.seed = 0, qprot = F, qprot.path = "",
-  qprot.nitt = 12000, qprot.burnin = 2000, qprot.seed = 0,
-  nthread = parallel::detectCores())
+  prior.scale = 1, study.nsample = 1024, study.nwarmup = 256,
+  study.thin = 1, study.nchain = 1, study.seed = 0,
+  study.npeptide = 5, quant.nsample = 1024, quant.nwarmup = 256,
+  quant.thin = 1, quant.nchain = 1, quant.seed = 0, qprot = F,
+  qprot.path = "", qprot.nsample = 12000, qprot.nwarmup = 2000,
+  qprot.seed = 0, nthread = parallel::detectCores())
 }
 \arguments{
 \item{dd}{dataset returned by a bayesprot::import.() function}
@@ -28,9 +28,11 @@ bayesprot(dd, id = "bayesprot", de.design = NULL, de.paired = F,
 
 \item{truth}{.}
 
-\item{study.nitt}{.}
+\item{prior.scale}{.}
 
-\item{study.burnin}{.}
+\item{study.nsample}{.}
+
+\item{study.nwarmup}{.}
 
 \item{study.thin}{.}
 
@@ -40,9 +42,9 @@ bayesprot(dd, id = "bayesprot", de.design = NULL, de.paired = F,
 
 \item{study.npeptide}{.}
 
-\item{quant.nitt}{.}
+\item{quant.nsample}{.}
 
-\item{quant.burnin}{.}
+\item{quant.nwarmup}{.}
 
 \item{quant.thin}{.}
 
@@ -54,9 +56,9 @@ bayesprot(dd, id = "bayesprot", de.design = NULL, de.paired = F,
 
 \item{qprot.path}{.}
 
-\item{qprot.nitt}{.}
+\item{qprot.nsample}{.}
 
-\item{qprot.burnin}{.}
+\item{qprot.nwarmup}{.}
 
 \item{qprot.seed}{.}
 
