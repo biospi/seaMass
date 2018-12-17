@@ -68,8 +68,8 @@ process.model1 <- function(chain) {
       Count ~ FeatureID - 1 + QuantID,
       random = ~ idh(PeptideID):AssayID,
       rcov = ~ idh(FeatureID):units,
-      family = "poisson",
-      data = dd, prior = prior, nitt = params$study.nwarmup + params$study.nsample, burnin = params$study.nwarmup, thin = params$study.thin, pr = T, verbose = F
+      family = "poisson", data = dd, prior = prior,
+      nitt = params$study.nwarmup + (params$study.nsample * params$study.thin) / params$study.nchain, burnin = params$study.nwarmup, thin = params$study.thin, pr = T, verbose = F
     )))
     output$summary <- paste(c(output$summary, capture.output(print(summary(model))), as.character(Sys.time())), collapse = "\n")
 

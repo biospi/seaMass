@@ -15,7 +15,6 @@ process.study <- function() {
   dd.proteins <- fst::read.fst(file.path(prefix, "proteins.fst"), as.data.table = T)
   dd.peptides <- fst::read.fst(file.path(prefix, "peptides.fst"), as.data.table = T)
   dd.features <- fst::read.fst(file.path(prefix, "features.fst"), as.data.table = T)
-  nsamp <- params$study.nsample / params$study.thin
 
   nA <- length(levels(dd.assays$AssayID))
   nP <- length(levels(dd.proteins$ProteinID))
@@ -29,9 +28,9 @@ process.study <- function() {
 
   # LOAD MODEL OUTPUT, COMPUTE ASSAY EXPOSURES AND QUANT VARS
 
-  assay.exposures <- array(NA, c(nsamp * params$study.nchain, nA))
+  assay.exposures <- array(NA, c(params$study.nsample / params$study.nchain * params$study.nchain, nA))
   colnames(assay.exposures) <- 1:nA
-  assay.quant.vars <- array(NA, c(nsamp * params$study.nchain, nA))
+  assay.quant.vars <- array(NA, c(params$study.nsample / params$study.nchain * params$study.nchain, nA))
   colnames(assay.quant.vars) <- 1:nA
 
   peptide.vars.sum <- array(0, nT)
@@ -46,6 +45,12 @@ process.study <- function() {
   # peptide variances
   dd.peptide.vars <- rbindlist(lapply(1:params$study.nchain, function(j) fst::read.fst(file.path(prefix, paste0("peptide.vars.", j, ".fst")), as.data.table = T)))
   dd.peptide.vars <- dd.peptide.vars[, .(value = mean(value)), by = PeptideID]
+
+  # # peptide deviations (for assay stdevs)
+  # dd.peptide.deviations.stdevs <- rbindlist(lapply(1:params$study.nchain, function(j) {
+  #   fst::read.fst(file.path(prefix, paste0("peptide.deviations.", j, ".fst")), as.data.table = T)
+  # }))
+  # dd.peptide.deviations.stdevs <- dd.peptide.deviations[, .(stdev = sd(value) / log(2)), by = .(PeptideID, AssayID)]
 
   # raw protein quants - compute assay exposures, then correct to calculate protein variances
   dd.protein.quants <- rbindlist(lapply(1:params$study.nchain, function(j) fst::read.fst(file.path(prefix, paste0("protein.quants.", j, ".fst")), as.data.table = T)))
@@ -226,6 +231,20 @@ process.study <- function() {
   g <- g + ggplot2::ylab("Density")
   ggplot2::ggsave(file.path(stats.dir, "variances.pdf"), g, width = 8, height = 1.5 + 0.75 * 3, limitsize = F)
 
+  # # assay metric plot
+  # g <- ggplot2::ggplot(dd.peptide.deviations.stdevs, ggplot2::aes(x = stdev))
+  # g <- g + ggplot2::theme_bw()
+  # g <- g + ggplot2::theme(panel.border = ggplot2::element_rect(colour = "black", size = 1),
+  #                         panel.grid.major = ggplot2::element_line(size = 0.5),
+  #                         axis.ticks = ggplot2::element_blank(),
+  #                         axis.text.y = ggplot2::element_blank(),
+  #                         plot.title = ggplot2::element_text(size = 10),
+  #                         strip.background = ggplot2::element_blank())
+  # g <- g + ggplot2::facet_wrap(~ AssayID, ncol = 1)
+  # g <- g + ggplot2::geom_histogram(bins=100)
+  # g <- g + ggplot2::xlab("Log2 Stdev")
+  # g <- g + ggplot2::ylab("Density")
+  # ggplot2::ggsave(file.path(stats.dir, "assay.peptide.stdevs.pdf"), g, width = 8, height = 1.5 + 0.75 * 3, limitsize = F)
 
   # create zip file and clean up
   stats.zip <- file.path("..", "..", "..", paste0(stats.dir, ".zip"))

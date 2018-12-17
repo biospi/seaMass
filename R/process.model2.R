@@ -71,8 +71,7 @@ process.model2 <- function(chain) {
 
     prior <- list(
       B = list(mu = matrix(0, nF + nQ-1, 1), V = diag(nF + nQ-1) * 1e+6),
-      G = list(#G1 = list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2),
-               G1 = list(V = priors$protein.V, nu = priors$protein.nu),
+      G = list(G1 = list(V = priors$protein.V, nu = priors$protein.nu),
                G2 = list(V = priors$peptide.V * diag(nT), nu = priors$peptide.nu)),
       R = list(V = priors$feature.V * diag(nF), nu = priors$feature.nu)
     )
@@ -84,11 +83,11 @@ process.model2 <- function(chain) {
 
     output$summary <- as.character(Sys.time())
     output$timing <- system.time(model <- (MCMCglmm::MCMCglmm(
-      as.formula(paste(ifelse(is.null(dd$MaxCount), "Count", "c(Count, MaxCount)"), "~ ", ifelse(nF==1, "1", "FeatureID - 1 + QuantID"))),
+      as.formula(paste(ifelse(is.null(dd$MaxCount), "Count", "c(Count, MaxCount)"), "~ ", ifelse(nF==1, "", "FeatureID - 1 +"), " QuantID")),
       random = as.formula(paste0("~ AssayID +", ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":AssayID")),
       rcov = as.formula(paste0("~ ", ifelse(nF==1, "units", "idh(FeatureID):units"))),
-      family = ifelse(is.null(dd$MaxCount), "poisson", "cenpoisson"),
-      data = dd, prior = prior, nitt = params$quant.nwarmup + params$quant.nsample, burnin = params$quant.nwarmup, thin = params$quant.thin, pr = T, verbose = F
+      family = ifelse(is.null(dd$MaxCount), "poisson", "cenpoisson"), data = dd, prior = prior,
+      nitt = params$quant.nwarmup + (params$quant.nsample * params$quant.thin) / params$quant.nchain, burnin = params$quant.nwarmup, thin = params$quant.thin, pr = T, verbose = F
     )))
     output$summary <- paste(c(output$summary, capture.output(print(summary(model))), as.character(Sys.time())), collapse = "\n")
 

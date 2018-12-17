@@ -28,30 +28,32 @@ process.bmc <- function(chain) {
   for (ct in 1:ncol(cts)) {
     message(paste0("[", Sys.time(), "]  ", cts[1, ct], " vs ", cts[2, ct], "..."))
 
-    assays0 <- as.character(dd.assays[Condition == cts[1, ct], Assay])
-    assayIDs0 <- as.integer(dd.assays[Condition == cts[1, ct], AssayID])
-    assays1 <- as.character(dd.assays[Condition == cts[2, ct], Assay])
-    assayIDs1 <- as.integer(dd.assays[Condition == cts[2, ct], AssayID])
+    suppressPackageStartupMessages(require(doRNG))
+
+    assayIDs0 <- dd.assays[Condition == cts[1, ct], AssayID]
+    assayIDs1 <- dd.assays[Condition == cts[2, ct], AssayID]
+    protein.quants.ct <- split(dd.protein.quants[AssayID %in% c(assayIDs0, assayIDs1)], by = "samp")
 
     # parallel processing - modelComparisonBatch
-    suppressPackageStartupMessages(require(doRNG))
+    message(paste0("[", Sys.time(), "]   BMC0..."))
 
     cl <- parallel::makeCluster(params$nthread)
     doSNOW::registerDoSNOW(cl)
-    pb <- txtProgressBar(max = length(levels(dd.proteins$ProteinID)), style = 3)
-    setTxtProgressBar(pb, 0)
-    dd.output <- foreach::foreach(s = 1:nsamp, .combine = rbind, .options.multicore = list(preschedule = F),
-                                  .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dorng% {
-      dd <- dd.protein.quants[samp == s & AssayID %in% c(assayIDs0, assayIDs1), ]
-      dd <- merge(dd.assays, dd, by = "AssayID")
-      dd <- dcast(dd, ProteinID ~ Assay, value.var = "value")
-      dd <- dd[complete.cases(dd),]
-      dd.bmc <- as.data.table(bayesmodelquant::modelComparisonBatch(dd, list(assays0, assays1)))
-      dd.bmc <- cbind(dd[, .(ProteinID)], dd.bmc[, .(log2fc.lower = lower, log2fc.mean = mean, log2fc.upper = upper, PEP, samp = s)])
-      setorder(dd.bmc, PEP)
-      dd.bmc[, Discoveries := 1:nrow(dd.bmc)]
-      dd.bmc[, FDR := cumsum(PEP) / Discoveries]
-      dd.bmc
+    pb <- txtProgressBar(max = nsamp, style = 3)
+    dd.output <- foreach::foreach(
+      dd = iterators::iter(protein.quants.ct), .packages = "data.table", .combine = rbind,
+      .options.multicore = list(preschedule = F), .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dorng% {
+        s <- dd[1, samp]
+        bmc <- function(value, AssayID) {
+          out <- bayesmodelquant::modelComparison(value[AssayID %in% assayIDs0], value[AssayID %in% assayIDs1])
+          data.table(log2fc.lower = out$HPDI$lower[1], log2fc.mean = out$mean, log2fc.upper = out$HPDI$upper[1], PEP = out$PEP[1])
+        }
+        dd <- dd[, as.list(bmc(value, AssayID)), by = ProteinID]
+        dd[, samp := s]
+        setorder(dd, PEP)
+        dd[, Discoveries := 1:nrow(dd)]
+        dd[, FDR := cumsum(PEP) / Discoveries]
+        dd
     }
     close(pb)
     dd.output[, ProteinID := factor(ProteinID)]
@@ -61,68 +63,57 @@ process.bmc <- function(chain) {
     if (params$qprot) {
       # set up parallel processing, seed and go
       message(paste0("[", Sys.time(), "]   Qprot..."))
-      pb <- txtProgressBar(max = length(levels(dd.proteins$ProteinID)), style = 3)
-      setTxtProgressBar(pb, 0)
-      set.seed(params$quant.seed * params$quant.nchain + chain - 1)
-      dd.output <- foreach::foreach(s = 1:nsamp, .combine = rbind, .options.multicore = list(preschedule = F),
-                                    .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dorng% {
-        # process samp s
-        dd.0 <- dd.protein.quants[samp == s & AssayID %in% assayIDs0, ]
-        dd.0 <- dcast(dd.0, ProteinID ~ AssayID, value.var = "value")
-        colnames(dd.0)[2:ncol(dd.0)] <- paste("0", colnames(dd.0)[2:ncol(dd.0)])
-        dd.1 <- dd.protein.quants[samp == s & AssayID %in% assayIDs1, ]
-        dd.1 <- dcast(dd.1, ProteinID ~ AssayID, value.var = "value")
-        colnames(dd.1)[2:ncol(dd.1)] <- paste("1", colnames(dd.1)[2:ncol(dd.1)])
-        dd.qprot <- merge(dd.0, dd.1, by = "ProteinID")
-        colnames(dd.qprot)[2:ncol(dd.qprot)] <- substr(colnames(dd.qprot)[2:ncol(dd.qprot)], start = 1, stop = 1)
+      pb <- txtProgressBar(max = nsamp, style = 3)
+      set.seed(params$qprot.seed)
+      dd.output <- foreach::foreach(
+        dd = iterators::iter(protein.quants.ct), .packages = "data.table", .combine = rbind,
+        .options.multicore = list(preschedule = F), .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dorng% {
+          s <- dd[1, samp]
+          dd <- dcast(dd, ProteinID ~ AssayID, value.var = "value")
+          colnames(dd)[colnames(dd) %in% assayIDs0] <- "0"
+          colnames(dd)[colnames(dd) %in% assayIDs1] <- "1"
 
-        # exponent as qprot needs intensities, not log ratios
-        for (j in 2:ncol(dd.qprot)) dd.qprot[[j]] <- 2^dd.qprot[[j]]
+          # exponent as qprot needs intensities, not log ratios
+          for (j in 2:ncol(dd)) dd[[j]] <- 2^dd[[j]]
 
-        # missing data needs to be set as zeros, as in qprot vignette!
-        for (j in 2:ncol(dd.qprot)) dd.qprot[[j]][is.na(dd.qprot[[j]])] <- 0
+          # missing data needs to be set as zeros, as in qprot vignette!
+          for (j in 2:ncol(dd)) dd[[j]][is.na(dd[[j]])] <- 0
 
-        # remove rows with less than 6 non-zeros
-        #dd.qprot$nnz <- apply(dd.qprot, 1, function(x) (length(x) - sum(x == 0)))
-        #dd.qprot <- cbind(dd.proteins$ProteinID, dd.qprot)[nnz >= 6, -"nnz"]
-        #colnames(dd.qprot)[1] <- "Protein"
+          # because we can't pass seed to qprot, randomise the rows to get the desired effect
+          dd <- dd[sample(1:nrow(dd), nrow(dd)),]
 
-        # because we can't pass seed to qprot, randomise the rows to get the desired effect
-        set.seed(params$qprot.seed)
-        dd.qprot <- dd.qprot[sample(1:nrow(dd.qprot), nrow(dd.qprot)),]
-
-        # run qprot
-        filename.qprot <- paste0("_", ct, ".", chain, ".", s, ".tsv")
-        fwrite(dd.qprot, filename.qprot, sep = "\t")
-        ret <- 1
-        if (params$de.paired) {
-          while (ret != 0) {
-            ret <- system2(ifelse(params$qprot.path == "", "qprot-paired", file.path(params$qprot.path, "qprot-paired")),
-                           args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"),
-                           stdout = NULL, stderr = NULL)
+          # run qprot
+          filename <- paste0("_", ct, ".", chain, ".", s, ".tsv")
+          fwrite(dd, filename, sep = "\t")
+          ret <- 1
+          if (params$de.paired) {
+            while (ret != 0) {
+              ret <- system2(ifelse(params$qprot.path == "", "qprot-paired", file.path(params$qprot.path, "qprot-paired")),
+                             args = c(filename, format(params$qprot.nwarmup, scientific = F), format(params$qprot.nsample, scientific = F), "0"),
+                             stdout = NULL, stderr = NULL)
+            }
+          } else {
+            while (ret != 0) {
+              ret <- system2(ifelse(params$qprot.path == "", "qprot-param", file.path(params$qprot.path, "qprot-param")),
+                             args = c(filename, format(params$qprot.nwarmup, scientific = F), format(params$qprot.nsample, scientific = F), "0"),
+                             stdout = NULL, stderr = NULL)
+            }
           }
-        } else {
+          ret <- 1
           while (ret != 0) {
-            ret <- system2(ifelse(params$qprot.path == "", "qprot-param", file.path(params$qprot.path, "qprot-param")),
-                           args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"),
-                           stdout = NULL, stderr = NULL)
+            ret <- system2(ifelse(params$qprot.path == "", "getfdr", file.path(params$qprot.path, "getfdr")), arg = c(paste0(filename, "_qprot")), stdout = NULL, stderr = NULL)
           }
-        }
-        ret <- 1
-        while (ret != 0) {
-          ret <- system2(ifelse(params$qprot.path == "", "getfdr", file.path(params$qprot.path, "getfdr")), arg = c(paste0(filename.qprot, "_qprot")), stdout = NULL, stderr = NULL)
-        }
-        dd.qprot <- fread(paste0(filename.qprot, "_qprot_fdr"))[, .(ProteinID = Protein, log2fc.mean = LogFoldChange / log(2), Z = Zstatistic, PEP = fdr, samp = s)]
-        setorder(dd.qprot, PEP)
-        dd.qprot[, Discoveries := 1:nrow(dd.qprot)]
-        dd.qprot[, FDR := cumsum(PEP) / 1:nrow(dd.qprot)]
+          dd <- fread(paste0(filename, "_qprot_fdr"))[, .(ProteinID = Protein, log2fc.mean = LogFoldChange / log(2), Z = Zstatistic, PEP = fdr, samp = s)]
+          setorder(dd, PEP)
+          dd[, Discoveries := 1:nrow(dd)]
+          dd[, FDR := cumsum(PEP) / 1:nrow(dd)]
 
-        file.remove(filename.qprot)
-        file.remove(paste0(filename.qprot, "_qprot"))
-        file.remove(paste0(filename.qprot, "_qprot_density"))
-        file.remove(paste0(filename.qprot, "_qprot_fdr"))
+          file.remove(filename)
+          file.remove(paste0(filename, "_qprot"))
+          file.remove(paste0(filename, "_qprot_density"))
+          file.remove(paste0(filename, "_qprot_fdr"))
 
-        dd.qprot
+          dd
       }
       close(pb)
       dd.output[, ProteinID := factor(ProteinID)]

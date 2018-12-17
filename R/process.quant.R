@@ -58,15 +58,17 @@ process.quant <- function() {
     fst::read.fst(file.path(prefix, paste0("peptide.deviations.", j, ".fst")), as.data.table = T)
   }))
   dd.peptide.deviations.stdevs <- dd.peptide.deviations[, .(stdev = sd(value) / log(2)), by = .(PeptideID, AssayID)]
+  dd.peptide.deviations.stdevs <- merge(dd.assays[, .(AssayID, Assay)], dd.peptide.deviations.stdevs, by = "AssayID")
   dd.peptide.deviations <- dd.peptide.deviations[, .(mean = mean(value) / log(2)), by = .(PeptideID, AssayID)]
+  dd.peptide.deviations <- merge(dd.assays[, .(AssayID, Assay)], dd.peptide.deviations, by = "AssayID")
 
-  dd.peptide.deviations.stdevs <- dcast(dd.peptide.deviations.stdevs, PeptideID ~ AssayID, value.var = "stdev")
+  dd.peptide.deviations.stdevs <- dcast(dd.peptide.deviations.stdevs, PeptideID ~ Assay, value.var = "stdev")
   colnames(dd.peptide.deviations.stdevs)[2:ncol(dd.peptide.deviations.stdevs)] <- paste0("log2:", colnames(dd.peptide.deviations.stdevs)[2:ncol(dd.peptide.deviations.stdevs)])
   dd.peptide.deviations.stdevs <- merge(dd.peptides, dd.peptide.deviations.stdevs, by = "PeptideID")
   fwrite(dd.peptide.deviations.stdevs, file.path(stats.dir, "peptide_deviations_stdevs.csv"))
   rm(dd.peptide.deviations.stdevs)
 
-  dd.peptide.deviations <- dcast(dd.peptide.deviations, PeptideID ~ AssayID, value.var = "mean")
+  dd.peptide.deviations <- dcast(dd.peptide.deviations, PeptideID ~ Assay, value.var = "mean")
   colnames(dd.peptide.deviations)[2:ncol(dd.peptide.deviations)] <- paste0("log2:", colnames(dd.peptide.deviations)[2:ncol(dd.peptide.deviations)])
   dd.peptide.deviations <- merge(dd.peptides, dd.peptide.deviations, by = "PeptideID")
   fwrite(dd.peptide.deviations, file.path(stats.dir, "peptide_deviations.csv"))
@@ -96,15 +98,17 @@ process.quant <- function() {
   }
 
   dd.protein.quants.stdevs <- dd.protein.quants[, .(stdev = sd(value) / log(2)), by = .(ProteinID, AssayID)]
+  dd.protein.quants.stdevs <- merge(dd.assays[, .(AssayID, Assay)], dd.protein.quants.stdevs, by = "AssayID")
   dd.protein.quants <- dd.protein.quants[, .(mean = mean(value) / log(2)), by = .(ProteinID, AssayID)]
+  dd.protein.quants <- merge(dd.assays[, .(AssayID, Assay)], dd.protein.quants, by = "AssayID")
 
-  dd.protein.quants.stdevs <- dcast(dd.protein.quants.stdevs, ProteinID ~ AssayID, value.var = "stdev")
+  dd.protein.quants.stdevs <- dcast(dd.protein.quants.stdevs, ProteinID ~ Assay, value.var = "stdev")
   protein.quants.stdevs <- as.matrix(dd.protein.quants.stdevs[, 2:ncol(dd.protein.quants.stdevs), with = F]) # for pca
   colnames(dd.protein.quants.stdevs)[2:ncol(dd.protein.quants.stdevs)] <- paste0("log2:", colnames(dd.protein.quants.stdevs)[2:ncol(dd.protein.quants.stdevs)])
   dd.protein.quants.stdevs <- merge(dd.proteins[, .(ProteinID, Protein, nPeptide, nFeature, nMeasure)], dd.protein.quants.stdevs, by = "ProteinID")
   fwrite(dd.protein.quants.stdevs, file.path(stats.dir, "protein_quants_stdevs.csv"))
 
-  dd.protein.quants <- dcast(dd.protein.quants, ProteinID ~ AssayID, value.var = "mean")
+  dd.protein.quants <- dcast(dd.protein.quants, ProteinID ~ Assay, value.var = "mean")
   protein.quants <- as.matrix(dd.protein.quants[, 2:ncol(dd.protein.quants), with = F])  # for pca
   colnames(dd.protein.quants)[2:ncol(dd.protein.quants)] <- paste0("log2:", colnames(dd.protein.quants)[2:ncol(dd.protein.quants)])
   dd.protein.quants <- merge(dd.proteins[, .(ProteinID, Protein, nPeptide, nFeature, nMeasure)], dd.protein.quants, by = "ProteinID")

@@ -68,11 +68,11 @@ process.de <- function() {
       fwrite(dd.qprot, filename.qprot, sep = "\t")
       if (params$de.paired) {
         system2(ifelse(params$qprot.path == "", "qprot-paired", file.path(params$qprot.path, "qprot-paired")),
-                args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"),
+                args = c(filename.qprot, format(params$qprot.nwarmup, scientific = F), format(params$qprot.nsample, scientific = F), "0"),
                 stdout = NULL, stderr = NULL)
       } else {
         system2(ifelse(params$qprot.path == "", "qprot-param", file.path(params$qprot.path, "qprot-param")),
-                args = c(filename.qprot, format(params$qprot.burnin, scientific = F), format(params$qprot.nitt - params$qprot.burnin, scientific = F), "0"),
+                args = c(filename.qprot, format(params$qprot.nwarmup, scientific = F), format(params$qprot.nsample, scientific = F), "0"),
                 stdout = NULL, stderr = NULL)
       }
       system2(ifelse(params$qprot.path == "", "getfdr", file.path(params$qprot.path, "getfdr")),
