@@ -4,29 +4,30 @@
 \alias{bayesprot}
 \title{Bayesian Protein-level Quantification for Proteomics}
 \usage{
-bayesprot(dd, id = "bayesprot", de.design = NULL, de.paired = F,
-  ref.assays = levels(dd$Assay), missing = "censored", truth = NULL,
-  prior.scale = 1, study.nsample = 1024, study.nwarmup = 256,
-  study.thin = 1, study.nchain = 1, study.seed = 0,
-  study.npeptide = 5, quant.nsample = 1024, quant.nwarmup = 256,
-  quant.thin = 1, quant.nchain = 1, quant.seed = 0, qprot = F,
-  qprot.path = "", qprot.nsample = 12000, qprot.nwarmup = 2000,
-  qprot.seed = 0, nthread = parallel::detectCores())
+bayesprot(dd, id = "bayesprot", ref.assays = levels(dd$Assay),
+  missing = "censored", de.conditions = NULL, de.paired = F,
+  de.truth = NULL, prior.scale = 1, study.nsample = 1024,
+  study.nwarmup = 256, study.thin = 1, study.nchain = 1,
+  study.seed = 0, study.npeptide = 5, quant.nsample = 1024,
+  quant.nwarmup = 256, quant.thin = 1, quant.nchain = 1,
+  quant.seed = 0, qprot = F, qprot.path = "",
+  qprot.nsample = 10000, qprot.nwarmup = 2000, qprot.seed = 0,
+  nthread = parallel::detectCores())
 }
 \arguments{
 \item{dd}{dataset returned by a bayesprot::import.() function}
 
 \item{id}{path and filename for the output files (if path omitted, current working directory is used)}
 
-\item{de.design}{.}
-
-\item{de.paired}{.}
-
 \item{ref.assays}{.}
 
 \item{missing}{.}
 
-\item{truth}{.}
+\item{de.conditions}{.}
+
+\item{de.paired}{.}
+
+\item{de.truth}{.}
 
 \item{prior.scale}{.}
 

@@ -12,13 +12,11 @@ process.de <- function() {
   params <- readRDS(file.path(prefix, "params.rds"))
   dd.assays <- fst::read.fst(file.path(prefix, "assays.fst"), as.data.table = T)
   dd.proteins <- fst::read.fst(file.path(prefix, "proteins.fst"), as.data.table = T)
-  nsamp <- params$quant.nsample / params$quant.thin
+  nP <- length(levels(dd.proteins$ProteinID))
+  nA <- length(levels(dd.assays$AssayID))
 
   stats.dir <- paste0(params$id, ".de")
   dir.create(stats.dir, showWarnings = F)
-
-  nP <- length(levels(dd.proteins$ProteinID))
-  nA <- length(levels(dd.assays$AssayID))
 
   cts <- combn(levels(dd.assays$Condition), 2)
 
@@ -28,11 +26,11 @@ process.de <- function() {
   for (ct in 1:ncol(cts)) {
 
     # BMC ON POSTERIOR MEANS ONLY, FOR FUN
-    dd.bmc <- dd[, c("ProteinID", paste0("log2:", dd.assays[Condition == cts[1, ct], Assay]), paste0("log2:", dd.assays[Condition == cts[2, ct], Assay])), with = F]
+    dd.bmc <- dd[, c("ProteinID", paste0("log2fc:", dd.assays[Condition == cts[1, ct], Assay]), paste0("log2fc:", dd.assays[Condition == cts[2, ct], Assay])), with = F]
     dd.bmc <- dd.bmc[complete.cases(dd.bmc),]
 
     dd.bmc0 <- as.data.table(bayesmodelquant::modelComparisonBatch(
-      dd.bmc, list(paste0("log2:", dd.assays[Condition == cts[1, ct], Assay]), paste0("log2:", dd.assays[Condition == cts[2, ct], Assay])), priorRatio = 0.5))
+      dd.bmc, list(paste0("log2fc:", dd.assays[Condition == cts[1, ct], Assay]), paste0("log2fc:", dd.assays[Condition == cts[2, ct], Assay])), priorRatio = 0.5))
     dd.bmc0 <- merge(dd.proteins[, .(ProteinID, Protein, nPeptide, nFeature, nMeasure)],
                      cbind(dd.bmc[, .(ProteinID)], dd.bmc0[, .(log2fc.lower = lower, log2fc.mean = mean, log2fc.upper = upper, PEP)]))
     setorder(dd.bmc0, PEP, na.last = T)
@@ -42,9 +40,9 @@ process.de <- function() {
     if (params$qprot) {
       # QPROT
 
-      dd.0 <- dd[, paste0("log2:", dd.assays[Condition == cts[1, ct], Assay]), with = F]
+      dd.0 <- dd[, paste0("log2fc:", dd.assays[Condition == cts[1, ct], Assay]), with = F]
       colnames(dd.0) <- rep("0", ncol(dd.0))
-      dd.1 <- dd[, paste0("log2:", dd.assays[Condition == cts[2, ct], Assay]), with = F]
+      dd.1 <- dd[, paste0("log2fc:", dd.assays[Condition == cts[2, ct], Assay]), with = F]
       colnames(dd.1) <- rep("1", ncol(dd.1))
       dd.qprot <- cbind(dd.0, dd.1)
 
@@ -77,7 +75,7 @@ process.de <- function() {
       }
       system2(ifelse(params$qprot.path == "", "getfdr", file.path(params$qprot.path, "getfdr")),
               arg = c(paste0(filename.qprot, "_qprot")), stdout = NULL, stderr = NULL)
-      dd.qprot <- fread(paste0(filename.qprot, "_qprot_fdr"))[, .(ProteinID = Protein, log2fc.mean = LogFoldChange / log(2), Z = Zstatistic, PEP = fdr)]
+      dd.qprot <- fread(paste0(filename.qprot, "_qprot_fdr"))[, .(ProteinID = Protein, log2fc.mean = LogFoldChange, Z = Zstatistic, PEP = fdr)]
       dd.qprot <- merge(dd.proteins[, .(ProteinID, Protein, nPeptide, nFeature, nMeasure)], dd.qprot)
       setorder(dd.qprot, PEP, na.last = T)
       dd.qprot[, FDR := cumsum(PEP) / 1:nrow(dd.qprot)]
@@ -97,19 +95,20 @@ process.de <- function() {
     g <- fdr.plot(dds)
     ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", cts[2, ct], "_vs_", cts[1, ct], "__point_est.pdf")), g, width=8, height=8)
 
-    if (!is.null(params$truth)) {
-      g <- pr.plot(dds, params$truth, 0.21)
+    if (!is.null(params$de.truth)) {
+      g <- pr.plot(dds, params$de.truth, 0.21)
       ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", cts[2, ct], "_vs_", cts[1, ct], "__point_est__fdp.pdf")) , g, width=8, height=8)
     }
 
     # GATHER PEPs FROM BMC ON MCMC SAMPLES
+    chains <- formatC(1:params$study.nchain, width = ceiling(log10(params$study.nchain + 1)) + 1, format = "d", flag = "0")
+
     bmc.mcmc <- function(method) {
-      dd.bmc.mcmc <- vector("list", params$quant.nchain)
-      for (j in 1:params$quant.nchain) {
-        dd.bmc.mcmc[[j]] <- fst::read.fst(file.path(prefix, paste0(ct, ".", j, ".", method, ".fst")), as.data.table = T)
-        dd.bmc.mcmc[[j]][, chain := factor(j)]
-      }
-      dd.bmc.mcmc <- rbindlist(dd.bmc.mcmc)
+      dd.bmc.mcmc <- rbindlist(lapply(chains, function(chain) {
+        dd <- fst::read.fst(file.path(prefix, paste0(ct, ".", chain, ".", method, ".fst")), as.data.table = T)
+        dd[, chainID := factor(chain)]
+        dd
+      }))
 
       # qprot hacks
       dd.bmc.mcmc <- dd.bmc.mcmc[!is.nan(dd.bmc.mcmc$FDR), ]
@@ -127,9 +126,9 @@ process.de <- function() {
       dd.bmc.fdr[, Discoveries := 1:nrow(dd.bmc.fdr)]
 
       # for each number of Discoveries, recompute FDR for each samp to derive credible interval
-      dd.bmc.mcmc.fdr <- merge(dd.bmc.fdr[, .(ProteinID, Discoveries)], dd.bmc.mcmc[, .(ProteinID, PEP, samp, chain)], sort = F)
-      setorder(dd.bmc.mcmc.fdr, Discoveries, samp, chain)
-      dd.bmc.mcmc.fdr <- dd.bmc.mcmc.fdr[, .(Discoveries, FDR = cumsum(PEP) / Discoveries), by = .(samp, chain)]
+      dd.bmc.mcmc.fdr <- merge(dd.bmc.fdr[, .(ProteinID, Discoveries)], dd.bmc.mcmc[, .(ProteinID, PEP, mcmcID, chainID)], sort = F)
+      setorder(dd.bmc.mcmc.fdr, Discoveries, mcmcID, chainID)
+      dd.bmc.mcmc.fdr <- dd.bmc.mcmc.fdr[, .(Discoveries, FDR = cumsum(PEP) / Discoveries), by = .(mcmcID, chainID)]
       dd.bmc.fdr <- merge(dd.bmc.fdr, dd.bmc.mcmc.fdr[, .(
         FDR.lower = coda::HPDinterval(coda::as.mcmc(FDR))[, "lower"], FDR.mean = mean(FDR), FDR.upper = coda::HPDinterval(coda::as.mcmc(FDR))[, "upper"]
       ), by = Discoveries])
@@ -151,8 +150,8 @@ process.de <- function() {
     g <- fdr.plot(dds)
     ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", cts[2, ct], "_vs_", cts[1, ct], ".pdf")), g, width=8, height=8)
 
-    if (!is.null(params$truth)) {
-      g <- pr.plot(dds, params$truth, 0.21)
+    if (!is.null(params$de.truth)) {
+      g <- pr.plot(dds, params$de.truth, 0.21)
       ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__", cts[2, ct], "_vs_", cts[1, ct], "__fdp.pdf")) , g, width=8, height=8)
     }
   }

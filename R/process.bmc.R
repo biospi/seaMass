@@ -11,10 +11,7 @@ process.bmc <- function(chain) {
   prefix <- ifelse(file.exists("params.rds"), ".", file.path("..", "..", "input"))
   params <- readRDS(file.path(prefix, "params.rds"))
   dd.assays <- fst::read.fst(file.path(prefix, "assays.fst"), as.data.table = T)
-  dd.proteins <- fst::read.fst(file.path(prefix, "proteins.fst"), as.data.table = T)
-  nsamp <- params$quant.nsample / params$quant.thin
-
-  nP <- length(levels(dd.proteins$ProteinID))
+  chain <- formatC(chain, width = ceiling(log10(params$quant.nchain + 1)) + 1, format = "d", flag = "0")
   nA <- length(levels(dd.assays$AssayID))
 
   # read MCMC samps
@@ -32,43 +29,42 @@ process.bmc <- function(chain) {
 
     assayIDs0 <- dd.assays[Condition == cts[1, ct], AssayID]
     assayIDs1 <- dd.assays[Condition == cts[2, ct], AssayID]
-    protein.quants.ct <- split(dd.protein.quants[AssayID %in% c(assayIDs0, assayIDs1)], by = "samp")
+    assayIDs <- dd.assays[Condition == cts[1, ct] | Condition == cts[2, ct], AssayID]
+    protein.quants.ct <- split(dd.protein.quants[AssayID %in% assayIDs,], by = "mcmcID")
 
     # parallel processing - modelComparisonBatch
     message(paste0("[", Sys.time(), "]   BMC0..."))
 
     cl <- parallel::makeCluster(params$nthread)
     doSNOW::registerDoSNOW(cl)
-    pb <- txtProgressBar(max = nsamp, style = 3)
+    pb <- txtProgressBar(max = length(protein.quants.ct), style = 3)
     dd.output <- foreach::foreach(
       dd = iterators::iter(protein.quants.ct), .packages = "data.table", .combine = rbind,
       .options.multicore = list(preschedule = F), .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dorng% {
-        s <- dd[1, samp]
+        s <- dd[1, mcmcID]
         bmc <- function(value, AssayID) {
           out <- bayesmodelquant::modelComparison(value[AssayID %in% assayIDs0], value[AssayID %in% assayIDs1])
           data.table(log2fc.lower = out$HPDI$lower[1], log2fc.mean = out$mean, log2fc.upper = out$HPDI$upper[1], PEP = out$PEP[1])
         }
         dd <- dd[, as.list(bmc(value, AssayID)), by = ProteinID]
-        dd[, samp := s]
+        dd[, mcmcID := s]
         setorder(dd, PEP)
         dd[, Discoveries := 1:nrow(dd)]
         dd[, FDR := cumsum(PEP) / Discoveries]
         dd
     }
     close(pb)
-    dd.output[, ProteinID := factor(ProteinID)]
-    dd.output[, samp := factor(samp)]
     fst::write.fst(dd.output, paste0(ct, ".", chain, ".bmc0.fst"))
 
     if (params$qprot) {
       # set up parallel processing, seed and go
       message(paste0("[", Sys.time(), "]   Qprot..."))
-      pb <- txtProgressBar(max = nsamp, style = 3)
+      pb <- txtProgressBar(max = length(protein.quants.ct), style = 3)
       set.seed(params$qprot.seed)
       dd.output <- foreach::foreach(
         dd = iterators::iter(protein.quants.ct), .packages = "data.table", .combine = rbind,
         .options.multicore = list(preschedule = F), .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dorng% {
-          s <- dd[1, samp]
+          s <- dd[1, mcmcID]
           dd <- dcast(dd, ProteinID ~ AssayID, value.var = "value")
           colnames(dd)[colnames(dd) %in% assayIDs0] <- "0"
           colnames(dd)[colnames(dd) %in% assayIDs1] <- "1"
@@ -87,23 +83,24 @@ process.bmc <- function(chain) {
           fwrite(dd, filename, sep = "\t")
           ret <- 1
           if (params$de.paired) {
-            while (ret != 0) {
-              ret <- system2(ifelse(params$qprot.path == "", "qprot-paired", file.path(params$qprot.path, "qprot-paired")),
-                             args = c(filename, format(params$qprot.nwarmup, scientific = F), format(params$qprot.nsample, scientific = F), "0"),
-                             stdout = NULL, stderr = NULL)
+            for (i in 1:3) {
+             if (0 == system2(ifelse(params$qprot.path == "", "qprot-paired", file.path(params$qprot.path, "qprot-paired")),
+                              args = c(filename, format(params$qprot.nwarmup, scientific = F), format(params$qprot.nsample, scientific = F), "0"),
+                              stdout = NULL, stderr = NULL)) break
             }
           } else {
-            while (ret != 0) {
-              ret <- system2(ifelse(params$qprot.path == "", "qprot-param", file.path(params$qprot.path, "qprot-param")),
-                             args = c(filename, format(params$qprot.nwarmup, scientific = F), format(params$qprot.nsample, scientific = F), "0"),
-                             stdout = NULL, stderr = NULL)
+            for (i in 1:3) {
+              if (0 == system2(ifelse(params$qprot.path == "", "qprot-param", file.path(params$qprot.path, "qprot-param")),
+                               args = c(filename, format(params$qprot.nwarmup, scientific = F), format(params$qprot.nsample, scientific = F), "0"),
+                               stdout = NULL, stderr = NULL)) break
             }
           }
           ret <- 1
-          while (ret != 0) {
-            ret <- system2(ifelse(params$qprot.path == "", "getfdr", file.path(params$qprot.path, "getfdr")), arg = c(paste0(filename, "_qprot")), stdout = NULL, stderr = NULL)
+          for (i in 1:3) {
+            if (0 == system2(ifelse(params$qprot.path == "", "getfdr", file.path(params$qprot.path, "getfdr")),
+                             args = c(paste0(filename, "_qprot")), stdout = NULL, stderr = NULL)) break
           }
-          dd <- fread(paste0(filename, "_qprot_fdr"))[, .(ProteinID = Protein, log2fc.mean = LogFoldChange / log(2), Z = Zstatistic, PEP = fdr, samp = s)]
+          dd <- fread(paste0(filename, "_qprot_fdr"))[, .(ProteinID = Protein, log2fc.mean = LogFoldChange / log(2), Z = Zstatistic, PEP = fdr, mcmcID = s)]
           setorder(dd, PEP)
           dd[, Discoveries := 1:nrow(dd)]
           dd[, FDR := cumsum(PEP) / 1:nrow(dd)]
@@ -116,8 +113,6 @@ process.bmc <- function(chain) {
           dd
       }
       close(pb)
-      dd.output[, ProteinID := factor(ProteinID)]
-      dd.output[, samp := factor(samp)]
       fst::write.fst(dd.output, paste0(ct, ".", chain, ".qprot.fst"))
     }
     parallel::stopCluster(cl)

@@ -6,7 +6,7 @@
 #' @import data.table
 #' @export
 
-process.input <- function(dd, id, ref.assays, de.design, ...) {
+process.input <- function(dd, id, ref.assays, missing, de.conditions, ...) {
   message(paste0("[", Sys.time(), "] INPUT started"))
 
   if (length(levels(dd$Assay)) < 6) {
@@ -37,75 +37,76 @@ process.input <- function(dd, id, ref.assays, de.design, ...) {
   a <- c(5.338861e-01, 9.991205e-02, 2.871998e-01, 4.294391e-05, 6.903229e-04, 2.042114e-04)
   dd.proteins[, timing := a[1] + a[2]*nPeptide + a[3]*nFeature + a[4]*nPeptide*nPeptide + a[5]*nFeature*nFeature + a[6]*nPeptide*nFeature]
   setorder(dd.proteins, -timing)
-  dd.proteins[, ProteinID := factor(1:nrow(dd.proteins))]
+  dd.proteins[, ProteinID := factor(formatC(1:nrow(dd.proteins), width = ceiling(log10(nrow(dd.proteins))) + 1, format = "d", flag = "0"))]
   setcolorder(dd.proteins, c("ProteinID"))
 
-  dd <- merge(dd, dd.proteins[, .(Protein, ProteinID)], by = "Protein")[, !"Protein"]
-  dd.proteins[, Protein := as.character(Protein)]
+  dd <- merge(dd, dd.proteins[, .(Protein, ProteinID)], by = "Protein", sort = F)[, !"Protein"]
 
   # build Peptide index
   dd.peptides <- dd[, .(
     nFeature = length(unique(as.character(Feature))),
     nMeasure = sum(!is.na(Count)),
-    TopProteinID = min(as.integer(as.character(ProteinID))),
-    ProteinIDs = paste(unique(as.integer(as.character(ProteinID))), collapse = "")
+    TopProteinID = first(ProteinID),
+    ProteinIDs = paste(unique(as.character(ProteinID)), collapse = " ")
   ), by = Peptide]
   setorder(dd.peptides, TopProteinID, -nFeature, -nMeasure, Peptide)
   dd.peptides[, TopProteinID := NULL]
-  dd.peptides[, PeptideID := factor(as.integer(factor(dd.peptides$Peptide, unique(dd.peptides$Peptide))))]
-  setcolorder(dd.peptides, c("ProteinIDs", "PeptideID"))
+  dd.peptides[, PeptideID := factor(formatC(1:nrow(dd.peptides), width = ceiling(log10(nrow(dd.peptides))) + 1, format = "d", flag = "0"))]
+  dd.peptides[, ProteinIDs := factor(ProteinIDs)]
+  setcolorder(dd.peptides, c("PeptideID"))
 
-  dd <- merge(dd, dd.peptides[, .(Peptide, PeptideID)], by = "Peptide")[, !"Peptide"]
-  dd.peptides[, Peptide := as.character(Peptide)]
+  dd <- merge(dd, dd.peptides[, .(Peptide, PeptideID)], by = "Peptide", sort = F)[, !"Peptide"]
 
   # build Feature index
   dd.features <- dd[, .(
     nMeasure = sum(!is.na(Count)),
-    TopPeptideID = min(as.integer(as.character(PeptideID))),
-    PeptideIDs = paste(unique(as.integer(as.character(PeptideID))), collapse = "")
+    TopPeptideID = min(as.numeric(PeptideID)),
+    PeptideIDs = paste(unique(as.character(PeptideID)), collapse = " ")
   ), by = Feature]
   setorder(dd.features, TopPeptideID, -nMeasure, Feature)
   dd.features[, TopPeptideID := NULL]
-  dd.features[, FeatureID := factor(as.integer(factor(dd.features$Feature, unique(dd.features$Feature))))]
-  setcolorder(dd.features, c("PeptideIDs", "FeatureID"))
+  dd.features[, FeatureID := factor(formatC(1:nrow(dd.features), width = ceiling(log10(nrow(dd.features))) + 1, format = "d", flag = "0"))]
+  dd.features[, PeptideIDs := factor(PeptideIDs)]
+  setcolorder(dd.features, c("FeatureID"))
 
-  dd <- merge(dd, dd.features[, .(Feature, FeatureID)], by = "Feature")[, !"Feature"]
-  dd.features[, Feature := as.character(Feature)]
+  dd <- merge(dd, dd.features[, .(Feature, FeatureID)], by = "Feature", sort = F)[, !"Feature"]
 
   # build Assay index
   dd.assays <- dd[, .(
-    Assay = as.character(levels(dd$Assay)),
-    AssayID = factor(1:length(levels(dd$Assay))),
-    isRef = factor(levels(dd$Assay))%in% ref.assays
-  )]
+    ref = first(Assay) %in% as.character(ref.assays),
+    nProtein = length(unique(as.character(ProteinID))),
+    nPeptide = length(unique(as.character(PeptideID))),
+    nFeature = length(unique(as.character(FeatureID))),
+    nMeasure = sum(!is.na(Count))
+  ), keyby = Assay]
+  if (!is.null(de.conditions)) dd.assays[, Condition := de.conditions]
+  if (!is.factor(dd.assays$Condition)) dd.assays[, Condition := factor(Condition)]
+  dd.assays[, AssayID := factor(formatC(1:nrow(dd.assays), width = ceiling(log10(nrow(dd.assays))) + 1, format = "d", flag = "0"))]
+  setcolorder(dd.assays, c("AssayID"))
 
-  dd <- merge(dd, dd.assays[, .(Assay, AssayID)], by = "Assay")[, !"Assay"]
-  dd.assays[, Assay := as.character(Assay)]
-  if (!is.null(de.design)) {
-    if (!is.factor(de.design$Assay)) de.design$Assay <- factor(de.design$Assay, levels = unique(de.design$Assay))
-    if (!is.factor(de.design$Condition)) de.design$Condition <- factor(de.design$Condition, levels = unique(de.design$Condition))
-    dd.assays <- merge(dd.assays, de.design)
-  }
-
-  # update dd.proteins with row numbers for read.fst
+  dd <- merge(dd, dd.assays[, .(Assay, AssayID)], by = "Assay", sort = F)[, !"Assay"]
+  setcolorder(dd, c("ProteinID", "PeptideID", "FeatureID", "AssayID"))
   setorder(dd, ProteinID, PeptideID, FeatureID, AssayID)
-  dd.proteins <- merge(dd.proteins, dd[, .(ProteinID = unique(ProteinID), row0 = .I[!duplicated(ProteinID)], row1 = .I[rev(!duplicated(rev(ProteinID)))])], all.x = T)
 
   # for study model: preprocess dd to remove features with missing values
   dd.study <- dd[FeatureID %in% dd[, .(missing = any(is.na(Count))), by = FeatureID][missing == F, FeatureID],]
   # and where less than 6 assay measurements for a feature
-  dd.study <- merge(dd.study, dd.study[, .N, by=FeatureID][N >= 6, -"N"])
+  dd.study <- merge(dd.study, dd.study[, .N, by=FeatureID][N >= 6, -"N"], sort = F)
   # and where assay for a peptide has less than 3 feature measurements
-  dd.study <- merge(dd.study, unique(dd.study[, .(PeptideID, FeatureID)])[, .N, by = PeptideID][N >= 3, -"N"], by = "PeptideID")
+  dd.study <- merge(dd.study, unique(dd.study[, .(PeptideID, FeatureID)])[, .N, by = PeptideID][N >= 3, -"N"], by = "PeptideID", sort = F)
   # and where an assay for a protein has less than 3 peptide measurements
-  dd.study <- merge(dd.study, unique(dd.study[, .(ProteinID, PeptideID)])[, .N, by=ProteinID][N >= 3, -"N"], by="ProteinID")
-  dd.study[, ProteinID := factor(ProteinID)]
-  dd.study[, PeptideID := factor(PeptideID)]
-  dd.study[, FeatureID := factor(FeatureID)]
-  dd.study[, AssayID := factor(AssayID)]
-
-  setorder(dd.study, ProteinID, PeptideID, FeatureID, AssayID)
+  dd.study <- merge(dd.study, unique(dd.study[, .(ProteinID, PeptideID)])[, .N, by=ProteinID][N >= 3, -"N"], by="ProteinID", sort = F)
+  dd.study <- droplevels(dd.study)
+  # index in dd.proteins for fst random access
   dd.proteins <- merge(dd.proteins, dd.study[, .(ProteinID = unique(ProteinID), study.row0 = .I[!duplicated(ProteinID)], study.row1 = .I[rev(!duplicated(rev(ProteinID)))])], all.x = T)
+
+  # for quant model: set up mechanism for missingness
+  if (missing == "feature") dd[, Count := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
+  if (missing == "censored") dd[, MaxCount := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
+  if (missing == "censored" | missing == "zero") dd[is.na(Count), Count := 0.0]
+  if (missing == "censored" & all(dd$Count == dd$MaxCount)) dd[, MaxCount := NULL]
+  # index in dd.proteins for fst random access
+  dd.proteins <- merge(dd.proteins, dd[, .(ProteinID = unique(ProteinID), quant.row0 = .I[!duplicated(ProteinID)], quant.row1 = .I[rev(!duplicated(rev(ProteinID)))])], all.x = T, sort = F)
 
   # build submission folder
   dir.create(file.path(id, "input"), recursive = T)
@@ -113,19 +114,19 @@ process.input <- function(dd, id, ref.assays, de.design, ...) {
   dir.create(file.path(id, "study", "results"), recursive = T)
   dir.create(file.path(id, "model2", "results"), recursive = T)
   dir.create(file.path(id, "quant", "results"), recursive = T)
-  if (!is.null(de.design)) {
+  if (!is.null(de.conditions)) {
     dir.create(file.path(id, "bmc", "results"), recursive = T)
     dir.create(file.path(id, "de", "results"), recursive = T)
   }
   for (file in list.files(system.file("hpc", package = "bayesprot"))) {
-    if (!(is.null(de.design) & grepl("^bmc", file)) & !(is.null(de.design) & grepl("^de", file))) {
+    if (!(is.null(de.conditions) & grepl("^bmc", file)) & !(is.null(de.conditions) & grepl("^de", file))) {
       file.copy(file.path(system.file("hpc", package = "bayesprot"), file), id, recursive = T)
     }
   }
 
   # save data and metadata
   saveRDS(params, file.path(id, "input", "params.rds"))
-  fst::write.fst(dd, file.path(id, "input", "data.fst"))
+  fst::write.fst(dd, file.path(id, "input", "data.quant.fst"))
   fst::write.fst(dd.study, file.path(id, "input", "data.study.fst"))
   fst::write.fst(dd.proteins, file.path(id, "input", "proteins.fst"))
   fst::write.fst(dd.peptides, file.path(id, "input", "peptides.fst"))
