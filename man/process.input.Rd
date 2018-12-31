@@ -4,7 +4,7 @@
 \alias{process.input}
 \title{process.input (BayesProt internal function)}
 \usage{
-process.input(dd, id, ref.assays, de.design, ...)
+process.input(dd, id, ref.assays, missing, de.conditions, ...)
 }
 \arguments{
 \item{dd}{The dataset returned by a BayesProt import() function.}

@@ -11,7 +11,7 @@ bayesprot.hpc(dd, id = "bayesprot.hpc", de.design = NULL,
   study.seed = 0, study.npeptide = 5, quant.nsample = 1024,
   quant.nwarmup = 256, quant.thin = 1, quant.nchain = 1,
   quant.seed = 0, qprot = F, qprot.path = "",
-  qprot.nsample = 12000, qprot.nwarmup = 2000, qprot.seed = 0,
+  qprot.nsample = 10000, qprot.nwarmup = 2000, qprot.seed = 0,
   nthread = parallel::detectCores(), ...)
 }
 \arguments{

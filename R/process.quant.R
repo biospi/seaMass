@@ -11,73 +11,24 @@ process.quant <- function() {
   # load parameters
   prefix <- ifelse(file.exists("params.rds"), ".", file.path("..", "..", "input"))
   params <- readRDS(file.path(prefix, "params.rds"))
-  stats.dir <- paste0(params$id, ".de")
   dd.assays <- fst::read.fst(file.path(prefix, "assays.fst"), as.data.table = T)
   dd.proteins <- fst::read.fst(file.path(prefix, "proteins.fst"), as.data.table = T)
   dd.peptides <- fst::read.fst(file.path(prefix, "peptides.fst"), as.data.table = T)
   dd.features <- fst::read.fst(file.path(prefix, "features.fst"), as.data.table = T)
-  nsamp <- params$quant.nsample / params$quant.thin
-
-  nA <- length(levels(dd.assays$AssayID))
-  nP <- length(levels(dd.proteins$ProteinID))
-  nT <- length(levels(dd.peptides$PeptideID))
-  nF <- length(levels(dd.features$FeatureID))
 
   # create subdirectories
-  prefix <- ifelse(file.exists("protein.quants.1.fst"), ".", file.path("..", "..", "model2", "results"))
+  prefix <- ifelse(file.exists("protein.quants.*.fst"), ".", file.path("..", "..", "model2", "results"))
   stats.dir <- paste0(params$id, ".quant")
   dir.create(stats.dir, showWarnings = F)
 
-  # timings
-  dd.timings <- rbindlist(lapply(1:params$study.nchain, function(j) {
-    fst::read.fst(file.path(prefix, paste0("timing.", j, ".fst")), as.data.table = T)[, .(ProteinID, elapsed, chain = paste0("s:", j))]
-  }))
-  dd.timings <- dcast(dd.timings, ProteinID ~ chain, value.var = "elapsed")
-  dd.timings <- merge(dd.proteins[, .(ProteinID, nPeptide, nFeature, nMeasure, pred = timing)], dd.timings)
-  fwrite(dd.timings, file.path(stats.dir, "protein_timings.csv"))
-  rm(dd.timings)
+  # LOAD MODEL OUTPUT
+  chains <- formatC(1:params$study.nchain, width = ceiling(log10(params$study.nchain + 1)) + 1, format = "d", flag = "0")
 
-  # feature stdevs
-  dd.feature.stdevs <- rbindlist(lapply(1:params$study.nchain, function(j) {
-    fst::read.fst(file.path(prefix, paste0("feature.vars.", j, ".fst")), as.data.table = T)
-  }))
-  dd.feature.stdevs <- merge(dd.features, dd.feature.stdevs[, .(`log2:mean` = sqrt(mean(value)) / log(2)), by = FeatureID])
-  fwrite(dd.feature.stdevs, file.path(stats.dir, "feature_stdevs.csv"))
-  rm(dd.feature.stdevs)
-
-  # peptide stdevs
-  dd.peptide.stdevs <- rbindlist(lapply(1:params$study.nchain, function(j) {
-    fst::read.fst(file.path(prefix, paste0("peptide.vars.", j, ".fst")), as.data.table = T)
-  }))
-  dd.peptide.stdevs <- merge(dd.peptides, dd.peptide.stdevs[, .(`log2:mean` = sqrt(mean(value)) / log(2)), by = PeptideID])
-  fwrite(dd.peptide.stdevs, file.path(stats.dir, "peptide_stdevs.csv"))
-  rm(dd.peptide.stdevs)
-
-  # peptide deviations
-  dd.peptide.deviations <- rbindlist(lapply(1:params$study.nchain, function(j) {
-    fst::read.fst(file.path(prefix, paste0("peptide.deviations.", j, ".fst")), as.data.table = T)
-  }))
-  dd.peptide.deviations.stdevs <- dd.peptide.deviations[, .(stdev = sd(value) / log(2)), by = .(PeptideID, AssayID)]
-  dd.peptide.deviations.stdevs <- merge(dd.assays[, .(AssayID, Assay)], dd.peptide.deviations.stdevs, by = "AssayID")
-  dd.peptide.deviations <- dd.peptide.deviations[, .(mean = mean(value) / log(2)), by = .(PeptideID, AssayID)]
-  dd.peptide.deviations <- merge(dd.assays[, .(AssayID, Assay)], dd.peptide.deviations, by = "AssayID")
-
-  dd.peptide.deviations.stdevs <- dcast(dd.peptide.deviations.stdevs, PeptideID ~ Assay, value.var = "stdev")
-  colnames(dd.peptide.deviations.stdevs)[2:ncol(dd.peptide.deviations.stdevs)] <- paste0("log2:", colnames(dd.peptide.deviations.stdevs)[2:ncol(dd.peptide.deviations.stdevs)])
-  dd.peptide.deviations.stdevs <- merge(dd.peptides, dd.peptide.deviations.stdevs, by = "PeptideID")
-  fwrite(dd.peptide.deviations.stdevs, file.path(stats.dir, "peptide_deviations_stdevs.csv"))
-  rm(dd.peptide.deviations.stdevs)
-
-  dd.peptide.deviations <- dcast(dd.peptide.deviations, PeptideID ~ Assay, value.var = "mean")
-  colnames(dd.peptide.deviations)[2:ncol(dd.peptide.deviations)] <- paste0("log2:", colnames(dd.peptide.deviations)[2:ncol(dd.peptide.deviations)])
-  dd.peptide.deviations <- merge(dd.peptides, dd.peptide.deviations, by = "PeptideID")
-  fwrite(dd.peptide.deviations, file.path(stats.dir, "peptide_deviations.csv"))
-  rm(dd.peptide.deviations)
-
-  # normalised protein quants
-  dd.protein.quants <- rbindlist(lapply(1:params$study.nchain, function(j) {
-    dd <- fst::read.fst(file.path(prefix, paste0("protein.quants.", j, ".fst")), as.data.table = T)
-    dd[, chain := factor(j)]
+  # normalised protein quants in base 2
+  dd.protein.quants <- rbindlist(lapply(chains, function(chain) {
+    dd <- fst::read.fst(file.path(prefix, paste0("protein.quants.", chain, ".fst")), as.data.table = T)
+    dd[, value := value / log(2)]
+    dd[, chainID := factor(chain)]
     dd
   }))
 
@@ -86,33 +37,91 @@ process.quant <- function() {
     message("[", paste0(Sys.time(), "]  calculating Rhats..."))
 
     rhat <- function(dd) {
-      chains <- split(dd[, .(chain, value)], by = "chain", keep.by = F, drop = T)
+      chains <- split(dd[, .(chainID, value)], by = "chainID", keep.by = F, drop = T)
       chains <- coda::as.mcmc.list(lapply(names(chains), function(name) coda::as.mcmc(chains[[name]])))
       coda::gelman.diag(chains, autoburnin = F)$psrf[1]
     }
     dd.protein.quants.rhats <- dd.protein.quants[, .(rhat = rhat(.SD)), by = .(AssayID, ProteinID)]
-    dd.protein.quants.rhats <- dcast(dd.protein.quants.rhats, ProteinID ~ AssayID, value.var = "rhat")
+    dd.protein.quants.rhats <- merge(dd.assays[, .(AssayID, Assay)], dd.protein.quants.rhats, by = "AssayID")
+    dd.protein.quants.rhats <- dcast(dd.protein.quants.rhats, ProteinID ~ Assay, value.var = "rhat")
     colnames(dd.protein.quants.rhats)[2:ncol(dd.protein.quants.rhats)] <- paste0("rhat:", colnames(dd.protein.quants.rhats)[2:ncol(dd.protein.quants.rhats)])
     dd.protein.quants.rhats <- merge(dd.proteins[, .(ProteinID, Protein, nPeptide, nFeature, nMeasure)], dd.protein.quants.rhats, by = "ProteinID")
     fwrite(dd.protein.quants.rhats, file.path(stats.dir, "protein_quants_rhats.csv"))
   }
 
-  dd.protein.quants.stdevs <- dd.protein.quants[, .(stdev = sd(value) / log(2)), by = .(ProteinID, AssayID)]
-  dd.protein.quants.stdevs <- merge(dd.assays[, .(AssayID, Assay)], dd.protein.quants.stdevs, by = "AssayID")
-  dd.protein.quants <- dd.protein.quants[, .(mean = mean(value) / log(2)), by = .(ProteinID, AssayID)]
+  message("[", paste0(Sys.time(), "]  creating summaries..."))
+
+  # back to protein quants
+  dd.protein.quants <- dd.protein.quants[, .(mean = mean(value), stdev = sd(value)), by = .(ProteinID, AssayID)]
   dd.protein.quants <- merge(dd.assays[, .(AssayID, Assay)], dd.protein.quants, by = "AssayID")
 
-  dd.protein.quants.stdevs <- dcast(dd.protein.quants.stdevs, ProteinID ~ Assay, value.var = "stdev")
+  dd.protein.quants.stdevs <- dcast(dd.protein.quants, ProteinID ~ Assay, value.var = "stdev")
   protein.quants.stdevs <- as.matrix(dd.protein.quants.stdevs[, 2:ncol(dd.protein.quants.stdevs), with = F]) # for pca
-  colnames(dd.protein.quants.stdevs)[2:ncol(dd.protein.quants.stdevs)] <- paste0("log2:", colnames(dd.protein.quants.stdevs)[2:ncol(dd.protein.quants.stdevs)])
+  colnames(dd.protein.quants.stdevs)[2:ncol(dd.protein.quants.stdevs)] <- paste0("log2fc:", colnames(dd.protein.quants.stdevs)[2:ncol(dd.protein.quants.stdevs)])
   dd.protein.quants.stdevs <- merge(dd.proteins[, .(ProteinID, Protein, nPeptide, nFeature, nMeasure)], dd.protein.quants.stdevs, by = "ProteinID")
   fwrite(dd.protein.quants.stdevs, file.path(stats.dir, "protein_quants_stdevs.csv"))
+  rm(dd.protein.quants.stdevs)
 
   dd.protein.quants <- dcast(dd.protein.quants, ProteinID ~ Assay, value.var = "mean")
   protein.quants <- as.matrix(dd.protein.quants[, 2:ncol(dd.protein.quants), with = F])  # for pca
-  colnames(dd.protein.quants)[2:ncol(dd.protein.quants)] <- paste0("log2:", colnames(dd.protein.quants)[2:ncol(dd.protein.quants)])
+  colnames(dd.protein.quants)[2:ncol(dd.protein.quants)] <- paste0("log2fc:", colnames(dd.protein.quants)[2:ncol(dd.protein.quants)])
   dd.protein.quants <- merge(dd.proteins[, .(ProteinID, Protein, nPeptide, nFeature, nMeasure)], dd.protein.quants, by = "ProteinID")
   fwrite(dd.protein.quants, file.path(stats.dir, "protein_quants.csv"))
+  rm(dd.protein.quants)
+
+  # peptide deviations in base 2
+  dd.peptide.deviations <- rbindlist(lapply(chains, function(chain) {
+    dd <- fst::read.fst(file.path(prefix, paste0("peptide.deviations.", chain, ".fst")), as.data.table = T)
+    dd[, value := value / log(2)]
+    dd <- dd[, .(chainID = factor(chain), mean = mean(value), var = var(value), n = .N), by = .(PeptideID, AssayID)]
+  }))
+  dd.peptide.deviations <- dd.peptide.deviations[, .(mean = weighted.mean(mean, n), stdev = sqrt(weighted.mean(var + mean^2, n) - weighted.mean(mean, n)^2)), by = .(PeptideID, AssayID)]
+  dd.peptide.deviations <- merge(dd.assays[, .(AssayID, Assay)], dd.peptide.deviations, by = "AssayID")
+
+  dd.peptide.deviations.stdevs <- dcast(dd.peptide.deviations, PeptideID ~ Assay, value.var = "stdev")
+  colnames(dd.peptide.deviations.stdevs)[2:ncol(dd.peptide.deviations.stdevs)] <- paste0("log2fc:", colnames(dd.peptide.deviations.stdevs)[2:ncol(dd.peptide.deviations.stdevs)])
+  dd.peptide.deviations.stdevs <- merge(dd.peptides, dd.peptide.deviations.stdevs, by = "PeptideID")
+  fwrite(dd.peptide.deviations.stdevs, file.path(stats.dir, "peptide_deviations_stdevs.csv"))
+  rm(dd.peptide.deviations.stdevs)
+
+  dd.peptide.deviations <- dcast(dd.peptide.deviations, PeptideID ~ Assay, value.var = "mean")
+  colnames(dd.peptide.deviations)[2:ncol(dd.peptide.deviations)] <- paste0("log2fc:", colnames(dd.peptide.deviations)[2:ncol(dd.peptide.deviations)])
+  dd.peptide.deviations <- merge(dd.peptides, dd.peptide.deviations, by = "PeptideID")
+  fwrite(dd.peptide.deviations, file.path(stats.dir, "peptide_deviations.csv"))
+  rm(dd.peptide.deviations)
+
+  # peptide stdevs in base 2
+  dd.peptide.stdevs <- rbindlist(lapply(chains, function(chain) {
+    dd <- fst::read.fst(file.path(prefix, paste0("peptide.vars.", chain, ".fst")), as.data.table = T)
+    dd[, value := sqrt(value) / log(2)]
+    dd <- dd[, .(chainID = factor(chain), mean = mean(value), var = var(value), n = .N), by = PeptideID]
+  }))
+  dd.peptide.stdevs <- dd.peptide.stdevs[, .(`log2fc:mean` = weighted.mean(mean, n), `log2fc:stdev` = sqrt(weighted.mean(var + mean^2, n) - weighted.mean(mean, n)^2)), by = PeptideID]
+  dd.peptide.stdevs <- merge(dd.peptides, dd.peptide.stdevs, by = "PeptideID")
+  fwrite(dd.peptide.stdevs, file.path(stats.dir, "peptide_stdevs.csv"))
+  rm(dd.peptide.stdevs)
+
+  # feature stdevs in base 2
+  dd.feature.stdevs <- rbindlist(lapply(chains, function(chain) {
+    dd <- fst::read.fst(file.path(prefix, paste0("feature.vars.", chain, ".fst")), as.data.table = T)
+    dd[, value := sqrt(value) / log(2)]
+    dd <- dd[, .(chainID = factor(chain), mean = mean(value), var = var(value), n = .N), by = FeatureID]
+  }))
+  dd.feature.stdevs <- dd.feature.stdevs[, .(`log2fc:mean` = weighted.mean(mean, n), `log2fc:stdev` = sqrt(weighted.mean(var + mean^2, n) - weighted.mean(mean, n)^2)), by = FeatureID]
+  dd.feature.stdevs <- merge(dd.features, dd.feature.stdevs, by = "FeatureID")
+  fwrite(dd.feature.stdevs, file.path(stats.dir, "feature_stdevs.csv"))
+  rm(dd.feature.stdevs)
+
+  # timings
+  dd.timings <- rbindlist(lapply(chains, function(chain) {
+    dd <- fst::read.fst(file.path(prefix, paste0("timing.", chain, ".fst")), as.data.table = T)
+    dd[, chainID := chain]
+    dd
+  }))
+  dd.timings <- dcast(dd.timings, ProteinID ~ chainID, value.var = "elapsed")
+  dd.timings <- merge(dd.proteins[, .(ProteinID, nPeptide, nFeature, nMeasure, pred = timing)], dd.timings, by = "ProteinID")
+  fwrite(dd.timings, file.path(stats.dir, "protein_timings.csv"))
+  rm(dd.timings)
 
   # write out pca plot
   suppressPackageStartupMessages(require(ggfortify))
