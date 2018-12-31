@@ -7,11 +7,11 @@
 
 pr.plot <- function(dds, truth, ylim = 1.0) {
   dd.plot <- dds
-  for (method in names(dds)) {
-    dd <- dds[[method]]
+  for (method in names(dd.plot)) {
+    dd <- dd.plot[[method]]
     if (is.null(dd$FDR.lower)) dd[, FDR.lower := FDR]
     if (is.null(dd$FDR.upper)) dd[, FDR.upper := FDR]
-    dd <- dd[, .(FDR, FDR.lower, FDR.upper, FD = ifelse(grepl(truth, Protein), 1, 0))]
+    dd <- dd[, .(FDR, FDR.lower, FDR.upper, FD = ifelse(grepl(truth, Protein), 0, 1))]
     dd[, Discoveries := 1:nrow(dd)]
     dd[, TrueDiscoveries := cumsum(1 - FD)]
     dd[, FDP := cumsum(FD) / Discoveries]

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#PBS -o study
+#PBS -o output0
 #PBS -j oe
 #PBS -r y
 #PBS -m ae
@@ -11,11 +11,11 @@
 #PBS -q veryshort
 #PBS -l walltime=12:00:00
 
-#PBS -N bp.study
+#PBS -N bp.output0
 #PBS -M andrew.dowsey@bristol.ac.uk
 
-cd $PBS_O_WORKDIR/study/results
-Rscript --vanilla ../../study.R model1
+cd $PBS_O_WORKDIR/output0/results
+Rscript --vanilla ../../output0.R
 
 if [ $? -eq 0 ]
 then

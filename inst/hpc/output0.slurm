@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --workdir=study/results
+#SBATCH --workdir=output0/results
 #SBATCH --output=../slurm-%j.out
 #SBATCH --requeue
 #SBATCH --mail-type=END,FAIL
@@ -13,7 +13,7 @@
 #SBATCH --partition=serial
 #SBATCH --time=12:00:00
 
-#SBATCH --job-name=bp.study
+#SBATCH --job-name=bp.output0
 #SBATCH --mail-user=andrew.dowsey@bristol.ac.uk
 
-srun Rscript --vanilla ../../study.R model1
+srun Rscript --vanilla ../../output0.R

@@ -1,2 +1,2 @@
 library(bayesprot)
-process.bmc(as.integer(commandArgs(T)[1]))
+process.plots(as.integer(commandArgs(T)[1]))

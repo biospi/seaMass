@@ -4,54 +4,62 @@
 \alias{bayesprot.hpc}
 \title{Bayesian Protein-level Quantification for Proteomics (HPC version)}
 \usage{
-bayesprot.hpc(dd, id = "bayesprot.hpc", de.design = NULL,
-  de.paired = F, ref.assays = levels(dd$Assay), missing = "censored",
-  truth = NULL, prior.scale = 1, study.nsample = 1024,
-  study.nwarmup = 256, study.thin = 1, study.nchain = 1,
-  study.seed = 0, study.npeptide = 5, quant.nsample = 1024,
-  quant.nwarmup = 256, quant.thin = 1, quant.nchain = 1,
-  quant.seed = 0, qprot = F, qprot.path = "",
-  qprot.nsample = 10000, qprot.nwarmup = 2000, qprot.seed = 0,
-  nthread = parallel::detectCores(), ...)
+bayesprot.hpc(dd, id = "bayesprot", plots = F, missing = "censored",
+  ref.assays = levels(dd$Assay), digests = levels(dd$Assay),
+  samples = levels(dd$Assay), de.conditions = NULL, de.paired = F,
+  de.truth = NULL, de.mcmc = F, prior.scale = 1, nthread = 14,
+  model0.nsample = 1024, model0.nwarmup = 256, model0.thin = 1,
+  model0.nchain = 1, model0.seed = 0, model.nsample = 1024,
+  model.nwarmup = 256, model.thin = 1, model.nchain = 1,
+  model.seed = 0, qprot = F, qprot.path = "",
+  qprot.nsample = 10000, qprot.nwarmup = 2000, qprot.seed = 0, ...)
 }
 \arguments{
 \item{dd}{dataset returned by a bayesprot::import.() function}
 
 \item{id}{path and filename for the output files (if path omitted, current working directory is used)}
 
-\item{de.design}{.}
-
-\item{de.paired}{.}
-
-\item{ref.assays}{.}
+\item{plots}{.}
 
 \item{missing}{.}
 
-\item{truth}{.}
+\item{ref.assays}{.}
+
+\item{digests}{.}
+
+\item{samples}{.}
+
+\item{de.conditions}{.}
+
+\item{de.paired}{.}
+
+\item{de.truth}{.}
+
+\item{de.mcmc}{.}
 
 \item{prior.scale}{.}
 
-\item{study.nsample}{.}
+\item{nthread}{.}
 
-\item{study.nwarmup}{.}
+\item{model0.nsample}{.}
 
-\item{study.thin}{.}
+\item{model0.nwarmup}{.}
 
-\item{study.nchain}{.}
+\item{model0.thin}{.}
 
-\item{study.seed}{.}
+\item{model0.nchain}{.}
 
-\item{study.npeptide}{.}
+\item{model0.seed}{.}
 
-\item{quant.nsample}{.}
+\item{model.nsample}{.}
 
-\item{quant.nwarmup}{.}
+\item{model.nwarmup}{.}
 
-\item{quant.thin}{.}
+\item{model.thin}{.}
 
-\item{quant.nchain}{.}
+\item{model.nchain}{.}
 
-\item{quant.seed}{.}
+\item{model.seed}{.}
 
 \item{qprot}{.}
 
@@ -63,9 +71,9 @@ bayesprot.hpc(dd, id = "bayesprot.hpc", de.design = NULL,
 
 \item{qprot.seed}{.}
 
-\item{nthread}{.}
-
 \item{...}{any other HPC backend parameters}
+
+\item{plots}{.}
 }
 \value{
 Lots of interesting stuff.

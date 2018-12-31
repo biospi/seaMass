@@ -23,12 +23,14 @@ import.ProteinPilot <- function(datafile, dd.fractions) {
 
   # create wide data table
   if(!("ProteinModifications" %in% colnames(dd.raw))) dd.raw[, ProteinModifications := ""]
-  dd.wide <- dd.raw[, list(
+  dd.wide <- dd.raw[, .(
     Protein = factor(Accessions),
     Peptide = factor(paste(Sequence, ":", Modifications, ":", ProteinModifications, ":", Cleavages)),
-    Feature = factor(paste0(Theor.z, "+ ", Spectrum)),
+    Feature = Spectrum,
     Assay = Run
   )]
+  dd.wide[, Feature := paste(Feature, 1:.N, sep = ":"), by = Feature] # rename duplicate features
+  dd.wide[, Feature := factor(Feature)]
   if("Area.113" %in% colnames(dd.raw)) dd.wide$Label.113 <- dd.raw$Area.113
   if("Area.114" %in% colnames(dd.raw)) dd.wide$Label.114 <- dd.raw$Area.114
   if("Area.115" %in% colnames(dd.raw)) dd.wide$Label.115 <- dd.raw$Area.115
@@ -37,14 +39,6 @@ import.ProteinPilot <- function(datafile, dd.fractions) {
   if("Area.118" %in% colnames(dd.raw)) dd.wide$Label.118 <- dd.raw$Area.118
   if("Area.119" %in% colnames(dd.raw)) dd.wide$Label.119 <- dd.raw$Area.119
   if("Area.121" %in% colnames(dd.raw)) dd.wide$Label.121 <- dd.raw$Area.121
-
-  # need to sort out protein quant prior before we can use censored observations
-  warning("import.ProteinPilot currently discards all features with missing values")
-  dd.wide <- dd.wide[complete.cases(dd.wide),]
-  dd.wide[, Protein := factor(Protein)]
-  dd.wide[, Peptide := factor(Peptide)]
-  dd.wide[, Feature := factor(Feature)]
-  dd.wide[, Assay := factor(Assay)]
 
   # melt label counts
   dd <- melt(dd.wide, variable.name = "Label", value.name = "Count",

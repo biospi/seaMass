@@ -1,2 +1,2 @@
 library(bayesprot)
-process.model1(as.integer(commandArgs(T)[1]))
+process.model0(as.integer(commandArgs(T)[1]))

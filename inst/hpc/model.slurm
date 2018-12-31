@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --workdir=model2/results
+#SBATCH --workdir=model/results
 #SBATCH --output=../slurm-%A_%a.out
 #SBATCH --requeue
 #SBATCH --mail-type=FAIL
@@ -13,8 +13,8 @@
 #SBATCH --partition=cpu
 #SBATCH --time=14-00:00:00
 
-#SBATCH --job-name=bp.model2
+#SBATCH --job-name=bp.model
 #SBATCH --mail-user=andrew.dowsey@bristol.ac.uk
 
 #SBATCH --array=1-4
-srun Rscript --vanilla ../../model2.R $SLURM_ARRAY_TASK_ID
+srun Rscript --vanilla ../../model.R $SLURM_ARRAY_TASK_ID

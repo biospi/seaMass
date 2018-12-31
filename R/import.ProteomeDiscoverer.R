@@ -60,12 +60,12 @@ import.ProteomeDiscoverer <- function(datafile, dd.fractions) {
   if("131" %in% colnames(dd.raw)) dd.wide$Label.131 <- dd.raw$`131`
 
   # need to sort out protein quant prior before we can use censored observations
-  warning("import.ProteomeDiscoverer currently discards all features with missing values")
-  dd.wide <- dd.wide[complete.cases(dd.wide),]
-  dd.wide[, Protein := factor(Protein)]
-  dd.wide[, Peptide := factor(Peptide)]
-  dd.wide[, Feature := factor(Feature)]
-  dd.wide[, Assay := factor(Assay)]
+  # warning("import.ProteomeDiscoverer currently discards all features with missing values")
+  # dd.wide <- dd.wide[complete.cases(dd.wide),]
+  # dd.wide[, Protein := factor(Protein)]
+  # dd.wide[, Peptide := factor(Peptide)]
+  # dd.wide[, Feature := factor(Feature)]
+  # dd.wide[, Assay := factor(Assay)]
 
   # melt label counts
   dd <- melt(dd.wide, variable.name = "Label", value.name = "Count",

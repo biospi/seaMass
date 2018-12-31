@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --workdir=quant/results
+#SBATCH --workdir=output/results
 #SBATCH --output=../slurm-%j.out
 #SBATCH --requeue
 #SBATCH --mail-type=END,FAIL
@@ -13,7 +13,7 @@
 #SBATCH --partition=serial
 #SBATCH --time=12:00:00
 
-#SBATCH --job-name=bp.quant
+#SBATCH --job-name=bp.output
 #SBATCH --mail-user=andrew.dowsey@bristol.ac.uk
 
-srun Rscript --vanilla ../../quant.R model2
+srun Rscript --vanilla ../../output.R

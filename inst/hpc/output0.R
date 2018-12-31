@@ -1,2 +1,2 @@
 library(bayesprot)
-process.study(commandArgs(T)[1])
+process.output0()

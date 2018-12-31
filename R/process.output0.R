@@ -1,0 +1,210 @@
+#' process.gather (BayesProt internal function)
+#'
+#' @param input_dir .
+#' @return .
+#' @import data.table
+#' @export
+
+process.output0 <- function() {
+  message(paste0("[", Sys.time(), "] OUTPUT0 started"))
+
+  # load parameters
+  prefix <- ifelse(file.exists("params.rds"), ".", file.path("..", "..", "input"))
+  params <- readRDS(file.path(prefix, "params.rds"))
+  dd.assays <- fst::read.fst(file.path(prefix, "assays.fst"), as.data.table = T)
+
+  nA <- length(levels(dd.assays$AssayID))
+
+  # create subdirectories
+  prefix <- ifelse(file.exists("protein.quants.*.fst"), ".", file.path("..", "..", "model0", "results"))
+  stats.dir <- paste0(params$id, ".ouput0")
+  dir.create(stats.dir, showWarnings = F)
+
+  # LOAD MODEL OUTPUT, COMPUTE ASSAY EXPOSURES AND QUANT VARS
+  chains <- formatC(1:params$model0.nchain, width = ceiling(log10(params$model0.nchain + 1)) + 1, format = "d", flag = "0")
+
+  # assay exposures
+  refs <- dd.assays[ref == T, AssayID]
+  mean.refs <- function(AssayID, value) mean(value[AssayID %in% refs])
+  dd.assay.exposures <- rbindlist(lapply(chains, function(chain) {
+    dd <- fst::read.fst(file.path(prefix, paste0("protein.quants.", chain, ".fst")), as.data.table = T)
+    # add zeros for baselines
+    dd <- rbind(dd, dd[, .(AssayID = BaselineID, value = 0.0), by = .(ProteinID, BaselineID, mcmcID)])
+    dd[, AssayID := factor(AssayID, levels = levels(dd.assays$AssayID))]
+    dd[, BaselineID := factor(BaselineID, levels = levels(dd.assays$AssayID))]
+    # mean centre so that denominator is mean of reference assays
+    dd <- dd[, .(AssayID, value = value - mean.refs(AssayID, value)), by = .(ProteinID, BaselineID, mcmcID)]
+    dd[, BaselineID := NULL]
+    # compute exposure by median
+    dd <- dd[, .(exposure = median(value)), by = .(AssayID, mcmcID)]
+    setorder(dd, AssayID, mcmcID)
+    dd[, chainID := factor(chain)]
+    dd
+  }))
+  fst::write.fst(dd.assay.exposures, "assay.exposures.fst")
+
+  # protein variances
+  dd.protein.vars <- rbindlist(lapply(chains, function(chain) {
+    dd <- fst::read.fst(file.path(prefix, paste0("protein.quants.", chain, ".fst")), as.data.table = T)
+    # add zeros for baselines
+    dd <- rbind(dd, dd[, .(AssayID = BaselineID, value = 0.0), by = .(ProteinID, BaselineID, mcmcID)])
+    dd[, AssayID := factor(AssayID, levels = levels(dd.assays$AssayID))]
+    dd[, BaselineID := NULL]
+    # subtract exposures
+    dd <- merge(dd, dd.assay.exposures[chainID == chain, .(AssayID, mcmcID, exposure)])
+    dd[, value := value - exposure]
+    dd[, exposure := NULL]
+    # average over assays for a digest, and then digests for a sample
+    dd <- merge(dd, dd.assays[, .(AssayID, DigestID)], by = "AssayID")
+    dd <- dd[, .(value = mean(value)), by = .(ProteinID, DigestID, mcmcID)]
+    dd <- merge(dd, dd.assays[, .(DigestID, SampleID)], by = "DigestID")
+    dd <- dd[, .(value = mean(value)), by = .(ProteinID, SampleID, mcmcID)]
+    # calculate variance across SampleID for each ProteinID:mcmcID
+    dd <- dd[, .(value = var(value)), by = .(ProteinID, mcmcID)]
+    # summarise posterior as a mean and variance
+    dd[, .(mean = mean(value), var = var(value), n = .N), by = ProteinID]
+  }))
+  dd.protein.vars <- dd.protein.vars[, .(mean = weighted.mean(mean, n), var = weighted.mean(var + mean^2, n) - weighted.mean(mean, n)^2), by = ProteinID]
+
+  # peptide variances
+  dd.peptide.vars <- rbindlist(lapply(chains, function(chain) {
+    dd <- fst::read.fst(file.path(prefix, paste0("peptide.vars.", chain, ".fst")), as.data.table = T)
+    dd <- dd[, .(mean = mean(value), var = var(value), n = .N), by = PeptideID]
+    dd
+  }))
+  dd.peptide.vars <- dd.peptide.vars[, .(mean = weighted.mean(mean, n), var = weighted.mean(var + mean^2, n) - weighted.mean(mean, n)^2), by = PeptideID]
+
+  # feature variances
+  dd.feature.vars <- rbindlist(lapply(chains, function(chain) {
+    dd <- fst::read.fst(file.path(prefix, paste0("feature.vars.", chain, ".fst")), as.data.table = T)
+    dd <- dd[, .(mean = mean(value), var = var(value), n = .N), by = FeatureID]
+    dd
+  }))
+  dd.feature.vars <- dd.feature.vars[, .(mean = weighted.mean(mean, n), var = weighted.mean(var + mean^2, n) - weighted.mean(mean, n)^2), by = FeatureID]
+
+  # FIT INVERSE GAMMA DISTRIBUTIONS TO VARIANCES
+  suppressPackageStartupMessages(require(actuar))
+
+  # MLE
+  # fit protein posterior means
+  protein.fit <- fitdistrplus::fitdist(dd.protein.vars$mean, "invgamma", method = "mle", start = list(shape = 1.0, scale = 0.05), lower = 0.0001)
+  protein.nu <- as.numeric(2.0 * protein.fit$estimate["shape"])
+  protein.V <- as.numeric((2.0 * protein.fit$estimate["scale"]) / protein.nu)
+  protein.nu <- protein.nu / params$prior.scale
+
+  # fit peptide posterior means
+  peptide.fit <- fitdistrplus::fitdist(dd.peptide.vars$mean, "invgamma", method = "mle", start = list(shape = 1.0, scale = 0.05), lower = 0.0001)
+  peptide.nu <- as.numeric(2.0 * peptide.fit$estimate["shape"])
+  peptide.V <- as.numeric((2.0 * peptide.fit$estimate["scale"]) / peptide.nu)
+  peptide.nu <- peptide.nu / params$prior.scale
+
+  # fit feature posterior means
+  feature.fit <- fitdistrplus::fitdist(dd.feature.vars$mean, "invgamma", method = "mle", start = list(shape = 1.0, scale = 0.05), lower = 0.0001)
+  feature.nu <- as.numeric(2.0 * feature.fit$estimate["shape"])
+  feature.V <- as.numeric((2.0 * feature.fit$estimate["scale"]) / feature.nu)
+  feature.nu <- feature.nu / params$prior.scale
+
+  # save output
+  saveRDS(list(
+    protein.V = protein.V, protein.nu = protein.nu,
+    peptide.V = peptide.V, peptide.nu = peptide.nu,
+    feature.V = feature.V, feature.nu = feature.nu
+  ), file = "priors.rds")
+
+  # EXPOSURES PLOT
+  dd.exposures <- merge(dd.assays, dd.assay.exposures, by = "AssayID")
+
+  # construct metadata
+  dd.exposures.meta.func <- function(x) {
+    m <- mean(x, na.rm=T)
+    if (is.nan(m)) m <- NA
+
+    data.table(mean = m, fc = paste0("  ", ifelse(m < 0, format(-2^-m, digits = 3), format(2^m, digits = 3)), "fc"))
+  }
+  dd.exposures.meta <- dd.exposures[, as.list(dd.exposures.meta.func(exposure)), by = Assay]
+
+  # construct densities
+  dd.exposures.density.func <- function(x) {
+    if (all(x == 0.0)) {
+      data.table()
+    }
+    else {
+      dens <- density(x, n = 4096, na.rm = T)
+      data.table(x = dens$x, y = dens$y)
+    }
+  }
+  dd.exposures.density <- dd.exposures[, as.list(dd.exposures.density.func(exposure)), by = list(Assay)]
+
+  y_range <- max(dd.exposures.density$y) * 1.35
+  x_range <- max(-min(dd.exposures.density$x[dd.exposures.density$y > y_range/100]), max(dd.exposures.density$x[dd.exposures.density$y > y_range/100])) * 1.2
+
+  g <- ggplot2::ggplot(dd.exposures, ggplot2::aes(x = mean))
+  g <- g + ggplot2::theme_bw()
+  g <- g + ggplot2::theme(panel.border = ggplot2::element_rect(colour = "black", size = 1),
+                 panel.grid.major = ggplot2::element_line(size = 0.5),
+                 axis.ticks = ggplot2::element_blank(),
+                 axis.text.y = ggplot2::element_blank(),
+                 plot.title = ggplot2::element_text(size = 10),
+                 strip.background = ggplot2::element_blank(),
+                 strip.text.y = ggplot2::element_text(angle = 0))
+  g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
+  g <- g + ggplot2::scale_y_continuous(expand = c(0, 0))
+  g <- g + ggplot2::facet_grid(Assay ~ .)
+  g <- g + ggplot2::coord_cartesian(xlim = c(-x_range, x_range), ylim = c(-0.0, y_range))
+  g <- g + ggplot2::xlab(expression('Log2 Ratio'))
+  g <- g + ggplot2::ylab("Probability Density")
+  g <- g + ggplot2::geom_vline(xintercept = 0,size = 1/2, colour = "darkgrey")
+  g <- g + ggplot2::geom_ribbon(data = dd.exposures.density, ggplot2::aes(x = x, ymax = y), ymin = 0,size = 1/2, alpha = 0.3)
+  g <- g + ggplot2::geom_line(data = dd.exposures.density, ggplot2::aes(x = x,y = y), size = 1/2)
+  g <- g + ggplot2::geom_vline(data = dd.exposures.meta, ggplot2::aes(xintercept = mean), size = 1/2)
+  g <- g + ggplot2::geom_text(data = dd.exposures.meta, ggplot2::aes(x = mean, label = fc), y = max(dd.exposures.density$y) * 1.1, hjust = 0, vjust = 1, size = 3)
+  ggplot2::ggsave(file.path(stats.dir, "assay.exposures.pdf"), g, width = 8, height = 0.5 + 0.5 * nA, limitsize = F)
+
+  # PRIORS PLOT
+  fit.dd <- function(label, x.var, x.V, x.nu, x.max) {
+    dens.x.var <- logKDE::logdensity(sqrt(x.var$mean), from = 0.0000001, to = x.max, na.rm = T)[c("x","y")]
+    dens.x.fit <- logKDE::logdensity(sqrt(MCMCglmm::rIW(x.V * diag(1), x.nu, n = 100000)), from = 0.0000001, to = xmax, na.rm = T)[c("x","y")]
+
+    dd <- rbind(
+      cbind(Label = label, Type = "Raw", as.data.table(dens.x.var)),
+      cbind(Label = label, Type = "Fit", as.data.table(dens.x.fit))
+    )
+  }
+
+  xmax <- max(
+    quantile(sqrt(dd.protein.vars$mean), probs = 0.95, na.rm = T),
+    quantile(sqrt(dd.peptide.vars$mean), probs = 0.95, na.rm = T),
+    quantile(sqrt(dd.feature.vars$mean), probs = 0.95, na.rm = T)
+  )
+
+  dd.plot <- rbindlist(list(
+    fit.dd("Proteins", dd.protein.vars, protein.V, protein.nu, xmax),
+    fit.dd("Peptides", dd.peptide.vars, peptide.V, peptide.nu, xmax),
+    fit.dd("Features", dd.feature.vars, feature.V, feature.nu, xmax)
+  ))
+  dd.plot[, Label := factor(Label, levels = unique(Label))]
+  dd.plot[, Type := factor(Type, levels = unique(Type))]
+
+  g <- ggplot2::ggplot(dd.plot, ggplot2::aes(x = x / log(2), y = y, colour = Type))
+  g <- g + ggplot2::theme_bw()
+  g <- g + ggplot2::theme(panel.border = ggplot2::element_rect(colour = "black", size = 1),
+                 panel.grid.major = ggplot2::element_line(size = 0.5),
+                 axis.ticks = ggplot2::element_blank(),
+                 axis.text.y = ggplot2::element_blank(),
+                 plot.title = ggplot2::element_text(size = 10),
+                 strip.background = ggplot2::element_blank())
+  g <- g + ggplot2::facet_wrap(~ Label, ncol = 1, scales = "free_y")
+  g <- g + ggplot2::geom_line()
+  g <- g + ggplot2::coord_cartesian(xlim = c(0, xmax / log(2)), expand = F)
+  g <- g + ggplot2::theme(legend.position="top")
+  g <- g + ggplot2::xlab("Log2 Standard Deviation")
+  g <- g + ggplot2::ylab("Density")
+  ggplot2::ggsave(file.path(stats.dir, "model.priors.pdf"), g, width = 8, height = 1.5 + 0.75 * 3, limitsize = F)
+
+  # create zip file and clean up
+  stats.zip <- file.path("..", "..", "..", paste0(stats.dir, ".zip"))
+  if (file.exists(stats.zip)) file.remove(stats.zip)
+  zip(stats.zip, stats.dir, flags="-r9Xq")
+
+  message(paste0("[", Sys.time(), "] OUTPUT0 finished"))
+}
