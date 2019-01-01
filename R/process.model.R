@@ -55,7 +55,8 @@ process.model <- function(chain) {
       B = list(mu = matrix(0, nF + nA - 1, 1), V = diag(nF + nA - 1) * 1e+6),
       G = list(
         G1 = list(V = priors$protein.V, nu = priors$protein.nu),
-        G2 = list(V = priors$peptide.V * diag(nT), nu = priors$peptide.nu)
+        #G2 = list(V = priors$peptide.V * diag(nT), nu = priors$peptide.nu)
+        G2 = list(V = diag(nT), nu = 0.02)
       ),
       #R = list(V = priors$feature.V * diag(nF), nu = priors$feature.nu)
       R = list(V = diag(nF), nu = 0.02)
@@ -100,12 +101,6 @@ process.model <- function(chain) {
     }
     output$dd.peptide.deviations[, ProteinID := dd[1, ProteinID]]
     setcolorder(output$dd.peptide.deviations, c("ProteinID", "PeptideID", "DigestID"))
-
-    # extract feature deviations from peptide quants
-    # dd.feature.deviations <- lapply(1:(nitt - params$model.nwarmup), function(i) {
-    #   print(i)
-    #   data.frame(FeatureID = dd$FeatureID, AssayID = dd$AssayID, mcmcID = i, value = log(dd$Count) - log(predict(model, it = i)))
-    # })
 
     model$Sol <- NULL
 

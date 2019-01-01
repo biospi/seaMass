@@ -214,13 +214,12 @@ process.output <- function() {
         }
 
         dd.bmc.mcmc <- de.mcmc("bmc")
-
-        #if (params$qprot) {
-        #  dd.qprot.fdr <- bmc.mcmc("qprot")
-        #  dds <- c(dds, list("BayesProtMCMC/BMC0" = dd.bmc0.fdr, "BayesProtMCMC/Qprot" = dd.qprot.fdr))
-        #} else {
+        if (params$qprot) {
+          dd.qprot.mcmc <- de.mcmc("qprot")
+          dds <- c(dds, list("BayesProtMCMC/BMC" = dd.bmc.mcmc, "BayesProtMCMC/Qprot" = dd.qprot.mcmc))
+        } else {
           dds <- c(dds, list("BayesProtMCMC/BMC" = dd.bmc.mcmc))
-        #}
+        }
       }
 
       # plot
