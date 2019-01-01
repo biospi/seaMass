@@ -58,8 +58,8 @@ process.model <- function(chain) {
         #G2 = list(V = priors$peptide.V * diag(nT), nu = priors$peptide.nu)
         G2 = list(V = diag(nT), nu = 0.02)
       ),
-      #R = list(V = priors$feature.V * diag(nF), nu = priors$feature.nu)
-      R = list(V = diag(nF), nu = 0.02)
+      R = list(V = priors$feature.V * diag(nF), nu = priors$feature.nu)
+      #R = list(V = diag(nF), nu = 0.02)
     )
     prior$B$mu[(nF + 1):(nF + nA - 1)] <- dd.assay.exposures$mean[2:nrow(dd.assay.exposures)]
     diag(prior$B$V)[(nF + 1):(nF + nA - 1)] <- dd.assay.exposures$var[2:nrow(dd.assay.exposures)]
