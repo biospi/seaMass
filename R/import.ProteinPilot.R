@@ -5,13 +5,13 @@
 #' @import data.table
 #' @export
 
-import.ProteinPilot <- function(datafile, dd.fractions) {
+import.ProteinPilot <- function(datafile, only.used = T) {
   # read ProteinPilot peptide summary
   message(paste0("reading: ", datafile, "..."))
   dd.raw <- fread(datafile, check.names = T, showProgress = T)
 
-  # TMP make dataset smaller
-  dd.raw <- dd.raw[Used == 1,]
+  # make dataset smaller by only using those protein pilot specifies
+  if (only.used) dd.raw <- dd.raw[Used == 1,]
 
   # filter out decoys
   dd.raw <- dd.raw[!grepl("^RRRRR.*", dd.raw$Accessions),]
@@ -19,7 +19,6 @@ import.ProteinPilot <- function(datafile, dd.fractions) {
   # split spectrum to get at fraction and then merge with dd.fractions table
   dd.raw <- cbind(dd.raw, matrix(unlist(strsplit(as.character(dd.raw$Spectrum), ".", fixed = T)), ncol = 5, byrow = T))
   dd.raw$Fraction <- as.numeric(dd.raw$V1)
-  dd.raw <- merge(dd.raw, dd.fractions)
 
   # create wide data table
   if(!("ProteinModifications" %in% colnames(dd.raw))) dd.raw[, ProteinModifications := ""]
@@ -27,7 +26,7 @@ import.ProteinPilot <- function(datafile, dd.fractions) {
     Protein = factor(Accessions),
     Peptide = factor(paste(Sequence, ":", Modifications, ":", ProteinModifications, ":", Cleavages)),
     Feature = Spectrum,
-    Assay = Run
+    Assay = "Label"
   )]
   dd.wide[, Feature := paste(Feature, 1:.N, sep = ":"), by = Feature] # rename duplicate features
   dd.wide[, Feature := factor(Feature)]

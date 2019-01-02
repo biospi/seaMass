@@ -46,6 +46,7 @@ process.output <- function() {
     colnames(dd.protein.quants.rhats)[2:ncol(dd.protein.quants.rhats)] <- paste0("rhat:", colnames(dd.protein.quants.rhats)[2:ncol(dd.protein.quants.rhats)])
     dd.protein.quants.rhats <- merge(dd.proteins[, .(ProteinID, Protein, nPeptide, nFeature, nMeasure)], dd.protein.quants.rhats, by = "ProteinID")
     fwrite(dd.protein.quants.rhats, file.path(stats.dir, "protein_quants_rhats.csv"))
+    rm(dd.protein.quants.rhats)
   }
 
   # back to protein quants
@@ -107,6 +108,9 @@ process.output <- function() {
       dd.bmc[, FDR := cumsum(PEP) / 1:nrow(dd.bmc)]
       fwrite(dd.bmc, file.path(stats.dir, paste0("protein_de_bmc__", ct1, "_vs_", ct0, ".csv")))
 
+      ggplot2::ggsave(file.path(stats.dir, paste0("protein_de_bmc__volcano_ci_", ct1, "_vs_", ct0, ".pdf")), plt.volcano(dd.bmc, params$de.truth), width = 8, height = 8)
+      ggplot2::ggsave(file.path(stats.dir, paste0("protein_de_bmc__volcano__", ct1, "_vs_", ct0, ".pdf")), plt.volcano(dd.bmc, params$de.truth, ci = F), width = 8, height = 8)
+
       if (params$qprot) {
         message(paste0("[", Sys.time(), "]  Qprot diffential analysis for ", ct1, " vs ", ct0, "..."))
 
@@ -162,6 +166,9 @@ process.output <- function() {
         dd.qprot[, FDR := cumsum(PEP) / 1:nrow(dd.qprot)]
         fwrite(dd.qprot, file.path(stats.dir, paste0("protein_de_qprot__", ct1, "_vs_", ct0, ".csv")))
 
+        #ggplot2::ggsave(file.path(stats.dir, paste0("protein_de_qprot__volcano_ci_", ct1, "_vs_", ct0, ".pdf")), plt.volcano(dd.qprot, params$de.truth), width = 8, height = 8)
+        ggplot2::ggsave(file.path(stats.dir, paste0("protein_de_qprot__volcano__", ct1, "_vs_", ct0, ".pdf")), plt.volcano(dd.qprot, params$de.truth, ci = F), width = 8, height = 8)
+
         dds.down <- list("BayesProt/BMC.down" = dd.bmc.down, "BayesProt/Qprot.down" = dd.qprot.down)
         dds <- list("BayesProt/BMC" = dd.bmc, "BayesProt/Qprot" = dd.qprot)
         dds.up <- list("BayesProt/BMC.up" = dd.bmc.up, "BayesProt/Qprot.up" = dd.qprot.up)
@@ -209,13 +216,17 @@ process.output <- function() {
           dd.fdr[, FDR := FDR.mean]
 
           fwrite(dd.fdr, file.path(stats.dir, paste0("protein_de_", method, "_mcmc__", ct1, "_vs_", ct0, ".csv")))
+          #ggplot2::ggsave(file.path(stats.dir, paste0("protein_de_", method, "__volcano_ci_", ct1, "_vs_", ct0, ".pdf")), plt.volcano(dd.fdr, params$de.truth), width = 8, height = 8)
+          ggplot2::ggsave(file.path(stats.dir, paste0("protein_de_", method, "__volcano__", ct1, "_vs_", ct0, ".pdf")), plt.volcano(dd.fdr, params$de.truth, ci = F), width = 8, height = 8)
 
           dd.fdr
         }
 
         dd.bmc.mcmc <- de.mcmc("bmc")
+
         if (params$qprot) {
           dd.qprot.mcmc <- de.mcmc("qprot")
+
           dds <- c(dds, list("BayesProtMCMC/BMC" = dd.bmc.mcmc, "BayesProtMCMC/Qprot" = dd.qprot.mcmc))
         } else {
           dds <- c(dds, list("BayesProtMCMC/BMC" = dd.bmc.mcmc))
@@ -223,14 +234,14 @@ process.output <- function() {
       }
 
       # plot
-      ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdr__", ct1, "_vs_", ct0, "_down.pdf")), fdr.plot(dds.down), width = 8, height = 8)
-      ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdr__", ct1, "_vs_", ct0, ".pdf")), fdr.plot(dds), width = 8, height = 8)
-      ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdr__", ct1, "_vs_", ct0, "_up.pdf")), fdr.plot(dds.up), width = 8, height = 8)
+      ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdr__", ct1, "_vs_", ct0, "_down.pdf")), plt.fdr(dds.down), width = 8, height = 8)
+      ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdr__", ct1, "_vs_", ct0, ".pdf")), plt.fdr(dds), width = 8, height = 8)
+      ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdr__", ct1, "_vs_", ct0, "_up.pdf")), plt.fdr(dds.up), width = 8, height = 8)
 
       if (!is.null(params$de.truth)) {
-        ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdp__", ct1, "_vs_", ct0, "_down.pdf")), pr.plot(dds.down, params$de.truth[1], 0.21), width = 8, height = 8)
-        ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdp__", ct1, "_vs_", ct0, ".pdf")), pr.plot(dds, paste(params$de.truth[1], params$de.truth[2], sep = "|"), 0.21), width = 8, height = 8)
-        ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdp__", ct1, "_vs_", ct0, "_up.pdf")), pr.plot(dds.up, params$de.truth[2], 0.21), width = 8, height = 8)
+        ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdp__", ct1, "_vs_", ct0, "_down.pdf")), plt.pr(dds.down, params$de.truth[1], 0.21), width = 8, height = 8)
+        ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdp__", ct1, "_vs_", ct0, ".pdf")), plt.pr(dds, paste(params$de.truth[1], params$de.truth[2], sep = "|"), 0.21), width = 8, height = 8)
+        ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdp__", ct1, "_vs_", ct0, "_up.pdf")), plt.pr(dds.up, params$de.truth[2], 0.21), width = 8, height = 8)
       }
     }
   }
@@ -252,39 +263,27 @@ process.output <- function() {
   colnames(dd.protein.quants)[2:ncol(dd.protein.quants)] <- paste0("log2fc:", colnames(dd.protein.quants)[2:ncol(dd.protein.quants)])
   dd.protein.quants <- merge(dd.proteins[, .(ProteinID, Protein, nPeptide, nFeature, nMeasure)], dd.protein.quants, by = "ProteinID")
   fwrite(dd.protein.quants, file.path(stats.dir, "protein_quants.csv"))
-  rm(dd.protein.quants) # need this for DE
+  rm(dd.protein.quants)
 
-  # assay stdevs in base 2
-  dd.assay.stdevs <- rbindlist(lapply(chains, function(chain) {
-    dd <- fst::read.fst(file.path(prefix, paste0("peptide.deviations.", chain, ".fst")), as.data.table = T)
-    dd <- dd[, .(value = sd(value)), by = .(DigestID, mcmcID)]
-    dd[, chainID := factor(chain)]
-    dd
-  }))
-  fst::write.fst(dd.assay.stdevs, "assay.stdevs.fst")
+  # write out pca plot
+  suppressPackageStartupMessages(require(ggfortify))
 
-  assay.dens <- function(x) as.data.table(logKDE::logdensity(x)[c("x","y")])
-  dd.assay.stdevs <- merge(dd.assays[, .(DigestID, Digest)], dd.assay.stdevs[, as.list(assay.dens(value)), by = DigestID], by = "DigestID")
+  pca.assays <- prcomp(t(protein.quants[complete.cases(protein.quants),]),
+                       center = T, scale = rowMeans(protein.quants.stdevs[complete.cases(protein.quants.stdevs),]^2))
+  rm(protein.quants.stdevs)
+  rm(protein.quants)
+  dd.pca.assays <- ggplot2::fortify(pca.assays)
+  dd.pca.assays <- cbind(dd.pca.assays, dd.assays)
 
-  g <- ggplot2::ggplot(dd.assay.stdevs, ggplot2::aes(x = x  / log(2), y = y))
+  g <- ggplot2::autoplot(pca.assays, data = dd.pca.assays)
   g <- g + ggplot2::theme_bw()
   g <- g + ggplot2::theme(panel.border = ggplot2::element_rect(colour = "black", size = 1),
                           panel.grid.major = ggplot2::element_line(size = 0.5),
-                          axis.ticks = ggplot2::element_blank(),
-                          axis.text.y = ggplot2::element_blank(),
-                          plot.title = ggplot2::element_text(size = 10),
-                          strip.background = ggplot2::element_blank(),
-                          strip.text.y = ggplot2::element_text(angle = 0))
-  g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
-  g <- g + ggplot2::scale_y_continuous(expand = c(0, 0))
-  g <- g + ggplot2::facet_grid(Digest ~ .)
-  g <- g + ggplot2::geom_line()
-  g <- g + ggplot2::coord_cartesian(expand = F)
-  g <- g + ggplot2::theme(legend.position="top")
-  g <- g + ggplot2::xlab("Log2 Standard Deviation")
-  g <- g + ggplot2::ylab("Density")
-  ggplot2::ggsave(file.path(stats.dir, "digest_stdevs.pdf"), g, width = 8, height = 1.5 + 0.75 * length(levels(dd.assays$DigestID)), limitsize = F)
-  rm(dd.assay.stdevs)
+                          strip.background = ggplot2::element_blank())
+  g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = Assay))
+  g <- g + ggplot2::theme(aspect.ratio=1) + ggplot2::coord_equal()
+  if (!all(dd.assays$isRef)) g <- g + ggtitle(paste("ref.assays =", paste(dd.assays[isRef == T, Assay], collapse = "; ")))
+  ggplot2::ggsave(file.path(stats.dir, "sample_pca.pdf"), g, width=8, height=8, limitsize = F)
 
   # peptide deviations in base 2
   dd.peptide.deviations <- rbindlist(lapply(chains, function(chain) {
@@ -342,24 +341,6 @@ process.output <- function() {
   dd.timings <- merge(dd.proteins[, .(ProteinID, nPeptide, nFeature, nMeasure, pred = timing)], dd.timings, by = "ProteinID")
   fwrite(dd.timings, file.path(stats.dir, "protein_timings.csv"))
   rm(dd.timings)
-
-  # write out pca plot
-  suppressPackageStartupMessages(require(ggfortify))
-
-  pca.assays <- prcomp(t(protein.quants[complete.cases(protein.quants),]),
-                       center = T, scale = rowMeans(protein.quants.stdevs[complete.cases(protein.quants.stdevs),]^2))
-  dd.pca.assays <- ggplot2::fortify(pca.assays)
-  dd.pca.assays <- cbind(dd.pca.assays, dd.assays)
-
-  g <- ggplot2::autoplot(pca.assays, data = dd.pca.assays)
-  g <- g + ggplot2::theme_bw()
-  g <- g + ggplot2::theme(panel.border = ggplot2::element_rect(colour = "black", size = 1),
-                 panel.grid.major = ggplot2::element_line(size = 0.5),
-                 strip.background = ggplot2::element_blank())
-  g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = Assay))
-  g <- g + ggplot2::theme(aspect.ratio=1) + ggplot2::coord_equal()
-  if (!all(dd.assays$isRef)) g <- g + ggtitle(paste("ref.assays =", paste(dd.assays[isRef == T, Assay], collapse = "; ")))
-  ggplot2::ggsave(file.path(stats.dir, "sample_pca.pdf"), g, width=8, height=8, limitsize = F)
 
   # create zip file and clean up
   stats.zip <- file.path("..", "..", "..", paste0(stats.dir, ".zip"))

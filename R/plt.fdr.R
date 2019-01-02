@@ -5,7 +5,7 @@
 #' @import data.table
 #' @export
 
-fdr.plot <- function(dds, ylim = 1.0) {
+plt.fdr <- function(dds, ylim = 1.0) {
   dd.plot <- dds
   for (method in names(dds)) {
     dd <- dds[[method]]

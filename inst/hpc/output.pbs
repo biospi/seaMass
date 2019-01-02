@@ -6,7 +6,7 @@
 #PBS -m ae
 
 #PBS -l nodes=1:ppn=1
-#PBS -l mem=4000m
+#PBS -l mem=16000m
 
 #PBS -q veryshort
 #PBS -l walltime=12:00:00

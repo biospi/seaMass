@@ -72,7 +72,7 @@ process.model0 <- function(chain) {
       random = ~ idh(PeptideID):DigestID,
       rcov = ~ idh(FeatureID):AssayID,
       family = "poisson", data = dd, prior = prior,
-      nitt = nitt, burnin = params$model0.nwarmup, thin = params$model0.thin, verbose = F
+      nitt = nitt, burnin = params$model0.nwarmup, thin = params$model0.thin, pr = T, verbose = F
     )))
     output$dd.timing <- data.table(ProteinID = dd[1, ProteinID], as.data.table(t(as.matrix(output$dd.timing))))
     output$dd.summary <- data.table(ProteinID = dd[1, ProteinID], Summary = paste(c(output$dd.summary, capture.output(print(summary(model))), as.character(Sys.time())), collapse = "\n"))
@@ -91,13 +91,13 @@ process.model0 <- function(chain) {
     setcolorder(output$dd.protein.quant, c("ProteinID", "AssayID", "BaselineID"))
 
     # extract peptide deviations
-    # output$dd.peptide.deviations <- as.data.table(model$Sol[, grep("^PeptideID[0-9]+\\.DigestID\\.[0-9]+$", colnames(model$Sol)), drop = F])
-    # output$dd.peptide.deviations[, mcmcID := factor(formatC(1:nrow(output$dd.peptide.deviations), width = ceiling(log10(nrow(output$dd.peptide.deviations))) + 1, format = "d", flag = "0"))]
-    # output$dd.peptide.deviations <- melt(output$dd.peptide.deviations, variable.name = "DigestID", id.vars = "mcmcID")
-    # output$dd.peptide.deviations[, ProteinID := dd[1, ProteinID]]
-    # output$dd.peptide.deviations[, PeptideID := factor(sub("^PeptideID([0-9]+)\\.DigestID\\.([0-9]+)$", "\\1", DigestID))]
-    # output$dd.peptide.deviations[, DigestID := factor(sub("^PeptideID[0-9]+\\.DigestID\\.([0-9]+)$", "\\1", DigestID))]
-    # setcolorder(output$dd.peptide.deviations, c("ProteinID", "PeptideID", "DigestID"))
+    output$dd.peptide.deviations <- as.data.table(model$Sol[, grep("^PeptideID[0-9]+\\.DigestID\\.[0-9]+$", colnames(model$Sol)), drop = F])
+    output$dd.peptide.deviations[, mcmcID := factor(formatC(1:nrow(output$dd.peptide.deviations), width = ceiling(log10(nrow(output$dd.peptide.deviations))) + 1, format = "d", flag = "0"))]
+    output$dd.peptide.deviations <- melt(output$dd.peptide.deviations, variable.name = "DigestID", id.vars = "mcmcID")
+    output$dd.peptide.deviations[, ProteinID := dd[1, ProteinID]]
+    output$dd.peptide.deviations[, PeptideID := factor(sub("^PeptideID([0-9]+)\\.DigestID\\.([0-9]+)$", "\\1", DigestID))]
+    output$dd.peptide.deviations[, DigestID := factor(sub("^PeptideID[0-9]+\\.DigestID\\.([0-9]+)$", "\\1", DigestID))]
+    setcolorder(output$dd.peptide.deviations, c("ProteinID", "PeptideID", "DigestID"))
 
     model$Sol <- NULL
 
@@ -126,7 +126,7 @@ process.model0 <- function(chain) {
   fst::write.fst(output$dd.summary, paste0("summary.", chain, ".fst"))
   fst::write.fst(output$dd.timing, paste0("timing.", chain, ".fst"))
   fst::write.fst(output$dd.protein.quants, paste0("protein.quants.", chain, ".fst"))
-  # fst::write.fst(output$dd.peptide.deviations, paste0("peptide.deviations.", chain, ".fst"))
+  fst::write.fst(output$dd.peptide.deviations, paste0("peptide.deviations.", chain, ".fst"))
   fst::write.fst(output$dd.peptide.vars, paste0("peptide.vars.", chain, ".fst"))
   fst::write.fst(output$dd.feature.vars, paste0("feature.vars.", chain, ".fst"))
 

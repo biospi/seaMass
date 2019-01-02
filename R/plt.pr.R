@@ -5,7 +5,7 @@
 #' @import data.table
 #' @export
 
-pr.plot <- function(dds, truth, ylim = 1.0) {
+plt.pr <- function(dds, truth, ylim = 1.0) {
   dd.plot <- dds
   for (method in names(dd.plot)) {
     dd <- dd.plot[[method]]

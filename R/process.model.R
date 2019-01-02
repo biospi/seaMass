@@ -55,8 +55,8 @@ process.model <- function(chain) {
       B = list(mu = matrix(0, nF + nA - 1, 1), V = diag(nF + nA - 1) * 1e+6),
       G = list(
         G1 = list(V = priors$protein.V, nu = priors$protein.nu),
-        #G2 = list(V = priors$peptide.V * diag(nT), nu = priors$peptide.nu)
-        G2 = list(V = diag(nT), nu = 0.02)
+        G2 = list(V = priors$peptide.V * diag(nT), nu = priors$peptide.nu)
+        #G2 = list(V = diag(nT), nu = 0.02)
       ),
       R = list(V = priors$feature.V * diag(nF), nu = priors$feature.nu)
       #R = list(V = diag(nF), nu = 0.02)
@@ -86,7 +86,7 @@ process.model <- function(chain) {
     setcolorder(output$dd.protein.quant, c("ProteinID", "SampleID"))
 
     # extract peptide deviations from protein quants
-    if (nT==1) {
+    if (nT == 1) {
       output$dd.peptide.deviations <- as.data.table(model$Sol[, grep("^PeptideID:DigestID\\.[0-9]+\\.[0-9]+$", colnames(model$Sol)), drop = F])
       output$dd.peptide.deviations[, mcmcID := factor(formatC(1:nrow(output$dd.peptide.deviations), width = ceiling(log10(nrow(output$dd.peptide.deviations))) + 1, format = "d", flag = "0"))]
       output$dd.peptide.deviations <- melt(output$dd.peptide.deviations, variable.name = "PeptideID", id.vars = "mcmcID")
@@ -102,6 +102,22 @@ process.model <- function(chain) {
     output$dd.peptide.deviations[, ProteinID := dd[1, ProteinID]]
     setcolorder(output$dd.peptide.deviations, c("ProteinID", "PeptideID", "DigestID"))
 
+    # extract feature intensities
+    if (nF == 1) {
+      output$dd.feature.intensities <- as.data.table(model$Sol[, "(Intercept)", drop = F])
+      output$dd.feature.intensities[, mcmcID := factor(formatC(1:nrow(output$dd.feature.intensities), width = ceiling(log10(nrow(output$dd.feature.intensities))) + 1, format = "d", flag = "0"))]
+      output$dd.feature.intensities <- melt(output$dd.feature.intensities, variable.name = "FeatureID", id.vars = "mcmcID")
+      output$dd.feature.intensities[, FeatureID := NULL]
+      output$dd.feature.intensities[, FeatureID := factor(levels(dd$FeatureID))]
+    } else {
+      output$dd.feature.intensities <- as.data.table(model$Sol[, grep("^FeatureID[0-9]+$", colnames(model$Sol)), drop = F])
+      output$dd.feature.intensities[, mcmcID := factor(formatC(1:nrow(output$dd.feature.intensities), width = ceiling(log10(nrow(output$dd.feature.intensities))) + 1, format = "d", flag = "0"))]
+      output$dd.feature.intensities <- melt(output$dd.feature.intensities, variable.name = "FeatureID", id.vars = "mcmcID")
+      output$dd.feature.intensities[, FeatureID := factor(sub("^FeatureID", "", FeatureID))]
+    }
+    output$dd.feature.intensities[, ProteinID := dd[1, ProteinID]]
+    setcolorder(output$dd.feature.intensities, c("ProteinID", "FeatureID"))
+
     model$Sol <- NULL
 
     # extract peptide variances
@@ -109,6 +125,7 @@ process.model <- function(chain) {
       output$dd.peptide.vars <- as.data.table(model$VCV[, "PeptideID:DigestID", drop = F])
       output$dd.peptide.vars[, mcmcID := factor(formatC(1:nrow(output$dd.peptide.vars), width = ceiling(log10(nrow(output$dd.peptide.vars))) + 1, format = "d", flag = "0"))]
       output$dd.peptide.vars <- melt(output$dd.peptide.vars, variable.name = "PeptideID", id.vars = "mcmcID")
+      output$dd.peptide.vars[, PeptideID := NULL]
       output$dd.peptide.vars[, PeptideID := factor(levels(dd$PeptideID))]
     } else {
       output$dd.peptide.vars <- as.data.table(model$VCV[, grep("^PeptideID[0-9]+\\.DigestID$", colnames(model$VCV)), drop = F])
@@ -124,6 +141,7 @@ process.model <- function(chain) {
       output$dd.feature.vars <- as.data.table(model$VCV[, "AssayID", drop = F])
       output$dd.feature.vars[, mcmcID := factor(formatC(1:nrow(output$dd.feature.vars), width = ceiling(log10(nrow(output$dd.feature.vars))) + 1, format = "d", flag = "0"))]
       output$dd.feature.vars <- melt(output$dd.feature.vars, variable.name = "FeatureID", id.vars = "mcmcID")
+      output$dd.feature.vars[, FeatureID := NULL]
       output$dd.feature.vars[, FeatureID := factor(levels(dd$FeatureID))]
     } else {
       output$dd.feature.vars <- as.data.table(model$VCV[, grep("^FeatureID[0-9]+\\.AssayID$", colnames(model$VCV)), drop = F])
@@ -146,6 +164,8 @@ process.model <- function(chain) {
   output$dd.timing <- NULL
   fst::write.fst(output$dd.peptide.deviations, paste0("peptide.deviations.", chain, ".fst"))
   output$dd.peptide.deviations <- NULL
+  fst::write.fst(output$dd.feature.intensities, paste0("feature.intensities.", chain, ".fst"))
+  output$dd.feature.intensities <- NULL
   fst::write.fst(output$dd.peptide.vars, paste0("peptide.vars.", chain, ".fst"))
   output$dd.peptide.vars <- NULL
   fst::write.fst(output$dd.feature.vars, paste0("feature.vars.", chain, ".fst"))
