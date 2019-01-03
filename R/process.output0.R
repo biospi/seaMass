@@ -142,44 +142,40 @@ process.output0 <- function() {
     dd <- dd[, .(value = mean(value)), by = .(ProteinID, SampleID, mcmcID)]
     # calculate variance across SampleID for each ProteinID:mcmcID
     dd <- dd[, .(value = var(value)), by = .(ProteinID, mcmcID)]
-    # summarise posterior as a mean and variance
-    dd <- dd[, .(mean = mean(value), var = var(value), n = .N), by = ProteinID]
   }))
-  dd.protein.vars <- dd.protein.vars[, .(mean = weighted.mean(mean, n), var = weighted.mean(var + mean^2, n) - weighted.mean(mean, n)^2), by = ProteinID]
+  dd.protein.vars <- dd.protein.vars[, .(median = median(value), mad = mad(value)), by = ProteinID]
   rm(dd.assay.exposures)
 
   # peptide variances
   dd.peptide.vars <- rbindlist(lapply(chains, function(chain) {
-    dd <- fst::read.fst(file.path(prefix, paste0("peptide.vars.", chain, ".fst")), as.data.table = T)
-    dd <- dd[, .(mean = mean(value), var = var(value), n = .N), by = PeptideID]
+    fst::read.fst(file.path(prefix, paste0("peptide.vars.", chain, ".fst")), as.data.table = T)
   }))
-  dd.peptide.vars <- dd.peptide.vars[, .(mean = weighted.mean(mean, n), var = weighted.mean(var + mean^2, n) - weighted.mean(mean, n)^2), by = PeptideID]
+  dd.peptide.vars <- dd.peptide.vars[, .(median = median(value), mad = mad(value)), by = PeptideID]
 
   # feature variances
   dd.feature.vars <- rbindlist(lapply(chains, function(chain) {
-    dd <- fst::read.fst(file.path(prefix, paste0("feature.vars.", chain, ".fst")), as.data.table = T)
-    dd <- dd[, .(mean = mean(value), var = var(value), n = .N), by = FeatureID]
+    fst::read.fst(file.path(prefix, paste0("feature.vars.", chain, ".fst")), as.data.table = T)
   }))
-  dd.feature.vars <- dd.feature.vars[, .(mean = weighted.mean(mean, n), var = weighted.mean(var + mean^2, n) - weighted.mean(mean, n)^2), by = FeatureID]
+  dd.feature.vars <- dd.feature.vars[, .(median = median(value), mad = mad(value)), by = FeatureID]
 
   # FIT INVERSE GAMMA DISTRIBUTIONS TO VARIANCES
   suppressPackageStartupMessages(require(actuar))
 
   # MLE
   # fit protein posterior means
-  protein.fit <- fitdistrplus::fitdist(dd.protein.vars$mean, "invgamma", method = "mle", start = list(shape = 1.0, scale = 0.05), lower = 0.0001)
+  protein.fit <- fitdistrplus::fitdist(dd.protein.vars$median, "invgamma", method = "mge", gof = "CvM", start = list(shape = 1.0, scale = 0.05), lower = 0.0001)
   protein.nu <- as.numeric(2.0 * protein.fit$estimate["shape"])
   protein.V <- as.numeric((2.0 * protein.fit$estimate["scale"]) / protein.nu)
   protein.nu <- protein.nu / params$prior.scale
 
   # fit peptide posterior means
-  peptide.fit <- fitdistrplus::fitdist(dd.peptide.vars$mean, "invgamma", method = "mle", start = list(shape = 1.0, scale = 0.05), lower = 0.0001)
+  peptide.fit <- fitdistrplus::fitdist(dd.peptide.vars$median, "invgamma", method = "mge", gof = "CvM", start = list(shape = 1.0, scale = 0.05), lower = 0.0001)
   peptide.nu <- as.numeric(2.0 * peptide.fit$estimate["shape"])
   peptide.V <- as.numeric((2.0 * peptide.fit$estimate["scale"]) / peptide.nu)
   peptide.nu <- peptide.nu / params$prior.scale
 
   # fit feature posterior means
-  feature.fit <- fitdistrplus::fitdist(dd.feature.vars$mean, "invgamma", method = "mle", start = list(shape = 1.0, scale = 0.05), lower = 0.0001)
+  feature.fit <- fitdistrplus::fitdist(dd.feature.vars$median, "invgamma", method = "mge", gof = "CvM", start = list(shape = 1.0, scale = 0.05), lower = 0.0001)
   feature.nu <- as.numeric(2.0 * feature.fit$estimate["shape"])
   feature.V <- as.numeric((2.0 * feature.fit$estimate["scale"]) / feature.nu)
   feature.nu <- feature.nu / params$prior.scale
@@ -193,7 +189,7 @@ process.output0 <- function() {
 
   # plot
   fit.dd <- function(label, x.var, x.V, x.nu, x.max) {
-    dens.x.var <- logKDE::logdensity(sqrt(x.var$mean), from = 0.0000001, to = x.max, na.rm = T)[c("x","y")]
+    dens.x.var <- logKDE::logdensity(sqrt(x.var$median), from = 0.0000001, to = x.max, na.rm = T)[c("x","y")]
     dens.x.fit <- logKDE::logdensity(sqrt(MCMCglmm::rIW(x.V * diag(1), x.nu, n = 100000)), from = 0.0000001, to = xmax, na.rm = T)[c("x","y")]
 
     dd <- rbind(
@@ -203,9 +199,9 @@ process.output0 <- function() {
   }
 
   xmax <- max(
-    quantile(sqrt(dd.protein.vars$mean), probs = 0.95, na.rm = T),
-    quantile(sqrt(dd.peptide.vars$mean), probs = 0.95, na.rm = T),
-    quantile(sqrt(dd.feature.vars$mean), probs = 0.95, na.rm = T)
+    quantile(sqrt(dd.protein.vars$median), probs = 0.95, na.rm = T),
+    quantile(sqrt(dd.peptide.vars$median), probs = 0.95, na.rm = T),
+    quantile(sqrt(dd.feature.vars$median), probs = 0.95, na.rm = T)
   )
 
   dd.plot <- rbindlist(list(

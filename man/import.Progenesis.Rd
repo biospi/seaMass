@@ -4,7 +4,7 @@
 \alias{import.Progenesis}
 \title{Add together two numbers.}
 \usage{
-import.Progenesis(datafile)
+import.Progenesis(datafile, only.used = T)
 }
 \arguments{
 \item{datafile}{A number.}

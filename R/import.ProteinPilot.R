@@ -28,7 +28,7 @@ import.ProteinPilot <- function(datafile, only.used = T) {
     Feature = Spectrum,
     Assay = "Label"
   )]
-  dd.wide[, Feature := paste(Feature, 1:.N, sep = ":"), by = Feature] # rename duplicate features
+  dd.wide[, Feature := paste(as.character(Feature), 1:.N, sep = ":"), by = Feature] # rename duplicate features
   dd.wide[, Feature := factor(Feature)]
   if("Area.113" %in% colnames(dd.raw)) dd.wide$Label.113 <- dd.raw$Area.113
   if("Area.114" %in% colnames(dd.raw)) dd.wide$Label.114 <- dd.raw$Area.114
