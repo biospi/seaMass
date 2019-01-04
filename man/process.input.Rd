@@ -6,7 +6,8 @@
 \usage{
 process.input(dd, id = "bayesprot", plots = F, missing = "censored",
   ref.assays = levels(dd$Assay), digests = levels(dd$Assay),
-  samples = levels(dd$Assay), de.conditions = NULL, ...)
+  samples = levels(dd$Assay), model0.minpeptides = 2,
+  de.conditions = NULL, ...)
 }
 \arguments{
 \item{dd}{The dataset returned by a BayesProt import() function.}

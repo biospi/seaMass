@@ -2,16 +2,13 @@
 % Please edit documentation in R/process.model0.R
 \name{process.model0}
 \alias{process.model0}
-\title{process.model (BayesProt internal function)}
+\title{process.model0 (BayesProt internal function)}
 \usage{
-process.model0(chain)
+process.model0(chain = 1)
 }
 \arguments{
 \item{chain}{.}
 }
-\value{
-.
-}
 \description{
-process.model (BayesProt internal function)
+process.model0 (BayesProt internal function)
 }

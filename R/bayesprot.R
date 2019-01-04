@@ -7,6 +7,7 @@
 #' @param ref.assays .
 #' @param digests .
 #' @param samples .
+#' @param model0.minpeptides .
 #' @param de.conditions .
 #' @param de.paired .
 #' @param de.truth .
@@ -32,7 +33,7 @@
 #' @return Lots of interesting stuff.
 #' @export
 
-bayesprot <- function(dd, id = "bayesprot", plots = F, missing = "censored", ref.assays = levels(dd$Assay), digests = levels(dd$Assay), samples = levels(dd$Assay),
+bayesprot <- function(dd, id = "bayesprot", plots = F, missing = "censored", ref.assays = levels(dd$Assay), digests = levels(dd$Assay), samples = levels(dd$Assay), model0.minpeptides = 2,
                       de.conditions = NULL, de.paired = F, de.truth = NULL, de.mcmc = F, prior.scale = 1, nthread = parallel::detectCores(),
                       model0.nsample = 1024, model0.nwarmup = 256, model0.thin = 1, model0.nchain = 1, model0.seed = 0,
                       model.nsample = 1024, model.nwarmup = 256, model.thin = 1, model.nchain = 1, model.seed = 0,
@@ -44,7 +45,7 @@ bayesprot <- function(dd, id = "bayesprot", plots = F, missing = "censored", ref
   message("---")
 
   # setup input
-  process.input(dd, id, plots, missing, ref.assays, digests, samples,
+  process.input(dd, id, plots, missing, ref.assays, digests, samples, model0.minpeptides,
                 de.conditions, de.paired = de.paired, de.truth = de.truth, de.mcmc = de.mcmc, prior.scale = prior.scale, nthread = nthread,
                 model0.nsample = model0.nsample, model0.nwarmup = model0.nwarmup, model0.thin = model0.thin, model0.nchain = model0.nchain, model0.seed = model0.seed,
                 model.nsample = model.nsample, model.nwarmup = model.nwarmup, model.thin = model.thin, model.nchain = model.nchain, model.seed = model.seed,

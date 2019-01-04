@@ -23,5 +23,6 @@ Imports:
     ggrepel (>= 0.8.0),
     logKDE (>= 0.3.2),
     MCMCglmm (>= 2.26),
+    robust (>= 0.4-18),
     utf8 (>= 1.1.4)
 RoxygenNote: 6.1.1

@@ -4,7 +4,7 @@
 \alias{process.model}
 \title{process.model (BayesProt internal function)}
 \usage{
-process.model(chain)
+process.model(chain = 1)
 }
 \arguments{
 \item{chain}{.}

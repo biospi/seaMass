@@ -2,16 +2,10 @@
 % Please edit documentation in R/process.output.R
 \name{process.output}
 \alias{process.output}
-\title{process.quant (BayesProt internal function)}
+\title{process.output (BayesProt internal function)}
 \usage{
 process.output()
 }
-\arguments{
-\item{input_dir}{.}
-}
-\value{
-.
-}
 \description{
-process.quant (BayesProt internal function)
+process.output (BayesProt internal function)
 }

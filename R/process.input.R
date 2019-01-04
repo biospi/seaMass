@@ -6,7 +6,7 @@
 #' @import data.table
 #' @export
 
-process.input <- function(dd, id = "bayesprot", plots = F, missing = "censored", ref.assays = levels(dd$Assay), digests = levels(dd$Assay), samples = levels(dd$Assay), de.conditions = NULL, ...) {
+process.input <- function(dd, id = "bayesprot", plots = F, missing = "censored", ref.assays = levels(dd$Assay), digests = levels(dd$Assay), samples = levels(dd$Assay), model0.minpeptides = 2, de.conditions = NULL,  ...) {
   message(paste0("[", Sys.time(), "] INPUT started"))
 
   #if (length(levels(dd$Assay)) < 6) {
@@ -102,17 +102,17 @@ process.input <- function(dd, id = "bayesprot", plots = F, missing = "censored",
   setcolorder(dd, c("ProteinID", "PeptideID", "FeatureID", "AssayID", "DigestID", "SampleID"))
   setorder(dd, ProteinID, PeptideID, FeatureID, AssayID, DigestID, SampleID)
 
-  # for model0: preprocess dd to remove features with missing values
-  dd0 <- dd[FeatureID %in% dd[, .(missing = any(is.na(Count))), by = FeatureID][missing == F, FeatureID],]
-  # and where less than 6 assay measurements for a feature
-  dd0 <- merge(dd0, dd0[, .N, by=FeatureID][N >= 6, -"N"], sort = F)
-  # and where assay for a peptide has less than 3 feature measurements
-  dd0 <- merge(dd0, unique(dd0[, .(PeptideID, FeatureID)])[, .N, by = PeptideID][N >= 3, -"N"], by = "PeptideID", sort = F)
-  # and where an assay for a protein has less than 3 peptide measurements
-  dd0 <- merge(dd0, unique(dd0[, .(ProteinID, PeptideID)])[, .N, by=ProteinID][N >= 3, -"N"], by="ProteinID", sort = F)
-  dd0 <- droplevels(dd0)
-  # index in dd.proteins for fst random access
-  dd.proteins <- merge(dd.proteins, dd0[, .(ProteinID = unique(ProteinID), model0.row0 = .I[!duplicated(ProteinID)], model0.row1 = .I[rev(!duplicated(rev(ProteinID)))])], all.x = T)
+  # # for model0: preprocess dd to remove features with missing values
+  # dd0 <- dd[FeatureID %in% dd[, .(missing = any(is.na(Count))), by = FeatureID][missing == F, FeatureID],]
+  # # and where less than 6 assay measurements for a feature
+  # dd0 <- merge(dd0, dd0[, .N, by=FeatureID][N >= 6, -"N"], sort = F)
+  # # and where assay for a peptide has less than 3 feature measurements
+  # dd0 <- merge(dd0, unique(dd0[, .(PeptideID, FeatureID)])[, .N, by = PeptideID][N >= 3, -"N"], by = "PeptideID", sort = F)
+  # # and where an assay for a protein has less than 3 peptide measurements
+  # dd0 <- merge(dd0, unique(dd0[, .(ProteinID, PeptideID)])[, .N, by=ProteinID][N >= 3, -"N"], by="ProteinID", sort = F)
+  # dd0 <- droplevels(dd0)
+  # # index in dd.proteins for fst random access
+  # dd.proteins <- merge(dd.proteins, dd0[, .(ProteinID = unique(ProteinID), model0.row0 = .I[!duplicated(ProteinID)], model0.row1 = .I[rev(!duplicated(rev(ProteinID)))])], all.x = T)
 
   # for full model: set up mechanism for missingness
   if (missing == "feature") dd[, Count := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
@@ -120,7 +120,14 @@ process.input <- function(dd, id = "bayesprot", plots = F, missing = "censored",
   if (missing == "censored" | missing == "zero") dd[is.na(Count), Count := 0.0]
   if (missing == "censored" & all(dd$Count == dd$MaxCount)) dd[, MaxCount := NULL]
   # index in dd.proteins for fst random access
-  dd.proteins <- merge(dd.proteins, dd[, .(ProteinID = unique(ProteinID), model.row0 = .I[!duplicated(ProteinID)], model.row1 = .I[rev(!duplicated(rev(ProteinID)))])], all.x = T, sort = F)
+  dd.proteins <- merge(dd.proteins, dd[, .(ProteinID = unique(ProteinID), model.row0 = .I[!duplicated(ProteinID)], model.row1 = .I[rev(!duplicated(rev(ProteinID)))])], by = "ProteinID", all.x = T, sort = F)
+
+  # model0: throw away proteins with less than model0.minpeptides peptides
+  dd0 <- merge(dd.proteins[, .(ProteinID, nPeptide)], dd, by = "ProteinID")[nPeptide >= model0.minpeptides,]
+  dd0[, nPeptide := NULL]
+  dd0 <- droplevels(dd0)
+  # index in dd.proteins for fst random access
+  dd.proteins <- merge(dd.proteins, dd0[, .(ProteinID = unique(ProteinID), model0.row0 = .I[!duplicated(ProteinID)], model0.row1 = .I[rev(!duplicated(rev(ProteinID)))])], by = "ProteinID", all.x = T, sort = F)
 
   # build submission folder
   dir.create(file.path(id, "input"), recursive = T)

@@ -2,16 +2,10 @@
 % Please edit documentation in R/process.output0.R
 \name{process.output0}
 \alias{process.output0}
-\title{process.gather (BayesProt internal function)}
+\title{process.output0 (BayesProt internal function)}
 \usage{
 process.output0()
 }
-\arguments{
-\item{input_dir}{.}
-}
-\value{
-.
-}
 \description{
-process.gather (BayesProt internal function)
+process.output0 (BayesProt internal function)
 }

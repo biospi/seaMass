@@ -6,14 +6,14 @@
 \usage{
 bayesprot(dd, id = "bayesprot", plots = F, missing = "censored",
   ref.assays = levels(dd$Assay), digests = levels(dd$Assay),
-  samples = levels(dd$Assay), de.conditions = NULL, de.paired = F,
-  de.truth = NULL, de.mcmc = F, prior.scale = 1,
-  nthread = parallel::detectCores(), model0.nsample = 1024,
-  model0.nwarmup = 256, model0.thin = 1, model0.nchain = 1,
-  model0.seed = 0, model.nsample = 1024, model.nwarmup = 256,
-  model.thin = 1, model.nchain = 1, model.seed = 0, qprot = F,
-  qprot.path = "", qprot.nsample = 10000, qprot.nwarmup = 2000,
-  qprot.seed = 0)
+  samples = levels(dd$Assay), model0.minpeptides = 2,
+  de.conditions = NULL, de.paired = F, de.truth = NULL,
+  de.mcmc = F, prior.scale = 1, nthread = parallel::detectCores(),
+  model0.nsample = 1024, model0.nwarmup = 256, model0.thin = 1,
+  model0.nchain = 1, model0.seed = 0, model.nsample = 1024,
+  model.nwarmup = 256, model.thin = 1, model.nchain = 1,
+  model.seed = 0, qprot = F, qprot.path = "",
+  qprot.nsample = 10000, qprot.nwarmup = 2000, qprot.seed = 0)
 }
 \arguments{
 \item{dd}{dataset returned by a bayesprot::import.() function}
@@ -29,6 +29,8 @@ bayesprot(dd, id = "bayesprot", plots = F, missing = "censored",
 \item{digests}{.}
 
 \item{samples}{.}
+
+\item{model0.minpeptides}{.}
 
 \item{de.conditions}{.}
 
