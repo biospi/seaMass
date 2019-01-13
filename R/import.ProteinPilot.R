@@ -23,6 +23,7 @@ import.ProteinPilot <- function(datafile, only.used = T) {
   # create wide data table
   if(!("ProteinModifications" %in% colnames(dd.raw))) dd.raw[, ProteinModifications := ""]
   dd.wide <- dd.raw[, .(
+    ExternalRef = factor(N),
     Protein = factor(Accessions),
     Peptide = factor(paste(Sequence, ":", Modifications, ":", ProteinModifications, ":", Cleavages)),
     Feature = Spectrum,

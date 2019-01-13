@@ -6,7 +6,17 @@
 #' @import data.table
 #' @export
 
-process.input <- function(dd, id = "bayesprot", plots = F, missing = "censored", ref.assays = levels(dd$Assay), digests = levels(dd$Assay), samples = levels(dd$Assay), model0.minpeptides = 2, de.conditions = NULL,  ...) {
+process.input <- function(dd,
+  id = "bayesprot",
+  assay.refs = levels(dd$Assay),
+  assay.digests = levels(dd$Assay),
+  assay.samples = levels(dd$Assay),
+  assay.conditions = NULL,
+  missing = "censored",
+  plots = F,
+  model0.min.npeptide = 2,
+  ...
+) {
   message(paste0("[", Sys.time(), "] INPUT started"))
 
   #if (length(levels(dd$Assay)) < 6) {
@@ -30,7 +40,7 @@ process.input <- function(dd, id = "bayesprot", plots = F, missing = "censored",
     nPeptide = length(unique(as.character(Peptide))),
     nFeature = length(unique(as.character(Feature))),
     nMeasure = sum(!is.na(Count))
-  ), by = Protein]
+  ), by = .(Protein, ExternalRef)]
   # use pre-trained regression model to estimate how long each Protein will take to process in order to assign Proteins to batches
   # Intercept, nPeptide, nFeature, nPeptide^2, nFeature^2, nPeptide*nFeature
   a <- c(5.338861e-01, 9.991205e-02, 2.871998e-01, 4.294391e-05, 6.903229e-04, 2.042114e-04)
@@ -39,7 +49,9 @@ process.input <- function(dd, id = "bayesprot", plots = F, missing = "censored",
   dd.proteins[, ProteinID := factor(formatC(1:nrow(dd.proteins), width = ceiling(log10(nrow(dd.proteins))) + 1, format = "d", flag = "0"))]
   setcolorder(dd.proteins, c("ProteinID"))
 
-  dd <- merge(dd, dd.proteins[, .(Protein, ProteinID)], by = "Protein", sort = F)[, !"Protein"]
+  dd <- merge(dd, dd.proteins[, .(Protein, ProteinID)], by = "Protein", sort = F)
+  dd[, Protein := NULL]
+  dd[, ExternalRef := NULL]
 
   # build Peptide index
   dd.peptides <- dd[, .(
@@ -54,7 +66,8 @@ process.input <- function(dd, id = "bayesprot", plots = F, missing = "censored",
   #dd.peptides[, ProteinIDs := factor(ProteinIDs)]
   setcolorder(dd.peptides, c("PeptideID"))
 
-  dd <- merge(dd, dd.peptides[, .(Peptide, PeptideID)], by = "Peptide", sort = F)[, !"Peptide"]
+  dd <- merge(dd, dd.peptides[, .(Peptide, PeptideID)], by = "Peptide", sort = F)
+  dd[, Peptide := NULL]
 
   # build Feature index
   dd.features <- dd[, .(
@@ -68,11 +81,12 @@ process.input <- function(dd, id = "bayesprot", plots = F, missing = "censored",
   #dd.features[, PeptideIDs := factor(PeptideIDs)]
   setcolorder(dd.features, c("FeatureID"))
 
-  dd <- merge(dd, dd.features[, .(Feature, FeatureID)], by = "Feature", sort = F)[, !"Feature"]
+  dd <- merge(dd, dd.features[, .(Feature, FeatureID)], by = "Feature", sort = F)
+  dd[, Feature := NULL]
 
   # build Assay index
   dd.assays <- dd[, .(
-    ref = first(Assay) %in% as.character(ref.assays),
+    ref = first(Assay) %in% as.character(assay.refs),
     nProtein = length(unique(as.character(ProteinID))),
     nPeptide = length(unique(as.character(PeptideID))),
     nFeature = length(unique(as.character(FeatureID))),
@@ -82,23 +96,24 @@ process.input <- function(dd, id = "bayesprot", plots = F, missing = "censored",
   setcolorder(dd.assays, c("AssayID"))
 
   # digests
-  dd.assays[, Digest := digests]
+  dd.assays[, Digest := assay.digests]
   if (!is.factor(dd.assays$Digest)) dd.assays[, Digest := factor(Digest)]
   dd.assays[, DigestID := factor(Digest, labels = formatC(1:length(levels(dd.assays$Digest)), width = ceiling(log10(length(levels(dd.assays$Digest)))) + 1, format = "d", flag = "0"))]
 
   # samples
-  dd.assays[, Sample := samples]
+  dd.assays[, Sample := assay.samples]
   if (!is.factor(dd.assays$Sample)) dd.assays[, Sample := factor(Sample)]
   dd.assays[, SampleID := factor(Sample, labels = formatC(1:length(levels(dd.assays$Sample)), width = ceiling(log10(length(levels(dd.assays$Sample)))) + 1, format = "d", flag = "0"))]
 
   # de.conditions
-  if (!is.null(de.conditions)) {
-    dd.assays[, Condition := de.conditions]
+  if (!is.null(assay.conditions)) {
+    dd.assays[, Condition := assay.conditions]
     if (!is.factor(dd.assays$Condition)) dd.assays[, Condition := factor(Condition)]
     dd.assays[, ConditionID := factor(Condition, labels = formatC(1:length(levels(dd.assays$Condition)), width = ceiling(log10(length(levels(dd.assays$Condition)))) + 1, format = "d", flag = "0"))]
   }
 
-  dd <- merge(dd, dd.assays[, .(Assay, AssayID, DigestID, SampleID)], by = "Assay", sort = F)[, !"Assay"]
+  dd <- merge(dd, dd.assays[, .(Assay, AssayID, DigestID, SampleID)], by = "Assay", sort = F)
+  dd[, Assay := NULL]
   setcolorder(dd, c("ProteinID", "PeptideID", "FeatureID", "AssayID", "DigestID", "SampleID"))
   setorder(dd, ProteinID, PeptideID, FeatureID, AssayID, DigestID, SampleID)
 
@@ -122,8 +137,8 @@ process.input <- function(dd, id = "bayesprot", plots = F, missing = "censored",
   # index in dd.proteins for fst random access
   dd.proteins <- merge(dd.proteins, dd[, .(ProteinID = unique(ProteinID), model.row0 = .I[!duplicated(ProteinID)], model.row1 = .I[rev(!duplicated(rev(ProteinID)))])], by = "ProteinID", all.x = T, sort = F)
 
-  # model0: throw away proteins with less than model0.minpeptides peptides
-  dd0 <- merge(dd.proteins[, .(ProteinID, nPeptide)], dd, by = "ProteinID")[nPeptide >= model0.minpeptides,]
+  # model0: throw away proteins with less than model0.min.npeptide peptides
+  dd0 <- merge(dd.proteins[, .(ProteinID, nPeptide)], dd, by = "ProteinID")[nPeptide >= model0.min.npeptide,]
   dd0[, nPeptide := NULL]
   dd0 <- droplevels(dd0)
   # index in dd.proteins for fst random access

@@ -4,7 +4,7 @@
 \alias{plt.pr}
 \title{Add together two numbers.}
 \usage{
-plt.pr(dds, truth, ylim = 1)
+plt.pr(dd, truth, ymax = NULL)
 }
 \arguments{
 \item{datafile}{A number.}

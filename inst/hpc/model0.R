@@ -1,10 +1,11 @@
+chain <- ifelse(!is.na(commandArgs(T)[1]), as.integer(commandArgs(T)[1]), 1)
+
 suppressPackageStartupMessages(library(data.table))
 suppressPackageStartupMessages(library(foreach))
 
-message(paste0("[", Sys.time(), "] MODEL0 started, chain=", commandArgs(T)[1]))
+message(paste0("[", Sys.time(), "] MODEL0 started, chain=", chain))
 
 # load metadata
-chain <- as.integer(commandArgs(T)[1])
 prefix <- ifelse(file.exists("params.rds"), ".", file.path("..", "..", "input"))
 params <- readRDS(file.path(prefix, "params.rds"))
 dd.assays <- fst::read.fst(file.path(prefix, "assays.fst"), as.data.table = T)

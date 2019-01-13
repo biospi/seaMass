@@ -4,7 +4,7 @@
 \alias{plt.volcano}
 \title{Add together two numbers.}
 \usage{
-plt.volcano(dd, truth = NULL, ci = T)
+plt.volcano(dd, truth = NULL, ci = F)
 }
 \arguments{
 \item{datafile}{A number.}

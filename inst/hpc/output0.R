@@ -16,6 +16,8 @@ stats.dir <- paste0(params$id, ".output0")
 dir.create(stats.dir, showWarnings = F)
 
 # DIGEST METRIC
+message("[", paste0(Sys.time(), "]  computing digest metric..."))
+
 dd.digest.mads <- rbindlist(lapply(chains, function(chain) {
   dd <- fst::read.fst(file.path(prefix, paste0("peptide.deviations.", chain, ".fst")), as.data.table = T)
   dd <- dd[, .(value = mad(value)), by = .(DigestID, mcmcID)]
@@ -59,6 +61,8 @@ g <- g + ggplot2::geom_text(data = dd.digest.mads.meta, ggplot2::aes(x = median,
 ggplot2::ggsave(file.path(stats.dir, "digest_mads.pdf"), g, width = 8, height = 0.5 + 0.75 * length(levels(dd.digest.mads.density$Digest)), limitsize = F)
 
 # ASSAY EXPOSURES
+message("[", paste0(Sys.time(), "]  computing assay exposures..."))
+
 refs <- dd.assays[ref == T, AssayID]
 mean.refs <- function(AssayID, value) mean(value[AssayID %in% refs])
 dd.assay.exposures <- rbindlist(lapply(chains, function(chain) {
@@ -90,7 +94,7 @@ assay.exposures.density <- function(x) {
 }
 dd.assay.exposures.density <- merge(dd.assays[, .(AssayID, Assay)], dd.assay.exposures[, as.list(assay.exposures.density(value / log(2))), by = AssayID], by = "AssayID")
 
-x.max <- max(1, max(abs(dd.assay.exposures.density$x)))
+x.max <- max(0.5, max(abs(dd.assay.exposures.density$x)))
 g <- ggplot2::ggplot(dd.assay.exposures.density, ggplot2::aes(x = x, y = y))
 g <- g + ggplot2::theme_bw()
 g <- g + ggplot2::theme(panel.border = ggplot2::element_rect(colour = "black", size = 1),
@@ -149,49 +153,41 @@ dd.feature.vars <- rbindlist(lapply(chains, function(chain) {
 dd.feature.vars <- dd.feature.vars[, .(median = median(value), mad = mad(value)), by = .(ProteinID, FeatureID)]
 
 # FIT INVERSE GAMMA DISTRIBUTIONS TO VARIANCES
-suppressPackageStartupMessages(require(actuar))
+message("[", paste0(Sys.time(), "]  fitting protein/peptide/feature distributions..."))
 
-#dd.protein.vars <- merge(dd.proteins, dd.protein.vars, by = "ProteinID")[nPeptide >= 1,]
-#dd.peptide.vars <- merge(dd.proteins, dd.peptide.vars, by = "ProteinID")[nPeptide >= 1,]
-#dd.feature.vars <- merge(dd.proteins, dd.feature.vars, by = "ProteinID")[nPeptide >= 1,]
+suppressPackageStartupMessages(require(actuar))
 
 # # MLE
 # # fit protein posterior medians
-# protein.fit <- fitdistrplus::fitdist(dd.protein.vars$median, "invgamma", start = list(shape = 1.0, scale = 0.05), lower = 0.0001)
+# protein.fit <- fitdistrplus::fitdist(dd.protein.vars$median, "invgamma", start = list(shape = 1.0, scale = 20), lower = 0.0001)
 # protein.nu <- as.numeric(2.0 * protein.fit$estimate["shape"])
 # protein.V <- as.numeric((2.0 * protein.fit$estimate["scale"]) / protein.nu)
-# protein.nu <- protein.nu / params$prior.scale
 #
 # # fit peptide posterior medians
-# peptide.fit <- fitdistrplus::fitdist(dd.peptide.vars$median, "invgamma", start = list(shape = 1.0, scale = 0.05), lower = 0.0001)
+# peptide.fit <- fitdistrplus::fitdist(dd.peptide.vars$median, "invgamma", start = list(shape = 1.0, scale = 20), lower = 0.0001)
 # peptide.nu <- as.numeric(2.0 * peptide.fit$estimate["shape"])
 # peptide.V <- as.numeric((2.0 * peptide.fit$estimate["scale"]) / peptide.nu)
-# peptide.nu <- peptide.nu / params$prior.scale
 #
 # # fit feature posterior medians
-# feature.fit <- fitdistrplus::fitdist(dd.feature.vars$median, "invgamma", start = list(shape = 1.0, scale = 0.05), lower = 0.0001)
+# feature.fit <- fitdistrplus::fitdist(dd.feature.vars$median, "invgamma", start = list(shape = 1.0, scale = 20), lower = 0.0001)
 # feature.nu <- as.numeric(2.0 * feature.fit$estimate["shape"])
 # feature.V <- as.numeric((2.0 * feature.fit$estimate["scale"]) / feature.nu)
-# feature.nu <- feature.nu / params$prior.scale
 
-# Robust
+# MGE fitting
 # fit protein posterior medians
-protein.fit <- robust::gammaRob(1.0 / dd.protein.vars$median)
+protein.fit <- fitdistrplus::fitdist(1.0 / dd.protein.vars$median, "gamma", method = "mge", gof = "CvM", start = list(shape = 1.0, scale = 20), lower = 0.0001)
 protein.nu <- as.numeric(2.0 * protein.fit$estimate["shape"])
-protein.V <- as.numeric((2.0 / protein.fit$estimate["scale"]) / protein.nu)
-protein.nu <- protein.nu / params$prior.scale
+protein.V <- as.numeric((2.0 * 1.0 / protein.fit$estimate["scale"]) / protein.nu)
 
 # fit peptide posterior medians
-peptide.fit <- robust::gammaRob(1.0 / dd.protein.vars$median)
+peptide.fit <- fitdistrplus::fitdist(1.0 / dd.peptide.vars$median, "gamma", method = "mge", gof = "CvM", start = list(shape = 1.0, scale = 20), lower = 0.0001)
 peptide.nu <- as.numeric(2.0 * peptide.fit$estimate["shape"])
-peptide.V <- as.numeric((2.0 / peptide.fit$estimate["scale"]) / peptide.nu)
-peptide.nu <- peptide.nu / params$prior.scale
+peptide.V <- as.numeric((2.0 * 1.0 / peptide.fit$estimate["scale"]) / peptide.nu)
 
 # fit feature posterior medians
-feature.fit <- robust::gammaRob(1.0 / dd.feature.vars$median)
+feature.fit <- fitdistrplus::fitdist(1.0 / dd.feature.vars$median, "gamma", method = "mge", gof = "CvM", start = list(shape = 1.0, scale = 20), lower = 0.0001)
 feature.nu <- as.numeric(2.0 * feature.fit$estimate["shape"])
-feature.V <- as.numeric((2.0 / feature.fit$estimate["scale"]) / feature.nu)
-feature.nu <- feature.nu / params$prior.scale
+feature.V <- as.numeric((2.0 * 1.0 / feature.fit$estimate["scale"]) / feature.nu)
 
 # save output
 saveRDS(list(
@@ -240,6 +236,10 @@ dd.prior.fit.density <- rbind(
 )
 dd.prior.fit.density[, Type := factor(Type, levels = unique(Type))]
 
+fmt_signif <- function(signif = 2) {
+  function(x) formatC(signif(x, digits = signif))
+}
+
 g <- ggplot2::ggplot(dd.prior.stdevs.density, ggplot2::aes(x = x, y = y))
 g <- g + ggplot2::theme_bw()
 g <- g + ggplot2::theme(panel.border = ggplot2::element_rect(colour = "black", size = 1),
@@ -253,7 +253,7 @@ g <- g + ggplot2::coord_cartesian(xlim = c(min(dd.prior.stdevs.density$x) / 1.1,
 g <- g + ggplot2::xlab(expression('Log2 Standard Deviation'))
 g <- g + ggplot2::ylab("Probability Density")
 g <- g + ggplot2::facet_grid(Type ~ .)
-g <- g + ggplot2::scale_x_log10(expand = c(0, 0))
+g <- g + ggplot2::scale_x_log10(labels = fmt_signif(1), expand = c(0, 0))
 g <- g + ggplot2::scale_y_continuous(expand = c(0, 0))
 g <- g + ggplot2::geom_ribbon(data = dd.prior.stdevs.density, ggplot2::aes(x = x, ymax = y), ymin = 0, size = 1/2, alpha = 0.3)
 g <- g + ggplot2::geom_line(data = dd.prior.stdevs.density, ggplot2::aes(x = x,y = y), size = 1/2)

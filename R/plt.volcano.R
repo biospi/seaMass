@@ -5,7 +5,7 @@
 #' @import data.table
 #' @export
 
-plt.volcano <- function(dd, truth = NULL, ci = T) {
+plt.volcano <- function(dd, truth = NULL, ci = F) {
   dd.plot <- dd
   x.max <- max(abs(dd.plot$log2fc.mean))
 

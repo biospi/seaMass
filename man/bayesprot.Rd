@@ -4,45 +4,39 @@
 \alias{bayesprot}
 \title{Bayesian Protein-level modelification for Proteomics}
 \usage{
-bayesprot(dd, id = "bayesprot", plots = F, missing = "censored",
-  ref.assays = levels(dd$Assay), digests = levels(dd$Assay),
-  samples = levels(dd$Assay), model0.minpeptides = 2,
-  de.conditions = NULL, de.paired = F, de.truth = NULL,
-  de.mcmc = F, prior.scale = 1, nthread = parallel::detectCores(),
+bayesprot(dd, id = "bayesprot", assay.refs = levels(dd$Assay),
+  assay.digests = levels(dd$Assay), assay.samples = levels(dd$Assay),
+  assay.conditions = NULL, de.paired = F, de.mcmc = F,
+  missing = "censored", plots = F, model0.min.npeptide = 2,
   model0.nsample = 1024, model0.nwarmup = 256, model0.thin = 1,
   model0.nchain = 1, model0.seed = 0, model.nsample = 1024,
   model.nwarmup = 256, model.thin = 1, model.nchain = 1,
   model.seed = 0, qprot = F, qprot.path = "",
-  qprot.nsample = 10000, qprot.nwarmup = 2000, qprot.seed = 0)
+  qprot.nsample = 10000, qprot.nwarmup = 2000, qprot.seed = 0,
+  nthread = parallel::detectCores())
 }
 \arguments{
 \item{dd}{dataset returned by a bayesprot::import.() function}
 
 \item{id}{path and filename for the output files (if path omitted, current working directory is used)}
 
-\item{plots}{.}
+\item{assay.refs}{= levels(dd$Assay),}
 
-\item{missing}{.}
+\item{assay.digests}{= levels(dd$Assay),}
 
-\item{ref.assays}{.}
+\item{assay.samples}{= levels(dd$Assay),}
 
-\item{digests}{.}
-
-\item{samples}{.}
-
-\item{model0.minpeptides}{.}
-
-\item{de.conditions}{.}
+\item{assay.conditions}{= NULL,}
 
 \item{de.paired}{.}
 
-\item{de.truth}{.}
-
 \item{de.mcmc}{.}
 
-\item{prior.scale}{.}
+\item{missing}{.}
 
-\item{nthread}{.}
+\item{plots}{.}
+
+\item{model0.min.npeptide}{.}
 
 \item{model0.nsample}{.}
 
@@ -64,7 +58,7 @@ bayesprot(dd, id = "bayesprot", plots = F, missing = "censored",
 
 \item{model.seed}{.}
 
-\item{qprot}{.}
+\item{qprot}{= .}
 
 \item{qprot.path}{.}
 
@@ -74,7 +68,7 @@ bayesprot(dd, id = "bayesprot", plots = F, missing = "censored",
 
 \item{qprot.seed}{.}
 
-\item{plots}{.}
+\item{nthread}{.}
 }
 \value{
 Lots of interesting stuff.

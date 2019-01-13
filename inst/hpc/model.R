@@ -1,7 +1,9 @@
+chain <- ifelse(!is.na(commandArgs(T)[1]), as.integer(commandArgs(T)[1]), 1)
+
 suppressPackageStartupMessages(library(data.table))
 suppressPackageStartupMessages(library(foreach))
 
-message(paste0("[", Sys.time(), "] MODEL started, chain=", commandArgs(T)[1]))
+message(paste0("[", Sys.time(), "] MODEL started, chain=", chain))
 
 # load priors as process.output0 has been run
 prefix <- ifelse(file.exists("priors.rds"), ".", file.path("..", "..", "output0", "results"))
@@ -18,7 +20,6 @@ params <- readRDS(file.path(prefix, "params.rds"))
 dd.assays <- fst::read.fst(file.path(prefix, "assays.fst"), as.data.table = T)
 dd.proteins <- fst::read.fst(file.path(prefix, "proteins.fst"), as.data.table = T)[!is.na(model.row0),]
 nitt <- params$model.nwarmup + (params$model.nsample * params$model.thin) / params$model.nchain
-message(paste0("[", Sys.time(), "] MODEL started, chain=", chain, "/", params$model.nchain, " nitt=", nitt))
 
 # start cluster and reproducible seed
 cl <- parallel::makeCluster(params$nthread)
@@ -49,9 +50,11 @@ output <- foreach(i = which(!is.na(dd.proteins$model.row0)), .combine = rbindlis
   prior <- list(
     B = list(mu = matrix(0, nF + nA - 1, 1), V = diag(nF + nA - 1) * 1e+6),
     G = list(
-      G1 = list(V = priors$protein.V, nu = priors$protein.nu),
+      G1 = list(V = 1e+08, fix = 1),
+      #G1 = list(V = priors$protein.V, nu = priors$protein.nu),
+      #G1 = list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2),
       #G2 = list(V = priors$peptide.V * diag(nT), nu = priors$peptide.nu)
-      G2 = list(V = diag(nT), nu = 0.02)
+      G2 = list(V = diag(nT), nu = nT, alpha.mu = rep(0, nT),  alpha.V = diag(25^2, nT))
     ),
     #R = list(V = priors$feature.V * diag(nF), nu = priors$feature.nu)
     R = list(V = diag(nF), nu = 0.02)
@@ -79,6 +82,9 @@ output <- foreach(i = which(!is.na(dd.proteins$model.row0)), .combine = rbindlis
   output$dd.protein.quants[, ProteinID := dd[1, ProteinID]]
   output$dd.protein.quants[, SampleID := factor(sub("^SampleID\\.", "", SampleID))]
   setcolorder(output$dd.protein.quant, c("ProteinID", "SampleID"))
+
+  # mean centre (testing)
+  output$dd.protein.quants[, value := value - mean(value), by = mcmcID]
 
   # extract peptide deviations from protein quants
   if (nT == 1) {
@@ -191,7 +197,7 @@ if (!is.null(dd.assays$ConditionID) & params$de.mcmc) {
     message(paste0("[", Sys.time(), "]  BMC MCMC diffential analysis for ", ct1, " vs ", ct0, "..."))
 
     pb <- txtProgressBar(max = length(protein.quants.ct), style = 3)
-    dd.output <- foreach::foreach(dd = iterators::iter(protein.quants.ct), .packages = "data.table", .combine = rbind, .options.multicore = list(preschedule = F), .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dorng% {
+    dd.output <- foreach::foreach(dd = iterators::iter(protein.quants.ct), .packages = "data.table", .combine = rbind, .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
       s <- dd[1, mcmcID]
       dd <- dd[, as.list(bmc(SampleID, value)), by = ProteinID]
 
@@ -214,7 +220,7 @@ if (!is.null(dd.assays$ConditionID) & params$de.mcmc) {
 
       pb <- txtProgressBar(max = length(protein.quants.ct), style = 3)
       set.seed(params$qprot.seed)
-      dd.output <- foreach::foreach(dd = iterators::iter(protein.quants.ct), .packages = "data.table", .combine = rbind, .options.multicore = list(preschedule = F), .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dorng% {
+      dd.output <- foreach::foreach(dd = iterators::iter(protein.quants.ct), .packages = "data.table", .combine = rbind, .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
         s <- dd[1, mcmcID]
         dd <- dcast(dd, ProteinID ~ SampleID, value.var = "value")
         colnames(dd)[colnames(dd) %in% sampleIDs0] <- "0"

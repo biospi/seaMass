@@ -4,10 +4,10 @@
 \alias{process.input}
 \title{process.input (BayesProt internal function)}
 \usage{
-process.input(dd, id = "bayesprot", plots = F, missing = "censored",
-  ref.assays = levels(dd$Assay), digests = levels(dd$Assay),
-  samples = levels(dd$Assay), model0.minpeptides = 2,
-  de.conditions = NULL, ...)
+process.input(dd, id = "bayesprot", assay.refs = levels(dd$Assay),
+  assay.digests = levels(dd$Assay), assay.samples = levels(dd$Assay),
+  assay.conditions = NULL, missing = "censored", plots = F,
+  model0.min.npeptide = 2, ...)
 }
 \arguments{
 \item{dd}{The dataset returned by a BayesProt import() function.}

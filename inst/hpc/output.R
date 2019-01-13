@@ -51,9 +51,8 @@ if (!is.null(dd.assays$ConditionID)) {
   bmc <- function(SampleID, value) {
     out <- bayesmodelquant::modelComparison(value[SampleID %in% sampleIDs0], value[SampleID %in% sampleIDs1])
     data.table(
-      log2stdev = out$sd, Z = out$Zstat,
-      log2fc.lower = out$HPDI$lower[1], log2fc.mean = out$mean, log2fc.upper = out$HPDI$upper[1],
-      PEP.down = out$bpFDR$down[1], PEP.same = out$bpFDR$same[1], PEP.up = out$bpFDR$up[1], PEP = out$PEP[1]
+      log2stdev = out$sd, log2fc.lower = out$HPDI$lower[1], log2fc.mean = out$mean, log2fc.upper = out$HPDI$upper[1],
+      Z = out$Zstat, PEP = out$PEP[1] # PEP.down = out$bpFDR$down[1], PEP.same = out$bpFDR$same[1], PEP.up = out$bpFDR$up[1],
     )
   }
 
@@ -66,32 +65,31 @@ if (!is.null(dd.assays$ConditionID)) {
     sampleIDs1 <- dd.assays[ConditionID == cts[2, ct], SampleID]
     sampleIDs <- dd.assays[ConditionID == cts[1, ct] | ConditionID == cts[2, ct], SampleID]
     dd.ct <- dd.protein.quants[SampleID %in% sampleIDs,]
-    message(paste0("[", Sys.time(), "]  BMC diffential analysis for ", ct1, " vs ", ct0, "..."))
+    message(paste0("[", Sys.time(), "]  BMC diffential analysis for ", ct1, " against ", ct0, "..."))
 
     # BMC ON POSTERIOR MEDIANS
     dd.bmc <- merge(dd.proteins[, .(ProteinID, Protein, nPeptide, nFeature, nMeasure)], dd.ct[, as.list(bmc(SampleID, median)), by = ProteinID])
 
-    # PEP.same
-    dd.bmc.same <- copy(dd.bmc)
-    dd.bmc.same[, abs.Z := abs(Z)]
-    dd.bmc.same[, abs.log2fc.mean := abs(log2fc.mean)]
-    setorder(dd.bmc.same, PEP.same, abs.Z, abs.log2fc.mean, na.last = T)
-    dd.bmc.same[, abs.Z := NULL]
-    dd.bmc.same[, abs.log2fc.mean := NULL]
-    dd.bmc.same[, FDR := cumsum(PEP.same) / 1:nrow(dd.bmc.same)]
-    fwrite(dd.bmc.same, file.path(stats.dir, paste0("protein_de_bmc__", ct1, "_vs_", ct0, "__same.csv")))
-
-    # PEP.down
-    dd.bmc.down <- copy(dd.bmc)
-    setorder(dd.bmc.down, PEP.down, Z, log2fc.mean, na.last = T)
-    dd.bmc.down[, FDR := cumsum(PEP.down) / 1:nrow(dd.bmc.down)]
-    fwrite(dd.bmc.down, file.path(stats.dir, paste0("protein_de_bmc__", ct1, "_vs_", ct0, "__down.csv")))
-
-    # PEP.up
-    dd.bmc.up <- copy(dd.bmc)
-    setorder(dd.bmc.up, PEP.up, -Z, -log2fc.mean, na.last = T)
-    dd.bmc.up[, FDR := cumsum(PEP.up) / 1:nrow(dd.bmc.up)]
-    fwrite(dd.bmc.up, file.path(stats.dir, paste0("protein_de_bmc__", ct1, "_vs_", ct0, "__up.csv")))
+    # # PEP.same
+    # dd.bmc.same <- copy(dd.bmc)
+    # dd.bmc.same[, abs.Z := abs(Z)]
+    # dd.bmc.same[, abs.log2fc.mean := abs(log2fc.mean)]
+    # setorder(dd.bmc.same, PEP.same, abs.Z, abs.log2fc.mean, na.last = T)
+    # dd.bmc.same[, abs.Z := NULL]
+    # dd.bmc.same[, abs.log2fc.mean := NULL]
+    # dd.bmc.same[, FDR := cumsum(PEP.same) / 1:nrow(dd.bmc.same)]
+    # fwrite(dd.bmc.same, file.path(stats.dir, paste0("protein_de_bmc__", ct1, "_against_", ct0, "__same.csv")))
+    #
+    # # PEP.down
+    # dd.bmc.down <- copy(dd.bmc)
+    # dd.bmc.down[, FDR := cumsum(PEP.down) / 1:nrow(dd.bmc.down)]
+    # fwrite(dd.bmc.down, file.path(stats.dir, paste0("protein_de_bmc__", ct1, "_against_", ct0, "__down.csv")))
+    #
+    # # PEP.up
+    # dd.bmc.up <- copy(dd.bmc)
+    # setorder(dd.bmc.up, PEP.up, -Z, -log2fc.mean, na.last = T)
+    # dd.bmc.up[, FDR := cumsum(PEP.up) / 1:nrow(dd.bmc.up)]
+    # fwrite(dd.bmc.up, file.path(stats.dir, paste0("protein_de_bmc__", ct1, "_against_", ct0, "__up.csv")))
 
     # PEP
     dd.bmc[, abs.Z := abs(Z)]
@@ -100,13 +98,13 @@ if (!is.null(dd.assays$ConditionID)) {
     dd.bmc[, abs.Z := NULL]
     dd.bmc[, abs.log2fc.mean := NULL]
     dd.bmc[, FDR := cumsum(PEP) / 1:nrow(dd.bmc)]
-    fwrite(dd.bmc, file.path(stats.dir, paste0("protein_de_bmc__", ct1, "_vs_", ct0, ".csv")))
+    fwrite(dd.bmc, file.path(stats.dir, paste0("protein_de_bmc__", ct1, "_against_", ct0, ".csv")))
 
-    ggplot2::ggsave(file.path(stats.dir, paste0("protein_de_bmc__volcano_ci_", ct1, "_vs_", ct0, ".pdf")), plt.volcano(dd.bmc, params$de.truth), width = 8, height = 8)
-    ggplot2::ggsave(file.path(stats.dir, paste0("protein_de_bmc__volcano__", ct1, "_vs_", ct0, ".pdf")), plt.volcano(dd.bmc, params$de.truth, ci = F), width = 8, height = 8)
+    ggplot2::ggsave(file.path(stats.dir, paste0("protein_de_bmc__volcano_ci_", ct1, "_against_", ct0, ".pdf")), bayesprot::plt.volcano(dd.bmc, ci = T), width = 8, height = 8)
+    ggplot2::ggsave(file.path(stats.dir, paste0("protein_de_bmc__volcano__", ct1, "_against_", ct0, ".pdf")), bayesprot::plt.volcano(dd.bmc), width = 8, height = 8)
 
     if (params$qprot) {
-      message(paste0("[", Sys.time(), "]  Qprot diffential analysis for ", ct1, " vs ", ct0, "..."))
+      message(paste0("[", Sys.time(), "]  Qprot diffential analysis for ", ct1, " against ", ct0, "..."))
 
       # QPROT ON POSTERIOR MEDIANS
       dd.qprot <- dcast(dd.ct, ProteinID ~ SampleID, value.var = "median")
@@ -134,7 +132,7 @@ if (!is.null(dd.assays$ConditionID)) {
       }
       system2(ifelse(params$qprot.path == "", "getfdr", file.path(params$qprot.path, "getfdr")), arg = c(paste0(filename.qprot, "_qprot")))
 
-      dd.qprot <- fread(paste0(filename.qprot, "_qprot_fdr"))[, .(ProteinID = Protein, log2fc.mean = LogFoldChange / log(2), Z = Zstatistic, PEP.down = FDRdown, PEP.up = FDRup, PEP = fdr)]
+      dd.qprot <- fread(paste0(filename.qprot, "_qprot_fdr"))[, .(ProteinID = Protein, log2fc.mean = LogFoldChange / log(2), Z = Zstatistic, PEP = fdr)] # , PEP.down = FDRdown, PEP.up = FDRup
       dd.qprot <- merge(dd.proteins[, .(ProteinID, Protein, nPeptide, nFeature, nMeasure)], dd.qprot, sort = F)
 
       file.remove(filename.qprot)
@@ -142,15 +140,15 @@ if (!is.null(dd.assays$ConditionID)) {
       file.remove(paste0(filename.qprot, "_qprot_density"))
       file.remove(paste0(filename.qprot, "_qprot_fdr"))
 
-      dd.qprot.down <- copy(dd.qprot)
-      setorder(dd.qprot.down, PEP.down, Z, log2fc.mean, na.last = T)
-      dd.qprot.down[, FDR := cumsum(PEP.down) / 1:nrow(dd.qprot.down)]
-      fwrite(dd.qprot.down, file.path(stats.dir, paste0("protein_de_qprot__", ct1, "_vs_", ct0, "__down.csv")))
-
-      dd.qprot.up <- copy(dd.qprot)
-      setorder(dd.qprot.up, PEP.up, -Z, -log2fc.mean, na.last = T)
-      dd.qprot.up[, FDR := cumsum(PEP.up) / 1:nrow(dd.qprot.up)]
-      fwrite(dd.qprot.up, file.path(stats.dir, paste0("protein_de_qprot__", ct1, "_vs_", ct0, "__up.csv")))
+      # dd.qprot.down <- copy(dd.qprot)
+      # setorder(dd.qprot.down, PEP.down, Z, log2fc.mean, na.last = T)
+      # dd.qprot.down[, FDR := cumsum(PEP.down) / 1:nrow(dd.qprot.down)]
+      # fwrite(dd.qprot.down, file.path(stats.dir, paste0("protein_de_qprot__", ct1, "_against_", ct0, "__down.csv")))
+      #
+      # dd.qprot.up <- copy(dd.qprot)
+      # setorder(dd.qprot.up, PEP.up, -Z, -log2fc.mean, na.last = T)
+      # dd.qprot.up[, FDR := cumsum(PEP.up) / 1:nrow(dd.qprot.up)]
+      # fwrite(dd.qprot.up, file.path(stats.dir, paste0("protein_de_qprot__", ct1, "_against_", ct0, "__up.csv")))
 
       dd.qprot[, abs.Z := abs(Z)]
       dd.qprot[, abs.log2fc.mean := abs(log2fc.mean)]
@@ -158,84 +156,79 @@ if (!is.null(dd.assays$ConditionID)) {
       dd.qprot[, abs.Z := NULL]
       dd.qprot[, abs.log2fc.mean := NULL]
       dd.qprot[, FDR := cumsum(PEP) / 1:nrow(dd.qprot)]
-      fwrite(dd.qprot, file.path(stats.dir, paste0("protein_de_qprot__", ct1, "_vs_", ct0, ".csv")))
+      fwrite(dd.qprot, file.path(stats.dir, paste0("protein_de_qprot__", ct1, "_against_", ct0, ".csv")))
 
-      ggplot2::ggsave(file.path(stats.dir, paste0("protein_de_qprot__volcano__", ct1, "_vs_", ct0, ".pdf")), plt.volcano(dd.qprot, params$de.truth, ci = F), width = 8, height = 8)
+      ggplot2::ggsave(file.path(stats.dir, paste0("protein_de_qprot__volcano__", ct1, "_against_", ct0, ".pdf")), bayesprot::plt.volcano(dd.qprot), width = 8, height = 8)
 
-      dds.down <- list("BayesProt/BMC.down" = dd.bmc.down, "BayesProt/Qprot.down" = dd.qprot.down)
+      #dds.down <- list("BayesProt/BMC.down" = dd.bmc.down, "BayesProt/Qprot.down" = dd.qprot.down)
       dds <- list("BayesProt/BMC" = dd.bmc, "BayesProt/Qprot" = dd.qprot)
-      dds.up <- list("BayesProt/BMC.up" = dd.bmc.up, "BayesProt/Qprot.up" = dd.qprot.up)
+      #dds.up <- list("BayesProt/BMC.up" = dd.bmc.up, "BayesProt/Qprot.up" = dd.qprot.up)
     } else {
-      dds.down <- list("BayesProt/BMCdown" = dd.bmc.down)
+      #dds.down <- list("BayesProt/BMCdown" = dd.bmc.down)
       dds <- list("BayesProt/BMC" = dd.bmc)
-      dds.up <- list("BayesProt/BMCup" = dd.bmc.up)
+      #dds.up <- list("BayesProt/BMCup" = dd.bmc.up)
+    }
+  }
+
+  if (params$de.mcmc) {
+    # BMC ON MCMC SAMPLES
+    message(paste0("[", Sys.time(), "]  MCMC BMC diffential analysis for ", ct1, " against ", ct0, "..."))
+    chains <- formatC(1:params$model.nchain, width = ceiling(log10(params$model.nchain + 1)) + 1, format = "d", flag = "0")
+
+    de.mcmc <- function(method) {
+      dd.mcmc <- rbindlist(lapply(chains, function(chain) {
+        dd <- fst::read.fst(file.path(prefix, paste0("de.", method, ".", chain, ".", formatC(ct, width = ceiling(log10(nrow(cts))) + 1, format = "d", flag = "0"), ".fst")), as.data.table = T)
+        dd[, chainID := factor(chain)]
+        dd
+      }))
+
+      # qprot hacks
+      dd.mcmc <- dd.mcmc[!is.nan(dd.mcmc$FDR), ]
+      if (is.null(dd.mcmc$fc.lower)) dd.mcmc[, fc.lower := NA]
+      if (is.null(dd.mcmc$fc.upper)) dd.mcmc[, fc.upper := NA]
+
+      # Discoveries based on mean FDRs
+      dd.fdr <- merge(dd.proteins[, .(ProteinID, Protein, nPeptide, nFeature, nMeasure)], dd.mcmc[, .(
+        log2fc.lower = mean(fc.lower) / log(2), log2fc.mean = mean(fc.mean) / log(2), log2fc.upper = mean(fc.upper) / log(2),
+        PEP.lower = coda::HPDinterval(coda::as.mcmc(PEP))[, "lower"], PEP.mean = mean(PEP), PEP.upper = coda::HPDinterval(coda::as.mcmc(PEP))[, "upper"],
+        FDR.mean = mean(FDR)
+      ), by = ProteinID], sort = F)
+      setorder(dd.fdr, FDR.mean)
+      dd.fdr[, FDR.mean := NULL]
+      dd.fdr[, Discoveries := 1:nrow(dd.fdr)]
+      dd.fdr[, PEP := PEP.mean]
+
+      # for each number of Discoveries, recompute FDR for each samp to derive credible interval
+      dd.mcmc.fdr <- merge(dd.fdr[, .(ProteinID, Discoveries)], dd.mcmc[, .(ProteinID, PEP, mcmcID, chainID)], sort = F)
+      setorder(dd.mcmc.fdr, Discoveries, mcmcID, chainID)
+      dd.mcmc.fdr <- dd.mcmc.fdr[, .(Discoveries, FDR = cumsum(PEP) / Discoveries), by = .(mcmcID, chainID)]
+      dd.fdr <- merge(dd.fdr, dd.mcmc.fdr[, .(
+        FDR.lower = coda::HPDinterval(coda::as.mcmc(FDR))[, "lower"], FDR.mean = mean(FDR), FDR.upper = coda::HPDinterval(coda::as.mcmc(FDR))[, "upper"]
+      ), by = Discoveries])
+      dd.fdr[, Discoveries := NULL]
+      dd.fdr[, FDR := FDR.mean]
+
+      fwrite(dd.fdr, file.path(stats.dir, paste0("protein_de_", method, "_mcmc__", ct1, "_against_", ct0, ".csv")))
+      #ggplot2::ggsave(file.path(stats.dir, paste0("protein_de_", method, "__volcano_ci_", ct1, "_against_", ct0, ".pdf")), bayesprot::plt.volcano(dd.fdr), width = 8, height = 8)
+      ggplot2::ggsave(file.path(stats.dir, paste0("protein_de_", method, "__volcano__", ct1, "_against_", ct0, ".pdf")), bayesprot::plt.volcano(dd.fdr, ci = F), width = 8, height = 8)
+
+      dd.fdr
     }
 
-    if (params$de.mcmc) {
-      # BMC ON MCMC SAMPLES
-      message(paste0("[", Sys.time(), "]  MCMC BMC diffential analysis for ", ct1, " vs ", ct0, "..."))
-      chains <- formatC(1:params$model.nchain, width = ceiling(log10(params$model.nchain + 1)) + 1, format = "d", flag = "0")
+    dd.bmc.mcmc <- de.mcmc("bmc")
 
-      de.mcmc <- function(method) {
-        dd.mcmc <- rbindlist(lapply(chains, function(chain) {
-          dd <- fst::read.fst(file.path(prefix, paste0("de.", method, ".", chain, ".", formatC(ct, width = ceiling(log10(nrow(cts))) + 1, format = "d", flag = "0"), ".fst")), as.data.table = T)
-          dd[, chainID := factor(chain)]
-          dd
-        }))
+    if (params$qprot) {
+      dd.qprot.mcmc <- de.mcmc("qprot")
 
-        # qprot hacks
-        dd.mcmc <- dd.mcmc[!is.nan(dd.mcmc$FDR), ]
-        if (is.null(dd.mcmc$fc.lower)) dd.mcmc[, fc.lower := NA]
-        if (is.null(dd.mcmc$fc.upper)) dd.mcmc[, fc.upper := NA]
-
-        # Discoveries based on mean FDRs
-        dd.fdr <- merge(dd.proteins[, .(ProteinID, Protein, nPeptide, nFeature, nMeasure)], dd.mcmc[, .(
-          log2fc.lower = mean(fc.lower) / log(2), log2fc.mean = mean(fc.mean) / log(2), log2fc.upper = mean(fc.upper) / log(2),
-          PEP.lower = coda::HPDinterval(coda::as.mcmc(PEP))[, "lower"], PEP.mean = mean(PEP), PEP.upper = coda::HPDinterval(coda::as.mcmc(PEP))[, "upper"],
-          FDR.mean = mean(FDR)
-        ), by = ProteinID], sort = F)
-        setorder(dd.fdr, FDR.mean)
-        dd.fdr[, FDR.mean := NULL]
-        dd.fdr[, Discoveries := 1:nrow(dd.fdr)]
-
-        # for each number of Discoveries, recompute FDR for each samp to derive credible interval
-        dd.mcmc.fdr <- merge(dd.fdr[, .(ProteinID, Discoveries)], dd.mcmc[, .(ProteinID, PEP, mcmcID, chainID)], sort = F)
-        setorder(dd.mcmc.fdr, Discoveries, mcmcID, chainID)
-        dd.mcmc.fdr <- dd.mcmc.fdr[, .(Discoveries, FDR = cumsum(PEP) / Discoveries), by = .(mcmcID, chainID)]
-        dd.fdr <- merge(dd.fdr, dd.mcmc.fdr[, .(
-          FDR.lower = coda::HPDinterval(coda::as.mcmc(FDR))[, "lower"], FDR.mean = mean(FDR), FDR.upper = coda::HPDinterval(coda::as.mcmc(FDR))[, "upper"]
-        ), by = Discoveries])
-        dd.fdr[, Discoveries := NULL]
-        dd.fdr[, FDR := FDR.mean]
-
-        fwrite(dd.fdr, file.path(stats.dir, paste0("protein_de_", method, "_mcmc__", ct1, "_vs_", ct0, ".csv")))
-        #ggplot2::ggsave(file.path(stats.dir, paste0("protein_de_", method, "__volcano_ci_", ct1, "_vs_", ct0, ".pdf")), plt.volcano(dd.fdr, params$de.truth), width = 8, height = 8)
-        ggplot2::ggsave(file.path(stats.dir, paste0("protein_de_", method, "__volcano__", ct1, "_vs_", ct0, ".pdf")), plt.volcano(dd.fdr, params$de.truth, ci = F), width = 8, height = 8)
-
-        dd.fdr
-      }
-
-      dd.bmc.mcmc <- de.mcmc("bmc")
-
-      if (params$qprot) {
-        dd.qprot.mcmc <- de.mcmc("qprot")
-
-        dds <- c(dds, list("BayesProtMCMC/BMC" = dd.bmc.mcmc, "BayesProtMCMC/Qprot" = dd.qprot.mcmc))
-      } else {
-        dds <- c(dds, list("BayesProtMCMC/BMC" = dd.bmc.mcmc))
-      }
+      dds <- c(dds, list("BayesProtMCMC/BMC" = dd.bmc.mcmc, "BayesProtMCMC/Qprot" = dd.qprot.mcmc))
+    } else {
+      dds <- c(dds, list("BayesProtMCMC/BMC" = dd.bmc.mcmc))
     }
 
     # plot
-    ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdr__", ct1, "_vs_", ct0, "_down.pdf")), plt.fdr(dds.down), width = 8, height = 8)
-    ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdr__", ct1, "_vs_", ct0, ".pdf")), plt.fdr(dds), width = 8, height = 8)
-    ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdr__", ct1, "_vs_", ct0, "_up.pdf")), plt.fdr(dds.up), width = 8, height = 8)
-
-    if (!is.null(params$de.truth)) {
-      ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdp__", ct1, "_vs_", ct0, "_down.pdf")), plt.pr(dds.down, params$de.truth[1], 0.21), width = 8, height = 8)
-      ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdp__", ct1, "_vs_", ct0, ".pdf")), plt.pr(dds, paste(params$de.truth[1], params$de.truth[2], sep = "|"), 0.21), width = 8, height = 8)
-      ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdp__", ct1, "_vs_", ct0, "_up.pdf")), plt.pr(dds.up, params$de.truth[2], 0.21), width = 8, height = 8)
-    }
+    #ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdr__", ct1, "_against_", ct0, "_down.pdf")), bayesprot::plt.fdr(dds.down), width = 8, height = 8)
+    ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdr__", ct1, "_against_", ct0, ".pdf")), bayesprot::plt.fdr(dds), width = 8, height = 8)
+    #ggplot2::ggsave(file.path(stats.dir, paste0("protein_de__fdr__", ct1, "_against_", ct0, "_up.pdf")), bayesprot::plt.fdr(dds.up), width = 8, height = 8)
   }
 }
 
@@ -246,14 +239,14 @@ dd.protein.quants <- merge(dd.assays[, .(SampleID, Sample)], dd.protein.quants, 
 
 dd.protein.quants.mads <- dcast(dd.protein.quants, ProteinID ~ Sample, value.var = "mad")
 protein.quants.mads <- as.matrix(dd.protein.quants.mads[, 2:ncol(dd.protein.quants.mads), with = F]) # for pca
-colnames(dd.protein.quants.mads)[2:ncol(dd.protein.quants.mads)] <- paste0("log2fc:", colnames(dd.protein.quants.mads)[2:ncol(dd.protein.quants.mads)])
+colnames(dd.protein.quants.mads)[2:ncol(dd.protein.quants.mads)] <- paste0("log2:", colnames(dd.protein.quants.mads)[2:ncol(dd.protein.quants.mads)])
 dd.protein.quants.mads <- merge(dd.proteins[, .(ProteinID, Protein, nPeptide, nFeature, nMeasure)], dd.protein.quants.mads, by = "ProteinID")
 fwrite(dd.protein.quants.mads, file.path(stats.dir, "protein_quants_mads.csv"))
 rm(dd.protein.quants.mads)
 
 dd.protein.quants <- dcast(dd.protein.quants, ProteinID ~ Sample, value.var = "median")
 protein.quants <- as.matrix(dd.protein.quants[, 2:ncol(dd.protein.quants), with = F])  # for pca
-colnames(dd.protein.quants)[2:ncol(dd.protein.quants)] <- paste0("log2fc:", colnames(dd.protein.quants)[2:ncol(dd.protein.quants)])
+colnames(dd.protein.quants)[2:ncol(dd.protein.quants)] <- paste0("log2:", colnames(dd.protein.quants)[2:ncol(dd.protein.quants)])
 dd.protein.quants <- merge(dd.proteins[, .(ProteinID, Protein, nPeptide, nFeature, nMeasure)], dd.protein.quants, by = "ProteinID")
 fwrite(dd.protein.quants, file.path(stats.dir, "protein_quants_medians.csv"))
 rm(dd.protein.quants)
@@ -280,33 +273,32 @@ ggplot2::ggsave(file.path(stats.dir, "sample_pca.pdf"), g, width=8, height=8, li
 
 # peptide deviations in base 2
 dd.peptide.deviations <- rbindlist(lapply(chains, function(chain) {
-  dd <- fst::read.fst(file.path(prefix, paste0("peptide.deviations.", chain, ".fst")), as.data.table = T)
-  dd <- dd[, .(chainID = factor(chain), mean = mean(value), var = var(value), n = .N), by = .(ProteinID, PeptideID, DigestID)]
+  fst::read.fst(file.path(prefix, paste0("peptide.deviations.", chain, ".fst")), as.data.table = T)
 }))
-dd.peptide.deviations <- dd.peptide.deviations[, .(mean = weighted.mean(mean, n) / log(2), stdev = (sqrt(weighted.mean(var + mean^2, n) - weighted.mean(mean, n)^2)) / log(2)), by = .(ProteinID, PeptideID, DigestID)]
+dd.peptide.deviations <- dd.peptide.deviations[, .(median = median(value) / log(2), mad = mad(value) / log(2)), by = .(ProteinID, PeptideID, DigestID)]
 dd.peptide.deviations <- merge(dd.assays[, .(DigestID, Digest)], dd.peptide.deviations, by = "DigestID")
 
-dd.peptide.deviations.stdevs <- dcast(dd.peptide.deviations, ProteinID + PeptideID ~ Digest, value.var = "stdev")
-colnames(dd.peptide.deviations.stdevs)[3:ncol(dd.peptide.deviations.stdevs)] <- paste0("log2fc:", colnames(dd.peptide.deviations.stdevs)[3:ncol(dd.peptide.deviations.stdevs)])
+dd.peptide.deviations.stdevs <- dcast(dd.peptide.deviations, ProteinID + PeptideID ~ Digest, value.var = "mad")
+colnames(dd.peptide.deviations.stdevs)[3:ncol(dd.peptide.deviations.stdevs)] <- paste0("log2:", colnames(dd.peptide.deviations.stdevs)[3:ncol(dd.peptide.deviations.stdevs)])
 dd.peptide.deviations.stdevs <- merge(dd.peptides, dd.peptide.deviations.stdevs, by = "PeptideID")
 setcolorder(dd.peptide.deviations.stdevs, "ProteinID")
-fwrite(dd.peptide.deviations.stdevs, file.path(stats.dir, "peptide_deviations_stdevs.csv"))
+fwrite(dd.peptide.deviations.stdevs, file.path(stats.dir, "peptide_deviations_mad.csv"))
 rm(dd.peptide.deviations.stdevs)
 
-dd.peptide.deviations <- dcast(dd.peptide.deviations, ProteinID + PeptideID ~ Digest, value.var = "mean")
-colnames(dd.peptide.deviations)[3:ncol(dd.peptide.deviations)] <- paste0("log2fc:", colnames(dd.peptide.deviations)[3:ncol(dd.peptide.deviations)])
+dd.peptide.deviations <- dcast(dd.peptide.deviations, ProteinID + PeptideID ~ Digest, value.var = "median")
+colnames(dd.peptide.deviations)[3:ncol(dd.peptide.deviations)] <- paste0("log2:", colnames(dd.peptide.deviations)[3:ncol(dd.peptide.deviations)])
 dd.peptide.deviations <- merge(dd.peptides, dd.peptide.deviations, by = "PeptideID")
 setcolorder(dd.peptide.deviations, "ProteinID")
-fwrite(dd.peptide.deviations, file.path(stats.dir, "peptide_deviations.csv"))
+fwrite(dd.peptide.deviations, file.path(stats.dir, "peptide_deviations_median.csv"))
 rm(dd.peptide.deviations)
 
 # peptide stdevs in base 2
 dd.peptide.stdevs <- rbindlist(lapply(chains, function(chain) {
   dd <- fst::read.fst(file.path(prefix, paste0("peptide.vars.", chain, ".fst")), as.data.table = T)
-  dd[, value := sqrt(value) / log(2)]
-  dd <- dd[, .(chainID = factor(chain), mean = mean(value), var = var(value), n = .N), by = .(ProteinID, PeptideID)]
+  dd[, value := sqrt(value)]
+  dd
 }))
-dd.peptide.stdevs <- dd.peptide.stdevs[, .(`log2fc:mean` = weighted.mean(mean, n), `log2fc:stdev` = sqrt(weighted.mean(var + mean^2, n) - weighted.mean(mean, n)^2)), by = .(ProteinID, PeptideID)]
+dd.peptide.stdevs <- dd.peptide.stdevs[, .(`log2:median` = median(value), `log2:mad` = mad(value)), by = .(ProteinID, PeptideID)]
 dd.peptide.stdevs <- merge(dd.peptides, dd.peptide.stdevs, by = "PeptideID")
 setcolorder(dd.peptide.stdevs, "ProteinID")
 fwrite(dd.peptide.stdevs, file.path(stats.dir, "peptide_stdevs.csv"))
@@ -315,10 +307,10 @@ rm(dd.peptide.stdevs)
 # feature stdevs in base 2
 dd.feature.stdevs <- rbindlist(lapply(chains, function(chain) {
   dd <- fst::read.fst(file.path(prefix, paste0("feature.vars.", chain, ".fst")), as.data.table = T)
-  dd[, value := sqrt(value) / log(2)]
-  dd <- dd[, .(chainID = factor(chain), mean = mean(value), var = var(value), n = .N), by = .(ProteinID, FeatureID)]
+  dd[, value := sqrt(value)]
+  dd
 }))
-dd.feature.stdevs <- dd.feature.stdevs[, .(`log2fc:mean` = weighted.mean(mean, n), `log2fc:stdev` = sqrt(weighted.mean(var + mean^2, n) - weighted.mean(mean, n)^2)), by = .(ProteinID, FeatureID)]
+dd.feature.stdevs <- dd.feature.stdevs[, .(`log2:median` = median(value), `log2:mad` = mad(value)), by = .(ProteinID, FeatureID)]
 dd.feature.stdevs <- merge(dd.features, dd.feature.stdevs, by = "FeatureID")
 setcolorder(dd.feature.stdevs, "ProteinID")
 fwrite(dd.feature.stdevs, file.path(stats.dir, "feature_stdevs.csv"))
