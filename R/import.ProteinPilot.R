@@ -1,14 +1,17 @@
 #' Add together two numbers.
 #'
-#' @param datafile A number.
+#' @param file A number.
 #' @return The sum of \code{x} and \code{y}.
 #' @import data.table
 #' @export
 
-import.ProteinPilot <- function(datafile, only.used = T) {
+import.ProteinPilot <- function(file = "", cmd = NULL, only.used = T) {
   # read ProteinPilot peptide summary
-  message(paste0("reading: ", datafile, "..."))
-  dd.raw <- fread(datafile, check.names = T, showProgress = T)
+  if (!is.null(cmd)) {
+    dd.raw <- fread(cmd = cmd, check.names = T, showProgress = T)
+  } else {
+    dd.raw <- fread(file, check.names = T, showProgress = T)
+  }
 
   # make dataset smaller by only using those protein pilot specifies
   if (only.used) dd.raw <- dd.raw[Used == 1,]
