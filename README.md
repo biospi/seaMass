@@ -3,20 +3,10 @@ Bayesian linear mixed-effects model for protein-level quantification in proteomi
 
 ## Installation
 
-BayesProt requires the use of a HPC cluster. We support the popular cluster managers - SLURM, PBS, SGE (todo), and HTCondor (todo). Before BayesProt can run on your cluster, you need to ensure R and all of BayesProt's R library dependencies are installed there. The later can be done by installing the BayesProt package on your cluster's submit node as follows:
-
 ```
 install.packages("devtools")
 library(devtools)
-install_github("biospi/bayesprot", ref = "develop", dependencies = T)
-```
-
-On the desktop PC you are using to prepare and analyse datasets, you need to do the same, but you don't need to install all the dependencies: 
-
-```
-install.packages("devtools")
-library(devtools)
-install_github("biospi/bayesprot", ref = "develop")
+install_github("biospi/bayesprot", dependencies = T)
 ```
 
 ## Usage
@@ -64,24 +54,4 @@ library(bayesprot)
 fractions <- read_excel("fractions.xlsx")
 dd <- importProteinPilot("20140910_NR_JXU_GRP 1 SET 1-2-3_combined_PeptideSummary.txt", fractions)
 bayesprot(dd, id = "JXU1")
-```
-
-### Submitting to HPC cluster
-
-Transfer the submission zip file to your cluster, unzip and then execute the relevant batch script (e.g. slurm.sh or pbs.sh). For example:
-
-```
-scp submit.bayesprot.zip hpc.myuni.ac.uk:
-
-ssh hpc.myuni.ac.uk
-unzip submit.bayesprot.zip
-submit.bayesprot/slurm.sh
-exit
-```
-
-When finished you will be notified by email, and a zip file of your results can be downloaded:
-
-```
-scp hpc.myuni.ac.uk:submit.bayesprot.output.zip .
-unzip submit.bayesprot.output.zip
 ```
