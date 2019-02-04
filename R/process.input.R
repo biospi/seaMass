@@ -12,6 +12,7 @@ process.input <- function(dd,
   assay.digests = levels(dd$Assay),
   assay.samples = levels(dd$Assay),
   assay.conditions = NULL,
+  norm = T,
   missing = "censored",
   plots = F,
   model0.min.npeptide = 2,
@@ -37,10 +38,19 @@ process.input <- function(dd,
 
   # build Protein index
   dd.proteins <- dd[, .(
+    ProteinRef = ProteinRef[1],
     nPeptide = length(unique(as.character(Peptide))),
     nFeature = length(unique(as.character(Feature))),
     nMeasure = sum(!is.na(Count))
-  ), by = .(Protein, ExternalRef)]
+  ), by = Protein]
+
+  # set proteins used in normalisation
+  if (norm == T | norm == F) {
+    dd.proteins[, norm := norm]
+  } else {
+    dd.proteins[, norm := dd.proteins$ProteinRef %in% norm]
+  }
+
   # use pre-trained regression model to estimate how long each Protein will take to process in order to assign Proteins to batches
   # Intercept, nPeptide, nFeature, nPeptide^2, nFeature^2, nPeptide*nFeature
   a <- c(5.338861e-01, 9.991205e-02, 2.871998e-01, 4.294391e-05, 6.903229e-04, 2.042114e-04)
@@ -51,7 +61,6 @@ process.input <- function(dd,
 
   dd <- merge(dd, dd.proteins[, .(Protein, ProteinID)], by = "Protein", sort = F)
   dd[, Protein := NULL]
-  dd[, ExternalRef := NULL]
 
   # build Peptide index
   dd.peptides <- dd[, .(

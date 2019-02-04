@@ -1,4 +1,4 @@
-# BayesProt
+# BayesProt v1.2.0
 Bayesian linear mixed-effects model for protein-level quantification in proteomics. Currently works with PSM output from ProteinPilot, ProteomeDiscoverer and MSstats.
 
 ## Installation

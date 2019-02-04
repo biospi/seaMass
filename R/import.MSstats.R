@@ -11,6 +11,7 @@ import.MSstats <- function(dd.input) {
     Peptide = factor(dd.input$PeptideSequence),
     Feature = factor(dd.input$FragmentIon)
   )
+  dd[, ProteinRef := factor(as.integer(Protein))]
 
   if (length(unique(dd.input$Run)) == 1) dd$Assay <- factor(dd.input$IsotopeLabelType)
   if (length(unique(dd.input$IsotopeLabelType)) == 1) dd$Assay <- factor(dd.input$Run)

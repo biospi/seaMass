@@ -36,6 +36,7 @@ rbindlistlist <- function(...) {
 message(paste0("[", Sys.time(), "]  modelling nprotein=", sum(!is.na(dd.proteins$model.row0)), " nitt=", nitt, "..."))
 pb <- txtProgressBar(max = sum(!is.na(dd.proteins$model.row0)), style = 3)
 output <- foreach(i = which(!is.na(dd.proteins$model.row0)), .combine = rbindlistlist, .multicombine = T, .packages = "data.table", .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
+  set.seed(0)
   # prepare dd for MCMCglmm
   dd <- fst::read.fst(file.path(prefix, "data.fst"), as.data.table = T, from = dd.proteins[i, model.row0], to = dd.proteins[i, model.row1])
   dd <- droplevels(dd)
@@ -44,20 +45,22 @@ output <- foreach(i = which(!is.na(dd.proteins$model.row0)), .combine = rbindlis
 
   # set prior and run model
   nA <- length(levels(dd$AssayID))
+  nS <- length(levels(dd$SampleID))
   nT <- length(levels(dd$PeptideID))
   nF <- length(levels(dd$FeatureID))
 
   prior <- list(
-    B = list(mu = matrix(0, nF + nA - 1, 1), V = diag(nF + nA - 1) * 1e+6),
+    B = list(mu = matrix(0, nF + nA-1 + nS-1, 1), V = diag(nF + nA-1 + nS-1) * 1e+6),
+    #B = list(mu = matrix(0, nF + nA-1, 1), V = diag(nF + nA-1) * 1e+6),
     G = list(
-      G1 = list(V = 1e+08, fix = 1),
+      #G1 = list(V = 1e+08, fix = 1),
       #G1 = list(V = priors$protein.V, nu = priors$protein.nu),
       #G1 = list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2),
-      #G2 = list(V = priors$peptide.V * diag(nT), nu = priors$peptide.nu)
-      G2 = list(V = diag(nT), nu = nT, alpha.mu = rep(0, nT),  alpha.V = diag(25^2, nT))
+      G1 = list(V = priors$peptide.V * diag(nT), nu = priors$peptide.nu)
+      #G1 = list(V = diag(nT), nu = nT, alpha.mu = rep(0, nT),  alpha.V = diag(25^2, nT))
     ),
-    #R = list(V = priors$feature.V * diag(nF), nu = priors$feature.nu)
-    R = list(V = diag(nF), nu = 0.02)
+    R = list(V = priors$feature.V * diag(nF), nu = priors$feature.nu)
+    #R = list(V = diag(nF), nu = 0.02)
   )
   prior$B$mu[(nF + 1):(nF + nA - 1)] <- dd.assay.exposures$median[2:nrow(dd.assay.exposures)]
   diag(prior$B$V)[(nF + 1):(nF + nA - 1)] <- dd.assay.exposures$mad[2:nrow(dd.assay.exposures)]^2
@@ -66,8 +69,10 @@ output <- foreach(i = which(!is.na(dd.proteins$model.row0)), .combine = rbindlis
   output <- list()
   output$dd.summary <- as.character(Sys.time())
   output$dd.timing <- system.time(model <- (MCMCglmm::MCMCglmm(
-    as.formula(paste(ifelse(is.null(dd$MaxCount), "Count", "c(Count, MaxCount)"), "~ ", ifelse(nF==1, "", "FeatureID-1 +"), " AssayID")),
-    random = as.formula(paste0("~ SampleID +", ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":DigestID")),
+    #as.formula(paste(ifelse(is.null(dd$MaxCount), "Count", "c(Count, MaxCount)"), "~ ", ifelse(nF==1, "", "FeatureID-1 +"), "+ AssayID")),
+    as.formula(paste(ifelse(is.null(dd$MaxCount), "Count", "c(Count, MaxCount)"), "~ ", ifelse(nF==1, "", "FeatureID-1 +"), "+ AssayID + C(SampleID, \"contr.sum\")")),
+    #random = as.formula(paste0("~ SampleID +", ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":DigestID")),
+    random = as.formula(paste0("~ ", ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":DigestID")),
     rcov = as.formula(paste0("~ ", ifelse(nF==1, "AssayID", "idh(FeatureID):AssayID"))),
     family = ifelse(is.null(dd$MaxCount), "poisson", "cenpoisson"), data = dd, prior = prior, singular.ok = T,
     nitt = nitt, burnin = params$model.nwarmup, thin = params$model.thin, pr = T, verbose = F
@@ -76,14 +81,23 @@ output <- foreach(i = which(!is.na(dd.proteins$model.row0)), .combine = rbindlis
   output$dd.summary <- data.table(ProteinID = dd[1, ProteinID], Summary = paste(c(output$dd.summary, capture.output(print(summary(model))), as.character(Sys.time())), collapse = "\n"))
 
   # extract protein quants
-  output$dd.protein.quants <- as.data.table(model$Sol[, grep("^SampleID\\.[0-9]+$", colnames(model$Sol)), drop = F])
+  output$dd.protein.quants <- as.matrix(model$Sol[, grep("^C\\(SampleID, \\\"contr.sum\\\"\\)[0-9]+$", colnames(model$Sol)), drop = F])
+  output$dd.protein.quants <- as.data.table(output$dd.protein.quants %*% t(contr.sum(levels(dd$SampleID))))
   output$dd.protein.quants[, mcmcID := factor(formatC(1:nrow(output$dd.protein.quants), width = ceiling(log10(nrow(output$dd.protein.quants))) + 1, format = "d", flag = "0"))]
   output$dd.protein.quants <- melt(output$dd.protein.quants, variable.name = "SampleID", id.vars = "mcmcID")
   output$dd.protein.quants[, ProteinID := dd[1, ProteinID]]
   output$dd.protein.quants[, SampleID := factor(sub("^SampleID\\.", "", SampleID))]
   setcolorder(output$dd.protein.quant, c("ProteinID", "SampleID"))
 
-  # mean centre (testing)
+  # output$dd.protein.quants <- as.data.table(model$Sol[, grep("^SampleID[0-9]+$", colnames(model$Sol)), drop = F])
+  # output$dd.protein.quants[, paste0("SampleID", levels(dd$AssayID)[!paste0("SampleID", levels(dd$AssayID)) %in% colnames(output$dd.protein.quants)]) := 0]
+  # output$dd.protein.quants[, mcmcID := factor(formatC(1:nrow(output$dd.protein.quants), width = ceiling(log10(nrow(output$dd.protein.quants))) + 1, format = "d", flag = "0"))]
+  # output$dd.protein.quants <- melt(output$dd.protein.quants, variable.name = "SampleID", id.vars = "mcmcID")
+  # output$dd.protein.quants[, ProteinID := dd[1, ProteinID]]
+  # output$dd.protein.quants[, SampleID := factor(sub("^SampleID", "", SampleID))]
+  # setcolorder(output$dd.protein.quant, c("ProteinID", "SampleID"))
+
+  # mean centre (required if a fixed effect or if fixed)
   output$dd.protein.quants[, value := value - mean(value), by = mcmcID]
 
   # extract peptide deviations from protein quants

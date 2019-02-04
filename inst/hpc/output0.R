@@ -67,6 +67,7 @@ refs <- dd.assays[ref == T, AssayID]
 mean.refs <- function(AssayID, value) mean(value[AssayID %in% refs])
 dd.assay.exposures <- rbindlist(lapply(chains, function(chain) {
   dd <- fst::read.fst(file.path(prefix, paste0("protein.quants.", chain, ".fst")), as.data.table = T)
+  dd <- merge(dd, dd.proteins[, .(ProteinID, norm)])[norm == T, -"norm"]
   # add zeros for baselines
   dd <- rbind(dd, dd[, .(AssayID = BaselineID, value = 0.0), by = .(ProteinID, BaselineID, mcmcID)])
   dd[, AssayID := factor(AssayID, levels = levels(dd.assays$AssayID))]

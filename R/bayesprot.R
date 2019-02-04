@@ -8,6 +8,7 @@
 #' @param assay.conditions = NULL,
 #' @param de.paired .
 #' @param de.mcmc .
+#' @param norm .
 #' @param missing .
 #' @param plots .
 #' @param model0.min.npeptide .
@@ -38,6 +39,7 @@ bayesprot <- function(dd,
   assay.conditions = NULL,
   de.paired = F,
   de.mcmc = F,
+  norm = T,
   missing = "censored",
   plots = F,
   model0.min.npeptide = 3,
@@ -72,6 +74,7 @@ bayesprot <- function(dd,
    assay.conditions = assay.conditions,
    de.paired = de.paired,
    de.mcmc = de.mcmc,
+   norm = norm,
    missing = missing,
    plots = plots,
    model0.min.npeptide = model0.min.npeptide,
@@ -94,4 +97,7 @@ bayesprot <- function(dd,
   )
 
   source(system.file("hpc/serial.R", package = "bayesprot"), local = T)
+
+  class(id) <- "bayesprot"
+  return(id)
 }
