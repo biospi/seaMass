@@ -1,0 +1,28 @@
+Package: bayesprot
+Type: Package
+Title: Bayesian Protein-level Quantification for Proteomics
+Version: 1.2.0
+Authors@R: as.person(c(
+    "Andrew Dowsey <andrew.dowsey@bristol.ac.uk> [aut, cre]",
+    "Alexander Phillips <a.m.phillips@liverpool.ac.uk> [ctb]",
+    "Ranjeet Bhamber <ranjeet.bhamber@bristol.ac.uk> [ctb]"
+  ))
+Description: Bayesian mixed-effects modelling for protein-level differential analysis of quantitative mass spectrometry proteomics data.
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+Depends: R (>= 3.4.0)
+Imports: 
+    actuar (>= 2.3-1),
+    data.table (>= 1.11.4),
+    doSNOW (>= 1.0.16),
+    doRNG (>= 1.7.1),
+    fitdistrplus (>= 1.0-11),
+    fst (>= 0.8.8),
+    ggfortify (>= 0.4.5),
+    ggrepel (>= 0.8.0),
+    logKDE (>= 0.3.2),
+    MCMCglmm (>= 2.26),
+    robust (>= 0.4-18),
+    utf8 (>= 1.1.4)
+RoxygenNote: 6.1.1

@@ -1,14 +1,5 @@
-.DS_Store
+packrat/lib*/
+.Rproj.user
 .RData
 .Rhistory
-.Rproj.user
-submit/import/results
-submit/input
-submit/exposures/
-submit/import/
-submit/input/
-submit/model/
-submit/norm/
-submit/output/
-submit/plots/
-
+**/.DS_Store
