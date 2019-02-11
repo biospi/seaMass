@@ -5,11 +5,19 @@
 #' @import data.table
 #' @export
 
-import.ProteinPilot <- function(dd, only.used = T) {
+import.ProteinPilot <- function(dd, min.conf = "auto", filter = c("discordant peptide type", "no iTRAQ", "shared MS/MS", "weak signal")) {
   DT.raw <- setDT(dd)
 
   # make dataset smaller by only using those protein pilot specifies
-  if (only.used) DT.raw <- DT.raw[Used == 1,]
+  if (min.conf == "auto") {
+    min.conf <- DT.raw[Annotation == "auto", min(Conf)]
+  }
+  DT.raw <- DT.raw[Conf >= min.conf]
+
+  if ("discordant peptide type" %in% filter) DT.raw <- DT.raw[Annotation != "auto - discordant peptide type"]
+  if ("no iTRAQ" %in% filter) DT.raw <- DT.raw[Annotation != "auto - no iTRAQ"]
+  if ("shared MS/MS" %in% filter) DT.raw <- DT.raw[Annotation != "auto - shared MS/MS"]
+  if ("weak signal" %in% filter) DT.raw <- DT.raw[Annotation != "no quant - weak signal"]
 
   # filter out decoys
   DT.raw <- DT.raw[!grepl("^RRRRR.*", DT.raw$Accessions),]

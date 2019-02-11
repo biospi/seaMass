@@ -5,11 +5,7 @@
 #' @import data.table
 #' @export
 
-import.ProteomeDiscoverer <- function(datafile, dd.fractions) {
-  # read ProteomeDiscoverer PSMs
-  message(paste0("reading: ", datafile, "..."))
-  dd.raw <- fread(datafile)
-
+import.ProteomeDiscoverer <- function(dd.raw, dd.fractions) {
   # only use rows that ProteomeDiscoverer uses for quant (TODO: reconsider)
   dd.raw <- dd.raw[`Peptide Quan Usage` == "Use",]
   dd.raw <- dd.raw[`Quan Info` == "Unique",]
@@ -24,17 +20,10 @@ import.ProteomeDiscoverer <- function(datafile, dd.fractions) {
 
   # create wide data table
   dd.wide <- dd.raw[ , list(
-    Protein = factor(`Master Protein Accessions`),
-    Peptide = factor(paste(Sequence, ":", Modifications)),
-    Assay = Run
-  )]
-
-  # create wide data table
-  dd.wide <- dd.raw[ , list(
+    ProteinRef = factor(`Protein Descriptions`),
     Protein = factor(`Master Protein Accessions`),
     Peptide = factor(paste(Sequence, ":", Modifications)),
     #Feature = factor(paste0(Charge, "+ ", Sequence, " : ", Modifications)), # SILAC would benefit from matching features across runs... maybe
-
     Feature = factor(paste(`Spectrum File`, ":", `First Scan`)),
     Assay = Run
   )]
