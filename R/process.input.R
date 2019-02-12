@@ -25,7 +25,7 @@ process.input <- function(dd,
   #}
 
   # remove output if exists
-  if (file.exists(id)) unlink(id, recursive = T)
+  if (file.exists(id)) stop("folder already exists - please try again with a different id or delete the folder")
 
   # read params
   params <- list(...)

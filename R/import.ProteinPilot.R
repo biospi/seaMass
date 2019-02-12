@@ -5,7 +5,7 @@
 #' @import data.table
 #' @export
 
-import.ProteinPilot <- function(dd, min.conf = "auto", filter = c("discordant peptide type", "no iTRAQ", "shared MS/MS", "weak signal")) {
+import.ProteinPilot <- function(dd, dd.fractions = NULL, min.conf = "auto", filter = c("discordant peptide type", "no iTRAQ", "shared MS/MS", "weak signal")) {
   DT.raw <- setDT(dd)
 
   # make dataset smaller by only using those protein pilot specifies
@@ -23,8 +23,12 @@ import.ProteinPilot <- function(dd, min.conf = "auto", filter = c("discordant pe
   DT.raw <- DT.raw[!grepl("^RRRRR.*", DT.raw$Accessions),]
 
   # split spectrum to get at fraction and then merge with fractions table
-  DT.raw <- cbind(DT.raw, matrix(unlist(strsplit(as.character(DT.raw$Spectrum), ".", fixed = T)), ncol = 5, byrow = T))
-  DT.raw$Fraction <- as.numeric(DT.raw$V1)
+  if (!is.null(dd.fractions)) {
+    DT.raw[, Fraction := as.integer(matrix(unlist(strsplit(as.character(DT.raw$Spectrum), ".", fixed = T)), ncol = 5, byrow = T)[, 1])]
+    DT.raw <- merge(DT.raw, setDT(dd.fractions), by = "Fraction")
+  } else {
+    DT.raw[, Run := "A"]
+  }
 
   # create wide data table
   if(!("ProteinModifications" %in% colnames(DT.raw))) DT.raw[, ProteinModifications := ""]
@@ -33,7 +37,7 @@ import.ProteinPilot <- function(dd, min.conf = "auto", filter = c("discordant pe
     Protein = factor(Accessions),
     Peptide = factor(paste(Sequence, ":", Modifications, ":", ProteinModifications, ":", Cleavages)),
     Feature = Spectrum,
-    Assay = "Label"
+    Assay = Run
   )]
   DT[, Feature := paste(as.character(Feature), 1:.N, sep = ":"), by = Feature] # rename duplicate features
   DT[, Feature := factor(Feature)]
