@@ -2,77 +2,82 @@
 % Please edit documentation in R/bayesprot.R
 \name{bayesprot}
 \alias{bayesprot}
-\title{Bayesian Protein-level modelification for Proteomics}
+\title{Fit the BayesProt Bayesian Protein-level quantification model}
 \usage{
-bayesprot(dd, id = "bayesprot", assay.refs = levels(dd$Assay),
-  assay.digests = levels(dd$Assay), assay.samples = levels(dd$Assay),
-  assay.conditions = NULL, de.paired = F, de.mcmc = F,
-  missing = "censored", plots = F, model0.min.npeptide = 2,
-  model0.nsample = 1024, model0.nwarmup = 256, model0.thin = 1,
-  model0.nchain = 1, model0.seed = 0, model.nsample = 1024,
-  model.nwarmup = 256, model.thin = 1, model.nchain = 1,
-  model.seed = 0, qprot = F, qprot.path = "",
-  qprot.nsample = 10000, qprot.nwarmup = 2000, qprot.seed = 0,
-  nthread = parallel::detectCores())
+bayesprot(data, output = "bayesprot", assay.refs = levels(data$Assay),
+  assay.samples = levels(data$Assay), assay.conditions = NULL,
+  normalisation.model = "cov.rob",
+  normalisation.proteins = levels(data$Protein), protein.prior = 1e+06,
+  peptide.model = "independent", peptide.prior = "empirical",
+  feature.model = "independent", feature.prior = "empirical",
+  error.model = "poisson", missingness.model = "censored",
+  missingness.threshold = 0, plots = F, model0.npeptide = 3,
+  model0.seed = 0, model0.nchain = 1, model0.nwarmup = 256,
+  model0.thin = 1, model0.nsample = 1024, model.seed = 0,
+  model.nchain = 1, model.nwarmup = 256, model.thin = 1,
+  model.nsample = 1024, nthread = parallel::detectCores(),
+  hpc = NULL)
 }
 \arguments{
-\item{dd}{dataset returned by a bayesprot::import.() function}
+\item{data}{Dataset returned by a `bayesprot::import...()` function}
 
-\item{id}{path and filename for the output files (if path omitted, current working directory is used)}
+\item{output}{Directory to store all intermediate and output data}
 
-\item{assay.refs}{= levels(dd$Assay),}
+\item{assay.refs}{Reference assays - default is all assays, but this is only valid if the study is label-free or blocked across runs appropriately}
 
-\item{assay.digests}{= levels(dd$Assay),}
+\item{assay.samples}{Mapping between assays and samples; default is a one-to-one mapping.}
 
-\item{assay.samples}{= levels(dd$Assay),}
+\item{assay.conditions}{Mapping between assays and conditions for optional differential expression analysis}
 
-\item{assay.conditions}{= NULL,}
+\item{normalisation.model}{Either NULL (no normalisation), `median` or `cov.rob`}
 
-\item{de.paired}{.}
+\item{normalisation.proteins}{Proteins to use in the normalisation; default is all proteins}
 
-\item{de.mcmc}{.}
+\item{peptide.model}{Either NULL (no peptide model), `single` (single random effect) or `independent` (per-peptide independent random effects; default)}
 
-\item{missing}{.}
+\item{peptide.prior}{Either NULL (uninformative) or `empirical` (empirical Bayes; default).}
 
-\item{plots}{.}
+\item{feature.model}{Either `single` (single residual) or `independent` (per-feature independent residuals; default)}
 
-\item{model0.min.npeptide}{.}
+\item{feature.prior}{Either NULL (uninformative) or `empirical` (empirical Bayes; default)}
 
-\item{model0.nsample}{.}
+\item{error.model}{Either `lognormal` or `poisson` (default)}
 
-\item{model0.nwarmup}{.}
+\item{missingness.model}{Either `zero` (NAs set to 0), `feature` (NAs set to lowest quant of that feature) or `censored` (NAs modelled as censored between 0 and lowest quant of that feature; default)}
 
-\item{model0.thin}{.}
+\item{missingness.threshold}{All feature quants below this are treated as missing}
 
-\item{model0.nchain}{.}
+\item{plots}{Generate all plots (todo)}
 
-\item{model0.seed}{.}
+\item{model0.npeptide}{Empirical Bayes model: Proteins with less than this number of peptides are not considered}
 
-\item{model.nsample}{.}
+\item{model0.seed}{Empirical Bayes model: Random numnber seed}
 
-\item{model.nwarmup}{.}
+\item{model0.nchain}{Empirical Bayes model: Number of MCMC chains to run}
 
-\item{model.thin}{.}
+\item{model0.nwarmup}{Empirical Bayes model: Number of MCMC warmup iterations to run for each chain}
 
-\item{model.nchain}{.}
+\item{model0.thin}{Empirical Bayes model: MCMC thinning factor}
 
-\item{model.seed}{.}
+\item{model0.nsample}{Empirical Bayes model: Total number of MCMC samples to generate}
 
-\item{qprot}{= .}
+\item{model.seed}{Full BayesProt model: Random numnber seed}
 
-\item{qprot.path}{.}
+\item{model.nchain}{Full BayesProt model: Number of MCMC chains to run}
 
-\item{qprot.nsample}{.}
+\item{model.nwarmup}{Full BayesProt model: Number of MCMC warmup iterations to run for each chain}
 
-\item{qprot.nwarmup}{.}
+\item{model.thin}{Full BayesProt model: MCMC thinning factor}
 
-\item{qprot.seed}{.}
+\item{model.nsample}{Full BayesProt model: Total number of MCMC samples to generate}
 
-\item{nthread}{.}
+\item{nthread}{Number of CPU threads to employ}
+
+\item{hpc}{Either NULL (execute locally), `pbs`, `sge`, `slurm` (submit to HPC cluster) or `remote` (zip up output for manual transfer to HPC cluster)}
 }
 \value{
-Lots of interesting stuff.
+A BayesProt fit object that can be interrogated for various results (todo)
 }
 \description{
-Bayesian Protein-level modelification for Proteomics
+Fit the BayesProt Bayesian Protein-level quantification model
 }

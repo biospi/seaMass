@@ -275,17 +275,17 @@ ggplot2::ggsave(file.path(stats.dir, "sample_pca.pdf"), g, width=8, height=8, li
 dd.peptide.deviations <- rbindlist(lapply(chains, function(chain) {
   fst::read.fst(file.path(prefix, paste0("peptide.deviations.", chain, ".fst")), as.data.table = T)
 }))
-dd.peptide.deviations <- dd.peptide.deviations[, .(median = median(value) / log(2), mad = mad(value) / log(2)), by = .(ProteinID, PeptideID, DigestID)]
-dd.peptide.deviations <- merge(dd.assays[, .(DigestID, Digest)], dd.peptide.deviations, by = "DigestID")
+dd.peptide.deviations <- dd.peptide.deviations[, .(median = median(value) / log(2), mad = mad(value) / log(2)), by = .(ProteinID, PeptideID, SampleID)]
+dd.peptide.deviations <- merge(dd.assays[, .(SampleID, Sample)], dd.peptide.deviations, by = "SampleID")
 
-dd.peptide.deviations.stdevs <- dcast(dd.peptide.deviations, ProteinID + PeptideID ~ Digest, value.var = "mad")
+dd.peptide.deviations.stdevs <- dcast(dd.peptide.deviations, ProteinID + PeptideID ~ Sample, value.var = "mad")
 colnames(dd.peptide.deviations.stdevs)[3:ncol(dd.peptide.deviations.stdevs)] <- paste0("log2:", colnames(dd.peptide.deviations.stdevs)[3:ncol(dd.peptide.deviations.stdevs)])
 dd.peptide.deviations.stdevs <- merge(dd.peptides, dd.peptide.deviations.stdevs, by = "PeptideID")
 setcolorder(dd.peptide.deviations.stdevs, "ProteinID")
 fwrite(dd.peptide.deviations.stdevs, file.path(stats.dir, "peptide_deviations_mad.csv"))
 rm(dd.peptide.deviations.stdevs)
 
-dd.peptide.deviations <- dcast(dd.peptide.deviations, ProteinID + PeptideID ~ Digest, value.var = "median")
+dd.peptide.deviations <- dcast(dd.peptide.deviations, ProteinID + PeptideID ~ Sample, value.var = "median")
 colnames(dd.peptide.deviations)[3:ncol(dd.peptide.deviations)] <- paste0("log2:", colnames(dd.peptide.deviations)[3:ncol(dd.peptide.deviations)])
 dd.peptide.deviations <- merge(dd.peptides, dd.peptide.deviations, by = "PeptideID")
 setcolorder(dd.peptide.deviations, "ProteinID")

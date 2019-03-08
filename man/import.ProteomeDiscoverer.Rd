@@ -4,7 +4,7 @@
 \alias{import.ProteomeDiscoverer}
 \title{Add together two numbers.}
 \usage{
-import.ProteomeDiscoverer(datafile, dd.fractions)
+import.ProteomeDiscoverer(dd.raw, dd.fractions)
 }
 \arguments{
 \item{datafile}{A number.}

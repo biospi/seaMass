@@ -8,8 +8,8 @@ message(paste0("[", Sys.time(), "] MODEL0 started, chain=", chain))
 # load metadata
 prefix <- ifelse(file.exists("params.rds"), ".", file.path("..", "..", "input"))
 params <- readRDS(file.path(prefix, "params.rds"))
-dd.assays <- fst::read.fst(file.path(prefix, "assays.fst"), as.data.table = T)
-dd.proteins <- fst::read.fst(file.path(prefix, "proteins.fst"), as.data.table = T)[!is.na(model0.row0),]
+DT.assays <- fst::read.fst(file.path(prefix, "assays.fst"), as.data.table = T)
+DT.proteins <- fst::read.fst(file.path(prefix, "proteins.fst"), as.data.table = T)[nPeptide >= params$model0.npeptide]
 nitt <- params$model0.nwarmup + (params$model0.nsample * params$model0.thin) / params$model0.nchain
 
 # start cluster and reproducible seed
@@ -24,96 +24,153 @@ rbindlistlist <- function(...) {
   for (j in names(input[[1]])) input[[1]][[j]] <- rbindlist(lapply(1:length(input), function(i) input[[i]][[j]]))
   input[[1]]
 }
-message(paste0("[", Sys.time(), "]  modelling nprotein=", sum(!is.na(dd.proteins$model0.row0)), " nitt=", nitt, "..."))
-pb <- txtProgressBar(max = sum(!is.na(dd.proteins$model.row0)), style = 3)
-output <- foreach(i = which(!is.na(dd.proteins$model0.row0)), .combine = rbindlistlist, .multicombine = T, .packages = "data.table", .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
-  # prepare dd for MCMCglmm
-  dd <- fst::read.fst(file.path(prefix, "data0.fst"), as.data.table = T, from = dd.proteins[i, model0.row0], to = dd.proteins[i, model0.row1])
-  dd <- droplevels(dd)
-  dd[, Count := round(Count)]
-  if (!is.null(dd$MaxCount)) dd[, MaxCount := round(MaxCount)]
+message(paste0("[", Sys.time(), "]  modelling nprotein=", nrow(DT.proteins), " nitt=", nitt, "..."))
+pb <- txtProgressBar(max = nrow(DT.proteins), style = 3)
+output <- foreach(i = 1:nrow(DT.proteins), .combine = rbindlistlist, .multicombine = T, .packages = "data.table", .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
+  # prepare DT for MCMCglmm
+  DT <- fst::read.fst(file.path(prefix, "data.fst"), as.data.table = T, from = DT.proteins[i, row], to = DT.proteins[i, row1])
+  DT <- droplevels(DT)
+  DT[, Count := round(Count)]
+  if (!is.null(DT$Count1)) DT[, Count1 := round(Count1)]
 
   # create co-occurence matrix of which assays are present in each feature
-  dd[, BaselineID := AssayID]
-  mat.tmp <- merge(dd, dd, by = "FeatureID", allow.cartesian = T)
+  DT[, BaselineID := AssayID]
+  mat.tmp <- merge(DT, DT, by = "FeatureID", allow.cartesian = T)
   mat.tmp <- table(mat.tmp[, list(AssayID.x, AssayID.y)])
   # matrix multiplication distributes assay relationships
   mat.tmp <- mat.tmp %*% mat.tmp
   # ignore columns that are not in ref.assays
-  mat.tmp[!dd.assays[AssayID %in% colnames(mat.tmp), ref],] <- NA
+  mat.tmp[!DT.assays[AssayID %in% colnames(mat.tmp), ref],] <- NA
   # baseline is first non-zero occurence for each assay
-  dd[, BaselineID := colnames(mat.tmp)[apply(mat.tmp != 0, 2, which.max)][AssayID]]
+  DT[, BaselineID := colnames(mat.tmp)[apply(mat.tmp != 0, 2, which.max)][AssayID]]
   rm(mat.tmp)
-  dd[, QuantID := as.character(interaction(dd$AssayID, dd$BaselineID, lex.order = T, drop = T))]
+  DT[, QuantID := as.character(interaction(DT$AssayID, DT$BaselineID, lex.order = T, drop = T))]
   # and now merge where the assayID and the baselineID are the same, as these effects are not identifiable
-  dd[AssayID == BaselineID, QuantID := "."]
-  dd[, QuantID := factor(QuantID)]
-  setcolorder(dd, c("PeptideID", "FeatureID", "AssayID", "DigestID", "QuantID"))
+  DT[AssayID == BaselineID, QuantID := "."]
+  DT[, QuantID := factor(QuantID)]
+  setcolorder(DT, c("PeptideID", "FeatureID", "AssayID", "SampleID", "QuantID"))
 
-  #set prior and run model
-  nQ <- length(levels(dd$QuantID))
-  nT <- length(levels(dd$PeptideID))
-  nF <- length(levels(dd$FeatureID))
+  nQ <- length(levels(DT$QuantID))
+  nT <- length(levels(DT$PeptideID))
+  nF <- length(levels(DT$FeatureID))
 
-  prior <- list(
-    G = list(
-      G1 = list(V = diag(nT), nu = nT, alpha.mu = rep(0, nT), alpha.V = diag(25^2, nT))
-    ),
-    R = list(V = diag(nF), nu = 0.02)
-  )
+  # fixed effects
+  fixed <- as.formula(paste(ifelse(is.null(DT$Count1), "Count", "c(Count, Count1)"), "~ ", ifelse(nF == 1, "", "FeatureID-1 +"), " QuantID"))
 
+  # random effect
+  if (is.null(params$peptide.model)) {
+    random <- NULL
+    prior.random <- NULL
+  } else if (params$peptide.model == "single") {
+    random <- as.formula("~PeptideID")
+    prior.random <- list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2)
+  } else {
+    random <- as.formula(paste0("~", ifelse(nT == 1, "PeptideID", "idh(PeptideID)"), ":SampleID"))
+    prior.random <- list(V = diag(nT), nu = nT, alpha.mu = rep(0, nT), alpha.V = diag(25^2, nT))
+  }
+
+  # residual
+  if (params$feature.model == "single") {
+    rcov <- as.formula("~units")
+    prior.rcov <- list(V = 1, nu = 0.02)
+  } else {
+    rcov <- as.formula(paste0("~", ifelse(nF == 1, "AssayID", "idh(FeatureID):AssayID")))
+    prior.rcov <- list(V = diag(nF), nu = 0.02)
+  }
+
+  # family
+  if (params$error.model == "lognormal") {
+    DT$Count <- log(DT$Count)
+    if(is.null(DT$Count1)) {
+      family <- "gaussian"
+    } else {
+      DT[, Count1 := log(Count1)]
+    }
+  } else {
+    if(is.null(DT$Count1)) {
+      family <- "poisson"
+    } else {
+      family <- "cenpoisson"
+    }
+  }
+
+  # prior
+  if (is.null(prior.random)) {
+    prior <- list(R = prior.rcov)
+  } else {
+    prior <- list(G = list(G1 = prior.random), R = prior.rcov)
+  }
+
+  # model
   output <- list()
-  output$dd.summary <- as.character(Sys.time())
-  output$dd.timing <- system.time(model <- (MCMCglmm::MCMCglmm(
-    as.formula(paste(ifelse(is.null(dd$MaxCount), "Count", "c(Count, MaxCount)"), "~ ", ifelse(nF==1, "", "FeatureID-1 +"), " QuantID")),
-    random = as.formula(paste0("~ ", ifelse(nT==1, "PeptideID", "idh(PeptideID)"), ":DigestID")),
-    rcov = as.formula(paste0("~ ", ifelse(nF==1, "AssayID", "idh(FeatureID):AssayID"))),
-    family = ifelse(is.null(dd$MaxCount), "poisson", "cenpoisson"), data = dd, prior = prior,
+  output$DT.summary <- as.character(Sys.time())
+  output$DT.timing <- system.time(model <- (MCMCglmm::MCMCglmm(
+    fixed, random, rcov, family, data = DT, prior = prior,
     nitt = nitt, burnin = params$model0.nwarmup, thin = params$model0.thin, pr = T, verbose = F
   )))
-  output$dd.timing <- data.table(ProteinID = dd[1, ProteinID], as.data.table(t(as.matrix(output$dd.timing))))
+  output$DT.timing <- data.table(ProteinID = DT[1, ProteinID], as.data.table(t(as.matrix(output$DT.timing))))
   options(max.print = 99999)
-  output$dd.summary <- data.table(ProteinID = dd[1, ProteinID], Summary = paste(c(output$dd.summary, capture.output(print(summary(model))), as.character(Sys.time())), collapse = "\n"))
+  output$DT.summary <- data.table(ProteinID = DT[1, ProteinID], Summary = paste(c(output$DT.summary, capture.output(print(summary(model))), as.character(Sys.time())), collapse = "\n"))
 
   if (length(colnames(model$Sol)[grep("^QuantID[0-9]+\\.[0-9]+$", colnames(model$Sol))]) != nQ - 1) {
     stop("Some contrasts were dropped unexpectedly")
   }
 
   # extract protein quants
-  output$dd.protein.quants <- as.data.table(model$Sol[, grep("^QuantID[0-9]+\\.[0-9]+$", colnames(model$Sol)), drop = F])
-  output$dd.protein.quants[, mcmcID := factor(formatC(1:nrow(output$dd.protein.quants), width = ceiling(log10(nrow(output$dd.protein.quants))) + 1, format = "d", flag = "0"))]
-  output$dd.protein.quants <- melt(output$dd.protein.quants, variable.name = "BaselineID", id.vars = "mcmcID")
-  output$dd.protein.quants[, ProteinID := dd[1, ProteinID]]
-  output$dd.protein.quants[, AssayID := factor(sub("^QuantID([0-9]+)\\.[0-9]+$", "\\1", BaselineID))]
-  output$dd.protein.quants[, BaselineID := factor(sub("^QuantID[0-9]+\\.([0-9]+)$", "\\1", BaselineID))]
-  setcolorder(output$dd.protein.quant, c("ProteinID", "AssayID", "BaselineID"))
+  output$DT.protein.quants <- as.data.table(model$Sol[, grep("^QuantID[0-9]+\\.[0-9]+$", colnames(model$Sol)), drop = F])
+  output$DT.protein.quants[, mcmcID := factor(formatC(1:nrow(output$DT.protein.quants), width = ceiling(log10(nrow(output$DT.protein.quants))) + 1, format = "d", flag = "0"))]
+  output$DT.protein.quants <- melt(output$DT.protein.quants, variable.name = "BaselineID", id.vars = "mcmcID")
+  output$DT.protein.quants[, ProteinID := DT[1, ProteinID]]
+  output$DT.protein.quants[, AssayID := factor(sub("^QuantID([0-9]+)\\.[0-9]+$", "\\1", BaselineID))]
+  output$DT.protein.quants[, BaselineID := factor(sub("^QuantID[0-9]+\\.([0-9]+)$", "\\1", BaselineID))]
+  setcolorder(output$DT.protein.quant, c("ProteinID", "AssayID", "BaselineID"))
 
   # extract peptide deviations
-  output$dd.peptide.deviations <- as.data.table(model$Sol[, grep("^PeptideID[0-9]+\\.DigestID\\.[0-9]+$", colnames(model$Sol)), drop = F])
-  output$dd.peptide.deviations[, mcmcID := factor(formatC(1:nrow(output$dd.peptide.deviations), width = ceiling(log10(nrow(output$dd.peptide.deviations))) + 1, format = "d", flag = "0"))]
-  output$dd.peptide.deviations <- melt(output$dd.peptide.deviations, variable.name = "PeptideID", id.vars = "mcmcID")
-  output$dd.peptide.deviations[, DigestID := factor(sub("^PeptideID[0-9]+\\.DigestID\\.([0-9]+)$", "\\1", PeptideID))]
-  output$dd.peptide.deviations[, PeptideID := factor(sub("^PeptideID([0-9]+)\\.DigestID\\.([0-9]+)$", "\\1", PeptideID))]
-  output$dd.peptide.deviations[, ProteinID := dd[1, ProteinID]]
-  setcolorder(output$dd.peptide.deviations, c("ProteinID", "PeptideID", "DigestID"))
+  if (!is.null(params$peptide.model) && params$peptide.model == "independent") {
+    output$DT.peptide.deviations <- as.data.table(model$Sol[, grep("^PeptideID[0-9]+\\.SampleID\\.[0-9]+$", colnames(model$Sol)), drop = F])
+    output$DT.peptide.deviations[, mcmcID := factor(formatC(1:nrow(output$DT.peptide.deviations), width = ceiling(log10(nrow(output$DT.peptide.deviations))) + 1, format = "d", flag = "0"))]
+    output$DT.peptide.deviations <- melt(output$DT.peptide.deviations, variable.name = "PeptideID", id.vars = "mcmcID")
+    output$DT.peptide.deviations[, SampleID := factor(sub("^PeptideID[0-9]+\\.SampleID\\.([0-9]+)$", "\\1", PeptideID))]
+    output$DT.peptide.deviations[, PeptideID := factor(sub("^PeptideID([0-9]+)\\.SampleID\\.([0-9]+)$", "\\1", PeptideID))]
+    output$DT.peptide.deviations[, ProteinID := DT[1, ProteinID]]
+    setcolorder(output$DT.peptide.deviations, c("ProteinID", "PeptideID", "SampleID"))
+  }
 
   model$Sol <- NULL
 
   # extract peptide variances
-  output$dd.peptide.vars <- as.data.table(model$VCV[, grep("^PeptideID[0-9]+\\.DigestID$", colnames(model$VCV)), drop = F])
-  output$dd.peptide.vars[, mcmcID := factor(formatC(1:nrow(output$dd.peptide.vars), width = ceiling(log10(nrow(output$dd.peptide.vars))) + 1, format = "d", flag = "0"))]
-  output$dd.peptide.vars <- melt(output$dd.peptide.vars, variable.name = "PeptideID", id.vars = "mcmcID")
-  output$dd.peptide.vars[, PeptideID := factor(sub("^PeptideID([0-9]+)\\.DigestID$", "\\1", PeptideID))]
-  output$dd.peptide.vars[, ProteinID := dd[1, ProteinID]]
-  setcolorder(output$dd.peptide.vars, c("ProteinID", "PeptideID"))
+  if (!is.null(params$peptide.model)) {
+    if (params$peptide.model == "single") {
+      output$DT.peptide.vars <- as.data.table(model$VCV[, "PeptideID", drop = F])
+      setnames(output$DT.peptide.vars, "PeptideID", "value")
+      output$DT.peptide.vars[, mcmcID := factor(formatC(1:nrow(output$DT.peptide.vars), width = ceiling(log10(nrow(output$DT.peptide.vars))) + 1, format = "d", flag = "0"))]
+      output$DT.peptide.vars[, ProteinID := DT[1, ProteinID]]
+      setcolorder(output$DT.peptide.vars, c("ProteinID", "mcmcID"))
+    } else {
+      output$DT.peptide.vars <- as.data.table(model$VCV[, grep("^PeptideID[0-9]+\\.SampleID$", colnames(model$VCV)), drop = F])
+      output$DT.peptide.vars[, mcmcID := factor(formatC(1:nrow(output$DT.peptide.vars), width = ceiling(log10(nrow(output$DT.peptide.vars))) + 1, format = "d", flag = "0"))]
+      output$DT.peptide.vars <- melt(output$DT.peptide.vars, variable.name = "PeptideID", id.vars = "mcmcID")
+      output$DT.peptide.vars[, PeptideID := factor(sub("^PeptideID([0-9]+)\\.SampleID$", "\\1", PeptideID))]
+      output$DT.peptide.vars[, ProteinID := DT[1, ProteinID]]
+      setcolorder(output$DT.peptide.vars, c("ProteinID", "PeptideID"))
+    }
+  }
 
   # extract feature variances
-  output$dd.feature.vars <- as.data.table(model$VCV[, grep("^FeatureID[0-9]+\\.AssayID$", colnames(model$VCV)), drop = F])
-  output$dd.feature.vars[, mcmcID := factor(formatC(1:nrow(output$dd.feature.vars), width = ceiling(log10(nrow(output$dd.feature.vars))) + 1, format = "d", flag = "0"))]
-  output$dd.feature.vars <- melt(output$dd.feature.vars, variable.name = "FeatureID", id.vars = "mcmcID")
-  output$dd.feature.vars[, FeatureID := factor(sub("^FeatureID([0-9]+)\\.AssayID$", "\\1", FeatureID))]
-  output$dd.feature.vars[, ProteinID := dd[1, ProteinID]]
-  setcolorder(output$dd.feature.vars, c("ProteinID", "FeatureID"))
+  if (params$feature.model == "single") {
+    output$DT.feature.vars <- as.data.table(model$VCV[, "units", drop = F])
+    setnames(output$DT.feature.vars, "units", "value")
+    output$DT.feature.vars[, mcmcID := factor(formatC(1:nrow(output$DT.feature.vars), width = ceiling(log10(nrow(output$DT.feature.vars))) + 1, format = "d", flag = "0"))]
+    output$DT.feature.vars[, ProteinID := DT[1, ProteinID]]
+    setcolorder(output$DT.feature.vars, c("ProteinID", "mcmcID"))
+  } else {
+    output$DT.feature.vars <- as.data.table(model$VCV[, grep("^FeatureID[0-9]+\\.AssayID$", colnames(model$VCV)), drop = F])
+    output$DT.feature.vars[, mcmcID := factor(formatC(1:nrow(output$DT.feature.vars), width = ceiling(log10(nrow(output$DT.feature.vars))) + 1, format = "d", flag = "0"))]
+    output$DT.feature.vars <- melt(output$DT.feature.vars, variable.name = "FeatureID", id.vars = "mcmcID")
+    output$DT.feature.vars[, FeatureID := factor(sub("^FeatureID([0-9]+)\\.AssayID$", "\\1", FeatureID))]
+    output$DT.feature.vars[, ProteinID := DT[1, ProteinID]]
+    setcolorder(output$DT.feature.vars, c("ProteinID", "FeatureID"))
+  }
 
   output
 }
@@ -122,12 +179,12 @@ close(pb)
 # write output
 message(paste0("[", Sys.time(), "]  writing output..."))
 chainID <- formatC(chain, width = ceiling(log10(params$model0.nchain + 1)) + 1, format = "d", flag = "0")
-fst::write.fst(output$dd.summary, paste0("summary.", chainID, ".fst"))
-fst::write.fst(output$dd.timing, paste0("timing.", chainID, ".fst"))
-fst::write.fst(output$dd.protein.quants, paste0("protein.quants.", chainID, ".fst"))
-fst::write.fst(output$dd.peptide.deviations, paste0("peptide.deviations.", chainID, ".fst"))
-fst::write.fst(output$dd.peptide.vars, paste0("peptide.vars.", chainID, ".fst"))
-fst::write.fst(output$dd.feature.vars, paste0("feature.vars.", chainID, ".fst"))
+fst::write.fst(output$DT.summary, paste0("summary.", chainID, ".fst"))
+fst::write.fst(output$DT.timing, paste0("timing.", chainID, ".fst"))
+fst::write.fst(output$DT.protein.quants, paste0("protein.quants.", chainID, ".fst"))
+if (!is.null(output$DT.peptide.deviations)) fst::write.fst(output$DT.peptide.deviations, paste0("peptide.deviations.", chainID, ".fst"))
+if (!is.null(output$DT.peptide.vars)) fst::write.fst(output$DT.peptide.vars, paste0("peptide.vars.", chainID, ".fst"))
+fst::write.fst(output$DT.feature.vars, paste0("feature.vars.", chainID, ".fst"))
 
 # stop cluster
 parallel::stopCluster(cl)
