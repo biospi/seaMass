@@ -11,9 +11,9 @@
 #' @param error.model Either `lognormal` or `poisson` (default)
 #' @param missingness.model Either `zero` (NAs set to 0), `feature` (NAs set to lowest quant of that feature) or `censored` (NAs modelled as censored between 0 and lowest quant of that feature; default)
 #' @param missingness.threshold All feature quants below this are treated as missing
-#' @param de.normalisation.model Differential Expression Analysis (optional): Use either NULL (no normalisation), `median` (median) or `cov.rob` (robust covariance estimation)
-#' @param de.normalisation.proteins Differential Expression Analysis (optional): Proteins to use in the normalisation; default is all proteins
-#' @param de.assay.conditions Differential Expression Analysis (optional): Mapping between assays and conditions
+#' @param normalisation.model Use either NULL (no normalisation), `median` (median) or `cov.rob` (robust covariance estimation)
+#' @param normalisation.proteins Proteins to use in the normalisation; default is all proteins
+#' @param de.sample.conditions Differential Expression Analysis (optional): Mapping between samples and conditions
 #' @param plots Generate all plots (todo)
 #' @param model0.npeptide Empirical Bayes model: Proteins with less than this number of peptides are not considered
 #' @param model0.seed Empirical Bayes model: Random numnber seed
@@ -26,7 +26,7 @@
 #' @param model.nwarmup Full BayesProt model: Number of MCMC warmup iterations to run for each chain
 #' @param model.thin Full BayesProt model: MCMC thinning factor
 #' @param model.nsample Full BayesProt model: Total number of MCMC samples to generate
-#' @param hpc Either NULL (execute locally), `pbs`, `sge`, `slurm` (submit to HPC cluster) or `remote` (zip up output for manual transfer to HPC cluster)
+#' @param hpc Either NULL (execute locally), `pbs`, `sge` or `slurm` (submit to HPC cluster)
 #' @param nthread Number of CPU threads to employ
 #' @return A BayesProt fit object that can be interrogated for various results (todo)
 #' @export
@@ -43,9 +43,9 @@ bayesprot <- function(
   error.model = "poisson",
   missingness.model = "censored",
   missingness.threshold = 0,
-  de.normalisation.model = "cov.rob",
-  de.normalisation.proteins = levels(data$Protein),
-  de.assay.conditions = NULL,
+  normalisation.model = "cov.rob",
+  normalisation.proteins = levels(data$Protein),
+  de.sample.conditions = NULL,
   plots = F,
   model0.npeptide = 3,
   model0.seed = 0,
@@ -84,8 +84,8 @@ bayesprot <- function(
   if (!is.null(hpc) && hpc != "pbs" && hpc != "sge" && hpc != "slurm" && hpc != "remote") {
     stop("'hpc' needs to be either 'pbs', 'sge', 'slurm', 'remote' or NULL (default)")
   }
-  if (!is.null(de.normalisation.model) && de.normalisation.model != "median" && de.normalisation.model != "cov.rob") {
-    stop("'de.normalisation.model' needs to be either NULL, 'median' or 'cov.rob' (default)")
+  if (!is.null(normalisation.model) && normalisation.model != "median" && normalisation.model != "cov.rob") {
+    stop("'normalisation.model' needs to be either NULL, 'median' or 'cov.rob' (default)")
   }
   if (!is.null(peptide.model) && peptide.model != "single" && peptide.model != "independent") {
     stop("'peptide.model' needs to be either NULL, 'single' or 'independent' (default)")
@@ -105,11 +105,11 @@ bayesprot <- function(
   if (!all(assay.samples %in% levels(DT$Assay))) {
     stop("all 'assay.samples' need to be in levels(data$Assay)")
   }
-  if (!is.null(de.assay.conditions) && !all(assay.samples %in% levels(DT$Assay))) {
-    stop("all 'de.assay.conditions' need to be in assay.samples")
+  if (!is.null(de.sample.conditions) && !all(assay.samples %in% levels(DT$Assay))) {
+    stop("all 'de.sample.conditions' need to be in assay.samples")
   }
-  if (!all(de.normalisation.proteins %in% levels(DT$Protein))) {
-    stop("all 'de.normalisation.proteins' need to be in levels(data$Protein)")
+  if (!all(normalisation.proteins %in% levels(DT$Protein))) {
+    stop("all 'normalisation.proteins' need to be in levels(data$Protein)")
   }
   if (!is.null(missingness.model) && missingness.model != "feature" && missingness.model != "censored") {
     stop("'missingname.model' needs to be either NULL, 'feature' or 'censored' (default)")
@@ -128,7 +128,7 @@ bayesprot <- function(
     nFeature = length(unique(as.character(Feature))),
     nMeasure = sum(!is.na(Count))
   ), by = Protein]
-  DT.proteins[, norm := Protein %in% as.character(de.normalisation.proteins)]
+  DT.proteins[, norm := Protein %in% as.character(normalisation.proteins)]
 
   # use pre-trained regression model to estimate how long each Protein will take to process in order to assign Proteins to batches
   # Intercept, nPeptide, nFeature, nPeptide^2, nFeature^2, nPeptide*nFeature
@@ -185,9 +185,9 @@ bayesprot <- function(
   if (!is.factor(DT.assays$Sample)) DT.assays[, Sample := factor(Sample)]
   DT.assays[, SampleID := factor(Sample, labels = formatC(1:length(levels(DT.assays$Sample)), width = ceiling(log10(length(levels(DT.assays$Sample)))) + 1, format = "d", flag = "0"))]
 
-  # de.assay.conditions
-  if (!is.null(de.assay.conditions)) {
-    DT.assays[, Condition := de.assay.conditions]
+  # de.sample.conditions
+  if (!is.null(de.sample.conditions)) {
+    DT.assays[, Condition := de.sample.conditions]
     if (!is.factor(DT.assays$Condition)) DT.assays[, Condition := factor(Condition)]
     DT.assays[, ConditionID := factor(Condition, labels = formatC(1:length(levels(DT.assays$Condition)), width = ceiling(log10(length(levels(DT.assays$Condition)))) + 1, format = "d", flag = "0"))]
   }
@@ -222,7 +222,7 @@ bayesprot <- function(
   saveRDS(params, file.path(output, "input", "params.rds"))
   fst::write.fst(DT, file.path(output, "input", "data.fst"))
   fst::write.fst(DT.proteins, file.path(output, "input", "proteins.fst"))
-  fst::write.fst(DT.peptides, file.path(output, "input", "peptoutputes.fst"))
+  fst::write.fst(DT.peptides, file.path(output, "input", "peptides.fst"))
   fst::write.fst(DT.features, file.path(output, "input", "features.fst"))
   fst::write.fst(DT.assays, file.path(output, "input", "assays.fst"))
   fit <- normalizePath(output)
@@ -230,15 +230,34 @@ bayesprot <- function(
   message(paste0("[", Sys.time(), "] INPUT finished"))
 
   if (is.null(hpc)) {
-    source(system.file("hpc/serial.R", package = "bayesprot"), local = T)
-  } else {
-    if (hpc == "remote") {
-      zip(paste0(output, ".zip"), output, flags="-r9Xq")
-      unlink(output, recursive = T)
-      message(paste0("[", Sys.time(), "] HPC submission zip saved as ", paste0(output, ".zip")))
-    } else {
-      # submit to hpc directly here
+    wd <- getwd()
+
+    # run model0
+    setwd(file.path(wd, output, "model0", "results"))
+    sapply(1:params$model0.nchain, function(chain) process.model0(chain))
+
+    # run output0
+    setwd(file.path(wd, output, "output0", "results"))
+    process.output0()
+
+    # run model
+    setwd(file.path(wd, output, "model", "results"))
+    sapply(1:params$model0.nchain, function(chain) process.model(chain))
+
+    # run output
+    setwd(file.path(wd, output, "output", "results"))
+    process.output()
+
+    if (file.exists(file.path(output, "plots"))) {
+      # run plots
+      setwd(file.path(wd, output, "plots", "results"))
+      process.plots()
     }
+
+    setwd(wd)
+  } else {
+    # submit to hpc directly here
+    stop("not implemented yet")
   }
 
   # return fit object

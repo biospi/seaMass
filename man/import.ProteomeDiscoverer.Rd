@@ -2,16 +2,20 @@
 % Please edit documentation in R/import.ProteomeDiscoverer.R
 \name{import.ProteomeDiscoverer}
 \alias{import.ProteomeDiscoverer}
-\title{Add together two numbers.}
+\title{Import SCIEX ProteinPilot data.}
 \usage{
-import.ProteomeDiscoverer(dd.raw, dd.fractions)
+import.ProteomeDiscoverer(file = NULL, fractions = NULL, data = NULL)
 }
 \arguments{
-\item{datafile}{A number.}
+\item{file}{Location of the PeptideSummary.txt file.}
+
+\item{fractions}{If your study involves more than one multiplex, `fractions` defines a mapping from the fraction index to a run ID.}
+
+\item{data}{Advanced: Rather than specifying a `file`, you can enter an already loaded `data.frame` here.}
 }
 \value{
-The sum of \code{x} and \code{y}.
+A `data.table` formatted for input into `bayesprot`.
 }
 \description{
-Add together two numbers.
+`import.ProteinPilot` reads in a SCIEX ProteinPilot PeptideSummary.txt file for processing with BayesProt
 }

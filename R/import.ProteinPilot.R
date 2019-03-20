@@ -26,7 +26,7 @@ import.ProteinPilot <- function(
     if (is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
     DT.raw <- setDT(data)
   } else {
-    DT.raw <- fread(file = file, check.names = T, showProgress = T)
+    DT.raw <- fread(file = file, showProgress = T)
   }
 
   # filtering
@@ -51,20 +51,20 @@ import.ProteinPilot <- function(
   # create wide data table
   if(!("ProteinModifications" %in% colnames(DT.raw))) DT.raw[, ProteinModifications := ""]
   DT <- DT.raw[, .(
-    ProteinRef = N,
+    ProteinRef = paste0("[", N, "] ", Names),
     Protein = gsub(";", "", Accessions),
     Peptide = gsub(" ", "", paste0(Sequence, ",", Modifications, ",", ProteinModifications, ",", Cleavages), fixed = T),
     Feature = Spectrum,
     Assay = Run
   )]
-  if("Area.113" %in% colnames(DT.raw)) DT$Label.113 <- DT.raw$Area.113
-  if("Area.114" %in% colnames(DT.raw)) DT$Label.114 <- DT.raw$Area.114
-  if("Area.115" %in% colnames(DT.raw)) DT$Label.115 <- DT.raw$Area.115
-  if("Area.116" %in% colnames(DT.raw)) DT$Label.116 <- DT.raw$Area.116
-  if("Area.117" %in% colnames(DT.raw)) DT$Label.117 <- DT.raw$Area.117
-  if("Area.118" %in% colnames(DT.raw)) DT$Label.118 <- DT.raw$Area.118
-  if("Area.119" %in% colnames(DT.raw)) DT$Label.119 <- DT.raw$Area.119
-  if("Area.121" %in% colnames(DT.raw)) DT$Label.121 <- DT.raw$Area.121
+  if("Area 113" %in% colnames(DT.raw)) DT$Label.113 <- DT.raw$`Area 113`
+  if("Area 114" %in% colnames(DT.raw)) DT$Label.114 <- DT.raw$`Area 114`
+  if("Area 115" %in% colnames(DT.raw)) DT$Label.115 <- DT.raw$`Area 115`
+  if("Area 116" %in% colnames(DT.raw)) DT$Label.116 <- DT.raw$`Area 116`
+  if("Area 117" %in% colnames(DT.raw)) DT$Label.117 <- DT.raw$`Area 117`
+  if("Area 118" %in% colnames(DT.raw)) DT$Label.118 <- DT.raw$`Area 118`
+  if("Area 119" %in% colnames(DT.raw)) DT$Label.119 <- DT.raw$`Area 119`
+  if("Area 121" %in% colnames(DT.raw)) DT$Label.121 <- DT.raw$`Area 121`
 
   # group ambiguous PSMs so BayesProt treats them as a single peptide per protein
   DT[, Peptide := paste(sort(as.character(Peptide)), collapse = " "), by = .(Protein, Feature)]

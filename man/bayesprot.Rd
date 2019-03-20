@@ -5,13 +5,13 @@
 \title{Fit the BayesProt Bayesian Protein-level quantification model}
 \usage{
 bayesprot(data, output = "bayesprot", assay.refs = levels(data$Assay),
-  assay.samples = levels(data$Assay), assay.conditions = NULL,
+  assay.samples = levels(data$Assay), peptide.model = "independent",
+  peptide.prior = "empirical", feature.model = "independent",
+  feature.prior = "empirical", error.model = "poisson",
+  missingness.model = "censored", missingness.threshold = 0,
   normalisation.model = "cov.rob",
-  normalisation.proteins = levels(data$Protein), protein.prior = 1e+06,
-  peptide.model = "independent", peptide.prior = "empirical",
-  feature.model = "independent", feature.prior = "empirical",
-  error.model = "poisson", missingness.model = "censored",
-  missingness.threshold = 0, plots = F, model0.npeptide = 3,
+  normalisation.proteins = levels(data$Protein),
+  de.sample.conditions = NULL, plots = F, model0.npeptide = 3,
   model0.seed = 0, model0.nchain = 1, model0.nwarmup = 256,
   model0.thin = 1, model0.nsample = 1024, model.seed = 0,
   model.nchain = 1, model.nwarmup = 256, model.thin = 1,
@@ -27,12 +27,6 @@ bayesprot(data, output = "bayesprot", assay.refs = levels(data$Assay),
 
 \item{assay.samples}{Mapping between assays and samples; default is a one-to-one mapping.}
 
-\item{assay.conditions}{Mapping between assays and conditions for optional differential expression analysis}
-
-\item{normalisation.model}{Either NULL (no normalisation), `median` or `cov.rob`}
-
-\item{normalisation.proteins}{Proteins to use in the normalisation; default is all proteins}
-
 \item{peptide.model}{Either NULL (no peptide model), `single` (single random effect) or `independent` (per-peptide independent random effects; default)}
 
 \item{peptide.prior}{Either NULL (uninformative) or `empirical` (empirical Bayes; default).}
@@ -46,6 +40,12 @@ bayesprot(data, output = "bayesprot", assay.refs = levels(data$Assay),
 \item{missingness.model}{Either `zero` (NAs set to 0), `feature` (NAs set to lowest quant of that feature) or `censored` (NAs modelled as censored between 0 and lowest quant of that feature; default)}
 
 \item{missingness.threshold}{All feature quants below this are treated as missing}
+
+\item{normalisation.model}{Use either NULL (no normalisation), `median` (median) or `cov.rob` (robust covariance estimation)}
+
+\item{normalisation.proteins}{Proteins to use in the normalisation; default is all proteins}
+
+\item{de.sample.conditions}{Differential Expression Analysis (optional): Mapping between samples and conditions}
 
 \item{plots}{Generate all plots (todo)}
 
@@ -73,7 +73,7 @@ bayesprot(data, output = "bayesprot", assay.refs = levels(data$Assay),
 
 \item{nthread}{Number of CPU threads to employ}
 
-\item{hpc}{Either NULL (execute locally), `pbs`, `sge`, `slurm` (submit to HPC cluster) or `remote` (zip up output for manual transfer to HPC cluster)}
+\item{hpc}{Either NULL (execute locally), `pbs`, `sge` or `slurm` (submit to HPC cluster)}
 }
 \value{
 A BayesProt fit object that can be interrogated for various results (todo)
