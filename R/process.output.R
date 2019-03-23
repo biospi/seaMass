@@ -65,7 +65,7 @@ process.output <- function() {
     for (ct in 1:ncol(cts)) {
       ct1 <- unique(DT.assays[ConditionID == cts[1, ct], Condition])
       ct2 <- unique(DT.assays[ConditionID == cts[2, ct], Condition])
-      message(paste0("[", Sys.time(), "]  Diffential analysis for ", ct1, " vs ", ct2, "..."))
+      message(paste0("[", Sys.time(), "]  Differential analysis for ", ct1, " vs ", ct2, "..."))
 
       # t.tests.metafor
       contrast <- ifelse(DT.assays$ConditionID == cts[1, ct] | DT.assays$ConditionID == cts[2, ct], as.character(DT.assays$Condition), NA_character_)
@@ -77,13 +77,13 @@ process.output <- function() {
       ggplot2::ggsave(file.path(stats.dir, paste0("protein_log2DE_fdr__", ct1, "_vs_", ct2, ".pdf")), g, width = 8, height = 8)
 
       # t.tests on mcmc
-      DT.t.mcmc <- rbindlist(lapply(chains, function(chain) {
-        DT <- fst::read.fst(file.path(prefix, paste0("de.", cts[1, ct], "v", cts[2, ct], ".", chain, ".fst")), as.data.table = T)
-        DT[, chainID := factor(chain)]
-        DT
-      }))
-      g <- bayesprot::plot.fdr(DT.t.mcmc, 1.0)
-      ggplot2::ggsave(file.path(stats.dir, paste0("protein_log2DE_fdr__", ct1, "_vs_", ct2, "__mcmc.pdf")), g, width = 8, height = 8)
+      # DT.t.mcmc <- rbindlist(lapply(chains, function(chain) {
+      #   DT <- fst::read.fst(file.path(prefix, paste0("de.", cts[1, ct], "v", cts[2, ct], ".", chain, ".fst")), as.data.table = T)
+      #   DT[, chainID := factor(chain)]
+      #   DT
+      # }))
+      # g <- bayesprot::plot.fdr(DT.t.mcmc, 1.0)
+      # ggplot2::ggsave(file.path(stats.dir, paste0("protein_log2DE_fdr__", ct1, "_vs_", ct2, "__mcmc.pdf")), g, width = 8, height = 8)
     }
   }
 
@@ -107,15 +107,18 @@ process.output <- function() {
   DT.pca.assays <- ggplot2::fortify(pca.assays)
   DT.pca.assays <- cbind(DT.pca.assays, DT.assays)
 
+  if (is.null(DT.pca.assays$ConditionID)) DT.pca.assays$ConditionID <- "black"
   g <- ggplot2::autoplot(pca.assays, data = DT.pca.assays)
   g <- g + ggplot2::theme_bw()
   g <- g + ggplot2::theme(panel.border = ggplot2::element_rect(colour = "black", size = 1),
                           panel.grid.major = ggplot2::element_line(size = 0.5),
-                          strip.background = ggplot2::element_blank())
-  g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = Assay))
-  g <- g + ggplot2::theme(aspect.ratio=1) + ggplot2::coord_equal()
+                          strip.background = ggplot2::element_blank(),
+                          aspect.ratio = 1)
+  g <- g + ggplot2::coord_equal()
+  g <- g + geom_point(aes(colour = Condition))
+  g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = Assay, colour = Condition))
   if (!all(DT.assays$isRef)) g <- g + ggtitle(paste("ref.assays =", paste(DT.assays[isRef == T, Assay], collapse = "; ")))
-  ggplot2::ggsave(file.path(stats.dir, "assays_pca.pdf"), g, width=8, height=8, limitsize = F)
+  ggplot2::ggsave(file.path(stats.dir, "assays_pca.pdf"), g, width=12, height=12, limitsize = F)
 
 
   # THE REST

@@ -4,10 +4,13 @@
 t.tests.metafor <- function(data, contrast, threads = 16) {
   if (!is.factor(contrast)) contrast <- factor(contrast)
   DTs <- setDT(data)
+  DTs <- merge(DTs, data.table(AssayID = factor(levels(DTs$AssayID)), Condition = contrast), by = "AssayID")
+  DTs <- droplevels(DTs[complete.cases(DTs)])
+
   if (!is.null(DTs$mcmcID)) {
     DTs <- DTs[, .(est = median(value), SE = mad(value)^2), by = .(ProteinRef, Assay)]
   }
-  DTs <- merge(droplevels(DTs), data.table(AssayID = factor(levels(DTs$AssayID)), Condition = contrast), by = "AssayID")
+  DTs[, SE := ifelse(SE < 0.01, 0.01, SE)] # won't work if SE is 0
   DTs <- split(DTs, by = "ProteinRef")
 
   # start cluster and reproducible seed
