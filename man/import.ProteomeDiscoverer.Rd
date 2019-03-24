@@ -4,14 +4,14 @@
 \alias{import.ProteomeDiscoverer}
 \title{Import SCIEX ProteinPilot data.}
 \usage{
-import.ProteomeDiscoverer(file = NULL, fractions = NULL, data = NULL)
+import.ProteomeDiscoverer(file = NULL, data = NULL, data.runs = NULL)
 }
 \arguments{
 \item{file}{Location of the PeptideSummary.txt file.}
 
-\item{fractions}{If your study involves more than one multiplex, `fractions` defines a mapping from the fraction index to a run ID.}
-
 \item{data}{Advanced: Rather than specifying a `file`, you can enter an already loaded `data.frame` here.}
+
+\item{data.runs}{If your study involves more than one input file per run (i.e. because of fractionation) , `data.runs` defines a one-to-many mapping from column 'File' to column 'Run'.}
 }
 \value{
 A `data.table` formatted for input into `bayesprot`.

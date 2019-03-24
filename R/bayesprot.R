@@ -3,7 +3,9 @@
 #' @param data Dataset returned by a `bayesprot::import...()` function
 #' @param output Directory to store all intermediate and output data
 #' @param assay.refs Reference assays - default is all assays, but this is only valid if the study is label-free or blocked across runs appropriately
-#' @param assay.samples Mapping between assays and samples; default is a one-to-one mapping.
+#' @param data.design Study design (optional): A 'data.table' specifying study design for the assays. An 'Assay' column is required containing all the levels of 'data$Assay'. This can optionally have a many-to-one
+#'   relationship with a column 'Sample'. Assays sharing the same sample are assumed to be pure repeat injections (i.e. a single digestion). Assay can also optionally have a many-to-one relationship with a column
+#'   'Condition'. If present, differential expression analysis will be conducted between conditions in a pair-wise manner. Set condition as NA for assays you are not interested in (e.g. reference samples).
 #' @param peptide.model Either NULL (no peptide model), `single` (single random effect) or `independent` (per-peptide independent random effects; default)
 #' @param peptide.prior Either NULL (uninformative) or `empirical` (empirical Bayes; default).
 #' @param feature.model Either `single` (single residual) or `independent` (per-feature independent residuals; default)
@@ -13,7 +15,6 @@
 #' @param missingness.threshold All feature quants below this are treated as missing
 #' @param normalisation.model Use either NULL (no normalisation), `median` (median) or `cov.rob` (robust covariance estimation)
 #' @param normalisation.proteins Proteins to use in the normalisation; default is all proteins
-#' @param de.sample.conditions Differential Expression Analysis (optional): Mapping between samples and conditions
 #' @param plots Generate all plots (todo)
 #' @param model0.npeptide Empirical Bayes model: Proteins with less than this number of peptides are not considered
 #' @param model0.seed Empirical Bayes model: Random numnber seed
@@ -35,7 +36,7 @@ bayesprot <- function(
   data,
   output = "bayesprot",
   assay.refs = levels(data$Assay),
-  assay.samples = levels(data$Assay),
+  data.design = NULL,
   peptide.model = "independent",
   peptide.prior = "empirical",
   feature.model = "independent",
@@ -45,7 +46,6 @@ bayesprot <- function(
   missingness.threshold = 0,
   normalisation.model = "cov.rob",
   normalisation.proteins = levels(data$Protein),
-  de.sample.conditions = NULL,
   plots = F,
   model0.npeptide = 3,
   model0.seed = 0,
@@ -100,13 +100,10 @@ bayesprot <- function(
     stop("'feature.prior' needs to be either NULL or 'empirical' (default)")
   }
   if (!all(assay.refs %in% levels(DT$Assay))) {
-    stop("all 'assay.refs' need to be in levels(data$Assay)")
+    stop("all 'assay.refs' need to be in 'levels(data$Assay)'")
   }
-  if (!all(assay.samples %in% levels(DT$Assay))) {
-    stop("all 'assay.samples' need to be in levels(data$Assay)")
-  }
-  if (!is.null(de.sample.conditions) && !all(assay.samples %in% levels(DT$Assay))) {
-    stop("all 'de.sample.conditions' need to be in assay.samples")
+  if (!is.null(data.design) && !all(levels(DT$Assay) %in% data.design$Assay)) {
+    stop("all 'levels(data$Assay)' need to be in 'data.design'")
   }
   if (!all(normalisation.proteins %in% levels(DT$Protein))) {
     stop("all 'normalisation.proteins' need to be in levels(data$Protein)")
@@ -115,7 +112,7 @@ bayesprot <- function(
     stop("'missingname.model' needs to be either NULL, 'feature' or 'censored' (default)")
   }
   if (model.nchain == 1) {
-    message("WARNING: You are specifying only a single MCMC chain, convergance diagnostics will be unavailable. It is recommended to specify at least model.nchain=4 for publishable results.")
+    message("WARNING: You are specifying only a single MCMC chain, convergence diagnostics will be unavailable. It is recommended to specify at least model.nchain=4 for publishable results.")
   }
 
   # create input
@@ -180,14 +177,22 @@ bayesprot <- function(
   DT.assays[, AssayID := factor(formatC(1:nrow(DT.assays), width = ceiling(log10(nrow(DT.assays))) + 1, format = "d", flag = "0"))]
   setcolorder(DT.assays, c("AssayID"))
 
-  # assay.samples
-  DT.assays[, Sample := assay.samples]
-  if (!is.factor(DT.assays$Sample)) DT.assays[, Sample := factor(Sample)]
+  # data.design
+  if (!is.null(data.design)) {
+    DT.design <- setDT(data.design)
+    DT.assays <- merge(DT.assays, DT.design, by = "Assay")
+  }
+
+  # samples
+  if (is.null(DT.assays$Sample)) {
+    DT.assays[, Sample := Assay]
+  } else {
+    if (!is.factor(DT.assays$Sample)) DT.assays[, Sample := factor(Sample)]
+  }
   DT.assays[, SampleID := factor(Sample, labels = formatC(1:length(levels(DT.assays$Sample)), width = ceiling(log10(length(levels(DT.assays$Sample)))) + 1, format = "d", flag = "0"))]
 
-  # de.sample.conditions
-  if (!is.null(de.sample.conditions)) {
-    DT.assays[, Condition := de.sample.conditions]
+  # conditions
+  if (!is.null(DT.assays$Condition)) {
     if (!is.factor(DT.assays$Condition)) DT.assays[, Condition := factor(Condition)]
     DT.assays[, ConditionID := factor(Condition, labels = formatC(1:length(levels(DT.assays$Condition)), width = ceiling(log10(length(levels(DT.assays$Condition)))) + 1, format = "d", flag = "0"))]
   }

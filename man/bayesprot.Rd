@@ -5,18 +5,17 @@
 \title{Fit the BayesProt Bayesian Protein-level quantification model}
 \usage{
 bayesprot(data, output = "bayesprot", assay.refs = levels(data$Assay),
-  assay.samples = levels(data$Assay), peptide.model = "independent",
+  data.design = NULL, peptide.model = "independent",
   peptide.prior = "empirical", feature.model = "independent",
   feature.prior = "empirical", error.model = "poisson",
   missingness.model = "censored", missingness.threshold = 0,
   normalisation.model = "cov.rob",
-  normalisation.proteins = levels(data$Protein),
-  de.sample.conditions = NULL, plots = F, model0.npeptide = 3,
-  model0.seed = 0, model0.nchain = 1, model0.nwarmup = 256,
-  model0.thin = 1, model0.nsample = 1024, model.seed = 0,
-  model.nchain = 1, model.nwarmup = 256, model.thin = 1,
-  model.nsample = 1024, nthread = parallel::detectCores(),
-  hpc = NULL)
+  normalisation.proteins = levels(data$Protein), plots = F,
+  model0.npeptide = 3, model0.seed = 0, model0.nchain = 1,
+  model0.nwarmup = 256, model0.thin = 1, model0.nsample = 1024,
+  model.seed = 0, model.nchain = 1, model.nwarmup = 256,
+  model.thin = 1, model.nsample = 1024,
+  nthread = parallel::detectCores(), hpc = NULL)
 }
 \arguments{
 \item{data}{Dataset returned by a `bayesprot::import...()` function}
@@ -25,7 +24,9 @@ bayesprot(data, output = "bayesprot", assay.refs = levels(data$Assay),
 
 \item{assay.refs}{Reference assays - default is all assays, but this is only valid if the study is label-free or blocked across runs appropriately}
 
-\item{assay.samples}{Mapping between assays and samples; default is a one-to-one mapping.}
+\item{data.design}{Study design (optional): A 'data.table' specifying study design for the assays. An 'Assay' column is required containing all the levels of 'data$Assay'. This can optionally have a many-to-one
+relationship with a column 'Sample'. Assays sharing the same sample are assumed to be pure repeat injections (i.e. a single digestion). Assay can also optionally have a many-to-one relationship with a column
+'Condition'. If present, differential expression analysis will be conducted between conditions in a pair-wise manner. Set condition as NA for assays you are not interested in (e.g. reference samples).}
 
 \item{peptide.model}{Either NULL (no peptide model), `single` (single random effect) or `independent` (per-peptide independent random effects; default)}
 
@@ -44,8 +45,6 @@ bayesprot(data, output = "bayesprot", assay.refs = levels(data$Assay),
 \item{normalisation.model}{Use either NULL (no normalisation), `median` (median) or `cov.rob` (robust covariance estimation)}
 
 \item{normalisation.proteins}{Proteins to use in the normalisation; default is all proteins}
-
-\item{de.sample.conditions}{Differential Expression Analysis (optional): Mapping between samples and conditions}
 
 \item{plots}{Generate all plots (todo)}
 
