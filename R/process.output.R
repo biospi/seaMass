@@ -61,7 +61,7 @@ process.output <- function() {
   if (!is.null(DT.assays$ConditionID)) {
     DT.protein.quants <- merge(DT.proteins[, .(ProteinID, ProteinRef)], DT.protein.quants, by = "ProteinID")
 
-    cts <- combn(DT.assays[, length(unique(AssayID)) >= 2, by = ConditionID][V1 == T, ConditionID], 2)
+    cts <- combn(DT.assays[, length(unique(AssayID)) >= 2, by = ConditionID][V1 == T & !is.na(ConditionID), ConditionID], 2)
     for (ct in 1:ncol(cts)) {
       ct1 <- unique(DT.assays[ConditionID == cts[1, ct], Condition])
       ct2 <- unique(DT.assays[ConditionID == cts[2, ct], Condition])
@@ -88,8 +88,9 @@ process.output <- function() {
   }
 
   # write out
-  DT.protein.quants[, AssaySE := paste0("SE:", Assay)]
-  DT.protein.quants[, Assay := paste0("est:", Assay)]
+  DT.protein.quants[, AssaySE := Assay]
+  levels(DT.protein.quants$AssaySE) <- paste0("SE:", levels(DT.protein.quants$AssaySE))
+  levels(DT.protein.quants$Assay) <- paste0("est:", levels(DT.protein.quants$Assay))
   DT.protein.quants.ses <- dcast(DT.protein.quants, ProteinID ~ AssaySE, value.var = "SE")
   protein.quants.ses <- as.matrix(DT.protein.quants.ses[, 2:ncol(DT.protein.quants.ses), with = F]) # for pca
   DT.protein.quants <- dcast(DT.protein.quants, ProteinID ~ Assay, value.var = "est")

@@ -260,40 +260,40 @@ process.model <- function(chain) {
   fst::write.fst(output$DT.protein.quants, paste0("protein.normquants.", chainID, ".fst"))
 
   # DE
-  if (!is.null(DT.assays$ConditionID)) {
-    cts <- combn(DT.assays[, length(unique(SampleID)) >= 2, by = ConditionID][V1 == T, ConditionID], 2)
-    for (ct in 1:ncol(cts)) {
-      ct1 <- unique(DT.assays[ConditionID == cts[1, ct], Condition])
-      ct2 <- unique(DT.assays[ConditionID == cts[2, ct], Condition])
-      message(paste0("[", Sys.time(), "]  MCMC diffential analysis for ", ct1, " vs ", ct2, "..."))
-
-      # T.TESTS
-      DTs <- split(merge(output$DT.protein.quants, DT.assays[ConditionID == cts[1, ct] | ConditionID == cts[2, ct], .(AssayID, ConditionID)]), by = "mcmcID")
-      pb <- txtProgressBar(max = length(DTs), style = 3)
-      DT.output <- foreach(DT = iterators::iter(DTs), .combine = rbind, .multicombine = T, .packages = "data.table", .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
-
-        DT.t <- DT[, .(var = var(value), n = .N), by = .(ConditionID, ProteinID)]
-        DT.t <- DT.t[, .(SE = sqrt(((n[1] - 1) * var[1] + (n[2] - 1) * var[2]) / (n[1] + n[2] - 2))), by = ProteinID]
-        DT.t <- merge(DT.t, DT[, {
-          if (sum(ConditionID == levels(ConditionID)[1]) < 2 | sum(ConditionID == levels(ConditionID)[2]) < 2) {
-            data.table(log2FC.lower = NA_real_, log2FC = NA_real_, log2FC.upper = NA_real_, p.value = NA_real_)
-          } else {
-            fit <- t.test(value ~ ConditionID, var.equal = T)
-            data.table(log2FC.lower = fit$conf.int[1], log2FC = fit$estimate[1] - fit$estimate[2], log2FC.upper = fit$conf.int[2], p.value = fit$p.value)
-          }
-        }, by = ProteinID], by = "ProteinID", sort = F)
-
-        setorder(DT.t, p.value, na.last = T)
-        DT.t[, FDR := p.adjust(p.value, "BH")]
-        DT.t[, mcmcID := DT[1, mcmcID]]
-        DT.t
-      }
-      close(pb)
-
-      fst::write.fst(DT.output, paste0("de.", cts[1, ct], "v", cts[2, ct], ".", chainID, ".fst"))
-    }
-
-  }
+  # if (!is.null(DT.assays$ConditionID)) {
+  #   cts <- combn(DT.assays[, length(unique(SampleID)) >= 2, by = ConditionID][V1 == T, ConditionID], 2)
+  #   for (ct in 1:ncol(cts)) {
+  #     ct1 <- unique(DT.assays[ConditionID == cts[1, ct], Condition])
+  #     ct2 <- unique(DT.assays[ConditionID == cts[2, ct], Condition])
+  #     message(paste0("[", Sys.time(), "]  MCMC diffential analysis for ", ct1, " vs ", ct2, "..."))
+  #
+  #     # T.TESTS
+  #     DTs <- split(merge(output$DT.protein.quants, DT.assays[ConditionID == cts[1, ct] | ConditionID == cts[2, ct], .(AssayID, ConditionID)]), by = "mcmcID")
+  #     pb <- txtProgressBar(max = length(DTs), style = 3)
+  #     DT.output <- foreach(DT = iterators::iter(DTs), .combine = rbind, .multicombine = T, .packages = "data.table", .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
+  #
+  #       DT.t <- DT[, .(var = var(value), n = .N), by = .(ConditionID, ProteinID)]
+  #       DT.t <- DT.t[, .(SE = sqrt(((n[1] - 1) * var[1] + (n[2] - 1) * var[2]) / (n[1] + n[2] - 2))), by = ProteinID]
+  #       DT.t <- merge(DT.t, DT[, {
+  #         if (sum(ConditionID == levels(ConditionID)[1]) < 2 | sum(ConditionID == levels(ConditionID)[2]) < 2) {
+  #           data.table(log2FC.lower = NA_real_, log2FC = NA_real_, log2FC.upper = NA_real_, p.value = NA_real_)
+  #         } else {
+  #           fit <- t.test(value ~ ConditionID, var.equal = T)
+  #           data.table(log2FC.lower = fit$conf.int[1], log2FC = fit$estimate[1] - fit$estimate[2], log2FC.upper = fit$conf.int[2], p.value = fit$p.value)
+  #         }
+  #       }, by = ProteinID], by = "ProteinID", sort = F)
+  #
+  #       setorder(DT.t, p.value, na.last = T)
+  #       DT.t[, FDR := p.adjust(p.value, "BH")]
+  #       DT.t[, mcmcID := DT[1, mcmcID]]
+  #       DT.t
+  #     }
+  #     close(pb)
+  #
+  #     fst::write.fst(DT.output, paste0("de.", cts[1, ct], "v", cts[2, ct], ".", chainID, ".fst"))
+  #   }
+  #
+  # }
 
   # stop cluster
   parallel::stopCluster(cl)

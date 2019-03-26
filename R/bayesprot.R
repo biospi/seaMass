@@ -102,7 +102,7 @@ bayesprot <- function(
   if (!all(assay.refs %in% levels(DT$Assay))) {
     stop("all 'assay.refs' need to be in 'levels(data$Assay)'")
   }
-  if (!is.null(data.design) && !all(levels(DT$Assay) %in% data.design$Assay)) {
+  if (!is.null(data.design) && !(all(levels(DT$Assay) %in% data.design$Assay) && nlevels(DT$Assay) == length(data.design$Assay))) {
     stop("all 'levels(data$Assay)' need to be in 'data.design'")
   }
   if (!all(normalisation.proteins %in% levels(DT$Protein))) {
@@ -180,6 +180,7 @@ bayesprot <- function(
   # data.design
   if (!is.null(data.design)) {
     DT.design <- setDT(data.design)
+    DT.design[, Assay := factor(Assay, levels = levels(DT.assays$Assay))]
     DT.assays <- merge(DT.assays, DT.design, by = "Assay")
   }
 
@@ -247,7 +248,7 @@ bayesprot <- function(
 
     # run model
     setwd(file.path(wd, output, "model", "results"))
-    sapply(1:params$model0.nchain, function(chain) process.model(chain))
+    sapply(1:params$model.nchain, function(chain) process.model(chain))
 
     # run output
     setwd(file.path(wd, output, "output", "results"))

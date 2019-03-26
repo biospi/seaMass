@@ -271,7 +271,7 @@ process.output0 <- function() {
   DT.prior.fcs.density <- DT.protein.fcs[, as.list(prior.fcs.density(median / log(2)))]
   DT.prior.fcs.fit <- DT.protein.fcs[, as.list(prior.fcs.density(rnorm(100000, sd = protein.stdev / log(2))))]
 
-  xlim2 <- max(-min(DT.prior.fcs.density$x), max(DT.prior.fcs.density$x))
+  xlim2 <- max(-quantile(DT.prior.fcs.density$x, 0.01), quantile(DT.prior.fcs.density$x, 0.99))
   g <- ggplot2::ggplot(DT.protein.fcs, ggplot2::aes(x = median / log(2)))
   g <- g + ggplot2::theme_bw()
   g <- g + ggplot2::theme(panel.border = ggplot2::element_rect(colour = "black", size = 1),

@@ -28,16 +28,16 @@ import.ProteomeDiscoverer <- function(
   DT <- DT[`Quan Info` == "Unique",]
 
   # merge fraction info
+  setnames(DT, "Spectrum File", "File")
   if (is.null(data.runs)) {
     warning("No 'data.runs' parameter supplied, assuming no fractionation!")
-    setnames(DT, "Spectrum File", "Run")
+    DT[, Run := File]
   } else {
-    setnames(DT, "Spectrum File", "File")
     DT <- merge(DT, setDT(data.runs), by = "File")
   }
 
   # only retain the most confidenct and most intense spectrum for each feature (TODO: make option)
-  DT[, Feature := factor(paste0(DT$Sequence, " : ", DT$Modifications, " : ", DT$Charge, "+ : ", DT$`Spectrum File`))]
+  DT[, Feature := factor(paste0(DT$Sequence, " : ", DT$Modifications, " : ", DT$Charge, "+ : ", DT$File))]
   setorder(DT, Feature, Confidence, -Intensity)
   DT <- unique(DT, by = "Feature")
 
