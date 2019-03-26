@@ -75,7 +75,7 @@ import.ProteomeDiscoverer <- function(
   DT.out <- melt(DT.wide, variable.name = "Label", value.name = "Count",
                  measure.vars = colnames(DT.wide)[grep("^Label\\.", colnames(DT.wide))])
   levels(DT.out$Label) <- sub("^Label\\.", "", levels(DT.out$Label))
-  DT.out$Assay <- interaction(DT.out$Assay, DT.out$Label, sep = ":", lex.order = T)
+  DT.out$Assay <- interaction(DT.out$Assay, DT.out$Label, sep = ";", lex.order = T)
   DT.out[, Label := NULL]
 
   return(DT.out)
