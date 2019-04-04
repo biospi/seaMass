@@ -108,7 +108,6 @@ process.output <- function() {
   DT.pca.assays <- ggplot2::fortify(pca.assays)
   DT.pca.assays <- cbind(DT.pca.assays, DT.assays)
 
-  if (is.null(DT.pca.assays$ConditionID)) DT.pca.assays$ConditionID <- "black"
   g <- ggplot2::autoplot(pca.assays, data = DT.pca.assays)
   g <- g + ggplot2::theme_bw()
   g <- g + ggplot2::theme(
@@ -118,8 +117,13 @@ process.output <- function() {
     aspect.ratio = 1.0
   )
   g <- g + ggplot2::coord_equal()
-  g <- g + geom_point(aes(colour = Condition))
-  g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = Assay, colour = Condition), size = 3.0)
+  if (is.null(DT.pca.assays$Condition)) {
+    g <- g + geom_point()
+    g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = Assay), size = 3.0)
+  } else {
+    g <- g + geom_point(aes(colour = Condition))
+    g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = Assay, colour = Condition), size = 3.0)
+  }
   if (!all(DT.assays$isRef)) g <- g + ggtitle(paste("ref.assays =", paste(DT.assays[isRef == T, Assay], collapse = "; ")))
   ggplot2::ggsave(file.path(stats.dir, "assays_pca.pdf"), g, width=12, height=12, limitsize = F)
 

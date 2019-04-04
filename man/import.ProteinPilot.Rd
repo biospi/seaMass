@@ -19,7 +19,7 @@ import.ProteinPilot(file = NULL, fractions = NULL, shared = F,
 
 \item{filter}{Other filters for the input data.}
 
-\item{data}{Advanced: Rather than specifying a `file`, you can enter an already loaded `data.frame` here.}
+\item{data}{Advanced: Rather than specifying a `file`, you can enter a `data.frame` loaded with `data.table::fread` here.}
 }
 \value{
 A `data.table` formatted for input into `bayesprot`.

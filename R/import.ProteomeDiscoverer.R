@@ -1,9 +1,9 @@
-#' Import SCIEX ProteinPilot data.
+#' Import Thermo ProteomeDiscoverer 'PSMs' txt file.
 #'
-#' `import.ProteinPilot` reads in a SCIEX ProteinPilot PeptideSummary.txt file for processing with BayesProt
+#' `import.ProteomeDiscoverer` reads in a Thermo ProteomeDiscoverer 'PSMs' txt file for processing with BayesProt
 #'
-#' @param file Location of the PeptideSummary.txt file.
-#' @param data Advanced: Rather than specifying a `file`, you can enter an already loaded `data.frame` here.
+#' @param file Location of the txt file.
+#' @param data Advanced: Rather than specifying a `file`, you can enter a `data.frame` loaded with `data.table::fread` here.
 #' @param data.runs If your study involves more than one input file per run (i.e. because of fractionation) , `data.runs` defines a one-to-many mapping from column 'File' to column 'Run'.
 #' @return A `data.table` formatted for input into `bayesprot`.
 #' @import data.table

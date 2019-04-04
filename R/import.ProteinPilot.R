@@ -7,7 +7,7 @@
 #' @param shared Include shared peptides?
 #' @param min.conf Features with peptide ID confidence less than `min.conf` (between 0 - 100) are filtered out. The default "auto" uses ProteinPilot default threshold.
 #' @param filter Other filters for the input data.
-#' @param data Advanced: Rather than specifying a `file`, you can enter an already loaded `data.frame` here.
+#' @param data Advanced: Rather than specifying a `file`, you can enter a `data.frame` loaded with `data.table::fread` here.
 #' @return A `data.table` formatted for input into `bayesprot`.
 #' @import data.table
 #' @import foreach

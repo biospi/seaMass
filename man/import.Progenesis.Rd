@@ -2,16 +2,18 @@
 % Please edit documentation in R/import.Progenesis.R
 \name{import.Progenesis}
 \alias{import.Progenesis}
-\title{Add together two numbers.}
+\title{Import Waters Progenesis 'PeptideIon' csv file.}
 \usage{
-import.Progenesis(datafile, only.used = T)
+import.Progenesis(file = NULL, data = NULL)
 }
 \arguments{
-\item{datafile}{A number.}
+\item{file}{Location of the csv file.}
+
+\item{data}{Advanced: Rather than specifying a `file`, you can enter a `data.frame` loaded with `data.table::fread` here.}
 }
 \value{
-The sum of \code{x} and \code{y}.
+A `data.table` formatted for input into `bayesprot`.
 }
 \description{
-Add together two numbers.
+`import.Progenesis` reads in a Waters Progenesis 'PeptideIon' csv file for processing with BayesProt
 }

@@ -2,14 +2,14 @@
 % Please edit documentation in R/import.ProteomeDiscoverer.R
 \name{import.ProteomeDiscoverer}
 \alias{import.ProteomeDiscoverer}
-\title{Import SCIEX ProteinPilot data.}
+\title{Import Thermo ProteomeDiscoverer 'PSMs' txt file.}
 \usage{
 import.ProteomeDiscoverer(file = NULL, data = NULL, data.runs = NULL)
 }
 \arguments{
-\item{file}{Location of the PeptideSummary.txt file.}
+\item{file}{Location of the txt file.}
 
-\item{data}{Advanced: Rather than specifying a `file`, you can enter an already loaded `data.frame` here.}
+\item{data}{Advanced: Rather than specifying a `file`, you can enter a `data.frame` loaded with `data.table::fread` here.}
 
 \item{data.runs}{If your study involves more than one input file per run (i.e. because of fractionation) , `data.runs` defines a one-to-many mapping from column 'File' to column 'Run'.}
 }
@@ -17,5 +17,5 @@ import.ProteomeDiscoverer(file = NULL, data = NULL, data.runs = NULL)
 A `data.table` formatted for input into `bayesprot`.
 }
 \description{
-`import.ProteinPilot` reads in a SCIEX ProteinPilot PeptideSummary.txt file for processing with BayesProt
+`import.ProteomeDiscoverer` reads in a Thermo ProteomeDiscoverer 'PSMs' txt file for processing with BayesProt
 }
