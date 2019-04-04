@@ -11,6 +11,7 @@
 
 import.Progenesis <- function(
   file = NULL,
+  only.used = T,
   data = NULL
 ) {
 
@@ -46,7 +47,7 @@ import.Progenesis <- function(
   DT.raw <- DT.raw[!grepl("^#DECOY#", Accession)]
 
   # only use rows that Progenesis uses for quant
-  DT.raw <- DT.raw[use == T]
+  DT.raw <- DT.raw[use == only.used]
 
   # create wide data table
   DT <- cbind(DT.raw[ , .(
