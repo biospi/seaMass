@@ -32,6 +32,7 @@ import.ProteomeDiscoverer <- function(
   if (is.null(data.runs)) {
     warning("No 'data.runs' parameter supplied, assuming no fractionation!")
     DT[, Run := File]
+    DT[, Fraction := ""]
   } else {
     DT <- merge(DT, setDT(data.runs), by = "File")
   }
@@ -46,8 +47,7 @@ import.ProteomeDiscoverer <- function(
     ProteinRef = factor(`Protein Descriptions`),
     Protein = factor(`Master Protein Accessions`),
     Peptide = factor(gsub(" ", "", paste0(Sequence, ",", Modifications))),
-    #Feature = factor(paste0(Charge, "+ ", Sequence, " : ", Modifications)), # SILAC would benefit from matching features across runs... maybe
-    Feature = factor(paste0(File, ",", `First Scan`)),
+    Feature = factor(gsub(" ", "", paste0(Charge, "+,", Fraction, ",", Sequence, ",", Modifications))),
     Assay = factor(Run)
   )]
   if("Light" %in% colnames(DT)) DT.wide$Label.Light <- DT$Light
