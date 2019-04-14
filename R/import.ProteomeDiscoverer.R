@@ -12,73 +12,82 @@
 
 import.ProteomeDiscoverer <- function(
   file = NULL,
-  data = NULL,
-  data.runs = NULL
+  shared = F,
+  used = F,
+  data = NULL
 ) {
 
   if (is.null(file)) {
     if (is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
-    DT <- setDT(data)
+    DT.raw <- setDT(data)
   } else {
-    DT <- fread(file, showProgress = T)
+    DT.raw <- fread(file, showProgress = T)
   }
 
-  # only use rows that ProteomeDiscoverer uses for quant (TODO: reconsider)
-  DT <- DT[`Peptide Quan Usage` == "Use",]
-  DT <- DT[`Quan Info` == "Unique",]
+  # only use rows that ProteomeDiscoverer uses for quant
+  if (!shared) DT.raw <- DT.raw[`Quan Info` == "Unique",]
+  if (!used) DT.raw <- DT.raw[`Peptide Quan Usage` == "Use",]
 
   # merge fraction info
-  setnames(DT, "Spectrum File", "File")
-  if (is.null(data.runs)) {
-    warning("No 'data.runs' parameter supplied, assuming no fractionation!")
-    DT[, Run := File]
-    DT[, Fraction := ""]
-  } else {
-    DT <- merge(DT, setDT(data.runs), by = "File")
-  }
+  #setnames(DT, "Spectrum File", "File")
+  #if (is.null(data.runs)) {
+  #  warning("No 'data.runs' parameter supplied, assuming no fractionation!")
+  #  DT[, Run := File]
+  #  DT[, Fraction := ""]
+  #} else {
+  #  DT <- merge(DT, setDT(data.runs), by = "File")
+  #}
 
   # only retain the most confidenct and most intense spectrum for each feature (TODO: make option)
-  DT[, Feature := factor(paste0(DT$Sequence, " : ", DT$Modifications, " : ", DT$Charge, "+ : ", DT$File))]
-  setorder(DT, Feature, Confidence, -Intensity)
-  DT <- unique(DT, by = "Feature")
+  #DT[, Feature := factor(paste0(DT$Sequence, " : ", DT$Modifications, " : ", DT$Charge, "+ : ", DT$File))]
+  #setorder(DT, Feature, Confidence, -Intensity)
+  #DT <- unique(DT, by = "Feature")
 
   # create wide data table
-  DT.wide <- DT[ , list(
-    ProteinRef = factor(`Protein Descriptions`),
-    Protein = factor(`Master Protein Accessions`),
-    Peptide = factor(gsub(" ", "", paste0(Sequence, ",", Modifications))),
-    Feature = factor(gsub(" ", "", paste0(Charge, "+,", Fraction, ",", Sequence, ",", Modifications))),
-    Assay = factor(Run)
+  DT <- DT.raw[ , list(
+    ProteinRef = `Protein Descriptions`,
+    Protein = `Master Protein Accessions`,
+    Peptide = gsub(" ", "", paste0(Sequence, ",", Modifications)),
+    Feature = paste0(`Spectrum File`, ",", `First Scan`),
+    #Ion = paste0(Charge, "+"),
+    RunFraction = `Spectrum File`
   )]
-  if("Light" %in% colnames(DT)) DT.wide$Label.Light <- DT$Light
-  if("Medium" %in% colnames(DT)) DT.wide$Label.Medium <- DT$Medium
-  if("Heavy" %in% colnames(DT)) DT.wide$Label.Heavy <- DT$Heavy
-  if("126N" %in% colnames(DT)) DT.wide$Label.126N <- DT$`126N`
-  if("126C" %in% colnames(DT)) DT.wide$Label.126C <- DT$`126C`
-  if("126" %in% colnames(DT)) DT.wide$Label.126 <- DT$`126`
-  if("127N" %in% colnames(DT)) DT.wide$Label.127N <- DT$`127N`
-  if("127C" %in% colnames(DT)) DT.wide$Label.127C <- DT$`127C`
-  if("127" %in% colnames(DT)) DT.wide$Label.127 <- DT$`127`
-  if("128N" %in% colnames(DT)) DT.wide$Label.128N <- DT$`128N`
-  if("128C" %in% colnames(DT)) DT.wide$Label.128C <- DT$`128C`
-  if("128" %in% colnames(DT)) DT.wide$Label.128 <- DT$`128`
-  if("129N" %in% colnames(DT)) DT.wide$Label.129N <- DT$`129N`
-  if("129C" %in% colnames(DT)) DT.wide$Label.129C <- DT$`129C`
-  if("129" %in% colnames(DT)) DT.wide$Label.129 <- DT$`129`
-  if("130N" %in% colnames(DT)) DT.wide$Label.130N <- DT$`130N`
-  if("130C" %in% colnames(DT)) DT.wide$Label.130C <- DT$`130C`
-  if("131N" %in% colnames(DT)) DT.wide$Label.131N <- DT$`131N`
-  if("131C" %in% colnames(DT)) DT.wide$Label.131C <- DT$`131C`
-  if("131" %in% colnames(DT)) DT.wide$Label.131 <- DT$`131`
+  if ("Light" %in% colnames(DT.raw)) DT$Assay.Light <- DT.raw$Light
+  if ("Medium" %in% colnames(DT.raw)) DT$Assay.Medium <- DT.raw$Medium
+  if ("Heavy" %in% colnames(DT.raw)) DT$Assay.Heavy <- DT.raw$Heavy
+  if ("126N" %in% colnames(DT.raw)) DT$Assay.126N <- DT.raw$`126N`
+  if ("126C" %in% colnames(DT.raw)) DT$Assay.126C <- DT.raw$`126C`
+  if ("126" %in% colnames(DT.raw)) DT$Assay.126 <- DT.raw$`126`
+  if ("127N" %in% colnames(DT.raw)) DT$Assay.127N <- DT.raw$`127N`
+  if ("127C" %in% colnames(DT.raw)) DT$Assay.127C <- DT.raw$`127C`
+  if ("127" %in% colnames(DT.raw)) DT$Assay.127 <- DT.raw$`127`
+  if ("128N" %in% colnames(DT.raw)) DT$Assay.128N <- DT.raw$`128N`
+  if ("128C" %in% colnames(DT.raw)) DT$Assay.128C <- DT.raw$`128C`
+  if ("128" %in% colnames(DT.raw)) DT$Assay.128 <- DT.raw$`128`
+  if ("129N" %in% colnames(DT.raw)) DT$Assay.129N <- DT.raw$`129N`
+  if ("129C" %in% colnames(DT.raw)) DT$Assay.129C <- DT.raw$`129C`
+  if ("129" %in% colnames(DT.raw)) DT$Assay.129 <- DT.raw$`129`
+  if ("130N" %in% colnames(DT.raw)) DT$Assay.130N <- DT.raw$`130N`
+  if ("130C" %in% colnames(DT.raw)) DT$Assay.130C <- DT.raw$`130C`
+  if ("131N" %in% colnames(DT.raw)) DT$Assay.131N <- DT.raw$`131N`
+  if ("131C" %in% colnames(DT.raw)) DT$Assay.131C <- DT.raw$`131C`
+  if ("131" %in% colnames(DT.raw)) DT$Assay.131 <- DT.raw$`131`
+
+  # group ambiguous PSMs so BayesProt treats them as a single peptide per protein
+  DT[, Peptide := paste(sort(as.character(Peptide)), collapse = " "), by = .(Protein, Feature)]
+  DT <- unique(DT)
 
   # melt label counts
-  DT.out <- melt(DT.wide, variable.name = "Label", value.name = "Count",
-                 measure.vars = colnames(DT.wide)[grep("^Label\\.", colnames(DT.wide))])
-  levels(DT.out$Label) <- sub("^Label\\.", "", levels(DT.out$Label))
-  DT.out$Assay <- interaction(DT.out$Assay, DT.out$Label, sep = ";", lex.order = T)
-  DT.out[, Label := NULL]
+  DT[, ProteinRef := factor(ProteinRef)]
+  DT[, Protein := factor(Protein)]
+  DT[, Peptide := factor(Peptide)]
+  DT[, Feature := factor(Feature)]
+  #DT[, Ion := factor(Ion)]
+  DT[, RunFraction := factor(RunFraction)]
+  DT <- melt(DT, variable.name = "Assay", value.name = "Count", measure.vars = colnames(DT)[grep("^Assay\\.", colnames(DT))])
+  levels(DT$Assay) <- sub("^Assay\\.", "", levels(DT$Assay))
 
-  return(DT.out)
+  return(DT)
 }
 
 

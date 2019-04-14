@@ -4,14 +4,12 @@
 \alias{import.ProteinPilot}
 \title{Import SCIEX ProteinPilot data.}
 \usage{
-import.ProteinPilot(file = NULL, fractions = NULL, shared = F,
-  min.conf = "auto", filter = c("discordant peptide type", "no iTRAQ",
-  "weak signal"), data = NULL)
+import.ProteinPilot(file = NULL, shared = F, min.conf = "auto",
+  filter = c("discordant peptide type", "no iTRAQ", "weak signal"),
+  data = NULL)
 }
 \arguments{
 \item{file}{Location of the PeptideSummary.txt file.}
-
-\item{fractions}{If your study involves more than one multiplex, `fractions` defines a mapping from the fraction index to a run ID.}
 
 \item{shared}{Include shared peptides?}
 
@@ -22,7 +20,7 @@ import.ProteinPilot(file = NULL, fractions = NULL, shared = F,
 \item{data}{Advanced: Rather than specifying a `file`, you can enter a `data.frame` loaded with `data.table::fread` here.}
 }
 \value{
-A `data.table` formatted for input into `bayesprot`.
+A `data.frame` formatted for input into `bayesprot`.
 }
 \description{
 `import.ProteinPilot` reads in a SCIEX ProteinPilot PeptideSummary.txt file for processing with BayesProt

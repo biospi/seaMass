@@ -21,7 +21,7 @@ process.output <- function() {
   chains <- formatC(1:params$model.nchain, width = ceiling(log10(params$model.nchain + 1)) + 1, format = "d", flag = "0")
 
   # create subdirectories
-  prefix <- ifelse(file.exists("protein.quants.*.fst"), ".", file.path("..", "..", "model", "results"))
+  prefix2 <- ifelse(file.exists("protein.quants.*.fst"), ".", file.path("..", "..", "model", "results"))
   stats.dir <- paste0(params$output, ".output")
   dir.create(stats.dir, showWarnings = F)
 
@@ -30,7 +30,7 @@ process.output <- function() {
 
   # read in normalised protein quants
   DT.protein.quants <- rbindlist(lapply(chains, function(chain) {
-    DT <- fst::read.fst(file.path(prefix, paste0("protein.normquants.", chain, ".fst")), as.data.table = T)
+    DT <- fst::read.fst(file.path(prefix2, paste0("protein.normquants.", chain, ".fst")), as.data.table = T)
     DT[, chainID := factor(chain)]
     DT
   }))
@@ -61,17 +61,25 @@ process.output <- function() {
   if (!is.null(DT.assays$ConditionID)) {
     DT.protein.quants <- merge(DT.proteins[, .(ProteinID, ProteinRef)], DT.protein.quants, by = "ProteinID")
 
-    cts <- combn(DT.assays[, length(unique(AssayID)) >= 2, by = ConditionID][V1 == T & !is.na(ConditionID), ConditionID], 2)
+    # number of 'real' measures used in differential expression analysis (i.e. uncensored)
+    DT.real <- fst::read.fst(file.path(prefix, "data.fst"), as.data.table = T)[!is.na(Count), .(real = .N > 0), by = .(ProteinID, AssayID)]
+
+    cts <- combn(sort(DT.assays[, length(unique(AssayID)) >= 2, by = ConditionID][V1 == T & !is.na(ConditionID), ConditionID]), 2)
     for (ct in 1:ncol(cts)) {
       ct1 <- unique(DT.assays[ConditionID == cts[1, ct], Condition])
       ct2 <- unique(DT.assays[ConditionID == cts[2, ct], Condition])
       message(paste0("[", Sys.time(), "]  Differential analysis for ", ct1, " vs ", ct2, "..."))
 
+      # number of assays per condition backed by real data
+      DT.real.ct <- merge(DT.real, DT.assays[, .(AssayID, n1.real = ConditionID == cts[1, ct], n2.real = ConditionID == cts[2, ct])], by = "AssayID")
+      DT.real.ct <- DT.real.ct[, .(n1.real = sum(real & n1.real, na.rm = T), n2.real = sum(real & n1.real, na.rm = T)), by = ProteinID]
+
       # t.tests.metafor
-      contrast <- ifelse(DT.assays$ConditionID == cts[1, ct] | DT.assays$ConditionID == cts[2, ct], as.character(DT.assays$Condition), NA_character_)
+      contrast <- ifelse(DT.assays$ConditionID == cts[1, ct] | DT.assays$ConditionID == cts[2, ct], DT.assays$Condition, NA_integer_)
       DT.t <- bayesprot::t.tests.metafor(DT.protein.quants, contrast)
       DT.t <- merge(DT.t, DT.proteins[, .(ProteinID, Protein, ProteinRef, nPeptide, nFeature, nMeasure)], by = "ProteinRef", sort = F)
-      setcolorder(DT.t, c("ProteinID", "Protein", "ProteinRef", "nPeptide", "nFeature", "nMeasure"))
+      DT.t <- merge(DT.t, DT.real.ct, by = "ProteinID", sort = F)
+      setcolorder(DT.t, c("ProteinID", "Protein", "ProteinRef", "nPeptide", "nFeature", "nMeasure", "n1.real", "n2.real"))
       fwrite(DT.t, file.path(stats.dir, paste0("protein_log2DE__", ct1, "_vs_", ct2, ".csv")))
       g <- bayesprot::plot.fdr(DT.t, 1.0)
       ggplot2::ggsave(file.path(stats.dir, paste0("protein_log2DE_fdr__", ct1, "_vs_", ct2, ".pdf")), g, width = 8, height = 8)
@@ -132,7 +140,7 @@ process.output <- function() {
 
   # read in unnormalised protein quants in log(2)
   DT.protein.quants <- rbindlist(lapply(chains, function(chain) {
-    DT <- fst::read.fst(file.path(prefix, paste0("protein.quants.", chain, ".fst")), as.data.table = T)
+    DT <- fst::read.fst(file.path(prefix2, paste0("protein.quants.", chain, ".fst")), as.data.table = T)
     DT[, chainID := factor(chain)]
     DT
   }))
@@ -151,7 +159,7 @@ process.output <- function() {
 
   # peptide deviations in base 2
   DT.peptide.deviations <- rbindlist(lapply(chains, function(chain) {
-    fst::read.fst(file.path(prefix, paste0("peptide.deviations.", chain, ".fst")), as.data.table = T)
+    fst::read.fst(file.path(prefix2, paste0("peptide.deviations.", chain, ".fst")), as.data.table = T)
   }))
   DT.peptide.deviations <- DT.peptide.deviations[, .(est = median(value) / log(2), SE = mad(value) / log(2)), by = .(ProteinID, PeptideID, SampleID)]
   DT.peptide.deviations <- merge(DT.assays[, .(SampleID, Sample)], DT.peptide.deviations, by = "SampleID")
@@ -170,7 +178,7 @@ process.output <- function() {
 
   # peptide stdevs in base 2
   DT.peptide.stdevs <- rbindlist(lapply(chains, function(chain) {
-    DT <- fst::read.fst(file.path(prefix, paste0("peptide.vars.", chain, ".fst")), as.data.table = T)
+    DT <- fst::read.fst(file.path(prefix2, paste0("peptide.vars.", chain, ".fst")), as.data.table = T)
     DT[, value := sqrt(value)]
     DT
   }))
@@ -182,7 +190,7 @@ process.output <- function() {
 
   # feature stdevs in base 2
   DT.feature.stdevs <- rbindlist(lapply(chains, function(chain) {
-    DT <- fst::read.fst(file.path(prefix, paste0("feature.vars.", chain, ".fst")), as.data.table = T)
+    DT <- fst::read.fst(file.path(prefix2, paste0("feature.vars.", chain, ".fst")), as.data.table = T)
     DT[, value := sqrt(value)]
     DT
   }))
@@ -194,7 +202,7 @@ process.output <- function() {
 
   # timings
   DT.timings <- rbindlist(lapply(chains, function(chain) {
-    DT <- fst::read.fst(file.path(prefix, paste0("timing.", chain, ".fst")), as.data.table = T)
+    DT <- fst::read.fst(file.path(prefix2, paste0("timing.", chain, ".fst")), as.data.table = T)
     DT[, chainID := paste0("chain:", chain)]
     DT
   }))

@@ -18,18 +18,31 @@ t.tests.metafor <- function(data, contrast, threads = 16) {
   doSNOW::registerDoSNOW(cl)
   pb <- txtProgressBar(max = length(DTs), style = 3)
   DT.out <- foreach(DT = iterators::iter(DTs), .packages = "data.table", .combine = function(...) rbindlist(list(...)), .multicombine = T, .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
-    DT.t <- data.table(ProteinRef = DT[1, ProteinRef], log2SE = NA_real_, log2FC.lower = NA_real_, log2FC = NA_real_, log2FC.upper = NA_real_, p.value = NA_real_)
-    if (sum(DT$Condition == levels(DT$Condition)[1]) >= 2 & sum(DT$Condition == levels(DT$Condition)[2]) >= 2) {
+
+    DT.t <- data.table(
+      ProteinRef = DT[1, ProteinRef],
+      n1.test = sum(DT$Condition == levels(DT$Condition)[2]),
+      n2.test = sum(DT$Condition == levels(DT$Condition)[1]),
+      log2SE = NA_real_, log2FC.lower = NA_real_, log2FC = NA_real_, log2FC.upper = NA_real_, p.value = NA_real_
+    )
+
+    if (DT.t$n1 >= 2 & DT.t$n2 >= 2) {
       for (i in 0:99) {
         try({
           fit <- metafor::rma.mv(est ~ Condition, SE^2, random = ~ 1 | Assay, data = DT, test = "t", control = list(sigma2.init = 0.025 + 0.01*i))
-          DT.t <- data.table(ProteinRef = DT[1, ProteinRef], log2SE = fit$se[2], log2FC.lower = fit$ci.lb[2], log2FC = coef(fit)[2], log2FC.upper = fit$ci.ub[2], p.value = fit$pval[2])
+          DT.t[, log2SE := fit$se[2]]
+          DT.t[, log2FC.lower := fit$ci.lb[2]]
+          DT.t[, log2FC := coef(fit)[2]]
+          DT.t[, log2FC.upper := fit$ci.ub[2]]
+          DT.t[, p.value := fit$pval[2]]
           break
         })
       }
     }
+
     DT.t
   }
+  close(pb)
   parallel::stopCluster(cl)
 
   setorder(DT.out, p.value, na.last = T)

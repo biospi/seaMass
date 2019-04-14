@@ -4,7 +4,7 @@
 \alias{import.Progenesis}
 \title{Import Waters Progenesis 'PeptideIon' csv file.}
 \usage{
-import.Progenesis(file = NULL, data = NULL)
+import.Progenesis(file = NULL, only.used = T, data = NULL)
 }
 \arguments{
 \item{file}{Location of the csv file.}

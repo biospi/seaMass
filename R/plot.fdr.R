@@ -20,16 +20,24 @@ plot.fdr <- function(data, ymax = 0.2) {
   #DT <- DT[mcmcID %in% levels(mcmcID)[1:100]]
 
   xmax <- max(DT[FDR <= ymax, Discoveries])
-  ylabels <- function() function(x) format(x^2, digits = 2)
+  ylabels <- function() function(x) format(x, digits = 2)
 
-  g <- ggplot2::ggplot(DT, ggplot2::aes(x = Discoveries, y = sqrt(FDR), group = mcmcID))
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = sqrt(0.01)), linetype = "dotted")
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = sqrt(0.05)), linetype = "dotted")
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = sqrt(0.10)), linetype = "dotted")
+  rev_sqrt_trans <- function() {
+    scales::trans_new(
+      name = "rev_sqrt",
+      transform = function(x) -sqrt(abs(x)),
+      inverse = function(x) x^2
+    );
+  }
+
+  g <- ggplot2::ggplot(DT, ggplot2::aes(x = Discoveries, y = FDR, group = mcmcID))
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype = "dotted")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype = "dotted")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype = "dotted")
   g <- g + ggplot2::geom_step(direction = "vh", alpha = alpha)
   g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
-  g <- g + ggplot2::scale_y_reverse(breaks = sqrt(c(0.0, 0.01, 0.05, 0.1, 0.2, 0.5)), labels = ylabels(), expand = c(0.001, 0.001))
-  g <- g + ggplot2::coord_cartesian(xlim = c(0, xmax), ylim = c(0, sqrt(ymax)))
+  g <- g + ggplot2::scale_y_continuous(trans = rev_sqrt_trans(), breaks = c(0.0, 0.01, 0.05, 0.1, 0.2, 0.5), labels = ylabels(), expand = c(0.001, 0.001))
+  g <- g + ggplot2::coord_cartesian(xlim = c(0, xmax), ylim = c(0, ymax))
   g <- g + ggplot2::xlab("Number of Discoveries")
   g <- g + ggplot2::ylab("False Discovery Rate")
   g

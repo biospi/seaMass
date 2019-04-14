@@ -3,19 +3,16 @@
 #' `import.ProteinPilot` reads in a SCIEX ProteinPilot PeptideSummary.txt file for processing with BayesProt
 #'
 #' @param file Location of the PeptideSummary.txt file.
-#' @param fractions If your study involves more than one multiplex, `fractions` defines a mapping from the fraction index to a run ID.
 #' @param shared Include shared peptides?
 #' @param min.conf Features with peptide ID confidence less than `min.conf` (between 0 - 100) are filtered out. The default "auto" uses ProteinPilot default threshold.
 #' @param filter Other filters for the input data.
 #' @param data Advanced: Rather than specifying a `file`, you can enter a `data.frame` loaded with `data.table::fread` here.
-#' @return A `data.table` formatted for input into `bayesprot`.
+#' @return A `data.frame` formatted for input into `bayesprot`.
 #' @import data.table
-#' @import foreach
 #' @export
 
 import.ProteinPilot <- function(
   file = NULL,
-  fractions = NULL,
   shared = F,
   min.conf = "auto",
   filter = c("discordant peptide type", "no iTRAQ", "weak signal"),
@@ -40,14 +37,6 @@ import.ProteinPilot <- function(
   # deal with shared peptides
   if (!shared) DT.raw <- DT.raw[Annotation != "auto - shared MS/MS"]
 
-  # split spectrum to get at fraction and then merge with fractions table
-  if (!is.null(fractions)) {
-    DT.raw[, Fraction := as.integer(matrix(unlist(strsplit(as.character(DT.raw$Spectrum), ".", fixed = T)), ncol = 5, byrow = T)[, 1])]
-    DT.raw <- merge(DT.raw, data.table(Run = fractions, Fraction = 1:length(fractions)), by = "Fraction")
-  } else {
-    DT.raw[, Run := "A"]
-  }
-
   # create wide data table
   if(!("ProteinModifications" %in% colnames(DT.raw))) DT.raw[, ProteinModifications := ""]
   DT <- DT.raw[, .(
@@ -55,16 +44,16 @@ import.ProteinPilot <- function(
     Protein = gsub(";", "", Accessions),
     Peptide = gsub(" ", "", paste0(Sequence, ",", Modifications, ",", ProteinModifications, ",", Cleavages), fixed = T),
     Feature = Spectrum,
-    Assay = Run
+    Fraction = as.integer(matrix(unlist(strsplit(as.character(DT.raw$Spectrum), ".", fixed = T)), ncol = 5, byrow = T)[, 1])
   )]
-  if("Area 113" %in% colnames(DT.raw)) DT$Label.113 <- DT.raw$`Area 113`
-  if("Area 114" %in% colnames(DT.raw)) DT$Label.114 <- DT.raw$`Area 114`
-  if("Area 115" %in% colnames(DT.raw)) DT$Label.115 <- DT.raw$`Area 115`
-  if("Area 116" %in% colnames(DT.raw)) DT$Label.116 <- DT.raw$`Area 116`
-  if("Area 117" %in% colnames(DT.raw)) DT$Label.117 <- DT.raw$`Area 117`
-  if("Area 118" %in% colnames(DT.raw)) DT$Label.118 <- DT.raw$`Area 118`
-  if("Area 119" %in% colnames(DT.raw)) DT$Label.119 <- DT.raw$`Area 119`
-  if("Area 121" %in% colnames(DT.raw)) DT$Label.121 <- DT.raw$`Area 121`
+  if("Area 113" %in% colnames(DT.raw)) DT$Assay.113 <- DT.raw$`Area 113`
+  if("Area 114" %in% colnames(DT.raw)) DT$Assay.114 <- DT.raw$`Area 114`
+  if("Area 115" %in% colnames(DT.raw)) DT$Assay.115 <- DT.raw$`Area 115`
+  if("Area 116" %in% colnames(DT.raw)) DT$Assay.116 <- DT.raw$`Area 116`
+  if("Area 117" %in% colnames(DT.raw)) DT$Assay.117 <- DT.raw$`Area 117`
+  if("Area 118" %in% colnames(DT.raw)) DT$Assay.118 <- DT.raw$`Area 118`
+  if("Area 119" %in% colnames(DT.raw)) DT$Assay.119 <- DT.raw$`Area 119`
+  if("Area 121" %in% colnames(DT.raw)) DT$Assay.121 <- DT.raw$`Area 121`
 
   # group ambiguous PSMs so BayesProt treats them as a single peptide per protein
   DT[, Peptide := paste(sort(as.character(Peptide)), collapse = " "), by = .(Protein, Feature)]
@@ -75,11 +64,9 @@ import.ProteinPilot <- function(
   DT[, Protein := factor(Protein)]
   DT[, Peptide := factor(Peptide)]
   DT[, Feature := factor(Feature)]
-  DT[, Assay := factor(Assay)]
-  DT <- melt(DT, variable.name = "Label", value.name = "Count", measure.vars = colnames(DT)[grep("^Label\\.", colnames(DT))])
-  levels(DT$Label) <- sub("^Label\\.", "", levels(DT$Label))
-  DT$Assay <- interaction(DT$Assay, DT$Label, lex.order = T)
-  DT[, Label := NULL]
+  DT[, Fraction := factor(Fraction)]
+  DT <- melt(DT, variable.name = "Assay", value.name = "Count", measure.vars = colnames(DT)[grep("^Assay\\.", colnames(DT))])
+  levels(DT$Assay) <- sub("^Assay\\.", "", levels(DT$Assay))
 
   return(DT)
 
