@@ -74,11 +74,6 @@ bayesprot <- function(
   message("This is free software, and you are welcome to redistribute it under certain conditions.")
   message("---")
 
-  # create output directory
-  output <- path.expand(output)
-  if (file.exists(output)) stop("output directory already exists - please try again with a different output or delete the directory")
-  dir.create(output)
-
   # validate parameters
   DT <- setDT(data)
   if (!is.null(hpc) && hpc != "pbs" && hpc != "sge" && hpc != "slurm" && hpc != "remote") {
@@ -114,6 +109,11 @@ bayesprot <- function(
   if (model.nchain == 1) {
     message("WARNING: You are specifying only a single MCMC chain, convergence diagnostics will be unavailable. It is recommended to specify at least model.nchain=4 for publishable results.")
   }
+
+  # create output directory
+  output <- path.expand(output)
+  if (file.exists(output)) stop("output directory already exists - please try again with a different output or delete the directory")
+  dir.create(output)
 
   # create input
   message(paste0("[", Sys.time(), "] INPUT started"))

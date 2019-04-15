@@ -13,11 +13,6 @@ process.model <- function(chain) {
   # load priors as process.output0 has been run
   prefix <- ifelse(file.exists("priors.rds"), ".", file.path("..", "..", "output0", "results"))
   priors <- readRDS(file.path(prefix, "priors.rds"))
-  # and exposures, shifting so first assay is zero
-  DT.assay.exposures <- fst::read.fst(file.path(prefix, "assay.exposures.fst"), as.data.table = T)
-  DT.assay.exposures <- merge(DT.assay.exposures, DT.assay.exposures[AssayID == levels(AssayID)[1], .(chainID, mcmcID, shift = value)])
-  DT.assay.exposures[, value := value - shift]
-  DT.assay.exposures <- DT.assay.exposures[, .(median = median(value), mad = mad(value)), by = AssayID]
 
   # load metadata
   prefix <- ifelse(file.exists("params.rds"), ".", file.path("..", "..", "input"))
@@ -25,6 +20,7 @@ process.model <- function(chain) {
   DT.assays <- fst::read.fst(file.path(prefix, "assays.fst"), as.data.table = T)
   DT.proteins <- fst::read.fst(file.path(prefix, "proteins.fst"), as.data.table = T)
   nitt <- params$model.nwarmup + (params$model.nsample * params$model.thin) / params$model.nchain
+  chainID <- formatC(chain, width = ceiling(log10(params$model0.nchain + 1)) + 1, format = "d", flag = "0")
 
   # start cluster and reproducible seed
   cl <- parallel::makeCluster(params$nthread)
@@ -221,47 +217,79 @@ process.model <- function(chain) {
     }
     output$DT.feature.vars[, ProteinID := DT[1, ProteinID]]
 
+    # write out if large enough
+    if (object.size(output$DT.protein.quants) > 2^19) {
+      fst::write.fst(output$DT.protein.quants, paste0("protein.quants.", DT.proteins[i, ProteinID], ".", chainID , ".fst"))
+      output$DT.protein.quants <- data.table()
+    }
+
+    if (!is.null(output$DT.peptide.deviations) && object.size(output$DT.peptide.deviations) > 2^19) {
+      fst::write.fst(output$DT.peptide.deviations, paste0("peptide.deviations.", DT.proteins[i, ProteinID], ".", chainID, ".fst"))
+      output$DT.peptide.deviations <- data.table()
+    }
+
+    if (!is.null(output$DT.peptide.vars) && object.size(output$DT.peptide.vars) > 2^19) {
+      fst::write.fst(output$DT.peptide.vars, paste0("peptide.vars.", DT.proteins[i, ProteinID], ".", chainID, ".fst"))
+      output$DT.peptide.vars <- data.table()
+    }
+
+    if (object.size(output$DT.feature.vars) > 2^19) {
+      fst::write.fst(output$DT.feature.vars, paste0("feature.vars.", DT.proteins[i, ProteinID], ".", chainID, ".fst"))
+      output$DT.feature.vars <- data.table()
+    }
+
     output
   }
   close(pb)
 
 
-  # write output
+  # write out concatenation of smaller output
   message(paste0("[", Sys.time(), "]  writing output..."))
-  chainID <- formatC(chain, width = ceiling(log10(params$model0.nchain + 1)) + 1, format = "d", flag = "0")
+
   fst::write.fst(output$DT.summary, paste0("summary.", chainID, ".fst"))
   output$DT.summary <- NULL
+
   fst::write.fst(output$DT.timing, paste0("timing.", chainID, ".fst"))
   output$DT.timing <- NULL
+
   if (!is.null(output$DT.peptide.deviations)) {
     fst::write.fst(output$DT.peptide.deviations, paste0("peptide.deviations.", chainID, ".fst"))
     output$DT.peptide.deviations <- NULL
   }
+
   if (!is.null(output$DT.peptide.vars)) {
     fst::write.fst(output$DT.peptide.vars, paste0("peptide.vars.", chainID, ".fst"))
     output$DT.peptide.vars <- NULL
   }
-  fst::write.fst(output$DT.feature.vars, paste0("feature.vars.", chainID, ".fst"))
-  output$DT.feature.vars <- NULL
 
-  # write protein quants
-  fst::write.fst(output$DT.protein.quants, paste0("protein.quants.", chainID, ".fst"))
-
-  # ASSAY EXPOSURES
-  if (!is.null(params$normalisation.model)) {
-    # ASSAY EXPOSURES
-    message("[", paste0(Sys.time(), "]  computing assay exposures..."))
-
-    pids <- merge(data.table(Protein = params$normalisation.proteins), DT.proteins[, .(Protein, ProteinID)])$ProteinID
-    output$DT.protein.quants[, value := value - median(value[ProteinID %in% pids]), by = .(AssayID, mcmcID)]
+  if (!is.null(output$DT.feature.vars)) {
+    fst::write.fst(output$DT.feature.vars, paste0("feature.vars.", chainID, ".fst"))
+    output$DT.feature.vars <- NULL
   }
 
-  # write normalised protein quants
-  fst::write.fst(output$DT.protein.quants, paste0("protein.normquants.", chainID, ".fst"))
+  if (!is.null(output$DT.protein.quants)) {
+    fst::write.fst(output$DT.protein.quants, paste0("protein.quants.", chainID, ".fst"))
+  }
 
   # DE
   # if (!is.null(DT.assays$ConditionID)) {
-  #   cts <- combn(DT.assays[, length(unique(SampleID)) >= 2, by = ConditionID][V1 == T, ConditionID], 2)
+  #
+  #   # load back in larger output
+  #   output$DT.protein.quants <- rbind(
+  #     output$DT.protein.quants,
+  #     rbindlist(lapply(list.files(pattern = paste0("^protein\\.quants\\..*\\.", chainID, "\\.fst")), function(file) {
+  #       fst::read.fst(file, as.data.table = T)
+  #     }))
+  #   )
+  #
+  #   # Assay exposures
+  #   if (!is.null(params$normalisation.model)) {
+  #     pids <- merge(data.table(Protein = params$normalisation.proteins), DT.proteins[, .(Protein, ProteinID)])$ProteinID
+  #     output$DT.protein.quants[, value := value - median(value[ProteinID %in% pids]), by = .(AssayID, mcmcID)]
+  #   }
+  #
+  #   # Contrasts
+  #   cts <- combn(sort(DT.assays[, length(unique(AssayID)) >= 2, by = ConditionID][V1 == T & !is.na(ConditionID), ConditionID]), 2)
   #   for (ct in 1:ncol(cts)) {
   #     ct1 <- unique(DT.assays[ConditionID == cts[1, ct], Condition])
   #     ct2 <- unique(DT.assays[ConditionID == cts[2, ct], Condition])

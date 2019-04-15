@@ -16,6 +16,7 @@ process.model0 <- function(chain) {
   DT.assays <- fst::read.fst(file.path(prefix, "assays.fst"), as.data.table = T)
   DT.proteins <- fst::read.fst(file.path(prefix, "proteins.fst"), as.data.table = T)[nPeptide >= params$model0.npeptide]
   nitt <- params$model0.nwarmup + (params$model0.nsample * params$model0.thin) / params$model0.nchain
+  chainID <- formatC(chain, width = ceiling(log10(params$model0.nchain + 1)) + 1, format = "d", flag = "0")
 
   # start cluster and reproducible seed
   cl <- parallel::makeCluster(params$nthread)
@@ -121,25 +122,25 @@ process.model0 <- function(chain) {
       stop("Some contrasts were dropped unexpectedly")
     }
 
-    # extract protein quants
-    output$DT.protein.quants <- as.data.table(model$Sol[, grep("^QuantID[0-9]+\\.[0-9]+$", colnames(model$Sol)), drop = F])
-    output$DT.protein.quants[, mcmcID := factor(formatC(1:nrow(output$DT.protein.quants), width = ceiling(log10(nrow(output$DT.protein.quants))) + 1, format = "d", flag = "0"))]
-    output$DT.protein.quants <- melt(output$DT.protein.quants, variable.name = "BaselineID", id.vars = "mcmcID")
-    output$DT.protein.quants[, ProteinID := DT[1, ProteinID]]
-    output$DT.protein.quants[, AssayID := factor(sub("^QuantID([0-9]+)\\.[0-9]+$", "\\1", BaselineID))]
-    output$DT.protein.quants[, BaselineID := factor(sub("^QuantID[0-9]+\\.([0-9]+)$", "\\1", BaselineID))]
-    setcolorder(output$DT.protein.quant, c("ProteinID", "AssayID", "BaselineID"))
-
-    # extract peptide deviations
-    if (!is.null(params$peptide.model) && params$peptide.model == "independent") {
-      output$DT.peptide.deviations <- as.data.table(model$Sol[, grep("^PeptideID[0-9]+\\.SampleID\\.[0-9]+$", colnames(model$Sol)), drop = F])
-      output$DT.peptide.deviations[, mcmcID := factor(formatC(1:nrow(output$DT.peptide.deviations), width = ceiling(log10(nrow(output$DT.peptide.deviations))) + 1, format = "d", flag = "0"))]
-      output$DT.peptide.deviations <- melt(output$DT.peptide.deviations, variable.name = "PeptideID", id.vars = "mcmcID")
-      output$DT.peptide.deviations[, SampleID := factor(sub("^PeptideID[0-9]+\\.SampleID\\.([0-9]+)$", "\\1", PeptideID))]
-      output$DT.peptide.deviations[, PeptideID := factor(sub("^PeptideID([0-9]+)\\.SampleID\\.([0-9]+)$", "\\1", PeptideID))]
-      output$DT.peptide.deviations[, ProteinID := DT[1, ProteinID]]
-      setcolorder(output$DT.peptide.deviations, c("ProteinID", "PeptideID", "SampleID"))
-    }
+    # # extract protein quants
+    # output$DT.protein.quants <- as.data.table(model$Sol[, grep("^QuantID[0-9]+\\.[0-9]+$", colnames(model$Sol)), drop = F])
+    # output$DT.protein.quants[, mcmcID := factor(formatC(1:nrow(output$DT.protein.quants), width = ceiling(log10(nrow(output$DT.protein.quants))) + 1, format = "d", flag = "0"))]
+    # output$DT.protein.quants <- melt(output$DT.protein.quants, variable.name = "BaselineID", id.vars = "mcmcID")
+    # output$DT.protein.quants[, ProteinID := DT[1, ProteinID]]
+    # output$DT.protein.quants[, AssayID := factor(sub("^QuantID([0-9]+)\\.[0-9]+$", "\\1", BaselineID))]
+    # output$DT.protein.quants[, BaselineID := factor(sub("^QuantID[0-9]+\\.([0-9]+)$", "\\1", BaselineID))]
+    # setcolorder(output$DT.protein.quant, c("ProteinID", "AssayID", "BaselineID"))
+    #
+    # # extract peptide deviations
+    # if (!is.null(params$peptide.model) && params$peptide.model == "independent") {
+    #   output$DT.peptide.deviations <- as.data.table(model$Sol[, grep("^PeptideID[0-9]+\\.SampleID\\.[0-9]+$", colnames(model$Sol)), drop = F])
+    #   output$DT.peptide.deviations[, mcmcID := factor(formatC(1:nrow(output$DT.peptide.deviations), width = ceiling(log10(nrow(output$DT.peptide.deviations))) + 1, format = "d", flag = "0"))]
+    #   output$DT.peptide.deviations <- melt(output$DT.peptide.deviations, variable.name = "PeptideID", id.vars = "mcmcID")
+    #   output$DT.peptide.deviations[, SampleID := factor(sub("^PeptideID[0-9]+\\.SampleID\\.([0-9]+)$", "\\1", PeptideID))]
+    #   output$DT.peptide.deviations[, PeptideID := factor(sub("^PeptideID([0-9]+)\\.SampleID\\.([0-9]+)$", "\\1", PeptideID))]
+    #   output$DT.peptide.deviations[, ProteinID := DT[1, ProteinID]]
+    #   setcolorder(output$DT.peptide.deviations, c("ProteinID", "PeptideID", "SampleID"))
+    # }
 
     model$Sol <- NULL
 
@@ -177,19 +178,47 @@ process.model0 <- function(chain) {
       setcolorder(output$DT.feature.vars, c("ProteinID", "FeatureID"))
     }
 
+    # fst::write.fst(output$DT.protein.quants, paste0("protein.quants.", chainID, ".", DT.proteins[i, ProteinID], ".fst"))
+    # output$DT.protein.quants <- NULL
+    # if (!is.null(output$DT.peptide.deviations)) {
+    #   fst::write.fst(output$DT.peptide.deviations, paste0("peptide.deviations.", chainID, ".", DT.proteins[i, ProteinID], ".fst"))
+    #   output$DT.peptide.deviations <- NULL
+    # }
+
+    # write out if large enough
+    if (!is.null(output$DT.peptide.vars) && object.size(output$DT.peptide.vars) > 2^19) {
+      fst::write.fst(output$DT.peptide.vars, paste0("peptide.vars.", DT.proteins[i, ProteinID], ".", chainID, ".fst"))
+      output$DT.peptide.vars <- data.table()
+    }
+
+    if (object.size(output$DT.feature.vars) > 2^19) {
+      fst::write.fst(output$DT.feature.vars, paste0("feature.vars.", DT.proteins[i, ProteinID], ".", chainID, ".fst"))
+      output$DT.feature.vars <- data.table()
+    }
+
     output
   }
   close(pb)
 
-  # write output
+  # write out concatenation of smaller output
   message(paste0("[", Sys.time(), "]  writing output..."))
-  chainID <- formatC(chain, width = ceiling(log10(params$model0.nchain + 1)) + 1, format = "d", flag = "0")
+
   fst::write.fst(output$DT.summary, paste0("summary.", chainID, ".fst"))
+
   fst::write.fst(output$DT.timing, paste0("timing.", chainID, ".fst"))
-  fst::write.fst(output$DT.protein.quants, paste0("protein.quants.", chainID, ".fst"))
-  if (!is.null(output$DT.peptide.deviations)) fst::write.fst(output$DT.peptide.deviations, paste0("peptide.deviations.", chainID, ".fst"))
-  if (!is.null(output$DT.peptide.vars)) fst::write.fst(output$DT.peptide.vars, paste0("peptide.vars.", chainID, ".fst"))
-  fst::write.fst(output$DT.feature.vars, paste0("feature.vars.", chainID, ".fst"))
+
+  if (!is.null(output$DT.peptide.vars)) {
+    fst::write.fst(output$DT.peptide.vars, paste0("peptide.vars.", chainID, ".fst"))
+  }
+
+  if (!is.null(output$DT.feature.vars)) {
+    fst::write.fst(output$DT.feature.vars, paste0("feature.vars.", chainID, ".fst"))
+  }
+
+  #fst::write.fst(output$DT.protein.quants, paste0("protein.quants.", chainID, ".fst"))
+  #if (!is.null(output$DT.peptide.deviations)) fst::write.fst(output$DT.peptide.deviations, paste0("peptide.deviations.", chainID, ".fst"))
+  #if (!is.null(output$DT.peptide.vars)) fst::write.fst(output$DT.peptide.vars, paste0("peptide.vars.", chainID, ".fst"))
+  #fst::write.fst(output$DT.feature.vars, paste0("feature.vars.", chainID, ".fst"))
 
   # stop cluster
   parallel::stopCluster(cl)

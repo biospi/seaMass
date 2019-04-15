@@ -1,7 +1,7 @@
 #' @import data.table
 #' @import foreach
 #' @export t.tests.metafor
-t.tests.metafor <- function(data, contrast, threads = 16) {
+t.tests.metafor <- function(data, contrast, nthread = parallel::detectCores()) {
   if (!is.factor(contrast)) contrast <- factor(contrast)
   DTs <- setDT(data)
   DTs <- merge(DTs, data.table(AssayID = factor(levels(DTs$AssayID)), Condition = contrast), by = "AssayID")
@@ -14,7 +14,7 @@ t.tests.metafor <- function(data, contrast, threads = 16) {
   DTs <- split(DTs, by = "ProteinRef")
 
   # start cluster and reproducible seed
-  cl <- parallel::makeCluster(threads)
+  cl <- parallel::makeCluster(nthread)
   doSNOW::registerDoSNOW(cl)
   pb <- txtProgressBar(max = length(DTs), style = 3)
   DT.out <- foreach(DT = iterators::iter(DTs), .packages = "data.table", .combine = function(...) rbindlist(list(...)), .multicombine = T, .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
