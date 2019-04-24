@@ -1,17 +1,17 @@
 #' @import data.table
 #' @import foreach
 #' @export t.tests.metafor
-t.tests.metafor <- function(data, contrast, nthread = parallel::detectCores()) {
+t.tests.metafor <- function(data, contrast, nthread = parallel::detectCores(logical = FALSE)) {
   if (!is.factor(contrast)) contrast <- factor(contrast)
   DTs <- setDT(data)
   DTs <- merge(DTs, data.table(AssayID = factor(levels(DTs$AssayID)), Condition = contrast), by = "AssayID")
   DTs <- droplevels(DTs[complete.cases(DTs)])
 
   if (!is.null(DTs$mcmcID)) {
-    DTs <- DTs[, .(est = median(value), SE = mad(value)^2), by = .(ProteinRef, Assay)]
+    DTs <- DTs[, .(est = median(value), SE = mad(value)^2), by = .(ProteinInfo, Assay)]
   }
   DTs[, SE := ifelse(SE < 0.01, 0.01, SE)] # won't work if SE is 0
-  DTs <- split(DTs, by = "ProteinRef")
+  DTs <- split(DTs, by = "ProteinInfo")
 
   # start cluster and reproducible seed
   cl <- parallel::makeCluster(nthread)
@@ -20,7 +20,7 @@ t.tests.metafor <- function(data, contrast, nthread = parallel::detectCores()) {
   DT.out <- foreach(DT = iterators::iter(DTs), .packages = "data.table", .combine = function(...) rbindlist(list(...)), .multicombine = T, .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
 
     DT.t <- data.table(
-      ProteinRef = DT[1, ProteinRef],
+      ProteinInfo = DT[1, ProteinInfo],
       n1.test = sum(DT$Condition == levels(DT$Condition)[2]),
       n2.test = sum(DT$Condition == levels(DT$Condition)[1]),
       log2SE = NA_real_, log2FC.lower = NA_real_, log2FC = NA_real_, log2FC.upper = NA_real_, p.value = NA_real_

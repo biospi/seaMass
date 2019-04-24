@@ -1,6 +1,52 @@
+#' Add together two numbers.
+#'
+#' @param datafile A number.
+#' @return The sum of \code{x} and \code{y}.
 #' @import data.table
-#' @export plot.volcano
-plot.volcano <- function(dd, dd.contrast, dd.meta = NULL, dd.truth = NULL, xaxis = "identity", yaxis = "t-test.p", xlim = NULL, ylim = NULL) {
+#' @export
+
+plot_fdr <- function(data, ymax = 0.2) {
+  DT <- setDT(data)
+
+  if (is.null(DT$mcmcID)) {
+    DT[, mcmcID := "NA"]
+    DT[, chainID := "NA"]
+    alpha <- 1
+  } else {
+    alpha <- 0.01
+  }
+
+  DT[, Discoveries := 1:.N, by = .(mcmcID, chainID)]
+  #DT <- DT[mcmcID %in% levels(mcmcID)[1:100]]
+
+  xmax <- max(DT[FDR <= ymax, Discoveries])
+  ylabels <- function() function(x) format(x, digits = 2)
+
+  rev_sqrt_trans <- function() {
+    scales::trans_new(
+      name = "rev_sqrt",
+      transform = function(x) -sqrt(abs(x)),
+      inverse = function(x) x^2
+    );
+  }
+
+  g <- ggplot2::ggplot(DT, ggplot2::aes(x = Discoveries, y = FDR, group = mcmcID))
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype = "dotted")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype = "dotted")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype = "dotted")
+  g <- g + ggplot2::geom_step(direction = "vh", alpha = alpha)
+  g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
+  g <- g + ggplot2::scale_y_continuous(trans = rev_sqrt_trans(), breaks = c(0.0, 0.01, 0.05, 0.1, 0.2, 0.5), labels = ylabels(), expand = c(0.001, 0.001))
+  g <- g + ggplot2::coord_cartesian(xlim = c(0, xmax), ylim = c(0, ymax))
+  g <- g + ggplot2::xlab("Number of Discoveries")
+  g <- g + ggplot2::ylab("False Discovery Rate")
+  g
+}
+
+
+#' @import data.table
+#' @export
+plot_volcano <- function(dd, dd.contrast, dd.meta = NULL, dd.truth = NULL, xaxis = "identity", yaxis = "t-test.p", xlim = NULL, ylim = NULL) {
   # debug stuff
   if (!exists("dd.meta")) dd.meta <- NULL
   if (!exists("dd.truth")) dd.truth <- NULL
@@ -209,6 +255,65 @@ plot.volcano <- function(dd, dd.contrast, dd.meta = NULL, dd.truth = NULL, xaxis
   g
 }
 
+
+#' @import data.table
+#' @export
+plot_pr <- function(data, ymax = NULL) {
+  if (is.data.frame(data)) {
+    DTs.pr <- list(unknown = data)
+  } else {
+    if (is.null(names(data))) stop("if data is a list, it needs to be a named list of data.frames")
+    DTs.pr <- data
+  }
+
+  for (method in names(DTs.pr)) {
+    DT.pr <- setDT(DTs.pr[[method]])
+    if (is.null(DT.pr$FDR.lower)) DT.pr[, FDR.lower := FDR]
+    if (is.null(DT.pr$FDR.upper)) DT.pr[, FDR.upper := FDR]
+    DT.pr <- DT.pr[, .(FDR.lower, FDR, FDR.upper, FD = ifelse(log2FC.truth == 0, 1, 0))]
+    DT.pr[, Discoveries := 1:nrow(DT.pr)]
+    DT.pr[, TrueDiscoveries := cumsum(1 - FD)]
+    DT.pr[, FDP := cumsum(FD) / Discoveries]
+    DT.pr[, FDP := rev(cummin(rev(FDP)))]
+    DT.pr[, Method := method]
+    DTs.pr[[method]] <- DT.pr
+  }
+  DTs.pr <- rbindlist(DTs.pr)
+  DTs.pr[, Method := factor(Method, levels = unique(Method))]
+
+  ylabels <- function() function(x) format(x, digits = 2)
+
+  pi <- 1.0 - max(DTs.pr$TrueDiscoveries) / max(DTs.pr$Discoveries)
+  if (is.null(ymax)) ymax <- pi
+
+  rev_sqrt_trans <- function() {
+    scales::trans_new(
+      name = "rev_sqrt",
+      transform = function(x) -sqrt(abs(x)),
+      inverse = function(x) x^2
+    );
+  }
+
+  g <- ggplot2::ggplot(DTs.pr, ggplot2::aes(x = TrueDiscoveries, y = FDP, colour = Method, fill = Method, linetype = Method))
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype = "dotted")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype = "dotted")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype = "dotted")
+  g <- g + ggplot2::geom_ribbon(ggplot2::aes(ymin = FDR.lower, ymax = FDR.upper), colour = NA, alpha = 0.3)
+  g <- g + ggplot2::geom_line(ggplot2::aes(y = FDR), lty = "dashed")
+  g <- g + ggplot2::geom_step(direction = "vh")
+  g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
+  g <- g + ggplot2::scale_y_continuous(trans = rev_sqrt_trans(), breaks = c(0.0, 0.01, 0.05, 0.1, 0.2, 0.5, pi, 1.0), labels = ylabels(), expand = c(0.001, 0.001))
+  g <- g + ggplot2::coord_cartesian(xlim = c(0, max(DTs.pr$TrueDiscoveries), ylim = c(ymax, 0)))
+  g <- g + ggplot2::xlab(paste0("True Discoveries [ Sensitivity x ", max(DTs.pr$TrueDiscoveries), " ] from ", max(DTs.pr$Discoveries), " total proteins"))
+  g <- g + ggplot2::ylab("Solid Line: FDP [ 1 - Precision ], Dashed Line: FDR")
+  g <- g + ggplot2::scale_linetype_manual(values = rep("solid", length(levels(DTs.pr$Method))))
+
+  if (is.data.frame(data)) {
+    g + ggplot2::theme(legend.position = "none")
+  } else {
+    g + ggplot2::theme(legend.position = "top")
+  }
+}
 
 
 

@@ -1,126 +1,75 @@
+.onAttach <- function(libname, pkgname) {
+  packageStartupMessage(paste0("BayesProt v", packageVersion("bayesprot"), " | © 2015-2019 BIOSP", utf8::utf8_encode("\U0001f441"), " Laboratory"))
+  packageStartupMessage("This program comes with ABSOLUTELY NO WARRANTY.")
+  packageStartupMessage("This is free software, and you are welcome to redistribute it under certain conditions.")
+}
+
+
 #' Fit the BayesProt Bayesian Protein-level quantification model
 #'
-#' @param data Dataset returned by a `bayesprot::import...()` function
-#' @param output Directory to store all intermediate and output data
-#' @param assay.refs Reference assays - default is all assays, but this is only valid if the study is label-free or blocked across runs appropriately
-#' @param data.design Study design (optional): A 'data.table' specifying study design for the assays. An 'Assay' column is required containing all the levels of 'data$Assay'. This can optionally have a many-to-one
-#'   relationship with a column 'Sample'. Assays sharing the same sample are assumed to be pure repeat injections (i.e. a single digestion). Assay can also optionally have a many-to-one relationship with a column
-#'   'Condition'. If present, differential expression analysis will be conducted between conditions in a pair-wise manner. Set condition as NA for assays you are not interested in (e.g. reference samples).
-#' @param peptide.model Either NULL (no peptide model), `single` (single random effect) or `independent` (per-peptide independent random effects; default)
-#' @param peptide.prior Either NULL (uninformative) or `empirical` (empirical Bayes; default).
-#' @param feature.model Either `single` (single residual) or `independent` (per-feature independent residuals; default)
-#' @param feature.prior Either NULL (uninformative) or `empirical` (empirical Bayes; default)
-#' @param error.model Either `lognormal` or `poisson` (default)
-#' @param missingness.model Either `zero` (NAs set to 0), `feature` (NAs set to lowest quant of that feature) or `censored` (NAs modelled as censored between 0 and lowest quant of that feature; default)
-#' @param missingness.threshold All feature quants below this are treated as missing
-#' @param normalisation.model Use either NULL (no normalisation), `median` (median) or `cov.rob` (robust covariance estimation)
-#' @param normalisation.proteins Proteins to use in the normalisation; default is all proteins
-#' @param plots Generate all plots (todo)
-#' @param model0.npeptide Empirical Bayes model: Proteins with less than this number of peptides are not considered
-#' @param model0.seed Empirical Bayes model: Random numnber seed
-#' @param model0.nchain Empirical Bayes model: Number of MCMC chains to run
-#' @param model0.nwarmup Empirical Bayes model: Number of MCMC warmup iterations to run for each chain
-#' @param model0.thin Empirical Bayes model: MCMC thinning factor
-#' @param model0.nsample Empirical Bayes model: Total number of MCMC samples to generate
-#' @param model.seed Full BayesProt model: Random numnber seed
-#' @param model.nchain Full BayesProt model: Number of MCMC chains to run
-#' @param model.nwarmup Full BayesProt model: Number of MCMC warmup iterations to run for each chain
-#' @param model.thin Full BayesProt model: MCMC thinning factor
-#' @param model.nsample Full BayesProt model: Total number of MCMC samples to generate
-#' @param hpc Either NULL (execute locally), `pbs`, `sge` or `slurm` (submit to HPC cluster)
-#' @param nthread Number of CPU threads to employ
-#' @return A BayesProt fit object that can be interrogated for various results (todo)
+#' @param data A \link{data.frame} of input data as returned by \link{import_ProteinPilot} or \link{import_ProteomeDiscoverer}.
+#' @param data.design Optionally, a \link{data.frame} created by \link{design} and then customised, which specifies
+#'   assay-level study design, including reference assays, assay info and any covariates for optional differential expression
+#'   analysis. By default, all assays are set as reference channels, which is appropriate only for label-free studies
+#'   and fully-blocked iTraq/TMT/SILAC designs.
+#' @param normalisation.proteins Proteins to use in the normalisation; default is all proteins.
+#' @param plot Generate all plots (todo)
+#' @param output Folder on disk whether all intermediate and output data will be stored; default is \code{"bayesprot"}.
+#' @param control A \link{control} object specifying control parameters for the model.
+#' @return A \code{bayesprot.fit} object that can be interrogated for various results with \code{protein_quants},
+#'   \code{peptide_deviations}, \code{peptide_stdevs}, \code{feature_stdevs}, \code{de_metafor} and \code{de_mice}. \code{del}
+#'   deletes all associated files on disk.
 #' @export
 
 bayesprot <- function(
   data,
-  output = "bayesprot",
-  assay.refs = levels(data$Assay),
-  data.design = NULL,
-  peptide.model = "independent",
-  peptide.prior = "empirical",
-  feature.model = "independent",
-  feature.prior = "empirical",
-  error.model = "poisson",
-  missingness.model = "censored",
-  missingness.threshold = 0,
-  normalisation.model = "cov.rob",
+  data.design = design(data),
   normalisation.proteins = levels(data$Protein),
-  plots = F,
-  model0.npeptide = 3,
-  model0.seed = 0,
-  model0.nchain = 1,
-  model0.nwarmup = 256,
-  model0.thin = 1,
-  model0.nsample = 1024,
-  model.seed = 0,
-  model.nchain = 1,
-  model.nwarmup = 256,
-  model.thin = 1,
-  model.nsample = 1024,
-  nthread = parallel::detectCores(),
-  hpc = NULL
+  plot = F,
+  output = "bayesprot",
+  control = bayesprot::control()
 ) {
+  message(paste0("[", Sys.time(), "] BAYESPROT started"))
 
-  # read params
-  params <- as.list(environment())
-  params$data <- NULL
-  params$output <- basename(output)
-  params$version <- packageVersion("bayesprot")
+  # set up
+  DT <- setDT(data)
+  DT.design <- setDT(data.design)
+  control$output <- basename(output)
 
-  # banner
-  message(paste0("BayesProt v", params$version, " | © 2015-2019 BioSP", utf8::utf8_encode("\U0001f441"), " Laboratory"))
-  message("This program comes with ABSOLUTELY NO WARRANTY.")
-  message("This is free software, and you are welcome to redistribute it under certain conditions.")
-  message("---")
+  # merge Run and Assay, remove Injection
+  if (!all(is.na(DT$Run))) {
+    # if some runs are NA, remove
+    DT <- DT[!is.na(Run)]
+    DT[, Assay := interaction(Run, Assay, drop = T, sep = ",", lex.order = T)]
+  }
+  DT[, Run := NULL]
+  DT[, Injection := NULL]
 
   # validate parameters
-  DT <- setDT(data)
-  if (!is.null(hpc) && hpc != "pbs" && hpc != "sge" && hpc != "slurm" && hpc != "remote") {
-    stop("'hpc' needs to be either 'pbs', 'sge', 'slurm', 'remote' or NULL (default)")
-  }
-  if (!is.null(normalisation.model) && normalisation.model != "median" && normalisation.model != "cov.rob") {
-    stop("'normalisation.model' needs to be either NULL, 'median' or 'cov.rob' (default)")
-  }
-  if (!is.null(peptide.model) && peptide.model != "single" && peptide.model != "independent") {
-    stop("'peptide.model' needs to be either NULL, 'single' or 'independent' (default)")
-  }
-  if (!is.null(peptide.prior) && peptide.prior != "empirical") {
-    stop("'peptide.prior' needs to be either NULL or 'empirical' (default)")
-  }
-  if (!is.null(feature.model) && feature.model != "single" && feature.model != "independent") {
-    stop("'feature.model' needs to be either NULL, 'single' or 'independent' (default)")
-  }
-  if (!is.null(feature.prior) && feature.prior != "empirical") {
-    stop("'feature.prior' needs to be either NULL or 'empirical' (default)")
-  }
-  if (!all(assay.refs %in% levels(DT$Assay))) {
-    stop("all 'assay.refs' need to be in 'levels(data$Assay)'")
-  }
-  if (!is.null(data.design) && !(all(levels(DT$Assay) %in% data.design$Assay) && nlevels(DT$Assay) == length(data.design$Assay))) {
-    stop("all 'levels(data$Assay)' need to be in 'data.design'")
+  if (!(all(levels(DT$Assay) %in% DT.design$Assay) && nlevels(DT$Assay) == length(DT.design$Assay))) {
+    stop("all 'levels(data$Assay)' need to be in 'DT.design'")
   }
   if (!all(normalisation.proteins %in% levels(DT$Protein))) {
     stop("all 'normalisation.proteins' need to be in levels(data$Protein)")
   }
-  if (!is.null(missingness.model) && missingness.model != "feature" && missingness.model != "censored") {
-    stop("'missingname.model' needs to be either NULL, 'feature' or 'censored' (default)")
-  }
-  if (model.nchain == 1) {
-    message("WARNING: You are specifying only a single MCMC chain, convergence diagnostics will be unavailable. It is recommended to specify at least model.nchain=4 for publishable results.")
+  if (control$model.nchain == 1) {
+    message("WARNING: You are specifying only a single MCMC chain, convergence diagnostics will be unavailable. It is recommended to specify at least model.nchain=4 in 'control' for publishable results.")
   }
 
   # create output directory
   output <- path.expand(output)
-  if (file.exists(output)) stop("output directory already exists - please try again with a different output or delete the directory")
+  if (file.exists(output)) {
+    if (file.exists(file.path(output, "bayesprot_fit"))) {
+      stop("completed output already exists - please try again with a different output name or delete using rm(", output, ")")
+    } else {
+      unlink(output, recursive = T)
+    }
+  }
   dir.create(output)
-
-  # create input
-  message(paste0("[", Sys.time(), "] INPUT started"))
 
   # build Protein index
   DT.proteins <- DT[, .(
-    ProteinRef = ProteinRef[1],
+    ProteinInfo = ProteinInfo[1],
     nPeptide = length(unique(as.character(Peptide))),
     nFeature = length(unique(as.character(Feature))),
     nMeasure = sum(!is.na(Count))
@@ -137,7 +86,7 @@ bayesprot <- function(
 
   DT <- merge(DT, DT.proteins[, .(Protein, ProteinID)], by = "Protein", sort = F)
   DT[, Protein := NULL]
-  DT[, ProteinRef := NULL]
+  DT[, ProteinInfo := NULL]
 
   # build Peptide index
   DT.peptides <- DT[, .(
@@ -168,35 +117,16 @@ bayesprot <- function(
 
   # build Assay index
   DT.assays <- DT[, .(
-    ref = first(Assay) %in% as.character(assay.refs),
     nProtein = length(unique(as.character(ProteinID))),
     nPeptide = length(unique(as.character(PeptideID))),
     nFeature = length(unique(as.character(FeatureID))),
     nMeasure = sum(!is.na(Count))
   ), keyby = Assay]
   DT.assays[, AssayID := factor(formatC(1:nrow(DT.assays), width = ceiling(log10(nrow(DT.assays))) + 1, format = "d", flag = "0"))]
-  setcolorder(DT.assays, c("AssayID"))
-
-  # data.design
-  if (!is.null(data.design)) {
-    DT.design <- setDT(data.design)
-    DT.design[, Assay := factor(Assay, levels = levels(DT.assays$Assay))]
-    DT.assays <- merge(DT.assays, DT.design, by = "Assay")
-  }
-
-  # samples
-  if (is.null(DT.assays$Sample)) {
-    DT.assays[, Sample := Assay]
-  } else {
-    if (!is.factor(DT.assays$Sample)) DT.assays[, Sample := factor(Sample)]
-  }
-  DT.assays[, SampleID := factor(Sample, labels = formatC(1:length(levels(DT.assays$Sample)), width = ceiling(log10(length(levels(DT.assays$Sample)))) + 1, format = "d", flag = "0"))]
-
-  # conditions
-  if (!is.null(DT.assays$Condition)) {
-    if (!is.factor(DT.assays$Condition)) DT.assays[, Condition := factor(Condition)]
-    DT.assays[, ConditionID := factor(Condition, labels = formatC(1:length(levels(DT.assays$Condition)), width = ceiling(log10(length(levels(DT.assays$Condition)))) + 1, format = "d", flag = "0"))]
-  }
+  DT.assays <- merge(DT.assays, DT.design, by = "Assay")
+  if (!is.factor(DT.assays$Sample)) DT.assays[, Sample := factor(Sample)]
+  DT.assays[, SampleID := factor(Sample, labels = formatC(1:nlevels(droplevels(DT.assays$Sample)), width = ceiling(log10(nlevels(droplevels(DT.assays$Sample)))) + 1, format = "d", flag = "0"))]
+  setcolorder(DT.assays, c("AssayID", "Assay", "SampleID", "Sample"))
 
   DT <- merge(DT, DT.assays[, .(Assay, AssayID, SampleID)], by = "Assay", sort = F)
   DT[, Assay := NULL]
@@ -204,10 +134,10 @@ bayesprot <- function(
   setorder(DT, ProteinID, PeptideID, FeatureID, AssayID, SampleID)
 
   # set up missingness
-  if (missingness.model == "feature") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
-  if (missingness.model == "censored") DT[, Count1 := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
-  if (missingness.model == "censored" | missingness.model == "zero") DT[is.na(Count), Count := 0.0]
-  if (missingness.model == "censored" & all(DT$Count == DT$Count1)) DT[, Count1 := NULL]
+  if (control$missingness.model == "feature") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
+  if (control$missingness.model == "censored") DT[, Count1 := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
+  if (control$missingness.model == "censored" | control$missingness.model == "zero") DT[is.na(Count), Count := 0.0]
+  if (control$missingness.model == "censored" & all(DT$Count == DT$Count1)) DT[, Count1 := NULL]
   # index in DT.proteins for fst random access
   DT.proteins <- merge(DT.proteins, DT[, .(ProteinID = unique(ProteinID), row = .I[!duplicated(ProteinID)], row1 = .I[rev(!duplicated(rev(ProteinID)))])], by = "ProteinID", all.x = T, sort = F)
 
@@ -217,15 +147,12 @@ bayesprot <- function(
   dir.create(file.path(output, "output0", "results"), recursive = T)
   dir.create(file.path(output, "model", "results"), recursive = T)
   dir.create(file.path(output, "output", "results"), recursive = T)
-  if (plots) {
+  if (plot) {
     dir.create(file.path(output, "plots", "results"), recursive = T)
-  }
-  for (file in list.files(system.file("hpc", package = "bayesprot"))) {
-    file.copy(file.path(system.file("hpc", package = "bayesprot"), file), output, recursive = T)
   }
 
   # save data and metadata
-  saveRDS(params, file.path(output, "input", "params.rds"))
+  saveRDS(control, file.path(output, "input", "control.rds"))
   fst::write.fst(DT, file.path(output, "input", "data.fst"))
   fst::write.fst(DT.proteins, file.path(output, "input", "proteins.fst"))
   fst::write.fst(DT.peptides, file.path(output, "input", "peptides.fst"))
@@ -233,41 +160,117 @@ bayesprot <- function(
   fst::write.fst(DT.assays, file.path(output, "input", "assays.fst"))
   fit <- normalizePath(output)
 
-  message(paste0("[", Sys.time(), "] INPUT finished"))
-
-  if (is.null(hpc)) {
-    wd <- getwd()
+  if (is.null(control$hpc)) {
 
     # run model0
-    setwd(file.path(wd, output, "model0", "results"))
-    sapply(1:params$model0.nchain, function(chain) process.model0(chain))
+    sapply(1:control$model0.nchain, function(chain) process_model0(chain, file.path(output, "model0", "results")))
 
     # run output0
-    setwd(file.path(wd, output, "output0", "results"))
-    process.output0()
+    process_output0(file.path(output, "output0", "results"))
 
     # run model
-    setwd(file.path(wd, output, "model", "results"))
-    sapply(1:params$model.nchain, function(chain) process.model(chain))
+    sapply(1:control$model.nchain, function(chain) process_model(chain, file.path(output, "model", "results")))
 
     # run output
-    setwd(file.path(wd, output, "output", "results"))
-    process.output()
+    process_output(file.path(output, "output", "results"))
 
     if (file.exists(file.path(output, "plots"))) {
       # run plots
-      setwd(file.path(wd, output, "plots", "results"))
-      process.plots()
+      process_plots(file.path(output, "plots", "results"))
     }
 
-    setwd(wd)
   } else {
     # submit to hpc directly here
     stop("not implemented yet")
   }
 
+  write.table(data.frame(), file.path(output, "bayesprot_fit"), col.names = F)
+  message(paste0("[", Sys.time(), "] BAYESPROT finished"))
+
   # return fit object
-  class(fit) <- "bayesprot"
+  class(fit) <- "bayesprot_fit"
   return(fit)
 
+}
+
+
+#' Control parameters for the BayesProt Bayesian Protein-level quantification model
+#'
+#' @param peptide.model Either \code{NULL} (no peptide model), \code{single} (single random effect) or \code{independent}
+#'   (per-peptide independent random effects; default)
+#' @param peptide.prior Either \code{NULL} (uninformative) or \code{empirical} (empirical Bayes; default).
+#' @param feature.model Either \code{single} (single residual) or \code{independent} (per-feature independent residuals; default)
+#' @param feature.prior Either \code{NULL} (uninformative) or \code{empirical} (empirical Bayes; default)
+#' @param error.model Either \code{lognormal} or \code{poisson} (default)
+#' @param control$missingness.model Either \code{zero} (NAs set to 0), \code{feature} (NAs set to lowest quant of that feature) or
+#'   \code{censored} (NAs modelled as censored between 0 and lowest quant of that feature; default)
+#' @param missingness.threshold All feature quants below this are treated as missing
+#' @param normalisation.model Use either \code{NULL} (no normalisation), \code{median} (median) or \code{cov.rob} (robust
+#'   covariance estimation)
+#' @param model0.npeptide Empirical Bayes model: Proteins with less than this number of peptides are not considered
+#' @param model0.seed Empirical Bayes model: Random numnber seed
+#' @param model0.nchain Empirical Bayes model: Number of MCMC chains to run
+#' @param model0.nwarmup Empirical Bayes model: Number of MCMC warmup iterations to run for each chain
+#' @param model0.thin Empirical Bayes model: MCMC thinning factor
+#' @param model0.nsample Empirical Bayes model: Total number of MCMC samples to generate
+#' @param model.seed Full BayesProt model: Random numnber seed
+#' @param model.nchain Full BayesProt model: Number of MCMC chains to run
+#' @param model.nwarmup Full BayesProt model: Number of MCMC warmup iterations to run for each chain
+#' @param model.thin Full BayesProt model: MCMC thinning factor
+#' @param model.nsample Full BayesProt model: Total number of MCMC samples to generate
+#' @param hpc Either \code{NULL} (execute locally), \code{pbs}, \code{sge} or \code{slurm} (submit to HPC cluster)
+#' @param nthread Number of CPU threads to employ
+#' @return \code{control} object to pass to \link{bayesprot}
+#' @export
+control <- function(
+  peptide.model = "independent",
+  peptide.prior = "empirical",
+  feature.model = "independent",
+  feature.prior = "empirical",
+  error.model = "poisson",
+  missingness.model = "censored",
+  missingness.threshold = 0,
+  normalisation.model = "cov.rob",
+  plots = FALSE,
+  model0.npeptide = 3,
+  model0.seed = 0,
+  model0.nchain = 1,
+  model0.nwarmup = 256,
+  model0.thin = 8,
+  model0.nsample = 128,
+  model.seed = 0,
+  model.nchain = 1,
+  model.nwarmup = 256,
+  model.thin = 8,
+  model.nsample = 128,
+  nthread = parallel::detectCores(logical = FALSE),
+  hpc = NULL
+) {
+  # validate parameters
+  if (!is.null(hpc) && hpc != "pbs" && hpc != "sge" && hpc != "slurm" && hpc != "remote") {
+    stop("'hpc' needs to be either 'pbs', 'sge', 'slurm', 'remote' or NULL (default)")
+  }
+  if (!is.null(normalisation.model) && normalisation.model != "median" && normalisation.model != "cov.rob") {
+    stop("'normalisation.model' needs to be either NULL, 'median' or 'cov.rob' (default)")
+  }
+  if (!is.null(peptide.model) && peptide.model != "single" && peptide.model != "independent") {
+    stop("'peptide.model' needs to be either NULL, 'single' or 'independent' (default)")
+  }
+  if (!is.null(peptide.prior) && peptide.prior != "empirical") {
+    stop("'peptide.prior' needs to be either NULL or 'empirical' (default)")
+  }
+  if (!is.null(feature.model) && feature.model != "single" && feature.model != "independent") {
+    stop("'feature.model' needs to be either NULL, 'single' or 'independent' (default)")
+  }
+  if (!is.null(feature.prior) && feature.prior != "empirical") {
+    stop("'feature.prior' needs to be either NULL or 'empirical' (default)")
+  }
+  if (!is.null(missingness.model) && missingness.model != "feature" && missingness.model != "censored") {
+    stop("'missingname.model' needs to be either NULL, 'feature' or 'censored' (default)")
+  }
+
+  control <- as.list(environment())
+  control$version <- packageVersion("bayesprot")
+  class(control) <- "bayesprot_control"
+  return(control)
 }

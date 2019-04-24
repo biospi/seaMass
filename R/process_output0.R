@@ -1,31 +1,26 @@
-#' process.output0 (internal)
+#' process_output0 (internal)
 #'
 #' @import data.table
 #' @import foreach
 #' @export
-process.output0 <- function() {
+process_output0 <- function(path.results = ".") {
   suppressPackageStartupMessages(library(data.table))
 
   message(paste0("[", Sys.time(), "] OUTPUT0 started"))
 
   # load parameters
-  prefix <- ifelse(file.exists("params.rds"), ".", file.path("..", "..", "input"))
-  params <- readRDS(file.path(prefix, "params.rds"))
-  DT.proteins <- fst::read.fst(file.path(prefix, "proteins.fst"), as.data.table = T)
-  DT.assays <- fst::read.fst(file.path(prefix, "assays.fst"), as.data.table = T)
-
-  chains <- formatC(1:params$model0.nchain, width = ceiling(log10(params$model0.nchain + 1)) + 1, format = "d", flag = "0")
-
-  # create subdirectories
-  prefix <- ifelse(file.exists("protein.quants.*.fst"), ".", file.path("..", "..", "model0", "results"))
-  stats.dir <- paste0(params$output, ".output0")
-  dir.create(stats.dir, showWarnings = F)
+  path.input <- ifelse(file.exists("control.rds"), ".", file.path(path.results, "..", "..", "input"))
+  path.model0 <- ifelse(file.exists("protein.quants"), ".", file.path(path.results, "..", "..", "model0", "results"))
+  control <- readRDS(file.path(path.input, "control.rds"))
+  DT.proteins <- fst::read.fst(file.path(path.input, "proteins.fst"), as.data.table = T)
+  DT.assays <- fst::read.fst(file.path(path.input, "assays.fst"), as.data.table = T)
+  chains <- formatC(1:control$model0.nchain, width = ceiling(log10(control$model0.nchain + 1)) + 1, format = "d", flag = "0")
 
   # DIGEST METRIC
   #message("[", paste0(Sys.time(), "]  computing digest metric..."))
 
   #DT.digest.mads <- rbindlist(lapply(chains, function(chain) {
-  #  DT <- fst::read.fst(file.path(prefix, paste0("peptide.deviations.", chain, ".fst")), as.data.table = T)
+  #  DT <- fst::read.fst(file.path(path.input, paste0("peptide.deviations.", chain, ".fst")), as.data.table = T)
   #  DT <- DT[, .(value = mad(value)), by = .(SampleID, mcmcID)]
   #  DT[, chainID := factor(chain)]
   #  DT
@@ -64,7 +59,7 @@ process.output0 <- function() {
   # g <- g + ggplot2::geom_line(data = DT.digest.mads.density, ggplot2::aes(x = x,y = y), size = 1/2)
   # g <- g + ggplot2::geom_vline(data = DT.digest.mads.meta, ggplot2::aes(xintercept = median), size = 1/2)
   # g <- g + ggplot2::geom_text(data = DT.digest.mads.meta, ggplot2::aes(x = median, label = fc), y = max(DT.digest.mads.density$y) * 1.25, hjust = 0, vjust = 1, size = 3)
-  # ggplot2::ggsave(file.path(stats.dir, "digest_mads.pdf"), g, width = 8, height = 0.5 + 0.75 * length(levels(DT.digest.mads.density$Sample)), limitsize = F)
+  # ggplot2::ggsave(file.path(path.stats, "digest_mads.pdf"), g, width = 8, height = 0.5 + 0.75 * length(levels(DT.digest.mads.density$Sample)), limitsize = F)
 
   # ASSAY EXPOSURES
   # message("[", paste0(Sys.time(), "]  computing assay exposures..."))
@@ -72,7 +67,7 @@ process.output0 <- function() {
   # refs <- DT.assays[ref == T, AssayID]
   # mean.refs <- function(AssayID, value) mean(value[AssayID %in% refs])
   # DT.assay.exposures <- rbindlist(lapply(chains, function(chain) {
-  #   DT <- fst::read.fst(file.path(prefix, paste0("protein.quants.", chain, ".fst")), as.data.table = T)
+  #   DT <- fst::read.fst(file.path(path.input, paste0("protein.quants.", chain, ".fst")), as.data.table = T)
   #   DT <- merge(DT, DT.proteins[, .(ProteinID, norm)])[norm == T, -"norm"]
   #   # aDT zeros for baselines
   #   DT <- rbind(DT, DT[, .(AssayID = BaselineID, value = 0.0), by = .(ProteinID, BaselineID, mcmcID)])
@@ -123,13 +118,13 @@ process.output0 <- function() {
   # g <- g + ggplot2::geom_line(data = DT.assay.exposures.density, ggplot2::aes(x = x,y = y), size = 1/2)
   # g <- g + ggplot2::geom_vline(data = DT.assay.exposures.meta, ggplot2::aes(xintercept = median), size = 1/2)
   # g <- g + ggplot2::geom_text(data = DT.assay.exposures.meta, ggplot2::aes(x = median, label = fc), y = max(DT.assay.exposures.density$y) * 1.25, hjust = 0, vjust = 1, size = 3)
-  # ggplot2::ggsave(file.path(stats.dir, "assay_exposures.pdf"), g, width = 8, height = 0.5 + 0.75 * length(levels(DT.assay.exposures.density$Assay)), limitsize = F)
+  # ggplot2::ggsave(file.path(path.stats, "assay_exposures.pdf"), g, width = 8, height = 0.5 + 0.75 * length(levels(DT.assay.exposures.density$Assay)), limitsize = F)
 
   # PROTEIN FOLD CHANGES AND PEPTIDE FEATURE VARIANCES
 
   # protein fold changes
   # DT.protein.fcs <- rbindlist(lapply(chains, function(chain) {
-  #   DT <- fst::read.fst(file.path(prefix, paste0("protein.quants.", chain, ".fst")), as.data.table = T)
+  #   DT <- fst::read.fst(file.path(path.input, paste0("protein.quants.", chain, ".fst")), as.data.table = T)
   #   # aDT zeros for baselines
   #   DT <- rbind(DT, DT[, .(AssayID = BaselineID, value = 0.0), by = .(ProteinID, BaselineID, mcmcID)])
   #   DT[, AssayID := factor(AssayID, levels = levels(DT.assays$AssayID))]
@@ -152,17 +147,17 @@ process.output0 <- function() {
   message("[", paste0(Sys.time(), "]  fitting protein/peptide/feature distributions..."))
 
   # peptide variances
-  DT.peptide.vars <- rbindlist(lapply(list.files(prefix, paste0("^peptide\\.vars\\..*", chains[1], "\\.fst"), full.names = T), function(file) {
+  DT.peptide.vars <- rbindlist(lapply(list.files(file.path(path.model0, "peptide.vars"), paste0("^", chains[1], "\\..*fst$")), function(file) {
     DT <- rbindlist(lapply(chains, function(chain) {
-      fst::read.fst(sub(paste0("(^peptide\\.vars\\..*)", chains[1], "(\\.fst$)"), paste0("\\1", chain, "\\2"), file), as.data.table = T)
+      fst::read.fst(file.path(path.model0, "peptide.vars", sub(paste0("^", chains[1], "(\\..*fst)$"), paste0(chain, "\\1"), file)), as.data.table = T)
     }))
     DT[, .(median = median(value), mad = mad(value)), by = .(ProteinID, PeptideID)]
   }))
 
   # feature variances
-  DT.feature.vars <- rbindlist(lapply(list.files(prefix, paste0("^feature\\.vars\\..*", chains[1], "\\.fst"), full.names = T), function(file) {
+  DT.feature.vars <- rbindlist(lapply(list.files(file.path(path.model0, "feature.vars"), paste0("^", chains[1], "\\..*fst$")), function(file) {
     DT <- rbindlist(lapply(chains, function(chain) {
-      fst::read.fst(sub(paste0("(^feature\\.vars\\..*)", chains[1], "(\\.fst$)"), paste0("\\1", chain, "\\2"), file), as.data.table = T)
+      fst::read.fst(file.path(path.model0, "feature.vars", sub(paste0("^", chains[1], "(\\..*fst)$"), paste0(chain, "\\1"), file)), as.data.table = T)
     }))
     DT[, .(median = median(value), mad = mad(value)), by = .(ProteinID, FeatureID)]
   }))
@@ -205,7 +200,7 @@ process.output0 <- function() {
     #protein.stdev = protein.stdev,
     peptide.V = peptide.V, peptide.nu = peptide.nu,
     feature.V = feature.V, feature.nu = feature.nu
-  ), file = "priors.rds")
+  ), file = file.path(path.results, "priors.rds"))
 
   # plot in base 2
   prior.vars.meta <- function(x) {
@@ -267,8 +262,7 @@ process.output0 <- function() {
   g <- g + ggplot2::geom_line(data = DT.prior.fit.density, ggplot2::aes(x = x,y = y), size = 1/2, colour = "red")
   g <- g + ggplot2::geom_vline(data = DT.prior.fit.meta, ggplot2::aes(xintercept = median), size = 1/2, colour = "red")
   g <- g + ggplot2::geom_text(data = DT.prior.fit.meta, ggplot2::aes(x = median, label = fc), y = max(DT.prior.fit.density$y) * 1.25, hjust = 0, vjust = 1, size = 3, colour = "red")
-  ggplot2::ggsave(file.path(stats.dir, "peptide_feature_priors.pdf"), g, width = 8, height = 0.5 + 2 * length(levels(DT.prior.stdevs.density$Type)), limitsize = F)
-
+  ggplot2::ggsave(file.path(path.results, "peptide_feature_priors.pdf"), g, width = 8, height = 0.5 + 2 * length(levels(DT.prior.stdevs.density$Type)), limitsize = F)
 
   # prior.fcs.density <- function(x) {
   #   as.data.table(density(x, n = 4096)[c("x","y")])
@@ -294,12 +288,12 @@ process.output0 <- function() {
   # g <- g + ggplot2::geom_ribbon(ggplot2::aes(x = x, ymax = y), DT.prior.fcs.density, ymin = 0, size = 1/2, alpha = 0.3)
   # g <- g + ggplot2::geom_line(data = DT.prior.fcs.fit, ggplot2::aes(x = x,y = y), size = 1/2, colour = "red")
   # g <- g + ggplot2::geom_density(size = 1/2)
-  # ggplot2::ggsave(file.path(stats.dir, "protein_prior.pdf"), g, width = 8, height = 2, limitsize = F)
+  # ggplot2::ggsave(file.path(path.stats, "protein_prior.pdf"), g, width = 8, height = 2, limitsize = F)
 
-  # create zip file and clean up
-  stats.zip <- file.path("..", "..", "..", paste0(stats.dir, ".zip"))
-  if (file.exists(stats.zip)) file.remove(stats.zip)
-  zip(stats.zip, stats.dir, flags="-r9Xq")
+  # # create zip file and clean up
+  # stats.zip <- file.path(path.output, paste0(basename(path.stats), ".zip"))
+  # if (file.exists(stats.zip)) file.remove(stats.zip)
+  # zip(stats.zip, path.stats, flags="-r9Xq")
 
   message(paste0("[", Sys.time(), "] OUTPUT0 finished"))
 }
