@@ -37,13 +37,15 @@ bayesprot <- function(
   control$output <- basename(output)
 
   # merge Run and Assay, remove Injection
-  if (!all(is.na(DT$Run))) {
-    # if some runs are NA, remove
-    DT <- DT[!is.na(Run)]
-    DT[, Assay := interaction(Run, Assay, drop = T, sep = ",", lex.order = T)]
+  if (!is.null(DT$Injection)) DT[, Injection := NULL]
+  if (!is.null(DT$Run)) {
+    if (!all(is.na(DT$Run))) {
+      # if some runs are NA, remove
+      DT <- DT[!is.na(Run)]
+      DT[, Assay := interaction(Run, Assay, drop = T, sep = ",", lex.order = T)]
+    }
+    DT[, Run := NULL]
   }
-  DT[, Run := NULL]
-  DT[, Injection := NULL]
 
   # validate parameters
   if (!(all(levels(DT$Assay) %in% DT.design$Assay) && nlevels(DT$Assay) == length(DT.design$Assay))) {

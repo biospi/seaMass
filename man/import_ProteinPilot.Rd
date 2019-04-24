@@ -9,7 +9,7 @@ import_ProteinPilot(file = NULL, shared = F, min.conf = "auto",
   data = NULL)
 }
 \arguments{
-\item{file}{Location of the PeptideSummary.txt file.}
+\item{file}{Location of the \code{PeptideSummary.txt} file.}
 
 \item{shared}{Include shared peptides?}
 
