@@ -249,6 +249,7 @@ process_model <- function(chain, path.results = ".") {
 
     output
   }
+  setTxtProgressBar(pb, sum(DT.proteins$timing))
   close(pb)
 
 
@@ -310,6 +311,7 @@ process_model <- function(chain, path.results = ".") {
         DT.t <- DT[, .(Fit = .(lm(value ~ Condition, .SD))), by = mcmcID]
         saveRDS(DT.t, file.path(path.results, "de", paste0(cts[1, ct], "v", cts[2, ct], ".", chainID, ".", DT[1, ProteinID], ".rds")))
       }
+      setTxtProgressBar(pb, length(DTs))
       close(pb)
     }
 

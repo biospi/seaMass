@@ -138,6 +138,7 @@ process_output <- function(path.results = ".") {
         setcolorder(DT, c("ProteinID", "log2SE", "log2FC.lower", "log2FC", "log2FC.upper", "df", "statistic", "p.value"))
         DT
       }
+      setTxtProgressBar(pb, length(files))
       close(pb)
       parallel::stopCluster(cl)
 

@@ -205,6 +205,7 @@ process_model0 <- function(chain, path.results = ".") {
 
     output
   }
+  setTxtProgressBar(pb, sum(DT.proteins$timing))
   close(pb)
 
   # write out concatenation of smaller output

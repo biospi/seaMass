@@ -42,6 +42,7 @@ t.tests.metafor <- function(data, contrast, nthread = parallel::detectCores(logi
 
     DT.t
   }
+  setTxtProgressBar(pb, length(DTs))
   close(pb)
   parallel::stopCluster(cl)
 
