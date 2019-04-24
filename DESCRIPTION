@@ -21,6 +21,7 @@ Imports:
     ggfortify (>= 0.4.5),
     ggrepel (>= 0.8.0),
     metafor (>= 2.0-0),
+    mice (>= 3.4.0),
     MCMCglmm (>= 2.26),
     robust (>= 0.4-18),
     utf8 (>= 1.1.4)
