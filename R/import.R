@@ -115,7 +115,8 @@ import_ProteinPilot <- function(
   DT <- melt(DT, variable.name = "Assay", value.name = "Count", measure.vars = colnames(DT)[grep("^Assay\\.", colnames(DT))])
   levels(DT$Assay) <- sub("^Assay\\.", "", levels(DT$Assay))
 
-  return(setDF(DT))
+  data <- setDF(DT)
+  return(data)
 }
 
 
@@ -206,7 +207,8 @@ import_ProteomeDiscoverer <- function(
   DT <- melt(DT, variable.name = "Assay", value.name = "Count", measure.vars = colnames(DT)[grep("^Assay\\.", colnames(DT))])
   levels(DT$Assay) <- sub("^Assay\\.", "", levels(DT$Assay))
 
-  return(DT)
+  data <- setDF(DT)
+  return(data)
 }
 
 
