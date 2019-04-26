@@ -45,7 +45,7 @@ design <- function(data) {
 #'
 #' Reads in a SCIEX ProteinPilot \code{PeptideSummary.txt} file for processing with \link{bayesprot}.
 #'
-#' @param file Location of the PeptideSummary.txt file.
+#' @param file Location of the \code{PeptideSummary.txt} file.
 #' @param shared Include shared peptides?
 #' @param min.conf Features with peptide ID confidence less than \code{min.conf} (between 0 - 100) are filtered out. The default
 #'   \code{"auto"} uses the ProteinPilot default threshold.
@@ -84,7 +84,6 @@ import_ProteinPilot <- function(
   if (!shared) DT.raw <- DT.raw[Annotation != "auto - shared MS/MS"]
 
   # create wide data table
-  input <- list()
   DT <- DT.raw[, .(
     ProteinInfo = paste0("[", N, "] ", Names),
     Protein = gsub(";", "", Accessions),
@@ -212,18 +211,79 @@ import_ProteomeDiscoverer <- function(
 }
 
 
-# import.MSstats <- function(dd.input) {
-#   dd <- data.table(
-#     Protein = factor(dd.input$ProteinName),
-#     Peptide = factor(dd.input$PeptideSequence),
-#     Feature = factor(dd.input$FragmentIon)
-#   )
-#   dd[, ProteinInfo := factor(as.integer(Protein))]
-#
-#   if (length(unique(dd.input$Run)) == 1) dd$Assay <- factor(dd.input$IsotopeLabelType)
-#   if (length(unique(dd.input$IsotopeLabelType)) == 1) dd$Assay <- factor(dd.input$Run)
-#   if (is.null(dd$Assay)) dd$Assay <- paste(dd$Run, dd$Label, sep = ".")
-#   dd$Count = as.numeric(dd.input$Intensity)
-#
-#   dd
-# }
+#' Import Waters Progenesis data
+#'
+#' Reads in a Waters Progenesis \code{pep_ion_measurements.csv} file for processing with \link{bayesprot}.
+#'
+#' @param file Location of the \code{pep_ion_measurements.csv} file.
+#' @param used Include only features marked as used by Progenesis?
+#' @param data Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
+#'   \link[data.table]{fread} default parameters.
+#' @return A \link{data.frame} for input into \link{bayesprot}.
+#' @import data.table
+#' @export
+
+import_Progenesis <- function(
+  file = NULL,
+  used = T,
+  data = NULL
+) {
+  if (is.null(file)) {
+    if (is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
+    DT.raw <- setDT(data)
+  } else {
+    DT.raw <- fread(file = file, showProgress = T)
+  }
+
+  # sort out column names
+  for (j in 2:ncol(DT.raw)) {
+    if (DT.raw[[j]][1] == "") DT.raw[[j]][1] <- DT.raw[[j-1]][1]
+    if (DT.raw[[j]][2] == "") DT.raw[[j]][2] <- DT.raw[[j-1]][2]
+  }
+  colnames(DT.raw) <- apply(DT.raw[1:3,], 2, function(x) trimws(paste(x[1], x[2], x[3])))
+  DT.raw <- DT.raw[4:nrow(DT.raw),]
+
+  # column names for different file types
+  if ("Accession" %in% colnames(DT.raw)) {
+    colname.protein <- "Accession"
+    colname.proteininfo <- "Description"
+    colname.sequence <- "Sequence"
+    colname.modifications <- "Modifications"
+
+    # only use rows that Progenesis uses for quant
+    if (used) DT.raw <- DT.raw[`Use in quantitation` == "True",]
+  } else {
+    colname.protein <- colnames(DT.raw)[grep("Best peptide match Protein$", colnames(DT.raw))]
+    colname.proteininfo <- colnames(DT.raw)[grep("Best peptide match Description$", colnames(DT.raw))]
+    colname.sequence <- colnames(DT.raw)[grep("Best peptide match Sequence$", colnames(DT.raw))]
+    colname.modifications <- colnames(DT.raw)[grep("Best peptide match Variable modifications \\(\\[position\\] description\\)$", colnames(DT.raw))]
+  }
+
+  # remove decoys and strange missing Accession
+  DT.raw <- DT.raw[get(colname.protein) != "",]
+  DT.raw <- DT.raw[!grepl("^#DECOY#", get(colname.protein)),]
+
+  # create wide data table
+  DT <- cbind(DT.raw[, .(
+    ProteinInfo = get(colname.proteininfo),
+    Protein = get(colname.protein),
+    Peptide = gsub(" ", "", paste0(get(colname.sequence), ",", get(colname.modifications))),
+    Feature = `#`
+  )], DT.raw[, .SD, .SDcols = names(DT.raw) %like% "^Raw abundance "])
+
+  # group ambiguous PSMs so BayesProt treats them as a single peptide per protein
+  DT[, Peptide := paste(sort(as.character(Peptide)), collapse = " "), by = .(Protein, Feature)]
+  DT <- unique(DT)
+
+  # melt
+  DT[, ProteinInfo := factor(ProteinInfo)]
+  DT[, Protein := factor(Protein)]
+  DT[, Peptide := factor(Peptide)]
+  DT[, Feature := factor(Feature)]
+  DT <- melt(DT, variable.name = "Assay", value.name = "Count", measure.vars = colnames(DT)[grep("^Raw abundance ", colnames(DT))])
+  levels(DT$Assay) <- sub("^Raw abundance ", "", levels(DT$Assay))
+  DT[, Count := as.numeric(Count)]
+
+  data <- setDF(DT)
+  return(data)
+}
