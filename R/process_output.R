@@ -178,7 +178,7 @@ process_output <- function(path.results = ".") {
   DT.pca.assays <- ggplot2::fortify(pca.assays)
   DT.pca.assays <- cbind(DT.pca.assays, DT.assays)
   if (any(as.character(DT.pca.assays$Assay) != as.character(DT.pca.assays$Sample))) {
-    DT.pca.assays$Assay <- paste(DT.pca.assays$Assay, "; ", DT.pca.assays$Sample)
+    DT.pca.assays$Assay <- paste0(DT.pca.assays$Assay, "; ", DT.pca.assays$Sample)
   }
 
   g <- ggplot2::autoplot(pca.assays, data = DT.pca.assays)
