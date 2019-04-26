@@ -143,12 +143,12 @@ bayesprot <- function(
 
   # build submission folder
   dir.create(file.path(output, "input"))
-  dir.create(file.path(output, "model0", "results"), recursive = T)
-  dir.create(file.path(output, "output0", "results"), recursive = T)
-  dir.create(file.path(output, "model", "results"), recursive = T)
-  dir.create(file.path(output, "output", "results"), recursive = T)
+  dir.create(file.path(output, "model0"))
+  dir.create(file.path(output, "output0"))
+  dir.create(file.path(output, "model"))
+  dir.create(file.path(output, "output"))
   if (plot) {
-    dir.create(file.path(output, "plots", "results"), recursive = T)
+    dir.create(file.path(output, "plots"))
   }
 
   # save data and metadata
@@ -163,20 +163,20 @@ bayesprot <- function(
   if (is.null(control$hpc)) {
 
     # run model0
-    sapply(1:control$model0.nchain, function(chain) process_model0(chain, file.path(output, "model0", "results")))
+    sapply(1:control$model0.nchain, function(chain) process_model0(chain, file.path(output, "model0")))
 
     # run output0
-    process_output0(file.path(output, "output0", "results"))
+    process_output0(file.path(output, "output0"))
 
     # run model
-    sapply(1:control$model.nchain, function(chain) process_model(chain, file.path(output, "model", "results")))
+    sapply(1:control$model.nchain, function(chain) process_model(chain, file.path(output, "model")))
 
     # run output
-    process_output(file.path(output, "output", "results"))
+    process_output(file.path(output, "output"))
 
     if (file.exists(file.path(output, "plots"))) {
       # run plots
-      process_plots(file.path(output, "plots", "results"))
+      process_plots(file.path(output, "plots"))
     }
 
   } else {

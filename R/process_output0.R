@@ -9,8 +9,8 @@ process_output0 <- function(path.results = ".") {
   message(paste0("[", Sys.time(), "] OUTPUT0 started"))
 
   # load parameters
-  path.input <- ifelse(file.exists("control.rds"), ".", file.path(path.results, "..", "..", "input"))
-  path.model0 <- ifelse(file.exists("protein.quants"), ".", file.path(path.results, "..", "..", "model0", "results"))
+  path.input <- ifelse(file.exists("control.rds"), ".", file.path(path.results, "..", "input"))
+  path.model0 <- ifelse(file.exists("protein.quants"), ".", file.path(path.results, "..", "model0"))
   control <- readRDS(file.path(path.input, "control.rds"))
   DT.proteins <- fst::read.fst(file.path(path.input, "proteins.fst"), as.data.table = T)
   DT.assays <- fst::read.fst(file.path(path.input, "assays.fst"), as.data.table = T)

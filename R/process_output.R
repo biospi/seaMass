@@ -12,8 +12,8 @@ process_output <- function(path.results = ".") {
   message(paste0("[", Sys.time(), "] OUTPUT started"))
 
   # load parameters
-  path.input <- ifelse(file.exists("control.rds"), ".", file.path(path.results, "..", "..", "input"))
-  path.model <- ifelse(file.exists("protein.quants.*.fst"), ".", file.path(path.results, "..", "..", "model", "results"))
+  path.input <- ifelse(file.exists("control.rds"), ".", file.path(path.results, "..", "input"))
+  path.model <- ifelse(file.exists("protein.quants.*.fst"), ".", file.path(path.results, "..", "model"))
   control <- readRDS(file.path(path.input, "control.rds"))
   DT.assays <- fst::read.fst(file.path(path.input, "assays.fst"), as.data.table = T)
   DT.proteins <- fst::read.fst(file.path(path.input, "proteins.fst"), as.data.table = T)
@@ -119,37 +119,41 @@ process_output <- function(path.results = ".") {
       # t.tests.metafor
       contrast <- ifelse(DT.assays$Condition == cts[1, ct] | DT.assays$Condition == cts[2, ct], DT.assays$Condition, NA_integer_)
       DT.t <- bayesprot::t.tests.metafor(DT.protein.quants, contrast, control$nthread)
-      DT.t <- merge(DT.t, DT.proteins[, .(ProteinID, Protein, ProteinInfo, nPeptide, nFeature, nMeasure)], by = "ProteinInfo", sort = F)
-      DT.t <- merge(DT.t, DT.real.ct, by = "ProteinID", sort = F)
-      setcolorder(DT.t, c("ProteinID", "Protein", "ProteinInfo", "nPeptide", "nFeature", "nMeasure", "n1.real", "n2.real"))
-      fwrite(DT.t, file.path(path.results, paste0("protein_log2DE__", cts[1, ct], "_vs_", cts[2, ct], ".csv")))
-      g <- bayesprot::plot_fdr(DT.t, 1.0)
-      ggplot2::ggsave(file.path(path.results, paste0("protein_log2DE_fdr__", cts[1, ct], "_vs_", cts[2, ct], ".pdf")), g, width = 8, height = 8)
+      if (nrow(DT.t) > 0) {
+        DT.t <- merge(DT.t, DT.proteins[, .(ProteinID, Protein, ProteinInfo, nPeptide, nFeature, nMeasure)], by = "ProteinInfo", sort = F)
+        DT.t <- merge(DT.t, DT.real.ct, by = "ProteinID", sort = F)
+        setcolorder(DT.t, c("ProteinID", "Protein", "ProteinInfo", "nPeptide", "nFeature", "nMeasure", "n1.real", "n2.real"))
+        fwrite(DT.t, file.path(path.results, paste0("protein_log2DE__", cts[1, ct], "_vs_", cts[2, ct], ".csv")))
+        g <- bayesprot::plot_fdr(DT.t, 1.0)
+        ggplot2::ggsave(file.path(path.results, paste0("protein_log2DE_fdr__", cts[1, ct], "_vs_", cts[2, ct], ".pdf")), g, width = 8, height = 8)
+      }
 
       # t.tests.mice
-      cl <- parallel::makeCluster(control$nthread)
-      doSNOW::registerDoSNOW(cl)
       files <- list.files(file.path(path.model, "de"), paste0(cts[1, ct], "v", cts[2, ct], "\\.", chains[1], "\\.[0-9]+\\.rds$"))
-      pb <- txtProgressBar(max = length(files), style = 3)
-      DT.t2 <- foreach(file = files, .packages = "data.table", .combine = function(...) rbindlist(list(...)), .multicombine = T, .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
-        DT <- data.table(summary(mice::pool(readRDS(file.path(path.model, "de", file))$Fit), conf.int = T))[2]
-        DT[, ProteinID := sub(".*\\.([0-9]+)\\.rds$", "\\1", file)]
-        setnames(DT, c("estimate", "std.error", "2.5 %", "97.5 %"), c("log2FC", "log2SE", "log2FC.lower", "log2FC.upper"))
-        setcolorder(DT, c("ProteinID", "log2SE", "log2FC.lower", "log2FC", "log2FC.upper", "df", "statistic", "p.value"))
-        DT
-      }
-      setTxtProgressBar(pb, length(files))
-      close(pb)
-      parallel::stopCluster(cl)
+      if (length(files) > 0) {
+        cl <- parallel::makeCluster(control$nthread)
+        doSNOW::registerDoSNOW(cl)
+        pb <- txtProgressBar(max = length(files), style = 3)
+        DT.t2 <- foreach(file = files, .packages = "data.table", .combine = function(...) rbindlist(list(...)), .multicombine = T, .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
+          DT <- data.table(summary(mice::pool(readRDS(file.path(path.model, "de", file))$Fit), conf.int = T))[2]
+          DT[, ProteinID := sub(".*\\.([0-9]+)\\.rds$", "\\1", file)]
+          setnames(DT, c("estimate", "std.error", "2.5 %", "97.5 %"), c("log2FC", "log2SE", "log2FC.lower", "log2FC.upper"))
+          setcolorder(DT, c("ProteinID", "log2SE", "log2FC.lower", "log2FC", "log2FC.upper", "df", "statistic", "p.value"))
+          DT
+        }
+        setTxtProgressBar(pb, length(files))
+        close(pb)
+        parallel::stopCluster(cl)
 
-      setorder(DT.t2, p.value, na.last = T)
-      DT.t2[, FDR := p.adjust(p.value, method = "BH")]
-      DT.t2 <- merge(DT.t2, DT.proteins[, .(ProteinID, Protein, ProteinInfo, nPeptide, nFeature, nMeasure)], by = "ProteinID", sort = F)
-      DT.t2 <- merge(DT.t2, DT.real.ct, by = "ProteinID", sort = F)
-      setcolorder(DT.t2, c("ProteinID", "Protein", "ProteinInfo", "nPeptide", "nFeature", "nMeasure", "n1.real", "n2.real"))
-      fwrite(DT.t2, file.path(path.results, paste0("protein_log2DE2__", cts[1, ct], "_vs_", cts[2, ct], ".csv")))
-      g <- bayesprot::plot_fdr(DT.t2, 1.0)
-      ggplot2::ggsave(file.path(path.results, paste0("protein_log2DE2_fdr__", cts[1, ct], "_vs_", cts[2, ct], ".pdf")), g, width = 8, height = 8)
+        setorder(DT.t2, p.value, na.last = T)
+        DT.t2[, FDR := p.adjust(p.value, method = "BH")]
+        DT.t2 <- merge(DT.t2, DT.proteins[, .(ProteinID, Protein, ProteinInfo, nPeptide, nFeature, nMeasure)], by = "ProteinID", sort = F)
+        DT.t2 <- merge(DT.t2, DT.real.ct, by = "ProteinID", sort = F)
+        setcolorder(DT.t2, c("ProteinID", "Protein", "ProteinInfo", "nPeptide", "nFeature", "nMeasure", "n1.real", "n2.real"))
+        fwrite(DT.t2, file.path(path.results, paste0("protein_log2DE2__", cts[1, ct], "_vs_", cts[2, ct], ".csv")))
+        g <- bayesprot::plot_fdr(DT.t2, 1.0)
+        ggplot2::ggsave(file.path(path.results, paste0("protein_log2DE2_fdr__", cts[1, ct], "_vs_", cts[2, ct], ".pdf")), g, width = 8, height = 8)
+      }
     }
   }
 

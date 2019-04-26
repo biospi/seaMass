@@ -11,11 +11,11 @@ process_model <- function(chain, path.results = ".") {
   message(paste0("[", Sys.time(), "] MODEL started, chain=", chain))
 
   # load priors as process.output0 has been run
-  path.output0 <- ifelse(file.exists("priors.rds"), ".", file.path(path.results, "..", "..", "output0", "results"))
+  path.output0 <- ifelse(file.exists("priors.rds"), ".", file.path(path.results, "..", "output0"))
   priors <- readRDS(file.path(path.output0, "priors.rds"))
 
   # load metadata
-  path.input <- ifelse(file.exists("control.rds"), ".", file.path(path.results, "..", "..", "input"))
+  path.input <- ifelse(file.exists("control.rds"), ".", file.path(path.results, "..", "input"))
   control <- readRDS(file.path(path.input, "control.rds"))
   DT.assays <- fst::read.fst(file.path(path.input, "assays.fst"), as.data.table = T)
   DT.proteins <- fst::read.fst(file.path(path.input, "proteins.fst"), as.data.table = T)
@@ -307,9 +307,11 @@ process_model <- function(chain, path.results = ".") {
       DTs <- split(merge(output$DT.protein.quants, DT.assays[Condition == cts[1, ct] | Condition == cts[2, ct], .(AssayID, Condition)]), by = "ProteinID")
       pb <- txtProgressBar(max = length(DTs), style = 3)
       foreach(DT = iterators::iter(DTs), .packages = "data.table", .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
-        DT[, value := value / log(2)]
-        DT.t <- DT[, .(Fit = .(lm(value ~ Condition, .SD))), by = mcmcID]
-        saveRDS(DT.t, file.path(path.results, "de", paste0(cts[1, ct], "v", cts[2, ct], ".", chainID, ".", DT[1, ProteinID], ".rds")))
+        if (nrow(DT) > 0 && sum(DT[mcmcID == levels(mcmcID)[1]]$Condition == cts[1, ct]) >= 2 && sum(DT[mcmcID == levels(mcmcID)[1]]$Condition == cts[2, ct]) >= 2) {
+          DT[, value := value / log(2)]
+          DT.t <- DT[, .(Fit = .(lm(value ~ Condition, .SD))), by = mcmcID]
+          saveRDS(DT.t, file.path(path.results, "de", paste0(cts[1, ct], "v", cts[2, ct], ".", chainID, ".", DT[1, ProteinID], ".rds")))
+        }
       }
       setTxtProgressBar(pb, length(DTs))
       close(pb)

@@ -11,7 +11,7 @@ process_model0 <- function(chain, path.results = ".") {
   message(paste0("[", Sys.time(), "] MODEL0 started, chain=", chain))
 
   # load metadata
-  path.input <- ifelse(file.exists("control.rds"), ".", file.path(path.results, "..", "..", "input"))
+  path.input <- ifelse(file.exists("control.rds"), ".", file.path(path.results, "..", "input"))
   control <- readRDS(file.path(path.input, "control.rds"))
   DT.assays <- fst::read.fst(file.path(path.input, "assays.fst"), as.data.table = T)
   DT.proteins <- fst::read.fst(file.path(path.input, "proteins.fst"), as.data.table = T)[nPeptide >= control$model0.npeptide]
