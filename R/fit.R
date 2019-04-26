@@ -39,9 +39,9 @@ feature_stdevs <- function(fit) {
 #' @import data.table
 #' @export
 de_metafor <- function(fit) {
-  dds <- lapply(list.files(file.path(fit, "output"), "^protein_log2DE__.*\\.csv$", full.names = T), function(file) {
-    setDF(fread(file, colClasses = c("ProteinID" = "factor")))
-  })
+  files <- list.files(file.path(fit, "output"), "^protein_log2DE__.*\\.csv$")
+  names(files) <- files
+  dds <- lapply(files, function(file) setDF(fread(file.path(fit, "output", file), colClasses = c("ProteinID" = "factor"))))
   return(dds)
 }
 
@@ -50,9 +50,9 @@ de_metafor <- function(fit) {
 #' @import data.table
 #' @export
 de_mice <- function(fit) {
-  dds <- lapply(list.files(file.path(fit, "output"), "^protein_log2DE2__.*\\.csv$", full.names = T), function(file) {
-    setDF(fread(file, colClasses = c("ProteinID" = "factor")))
-  })
+  files <- list.files(file.path(fit, "output"), "^protein_log2DE2__.*\\.csv$")
+  names(files) <- files
+  dds <- lapply(files, function(file) setDF(fread(file.path(fit, "output", file), colClasses = c("ProteinID" = "factor"))))
   return(dds)
 }
 

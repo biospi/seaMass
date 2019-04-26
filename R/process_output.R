@@ -106,7 +106,7 @@ process_output <- function(path.results = ".") {
     DT.protein.quants <- merge(DT.proteins[, .(ProteinID, ProteinInfo)], DT.protein.quants, by = "ProteinID")
 
     # number of 'real' measures used in differential expression analysis (i.e. uncensored)
-    DT.real <- fst::read.fst(file.path(path.input, "data.fst"), as.data.table = T)[!is.na(Count), .(real = .N > 0), by = .(ProteinID, AssayID)]
+    DT.real <- fst::read.fst(file.path(path.input, "data.fst"), as.data.table = T)[Count == Count1, .(real = .N > 0), by = .(ProteinID, AssayID)]
 
     cts <- combn(sort(DT.assays[, length(unique(AssayID)) >= 2, by = Condition][V1 == T & !is.na(Condition), Condition]), 2)
     for (ct in 1:ncol(cts)) {
@@ -114,7 +114,7 @@ process_output <- function(path.results = ".") {
 
       # number of assays per condition backed by real data
       DT.real.ct <- merge(DT.real, DT.assays[, .(AssayID, n1.real = Condition == cts[1, ct], n2.real = Condition == cts[2, ct])], by = "AssayID")
-      DT.real.ct <- DT.real.ct[, .(n1.real = sum(real & n1.real, na.rm = T), n2.real = sum(real & n1.real, na.rm = T)), by = ProteinID]
+      DT.real.ct <- DT.real.ct[, .(n1.real = sum(real & n1.real, na.rm = T), n2.real = sum(real & n2.real, na.rm = T)), by = ProteinID]
 
       # t.tests.metafor
       contrast <- ifelse(DT.assays$Condition == cts[1, ct] | DT.assays$Condition == cts[2, ct], DT.assays$Condition, NA_integer_)
@@ -122,7 +122,7 @@ process_output <- function(path.results = ".") {
       if (nrow(DT.t) > 0) {
         DT.t <- merge(DT.t, DT.proteins[, .(ProteinID, Protein, ProteinInfo, nPeptide, nFeature, nMeasure)], by = "ProteinInfo", sort = F)
         DT.t <- merge(DT.t, DT.real.ct, by = "ProteinID", sort = F)
-        setcolorder(DT.t, c("ProteinID", "Protein", "ProteinInfo", "nPeptide", "nFeature", "nMeasure", "n1.real", "n2.real"))
+        setcolorder(DT.t, c("ProteinID", "Protein", "ProteinInfo", "nPeptide", "nFeature", "nMeasure", "n1.test", "n2.test", "n1.real", "n2.real"))
         fwrite(DT.t, file.path(path.results, paste0("protein_log2DE__", cts[1, ct], "_vs_", cts[2, ct], ".csv")))
         g <- bayesprot::plot_fdr(DT.t, 1.0)
         ggplot2::ggsave(file.path(path.results, paste0("protein_log2DE_fdr__", cts[1, ct], "_vs_", cts[2, ct], ".pdf")), g, width = 8, height = 8)
@@ -148,8 +148,9 @@ process_output <- function(path.results = ".") {
         setorder(DT.t2, p.value, na.last = T)
         DT.t2[, FDR := p.adjust(p.value, method = "BH")]
         DT.t2 <- merge(DT.t2, DT.proteins[, .(ProteinID, Protein, ProteinInfo, nPeptide, nFeature, nMeasure)], by = "ProteinID", sort = F)
+        DT.t2 <- merge(DT.t2, DT.t[, .(n1.test, n2.test)], by = "ProteinID", sort = F)
         DT.t2 <- merge(DT.t2, DT.real.ct, by = "ProteinID", sort = F)
-        setcolorder(DT.t2, c("ProteinID", "Protein", "ProteinInfo", "nPeptide", "nFeature", "nMeasure", "n1.real", "n2.real"))
+        setcolorder(DT.t, c("ProteinID", "Protein", "ProteinInfo", "nPeptide", "nFeature", "nMeasure", "n1.test", "n2.test", "n1.real", "n2.real"))
         fwrite(DT.t2, file.path(path.results, paste0("protein_log2DE2__", cts[1, ct], "_vs_", cts[2, ct], ".csv")))
         g <- bayesprot::plot_fdr(DT.t2, 1.0)
         ggplot2::ggsave(file.path(path.results, paste0("protein_log2DE2_fdr__", cts[1, ct], "_vs_", cts[2, ct], ".pdf")), g, width = 8, height = 8)
