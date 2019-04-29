@@ -59,6 +59,19 @@ de_mice <- function(fit) {
 
 #' @rdname bayesprot
 #' @export
+read <- function(dir) {
+  if(file.exists(file.path(dir, "bayesprot_fit"))) {
+    fit <- path.expand(dir)
+    class(fit) <- "bayesprot_fit"
+    return(fit)
+  } else {
+    stop(paste(dir, "does not contain a completed BayesProt study"))
+  }
+}
+
+
+#' @rdname bayesprot
+#' @export
 del <- function(fit) {
   unlink(fit, recursive = T)
 }

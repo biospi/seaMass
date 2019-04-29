@@ -8,6 +8,7 @@
 \alias{feature_stdevs}
 \alias{de_metafor}
 \alias{de_mice}
+\alias{read}
 \alias{del}
 \title{Fit the BayesProt Bayesian Protein-level quantification model}
 \usage{
@@ -26,6 +27,8 @@ feature_stdevs(fit)
 de_metafor(fit)
 
 de_mice(fit)
+
+read(dir)
 
 del(fit)
 }

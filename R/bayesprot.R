@@ -20,7 +20,6 @@
 #'   \code{peptide_deviations}, \code{peptide_stdevs}, \code{feature_stdevs}, \code{de_metafor} and \code{de_mice}. \code{del}
 #'   deletes all associated files on disk.
 #' @export
-
 bayesprot <- function(
   data,
   data.design = design(data),
@@ -232,7 +231,6 @@ control <- function(
   error.model = "poisson",
   missingness.model = "censored",
   missingness.threshold = 0,
-  normalisation.model = "cov.rob",
   plots = FALSE,
   model0.npeptide = 3,
   model0.seed = 0,
@@ -251,9 +249,6 @@ control <- function(
   # validate parameters
   if (!is.null(hpc) && hpc != "pbs" && hpc != "sge" && hpc != "slurm" && hpc != "remote") {
     stop("'hpc' needs to be either 'pbs', 'sge', 'slurm', 'remote' or NULL (default)")
-  }
-  if (!is.null(normalisation.model) && normalisation.model != "median" && normalisation.model != "cov.rob") {
-    stop("'normalisation.model' needs to be either NULL, 'median' or 'cov.rob' (default)")
   }
   if (!is.null(peptide.model) && peptide.model != "single" && peptide.model != "independent") {
     stop("'peptide.model' needs to be either NULL, 'single' or 'independent' (default)")

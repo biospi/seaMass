@@ -7,12 +7,12 @@
 control(peptide.model = "independent", peptide.prior = "empirical",
   feature.model = "independent", feature.prior = "empirical",
   error.model = "poisson", missingness.model = "censored",
-  missingness.threshold = 0, normalisation.model = "cov.rob",
-  plots = FALSE, model0.npeptide = 3, model0.seed = 0,
-  model0.nchain = 1, model0.nwarmup = 256, model0.thin = 8,
-  model0.nsample = 128, model.seed = 0, model.nchain = 1,
-  model.nwarmup = 256, model.thin = 8, model.nsample = 128,
-  nthread = parallel::detectCores(logical = FALSE), hpc = NULL)
+  missingness.threshold = 0, plots = FALSE, model0.npeptide = 3,
+  model0.seed = 0, model0.nchain = 1, model0.nwarmup = 256,
+  model0.thin = 8, model0.nsample = 128, model.seed = 0,
+  model.nchain = 1, model.nwarmup = 256, model.thin = 8,
+  model.nsample = 128, nthread = parallel::detectCores(logical =
+  FALSE), hpc = NULL)
 }
 \arguments{
 \item{peptide.model}{Either \code{NULL} (no peptide model), \code{single} (single random effect) or \code{independent}
@@ -27,9 +27,6 @@ control(peptide.model = "independent", peptide.prior = "empirical",
 \item{error.model}{Either \code{lognormal} or \code{poisson} (default)}
 
 \item{missingness.threshold}{All feature quants below this are treated as missing}
-
-\item{normalisation.model}{Use either \code{NULL} (no normalisation), \code{median} (median) or \code{cov.rob} (robust
-covariance estimation)}
 
 \item{model0.npeptide}{Empirical Bayes model: Proteins with less than this number of peptides are not considered}
 
@@ -59,6 +56,9 @@ covariance estimation)}
 
 \item{control$missingness.model}{Either \code{zero} (NAs set to 0), \code{feature} (NAs set to lowest quant of that feature) or
 \code{censored} (NAs modelled as censored between 0 and lowest quant of that feature; default)}
+
+\item{normalisation.model}{Use either \code{NULL} (no normalisation), \code{median} (median) or \code{cov.rob} (robust
+covariance estimation)}
 }
 \value{
 \code{control} object to pass to \link{bayesprot}

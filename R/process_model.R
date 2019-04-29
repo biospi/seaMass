@@ -294,7 +294,7 @@ process_model <- function(chain, path.results = ".") {
     )
 
     # Assay exposures
-    if (!is.null(control$normalisation.model)) {
+    if (!all(!DT.proteins$norm)) {
       output$DT.protein.quants[, value := value - median(value[ProteinID %in% DT.proteins[norm == T, ProteinID]]), by = .(AssayID, mcmcID)]
     }
 

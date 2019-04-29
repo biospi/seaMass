@@ -8,10 +8,10 @@ t.tests.metafor <- function(data, contrast, nthread = parallel::detectCores(logi
   DTs <- droplevels(DTs[complete.cases(DTs)])
 
   if (!is.null(DTs$mcmcID)) {
-    DTs <- DTs[, .(est = median(value), SE = mad(value)^2), by = .(ProteinInfo, Assay)]
+    DTs <- DTs[, .(est = median(value), SE = mad(value)^2), by = .(Protein, Assay)]
   }
   DTs[, SE := ifelse(SE < 0.01, 0.01, SE)] # won't work if SE is 0
-  DTs <- split(DTs, by = "ProteinInfo")
+  DTs <- split(DTs, by = "Protein")
 
   # start cluster and reproducible seed
   cl <- parallel::makeCluster(nthread)
@@ -20,7 +20,7 @@ t.tests.metafor <- function(data, contrast, nthread = parallel::detectCores(logi
   DT.out <- foreach(DT = iterators::iter(DTs), .packages = "data.table", .combine = function(...) rbindlist(list(...)), .multicombine = T, .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
 
     DT.t <- data.table(
-      ProteinInfo = DT[1, ProteinInfo],
+      Protein = DT[1, Protein],
       n1.test = sum(DT$Condition == levels(DT$Condition)[2]),
       n2.test = sum(DT$Condition == levels(DT$Condition)[1]),
       log2SE = NA_real_, log2FC.lower = NA_real_, log2FC = NA_real_, log2FC.upper = NA_real_, p.value = NA_real_

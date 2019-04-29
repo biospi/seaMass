@@ -34,7 +34,7 @@ process_output <- function(path.results = ".") {
   }))
 
   # assay exposures
-  if (!is.null(control$normalisation.model)) {
+  if (!all(!DT.proteins$norm)) {
     DT.assay.exposures <- DT.protein.quants[, .(value = median(value[ProteinID %in% DT.proteins[norm == T, ProteinID]])), by = .(AssayID, mcmcID)]
     fst::write.fst(DT.assay.exposures, file.path(path.results, "assay.exposures.fst"))
 
@@ -106,7 +106,9 @@ process_output <- function(path.results = ".") {
     DT.protein.quants <- merge(DT.proteins[, .(ProteinID, ProteinInfo)], DT.protein.quants, by = "ProteinID")
 
     # number of 'real' measures used in differential expression analysis (i.e. uncensored)
-    DT.real <- fst::read.fst(file.path(path.input, "data.fst"), as.data.table = T)[Count == Count1, .(real = .N > 0), by = .(ProteinID, AssayID)]
+    DT.real <- fst::read.fst(file.path(path.input, "data.fst"), as.data.table = T)
+    if (!is.null(DT.real$Count1)) DT.real <- DT.real[Count == Count1]
+    DT.real <- DT.real[, .(real = .N > 0), by = .(ProteinID, AssayID)]
 
     cts <- combn(sort(DT.assays[, length(unique(AssayID)) >= 2, by = Condition][V1 == T & !is.na(Condition), Condition]), 2)
     for (ct in 1:ncol(cts)) {
