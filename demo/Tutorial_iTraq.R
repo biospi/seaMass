@@ -35,7 +35,8 @@ fit <- bayesprot(
   control = control(nthread = 4)
 )
 
-# get quants
+# get protein-level quants
 dd.quants <- protein_quants(fit)
-# get differential expression
+# get FDR-controlled differential expression
 dds.de <- de_metafor(fit)
+
