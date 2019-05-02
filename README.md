@@ -1,5 +1,5 @@
 # BayesProt v1.2.0
-Bayesian linear mixed-effects model for protein-level quantification in proteomics. Currently works with PSM output from ProteinPilot, ProteomeDiscoverer and MSstats.
+Bayesian mixed-effects model and uncertainty propagation for mass spectrometry proteomics, achieving sensitive protein-level quantification and differential expression analysis. Currently works with imported data from SCIEX ProteinPilot, Thermo ProteomeDiscoverer and Waters Progenesis across iTraq/TMT, SILAC, Label-free and SWATH data.
 
 ## Installation
 

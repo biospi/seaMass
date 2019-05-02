@@ -144,7 +144,7 @@ process_output0 <- function(path.results = ".") {
 
 
   # FIT INVERSE GAMMA DISTRIBUTIONS TO VARIANCES
-  message("[", paste0(Sys.time(), "]  fitting protein/peptide/feature distributions..."))
+  message("[", paste0(Sys.time(), "]  fitting peptide & feature distributions..."))
 
   # peptide variances
   DT.peptide.vars <- rbindlist(lapply(list.files(file.path(path.model0, "peptide.vars"), paste0("^", chains[1], "\\..*fst$")), function(file) {

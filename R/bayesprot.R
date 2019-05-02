@@ -1,5 +1,5 @@
 .onAttach <- function(libname, pkgname) {
-  packageStartupMessage(paste0("BayesProt v", packageVersion("bayesprot"), " | © 2015-2019 BIOSP", utf8::utf8_encode("\U0001f441"), " Laboratory"))
+  packageStartupMessage(paste0("BayesProt v", packageVersion("bayesprot"), "  |  © 2015-2019  BIOSP", utf8::utf8_encode("\U0001f441"), "  Laboratory"))
   packageStartupMessage("This program comes with ABSOLUTELY NO WARRANTY.")
   packageStartupMessage("This is free software, and you are welcome to redistribute it under certain conditions.")
 }
@@ -61,7 +61,7 @@ bayesprot <- function(
   output <- path.expand(output)
   if (file.exists(output)) {
     if (file.exists(file.path(output, "bayesprot_fit"))) {
-      stop("completed output already exists - please try again with a different output name or delete using rm(", output, ")")
+      stop("completed output already exists - please try again with a different output name or delete the folder using 'del'")
     } else {
       unlink(output, recursive = T)
     }
