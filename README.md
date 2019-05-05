@@ -4,6 +4,10 @@ Bayesian mixed-effects model and uncertainty propagation for mass spectrometry p
 ## Current citation
 Xu et al, Nature Communications Biology 2019, 2:43, [https://doi.org/10.1038/s42003-018-0254-9]
 
+## Requirements
+
+BayesProt is an R package that works on Windows, MacOS and Linux. Small studies (n=4 vs n=4) will take about 2 hours to process with default control parameters. Large studies (e.g. 100 samples) could take overnight or longer. The main requirement, however, is memory. Small studies can run with 16Gb, but larger studies could take 64Gb or more. To reduce memory usage at the expense of speed, reduce the number of CPU threads used (via the nthread control parameter).
+
 ## Installation
 
 ```
@@ -70,7 +74,7 @@ fit <- bayesprot(
 )
 ```
 
-Once run, results tables (in csv format) and diagnostic plots (PCA, exposures aka 'normalisation coefficients') are available in the 'output' subdirectory of the output directory specified above. Or you can use the R package to retrieve results from the fit object created by the 'bayesprot' call:
+Once run, results tables (in csv format) and diagnostic plots (PCA, exposures aka 'normalisation coefficients') are available in the 'output' subdirectory of the output directory specified above. Or you can use the R package functions to retrieve results from the fit object created by the 'bayesprot' call:
 
 ```
 # get protein-level quants
