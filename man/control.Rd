@@ -7,12 +7,10 @@
 control(peptide.model = "independent", peptide.prior = "empirical",
   feature.model = "independent", feature.prior = "empirical",
   error.model = "poisson", missingness.model = "censored",
-  missingness.threshold = 0, plots = FALSE, model0.npeptide = 3,
-  model0.seed = 0, model0.nchain = 1, model0.nwarmup = 256,
-  model0.thin = 8, model0.nsample = 128, model.seed = 0,
-  model.nchain = 1, model.nwarmup = 256, model.thin = 8,
-  model.nsample = 128, nthread = parallel::detectCores(logical =
-  FALSE), hpc = NULL)
+  missingness.threshold = 0, plots = FALSE, model.npeptide = 3,
+  model.seed = 0, model.nchain = 4, model.nwarmup = 256,
+  model.thin = 1, model.nsample = 1024,
+  nthread = parallel::detectCores(logical = FALSE), hpc = NULL)
 }
 \arguments{
 \item{peptide.model}{Either \code{NULL} (no peptide model), \code{single} (single random effect) or \code{independent}
@@ -28,17 +26,7 @@ control(peptide.model = "independent", peptide.prior = "empirical",
 
 \item{missingness.threshold}{All feature quants below this are treated as missing}
 
-\item{model0.npeptide}{Empirical Bayes model: Proteins with less than this number of peptides are not considered}
-
-\item{model0.seed}{Empirical Bayes model: Random numnber seed}
-
-\item{model0.nchain}{Empirical Bayes model: Number of MCMC chains to run}
-
-\item{model0.nwarmup}{Empirical Bayes model: Number of MCMC warmup iterations to run for each chain}
-
-\item{model0.thin}{Empirical Bayes model: MCMC thinning factor}
-
-\item{model0.nsample}{Empirical Bayes model: Total number of MCMC samples to generate}
+\item{model.npeptide}{Empirical Bayes model: Proteins with less than this number of peptides are not considered}
 
 \item{model.seed}{Full BayesProt model: Random numnber seed}
 

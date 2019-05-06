@@ -3,7 +3,7 @@
 #' @import data.table
 #' @export
 protein_quants <- function(fit) {
-  dd <- setDF(fread(file.path(fit, "output", "protein_log2quants.csv"), colClasses = c("ProteinID" = "factor")))
+  dd <- setDF(fread(file.path(fit, "model2", "protein_log2quants.csv"), colClasses = c("ProteinID" = "factor")))
   return(dd)
 }
 
@@ -12,7 +12,7 @@ protein_quants <- function(fit) {
 #' @import data.table
 #' @export
 peptide_deviations <- function(fit) {
-  dd <- setDF(fread(file.path(fit, "output", "peptide_log2deviations.csv"), colClasses = c("ProteinID" = "factor", "PeptideID" = "factor")))
+  dd <- setDF(fread(file.path(fit, "model2", "peptide_log2deviations.csv"), colClasses = c("ProteinID" = "factor", "PeptideID" = "factor")))
   return(dd)
 }
 
@@ -21,7 +21,7 @@ peptide_deviations <- function(fit) {
 #' @import data.table
 #' @export
 peptide_stdevs <- function(fit) {
-  dd <- setDF(fread(file.path(fit, "output", "peptide_log2SDs.csv"), colClasses = c("ProteinID" = "factor", "PeptideID" = "factor")))
+  dd <- setDF(fread(file.path(fit, "model2", "peptide_log2SDs.csv"), colClasses = c("ProteinID" = "factor", "PeptideID" = "factor")))
   return(dd)
 }
 
@@ -30,7 +30,7 @@ peptide_stdevs <- function(fit) {
 #' @import data.table
 #' @export
 feature_stdevs <- function(fit) {
-  dd <- setDF(fread(file.path(fit, "output", "feature_log2SDs.csv"), colClasses = c("ProteinID" = "factor", "FeatureID" = "factor")))
+  dd <- setDF(fread(file.path(fit, "model2", "feature_log2SDs.csv"), colClasses = c("ProteinID" = "factor", "FeatureID" = "factor")))
   return(dd)
 }
 
@@ -38,10 +38,10 @@ feature_stdevs <- function(fit) {
 #' @rdname bayesprot
 #' @import data.table
 #' @export
-de_metafor <- function(fit) {
-  files <- list.files(file.path(fit, "output"), "^protein_log2DE__.*\\.csv$")
+protein_de <- function(fit) {
+  files <- list.files(file.path(fit, "model2"), "^protein_log2DE__.*\\.csv$")
   names(files) <- files
-  dds <- lapply(files, function(file) setDF(fread(file.path(fit, "output", file), colClasses = c("ProteinID" = "factor"))))
+  dds <- lapply(files, function(file) setDF(fread(file.path(fit, "model2", file), colClasses = c("ProteinID" = "factor"))))
   return(dds)
 }
 
@@ -49,12 +49,12 @@ de_metafor <- function(fit) {
 #' @rdname bayesprot
 #' @import data.table
 #' @export
-de_mice <- function(fit) {
-  files <- list.files(file.path(fit, "output"), "^protein_log2DE2__.*\\.csv$")
-  names(files) <- files
-  dds <- lapply(files, function(file) setDF(fread(file.path(fit, "output", file), colClasses = c("ProteinID" = "factor"))))
-  return(dds)
-}
+#de_mice <- function(fit) {
+#  files <- list.files(file.path(fit, "output"), "^protein_log2DE2__.*\\.csv$")
+#  names(files) <- files
+#  dds <- lapply(files, function(file) setDF(fread(file.path(fit, "output", file), colClasses = c("ProteinID" = "factor"))))
+#  return(dds)
+#}
 
 
 #' @rdname bayesprot

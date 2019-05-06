@@ -7,6 +7,7 @@
 
 plot_fdr <- function(data, ymax = 0.2) {
   DT <- as.data.table(data)
+  DT <- DT[complete.cases(DT)]
 
   if (is.null(DT$mcmcID)) {
     DT[, mcmcID := "NA"]

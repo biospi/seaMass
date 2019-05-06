@@ -287,3 +287,57 @@ import_Progenesis <- function(
   data <- setDF(DT)
   return(data)
 }
+
+
+#' Import OpenSWATH - PyProphet data
+#'
+#' Reads in a set of \code{_with_dscore} datasets processed by OpenSWATH and PyProphet for processing with \link{bayesprot}.
+#'
+#' @param files One of more \code{_with_dscore} files to import and merge.
+#' @param m_score.cutoff Include only features with PyProphet m_score >= than this?
+#' @param data Advanced: Rather than specifying \code{files}, you can enter a \link{data.frame} preloaded with
+#'   \link[data.table]{fread} default parameters.
+#' @return A \link{data.frame} for input into \link{bayesprot}.
+#' @import data.table
+#' @export
+
+import_OpenSwath_PyProphet <- function(
+  files = NULL,
+  m_score.cutoff = 0.01,
+  data = NULL
+) {
+  if (is.null(file)) {
+    if (is.null(data)) stop("One of 'data' or 'files' needs to be specified.")
+    DT.raw <- setDT(data)
+  } else {
+    DT.raw <- rbindlist(lapply(files, function(file) fread(file = file, showProgress = T)))
+  }
+
+  # remove decoys and < m_score.cutoff
+  DT.raw <- DT.raw[decoy == 0,]
+  DT.raw <- DT.raw[m_score >= m_score.cutoff,]
+
+  # group ambiguous PSMs so BayesProt treats them as a single peptide per protein
+  DT.raw[, FullPeptideName := paste(sort(as.character(FullPeptideName)), collapse = " "), by = .(ProteinName, aggr_Fragment_Annotation)]
+  DT.raw <- unique(DT.raw)
+
+  # create long data table
+  DT <- DT.raw[, .(
+    ProteinInfo = as.integer(factor(ProteinName)),
+    Protein = ProteinName,
+    Peptide = FullPeptideName,
+    Feature = gsub(";", ";bayesprot;", aggr_Fragment_Annotation),
+    Assay = filename,
+    Count = gsub(";", ";bayesprot;", aggr_Peak_Area)
+  )]
+  DT <- DT[, lapply(.SD, function(x) unlist(tstrsplit(x, ";bayesprot;", fixed = T)))]
+  DT[, ProteinInfo := factor(DT$ProteinInfo, levels = sort(as.integer(unique(DT$ProteinInfo))))]
+  levels(DT$ProteinInfo) <- paste0("[", DT$ProteinInfo, "]")
+  DT[, Protein := factor(Protein)]
+  DT[, Peptide := factor(Peptide)]
+  DT[, Feature := factor(Feature)]
+  DT[, Count := as.numeric(Count)]
+
+  data <- setDF(DT)
+  return(data)
+}

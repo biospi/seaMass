@@ -144,10 +144,8 @@ bayesprot <- function(
 
   # build submission folder
   dir.create(file.path(output, "input"))
-  dir.create(file.path(output, "model0"))
-  dir.create(file.path(output, "output0"))
-  dir.create(file.path(output, "model"))
-  dir.create(file.path(output, "output"))
+  dir.create(file.path(output, "model1"))
+  dir.create(file.path(output, "model2"))
   if (plot) {
     dir.create(file.path(output, "plots"))
   }
@@ -163,17 +161,11 @@ bayesprot <- function(
 
   if (is.null(control$hpc)) {
 
-    # run model0
-    sapply(1:control$model0.nchain, function(chain) process_model0(chain, file.path(output, "model0")))
+    # run model1
+    sapply(1:control$model.nchain, function(chain) process_model1(chain, file.path(output, "model1")))
 
-    # run output0
-    process_output0(file.path(output, "output0"))
-
-    # run model
-    sapply(1:control$model.nchain, function(chain) process_model(chain, file.path(output, "model")))
-
-    # run output
-    process_output(file.path(output, "output"))
+    # run model2
+    sapply(1:control$model.nchain, function(chain) process_model2(chain, file.path(output, "model2")))
 
     if (file.exists(file.path(output, "plots"))) {
       # run plots
@@ -208,12 +200,7 @@ bayesprot <- function(
 #' @param missingness.threshold All feature quants below this are treated as missing
 #' @param normalisation.model Use either \code{NULL} (no normalisation), \code{median} (median) or \code{cov.rob} (robust
 #'   covariance estimation)
-#' @param model0.npeptide Empirical Bayes model: Proteins with less than this number of peptides are not considered
-#' @param model0.seed Empirical Bayes model: Random numnber seed
-#' @param model0.nchain Empirical Bayes model: Number of MCMC chains to run
-#' @param model0.nwarmup Empirical Bayes model: Number of MCMC warmup iterations to run for each chain
-#' @param model0.thin Empirical Bayes model: MCMC thinning factor
-#' @param model0.nsample Empirical Bayes model: Total number of MCMC samples to generate
+#' @param model.npeptide Empirical Bayes model: Proteins with less than this number of peptides are not considered
 #' @param model.seed Full BayesProt model: Random numnber seed
 #' @param model.nchain Full BayesProt model: Number of MCMC chains to run
 #' @param model.nwarmup Full BayesProt model: Number of MCMC warmup iterations to run for each chain
@@ -232,17 +219,12 @@ control <- function(
   missingness.model = "censored",
   missingness.threshold = 0,
   plots = FALSE,
-  model0.npeptide = 3,
-  model0.seed = 0,
-  model0.nchain = 1,
-  model0.nwarmup = 256,
-  model0.thin = 8,
-  model0.nsample = 128,
+  model.npeptide = 3,
   model.seed = 0,
-  model.nchain = 1,
+  model.nchain = 4,
   model.nwarmup = 256,
-  model.thin = 8,
-  model.nsample = 128,
+  model.thin = 1,
+  model.nsample = 1024,
   nthread = parallel::detectCores(logical = FALSE),
   hpc = NULL
 ) {

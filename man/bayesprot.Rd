@@ -6,8 +6,7 @@
 \alias{peptide_deviations}
 \alias{peptide_stdevs}
 \alias{feature_stdevs}
-\alias{de_metafor}
-\alias{de_mice}
+\alias{protein_de}
 \alias{read}
 \alias{del}
 \title{Fit the BayesProt Bayesian Protein-level quantification model}
@@ -24,9 +23,7 @@ peptide_stdevs(fit)
 
 feature_stdevs(fit)
 
-de_metafor(fit)
-
-de_mice(fit)
+protein_de(fit)
 
 read(dir)
 
