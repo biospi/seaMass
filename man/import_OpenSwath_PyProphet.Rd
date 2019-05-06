@@ -4,8 +4,8 @@
 \alias{import_OpenSwath_PyProphet}
 \title{Import OpenSWATH - PyProphet data}
 \usage{
-import_OpenSwath_PyProphet(files = NULL, m_score.cutoff = 0.01,
-  data = NULL)
+import_OpenSwath_PyProphet(files = NULL, shared = F,
+  m_score.cutoff = 0.01, data = NULL)
 }
 \arguments{
 \item{files}{One of more \code{_with_dscore} files to import and merge.}

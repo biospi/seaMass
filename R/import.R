@@ -114,8 +114,8 @@ import_ProteinPilot <- function(
   DT <- melt(DT, variable.name = "Assay", value.name = "Count", measure.vars = colnames(DT)[grep("^Assay\\.", colnames(DT))])
   levels(DT$Assay) <- sub("^Assay\\.", "", levels(DT$Assay))
 
-  data <- setDF(DT)
-  return(data)
+  setDF(DT)
+  return(DT)
 }
 
 
@@ -206,8 +206,8 @@ import_ProteomeDiscoverer <- function(
   DT <- melt(DT, variable.name = "Assay", value.name = "Count", measure.vars = colnames(DT)[grep("^Assay\\.", colnames(DT))])
   levels(DT$Assay) <- sub("^Assay\\.", "", levels(DT$Assay))
 
-  data <- setDF(DT)
-  return(data)
+  setDF(DT)
+  return(DT)
 }
 
 
@@ -284,8 +284,8 @@ import_Progenesis <- function(
   levels(DT$Assay) <- sub("^Raw abundance ", "", levels(DT$Assay))
   DT[, Count := as.numeric(Count)]
 
-  data <- setDF(DT)
-  return(data)
+  setDF(DT)
+  return(DT)
 }
 
 
@@ -303,41 +303,64 @@ import_Progenesis <- function(
 
 import_OpenSwath_PyProphet <- function(
   files = NULL,
+  shared = F,
   m_score.cutoff = 0.01,
   data = NULL
 ) {
-  if (is.null(file)) {
-    if (is.null(data)) stop("One of 'data' or 'files' needs to be specified.")
-    DT.raw <- setDT(data)
-  } else {
-    DT.raw <- rbindlist(lapply(files, function(file) fread(file = file, showProgress = T)))
+  if (is.null(file) && is.null(data)) stop("One of 'data' or 'files' needs to be specified.")
+  if (!is.null(data)) files <- data
+
+  DT <- rbindlist(lapply(files, function(file) {
+    if (is.data.frame(file)) {
+      DT.raw <- as.data.file(data)
+    } else {
+      DT.raw <- fread(file = file, showProgress = T)
+    }
+
+    # remove decoys and > m_score.cutoff
+    DT.raw <- DT.raw[decoy == 0,]
+    DT.raw <- DT.raw[m_score <= m_score.cutoff,]
+
+    # create long data table
+    DT <- DT.raw[, .(
+      Protein = ProteinName,
+      Peptide = FullPeptideName,
+      Feature = gsub(";", ";bayesprot;", aggr_Fragment_Annotation),
+      Assay = filename,
+      Count = gsub(";", ";bayesprot;", aggr_Peak_Area)
+    )]
+    DT <- DT[, lapply(.SD, function(x) unlist(tstrsplit(x, ";bayesprot;", fixed = T)))]
+    DT[, Count := as.numeric(Count)]
+    DT
+  }))
+
+  # remove features that have more than one identification in any assay
+  DT[, N := .N, by = .(Feature, Assay)]
+  DT <- DT[N == 1]
+  DT[, N := NULL]
+  assays <- unique(DT$Assay)
+
+  # create wide data table
+  DT <- dcast(DT, Protein + Peptide + Feature ~ Assay, value.var = "Count")
+
+  # remove shared
+  if (!shared) {
+    DT[, N := length(unique(Protein)), by = Peptide]
+    DT <- DT[N == 1]
+    DT[, N := NULL]
   }
 
-  # remove decoys and < m_score.cutoff
-  DT.raw <- DT.raw[decoy == 0,]
-  DT.raw <- DT.raw[m_score >= m_score.cutoff,]
-
   # group ambiguous PSMs so BayesProt treats them as a single peptide per protein
-  DT.raw[, FullPeptideName := paste(sort(as.character(FullPeptideName)), collapse = " "), by = .(ProteinName, aggr_Fragment_Annotation)]
-  DT.raw <- unique(DT.raw)
+  DT[, Peptide := paste(sort(as.character(Peptide)), collapse = " "), by = .(Protein, Feature)]
+  DT <- unique(DT)
 
-  # create long data table
-  DT <- DT.raw[, .(
-    ProteinInfo = as.integer(factor(ProteinName)),
-    Protein = ProteinName,
-    Peptide = FullPeptideName,
-    Feature = gsub(";", ";bayesprot;", aggr_Fragment_Annotation),
-    Assay = filename,
-    Count = gsub(";", ";bayesprot;", aggr_Peak_Area)
-  )]
-  DT <- DT[, lapply(.SD, function(x) unlist(tstrsplit(x, ";bayesprot;", fixed = T)))]
-  DT[, ProteinInfo := factor(DT$ProteinInfo, levels = sort(as.integer(unique(DT$ProteinInfo))))]
-  levels(DT$ProteinInfo) <- paste0("[", DT$ProteinInfo, "]")
+  # melt
+  DT[, ProteinInfo := factor("")]
   DT[, Protein := factor(Protein)]
   DT[, Peptide := factor(Peptide)]
   DT[, Feature := factor(Feature)]
-  DT[, Count := as.numeric(Count)]
+  DT <- melt(DT, variable.name = "Assay", value.name = "Count", measure.vars = assays)
 
-  data <- setDF(DT)
-  return(data)
+  setDF(DT)
+  return(DT)
 }
