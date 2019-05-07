@@ -711,9 +711,10 @@ process_model2 <- function(
 
     # timings
     DT.timings <- rbindlist(lapply(c(
-      list.files(file.path(path.model1, "timings.1"), "^[0-9]+\\...*fst$", full.names = T),
+      list.files(file.path(path.model1, "timings.1"), "^[0-9]+\\..*fst$", full.names = T),
       list.files(file.path(path.results, "timings.2"), "^[0-9]+\\..*fst$", full.names = T)
     ), function(file) fst::read.fst(file, as.data.table = T)))
+    levels(DT.timings$chainID) <- paste0("chain:", levels(DT.timings$chainID))
     DT.timings <- dcast(DT.timings, ProteinID ~ chainID, value.var = "elapsed")
     DT.timings <- merge(DT.proteins[, .(ProteinID, nPeptide, nFeature, nMeasure, pred = timing)], DT.timings, by = "ProteinID")
     fwrite(DT.timings, file.path(path.results, "protein_timings.csv"))
