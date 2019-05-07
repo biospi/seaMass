@@ -16,7 +16,7 @@
 #' @param plot Generate all plots (todo)
 #' @param output Folder on disk whether all intermediate and output data will be stored; default is \code{"bayesprot"}.
 #' @param control A \link{control} object specifying control parameters for the model.
-#' @return A \code{bayesprot.fit} object that can be interrogated for various results with \code{protein_quants},
+#' @return A \code{bayesprot_fit} object that can be interrogated for various results with \code{protein_quants},
 #'   \code{peptide_deviations}, \code{peptide_stdevs}, \code{feature_stdevs}, \code{de_metafor} and \code{de_mice}. \code{del}
 #'   deletes all associated files on disk.
 #' @export
@@ -183,7 +183,6 @@ bayesprot <- function(
   # return fit object
   class(fit) <- "bayesprot_fit"
   return(fit)
-
 }
 
 

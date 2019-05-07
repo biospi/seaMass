@@ -48,7 +48,7 @@ and fully-blocked iTraq/TMT/SILAC designs.}
 \item{fit}{\code{bayesprot_fit} object created by \code{bayesprot}.}
 }
 \value{
-A \code{bayesprot.fit} object that can be interrogated for various results with \code{protein_quants},
+A \code{bayesprot_fit} object that can be interrogated for various results with \code{protein_quants},
   \code{peptide_deviations}, \code{peptide_stdevs}, \code{feature_stdevs}, \code{de_metafor} and \code{de_mice}. \code{del}
   deletes all associated files on disk.
 }
