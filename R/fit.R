@@ -163,7 +163,11 @@ peptide_stdevs <- function(fit, summary = T, as.data.table = F) {
   ), function(file) {
     DT <- rbindlist(lapply(chains, function(chain) fst::read.fst(sub(paste0(chains[1], "(\\..*fst)$"), paste0(chain, "\\1"), file), as.data.table = T)))
     if (summary) {
-      DT <- DT[, .(est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID, priors)]
+      if (control(fit)$peptide.model != "single") {
+        DT <- DT[, .(est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID, priors)]
+      } else {
+        DT <- DT[, .(est = median(value), SE = mad(value)), by = .(ProteinID, priors)]
+      }
     }
     DT
   }))

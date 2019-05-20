@@ -140,7 +140,11 @@ peptide_vars1_ln <- function(fit) {
   ), function(file) {
     DT <- rbindlist(lapply(chains, function(chain) fst::read.fst(sub(paste0(chains[1], "(\\..*fst)$"), paste0(chain, "\\1"), file), as.data.table = T)))
     DT <- DT[, value := (value * log(2))^2]
-    DT[, .(est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID, priors)]
+    if(control(fit)$peptide.model != "single") {
+      DT[, .(est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID, priors)]
+    } else {
+      DT[, .(est = median(value), SE = mad(value)), by = .(ProteinID, priors)]
+    }
   }))
 
   return(DT.peptide.vars)
@@ -385,7 +389,9 @@ process_model2 <- function(
       DT.peptide.stdevs <- peptide_stdevs(fit, as.data.table = T)
       fst::write.fst(DT.peptide.stdevs, file.path(fit, "model2", "peptide.stdevs.fst"))
 
-      DT.peptide.stdevs <- merge(DT.peptides, DT.peptide.stdevs, by = "PeptideID")
+      if (control$peptide.model != "single") {
+        DT.peptide.stdevs <- merge(DT.peptides, DT.peptide.stdevs, by = "PeptideID")
+      }
       DT.peptide.stdevs <- merge(DT.proteins[, .(ProteinID, Protein, ProteinInfo)], DT.peptide.stdevs, by = "ProteinID")
       fwrite(DT.peptide.stdevs, file.path(fit, "output", "peptide_log2SDs.csv"))
       rm(DT.peptide.stdevs)
@@ -496,7 +502,7 @@ execute_model <- function(
           random <- NULL
           prior.random <- NULL
         } else if (control$peptide.model == "single") {
-          random <- as.formula("~PeptideID")
+          random <- as.formula("~PeptideID:SampleID")
           prior.random <- list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2)
           if (!is.null(priors) && !is.null(control$peptide.prior)) {
             prior.random <- list(V = priors$peptide.V, nu = priors$peptide.nu)
@@ -587,8 +593,8 @@ execute_model <- function(
         setcolorder(output$DT.protein.quants, c("ProteinID", "AssayID", "priors", "chainID", "mcmcID"))
 
         # extract peptide deviations
-        if (!is.null(control$peptide.model) && control$peptide.model == "independent") {
-          if (nT == 1) {
+        if (!is.null(control$peptide.model)) {
+          if (nT == 1 || control$peptide.model == "single") {
             output$DT.peptide.deviations <- as.data.table(model$Sol[, grep("^PeptideID:SampleID\\.[0-9]+\\.[0-9]+$", colnames(model$Sol)), drop = F])
             output$DT.peptide.deviations[, mcmcID := factor(formatC(1:nrow(output$DT.peptide.deviations), width = ceiling(log10(nrow(output$DT.peptide.deviations))) + 1, format = "d", flag = "0"))]
             output$DT.peptide.deviations <- melt(output$DT.peptide.deviations, variable.name = "PeptideID", id.vars = "mcmcID")
@@ -613,10 +619,10 @@ execute_model <- function(
         # extract peptide stdevs
         if (!is.null(control$peptide.model)) {
           if (control$peptide.model == "single" || nT == 1) {
-            output$DT.peptide.stdevs <- as.data.table(model$VCV[, ifelse(control$peptide.model == "single", "PeptideID", "PeptideID:SampleID"), drop = F])
-            setnames(output$DT.peptide.stdevs, ifelse(control$peptide.model == "single", "PeptideID", "PeptideID:SampleID"), "value")
+            output$DT.peptide.stdevs <- as.data.table(model$VCV[, "PeptideID:SampleID", drop = F])
+            setnames(output$DT.peptide.stdevs, "PeptideID:SampleID", "value")
             output$DT.peptide.stdevs[, mcmcID := factor(formatC(1:nrow(output$DT.peptide.stdevs), width = ceiling(log10(nrow(output$DT.peptide.stdevs))) + 1, format = "d", flag = "0"))]
-            if (control$feature.model != "single") {
+            if (control$peptide.model != "single") {
               output$DT.peptide.stdevs[, PeptideID := factor(levels(DT$PeptideID))]
             }
           } else {
@@ -630,7 +636,11 @@ execute_model <- function(
           output$DT.peptide.stdevs[, chainID := factor(chainID)]
           output$DT.peptide.stdevs[, priors := !is.null(priors)]
           output$DT.peptide.stdevs[, value := sqrt(value) / log(2)]
-          setcolorder(output$DT.peptide.stdevs, c("ProteinID", "PeptideID", "priors", "chainID", "mcmcID"))
+          if(control$peptide.model != "single") {
+            setcolorder(output$DT.peptide.stdevs, c("ProteinID", "PeptideID", "priors", "chainID", "mcmcID"))
+          } else {
+            setcolorder(output$DT.peptide.stdevs, c("ProteinID", "priors", "chainID", "mcmcID"))
+          }
         }
 
         # extract feature variances
