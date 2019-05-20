@@ -194,7 +194,11 @@ feature_stdevs <- function(fit, summary = T, as.data.table = F) {
   ), function(file) {
     DT <- rbindlist(lapply(chains, function(chain) fst::read.fst(sub(paste0(chains[1], "(\\..*fst)$"), paste0(chain, "\\1"), file), as.data.table = T)))
     if (summary) {
-      DT <- DT[, .(est = median(value), SE = mad(value)), by = .(ProteinID, FeatureID, priors)]
+      if (control(fit)$feature.model != "single") {
+        DT <- DT[, .(est = median(value), SE = mad(value)), by = .(ProteinID, FeatureID, priors)]
+      } else {
+        DT <- DT[, .(est = median(value), SE = mad(value)), by = .(ProteinID, priors)]
+      }
     }
     DT
   }))

@@ -161,7 +161,11 @@ feature_vars1_ln <- function(fit) {
   ), function(file) {
     DT <- rbindlist(lapply(chains, function(chain) fst::read.fst(sub(paste0(chains[1], "(\\..*fst)$"), paste0(chain, "\\1"), file), as.data.table = T)))
     DT <- DT[, value := (value * log(2))^2]
-    DT[, .(est = median(value), SE = mad(value)), by = .(ProteinID, FeatureID, priors)]
+    if(control(fit)$feature.model != "single") {
+      DT[, .(est = median(value), SE = mad(value)), by = .(ProteinID, FeatureID, priors)]
+    } else {
+      DT[, .(est = median(value), SE = mad(value)), by = .(ProteinID, priors)]
+    }
   }))
 
   return(DT.feature.vars)
@@ -401,7 +405,9 @@ process_model2 <- function(
     DT.feature.stdevs <- feature_stdevs(fit, as.data.table = T)
     fst::write.fst(DT.feature.stdevs, file.path(fit, "model2", "feature.stdevs.fst"))
 
-    DT.feature.stdevs <- merge(DT.features, DT.feature.stdevs, by = "FeatureID")
+    if (control$feature.model != "single") {
+      DT.feature.stdevs <- merge(DT.features, DT.feature.stdevs, by = "FeatureID")
+    }
     DT.feature.stdevs <- merge(DT.proteins[, .(ProteinID, Protein, ProteinInfo)], DT.feature.stdevs, by = "ProteinID")
     fwrite(DT.feature.stdevs, file.path(fit, "output", "feature_log2SDs.csv"))
     rm(DT.feature.stdevs)
@@ -520,14 +526,14 @@ execute_model <- function(
 
         # residual
         if (control$feature.model == "single") {
-          rcov <- as.formula("~AssayID")
+          rcov <- as.formula("~FeatureID:AssayID")
           if (!is.null(priors) && !is.null(control$feature.prior)) {
             prior.rcov <- list(V = priors$feature.V, nu = priors$feature.nu)
           } else {
             prior.rcov <- list(V = 1, nu = 0.02)
           }
         } else {
-          rcov <- as.formula(paste0("~", ifelse(nF == 1, "AssayID", "idh(FeatureID):AssayID")))
+          rcov <- as.formula(paste0("~", ifelse(nF == 1, "FeatureID:AssayID", "idh(FeatureID):AssayID")))
           if (!is.null(priors) && !is.null(control$feature.prior)) {
             prior.rcov <- list(V = priors$feature.V * diag(nF), nu = priors$feature.nu)
           } else {
@@ -645,8 +651,8 @@ execute_model <- function(
 
         # extract feature variances
         if (control$feature.model == "single" || nF == 1) {
-          output$DT.feature.stdevs <- as.data.table(model$VCV[, "AssayID", drop = F])
-          setnames(output$DT.feature.stdevs, "AssayID", "value")
+          output$DT.feature.stdevs <- as.data.table(model$VCV[, "FeatureID:AssayID", drop = F])
+          setnames(output$DT.feature.stdevs, "FeatureID:AssayID", "value")
           output$DT.feature.stdevs[, mcmcID := factor(formatC(1:nrow(output$DT.feature.stdevs), width = ceiling(log10(nrow(output$DT.feature.stdevs))) + 1, format = "d", flag = "0"))]
           if (control$feature.model != "single") {
             output$DT.feature.stdevs[, FeatureID := factor(levels(DT$FeatureID))]
@@ -662,7 +668,11 @@ execute_model <- function(
         output$DT.feature.stdevs[, chainID := factor(chainID)]
         output$DT.feature.stdevs[, priors := !is.null(priors)]
         output$DT.feature.stdevs[, value := sqrt(value) / log(2)]
-        setcolorder(output$DT.feature.stdevs, c("ProteinID", "FeatureID", "priors", "chainID", "mcmcID"))
+        if (control$feature.model != "single") {
+          setcolorder(output$DT.feature.stdevs, c("ProteinID", "FeatureID", "priors", "chainID", "mcmcID"))
+        } else {
+          setcolorder(output$DT.feature.stdevs, c("ProteinID", "priors", "chainID", "mcmcID"))
+        }
 
         # write out if large enough
         if (object.size(output$DT.protein.quants) > 2^18) {
