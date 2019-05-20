@@ -34,7 +34,7 @@ runs <- function(data) {
 #' @return \link{data.frame} that can be edited and passed as parameter \code{data.design} of \link{bayesprot}.
 #' @import data.table
 #' @export
-design <- function(data) {
+new_design <- function(data) {
   names <- levels(interaction(data$Run, data$Assay, drop = T, sep = ",", lex.order = T))
   if (length(names) == 0) names <- levels(data$Assay)
   return(data.frame(Assay = names, Sample = names, ref = T))

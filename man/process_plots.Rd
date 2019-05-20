@@ -4,7 +4,12 @@
 \alias{process_plots}
 \title{process_plots (internal)}
 \usage{
-process_plots(path.results = ".")
+process_plots(chain, fit = NULL)
+}
+\arguments{
+\item{chain}{Number of chain to process.}
+
+\item{fit}{bayesprot fit object.}
 }
 \description{
 process_plots (internal)

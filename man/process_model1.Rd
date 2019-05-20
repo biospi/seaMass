@@ -4,12 +4,12 @@
 \alias{process_model1}
 \title{process_model1 (internal)}
 \usage{
-process_model1(chain, path.results = ".")
+process_model1(fit, chain)
 }
 \arguments{
-\item{chain}{Number of chain to process.}
+\item{fit}{bayesprot fit object.}
 
-\item{path.results}{Path to store results.}
+\item{chain}{Number of chain to process.}
 }
 \description{
 process_model1 (internal)

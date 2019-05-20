@@ -47,19 +47,19 @@ plot_fdr <- function(data, ymax = 0.2) {
 
 #' @import data.table
 #' @export
-plot_volcano <- function(dd, dd.contrast, dd.meta = NULL, dd.truth = NULL, xaxis = "identity", yaxis = "t-test.p", xlim = NULL, ylim = NULL) {
+plot_volcano <- function(data, data.design, data.meta = NULL, data.truth = NULL, xaxis = "identity", yaxis = "t-test.p", xlim = NULL, ylim = NULL) {
   # debug stuff
-  if (!exists("dd.meta")) dd.meta <- NULL
-  if (!exists("dd.truth")) dd.truth <- NULL
+  if (!exists("data.meta")) data.meta <- NULL
+  if (!exists("data.truth")) data.truth <- NULL
   if (!exists("xaxis")) xaxis <- "identity"
   if (!exists("yaxis")) yaxis <- "se"
   if (!exists("xlim")) xlim <- NULL
   if (!exists("ylim")) ylim <- NULL
 
   # prepare data
-  DT <- as.data.table(dd)
-  DT.contrast <- as.data.table(dd.contrast)
-  DT <- merge(DT, DT.contrast, by = "Assay")
+  DT <- as.data.table(data)
+  DT.design <- as.data.table(data.design)
+  DT <- merge(DT, DT.design, by = "Assay")
 
   # remove proteins where one condition has less than 2 datapoints
   DT[, keep := sum(Condition == levels(Condition)[1]) >= 2 & sum(Condition == levels(Condition)[2]) >= 2, by = ProteinRef]
@@ -91,8 +91,8 @@ plot_volcano <- function(dd, dd.contrast, dd.meta = NULL, dd.truth = NULL, xaxis
   }
 
   # add ground truth if available
-  if (exists("dd.truth") & !is.null(dd.truth)) {
-    DT.truth <- setDT(dd.truth)
+  if (exists("data.truth") & !is.null(data.truth)) {
+    DT.truth <- setDT(data.truth)
     DT.t <- merge(DT.t, DT.truth, by = "ProteinRef")
     setnames(DT.t, "Set", "Proteins")
     DT.t[, median := median(x), by = Proteins]
@@ -130,8 +130,8 @@ plot_volcano <- function(dd, dd.contrast, dd.meta = NULL, dd.truth = NULL, xaxis
   }
 
   # meta
-  if (!is.null(dd.meta)) {
-    DT.meta <- setDT(dd.meta)
+  if (!is.null(data.meta)) {
+    DT.meta <- setDT(data.meta)
     DT.t <- merge(DT.t, DT.meta[, .(ProteinRef, Peptides = factor(ifelse(nPeptide > 1, ifelse(nPeptide > 2, "3+", "2"), "1")))], by = "ProteinRef")
   } else {
     DT.t[, Peptides := factor("unknown")]

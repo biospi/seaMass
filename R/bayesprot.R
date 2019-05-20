@@ -13,20 +13,22 @@
 #'   analysis. By default, all assays are set as reference channels, which is appropriate only for label-free studies
 #'   and fully-blocked iTraq/TMT/SILAC designs.
 #' @param normalisation.proteins Proteins to use in the normalisation; default is all proteins.
+#' @param de.functions List of differential expression analysis functions to run
 #' @param plot Generate all plots (todo)
 #' @param output Folder on disk whether all intermediate and output data will be stored; default is \code{"bayesprot"}.
-#' @param control A \link{control} object specifying control parameters for the model.
+#' @param control A control object created with \link{new_control} specifying control parameters for the model.
 #' @return A \code{bayesprot_fit} object that can be interrogated for various results with \code{protein_quants},
 #'   \code{peptide_deviations}, \code{peptide_stdevs}, \code{feature_stdevs}, \code{de_metafor} and \code{de_mice}. \code{del}
 #'   deletes all associated files on disk.
 #' @export
 bayesprot <- function(
   data,
-  data.design = design(data),
+  data.design = new_design(data),
   normalisation.proteins = levels(data$Protein),
-  plot = F,
+  de.functions = NULL,
+  plots = F,
   output = "bayesprot",
-  control = bayesprot::control()
+  control = new_control()
 ) {
   message(paste0("[", Sys.time(), "] BAYESPROT started"))
 
@@ -34,6 +36,16 @@ bayesprot <- function(
   DT <- setDT(data)
   DT.design <- setDT(data.design)
   control$output <- basename(output)
+
+  # dea
+  if (!is.null(de.functions) && !is.list(de.functions)) {
+    de.functions <- list(de.functions)
+  }
+  if (is.null(names(de.functions))) {
+    names(de.functions) <- 1:length(de.functions)
+  }
+  names(de.functions) <- ifelse(names(de.functions) == "", 1:length(de.functions), names(de.functions))
+  control$de.functions <- de.functions
 
   # merge Run and Assay, remove Injection
   if (!is.null(DT$Injection)) DT[, Injection := NULL]
@@ -124,12 +136,12 @@ bayesprot <- function(
     nMeasure = sum(!is.na(Count))
   ), keyby = Assay]
   DT.assays[, AssayID := factor(formatC(1:nrow(DT.assays), width = ceiling(log10(nrow(DT.assays))) + 1, format = "d", flag = "0"))]
-  DT.assays <- merge(DT.assays, DT.design, by = "Assay")
-  if (!is.factor(DT.assays$Sample)) DT.assays[, Sample := factor(Sample)]
-  DT.assays[, SampleID := factor(Sample, labels = formatC(1:nlevels(droplevels(DT.assays$Sample)), width = ceiling(log10(nlevels(droplevels(DT.assays$Sample)))) + 1, format = "d", flag = "0"))]
-  setcolorder(DT.assays, c("AssayID", "Assay", "SampleID", "Sample"))
+  DT.design <- merge(DT.assays, DT.design, by = "Assay")
+  if (!is.factor(DT.design$Sample)) DT.design[, Sample := factor(Sample)]
+  DT.design[, SampleID := factor(Sample, labels = formatC(1:nlevels(droplevels(DT.design$Sample)), width = ceiling(log10(nlevels(droplevels(DT.design$Sample)))) + 1, format = "d", flag = "0"))]
+  setcolorder(DT.design, c("AssayID", "Assay", "SampleID", "Sample"))
 
-  DT <- merge(DT, DT.assays[, .(Assay, AssayID, SampleID)], by = "Assay", sort = F)
+  DT <- merge(DT, DT.design[, .(Assay, AssayID, SampleID)], by = "Assay", sort = F)
   DT[, Assay := NULL]
   setcolorder(DT, c("ProteinID", "PeptideID", "FeatureID", "AssayID", "SampleID"))
   setorder(DT, ProteinID, PeptideID, FeatureID, AssayID, SampleID)
@@ -142,34 +154,30 @@ bayesprot <- function(
   # index in DT.proteins for fst random access
   DT.proteins <- merge(DT.proteins, DT[, .(ProteinID = unique(ProteinID), row = .I[!duplicated(ProteinID)], row1 = .I[rev(!duplicated(rev(ProteinID)))])], by = "ProteinID", all.x = T, sort = F)
 
-  # build submission folder
+  # save data and metadata
   dir.create(file.path(output, "input"))
   dir.create(file.path(output, "model1"))
   dir.create(file.path(output, "model2"))
-  if (plot) {
-    dir.create(file.path(output, "plots"))
-  }
-
-  # save data and metadata
+  dir.create(file.path(output, "output"))
   saveRDS(control, file.path(output, "input", "control.rds"))
-  fst::write.fst(DT, file.path(output, "input", "data.fst"))
+  fst::write.fst(DT, file.path(output, "input", "input.fst"))
   fst::write.fst(DT.proteins, file.path(output, "input", "proteins.fst"))
   fst::write.fst(DT.peptides, file.path(output, "input", "peptides.fst"))
   fst::write.fst(DT.features, file.path(output, "input", "features.fst"))
-  fst::write.fst(DT.assays, file.path(output, "input", "assays.fst"))
+  fst::write.fst(DT.design, file.path(output, "input", "design.fst"))
   fit <- normalizePath(output)
 
   if (is.null(control$hpc)) {
 
     # run model1
-    sapply(1:control$model.nchain, function(chain) process_model1(chain, file.path(output, "model1")))
+    sapply(1:control$model.nchain, function(chain) process_model1(fit, chain))
 
     # run model2
-    sapply(1:control$model.nchain, function(chain) process_model2(chain, file.path(output, "model2")))
+    sapply(1:control$model.nchain, function(chain) process_model2(fit, chain))
 
-    if (file.exists(file.path(output, "plots"))) {
+    if (plots) {
       # run plots
-      process_plots(file.path(output, "plots"))
+      sapply(1:control$model.nchain, function(chain) process_plots(fit, chain))
     }
 
   } else {
@@ -199,7 +207,7 @@ bayesprot <- function(
 #' @param missingness.threshold All feature quants below this are treated as missing
 #' @param normalisation.model Use either \code{NULL} (no normalisation), \code{median} (median) or \code{cov.rob} (robust
 #'   covariance estimation)
-#' @param model.npeptide Empirical Bayes model: Proteins with less than this number of peptides are not considered
+#' @param model.npeptide Empirical Bayes model: Priors are only used for proteins with less than this number of peptides.
 #' @param model.seed Full BayesProt model: Random numnber seed
 #' @param model.nchain Full BayesProt model: Number of MCMC chains to run
 #' @param model.nwarmup Full BayesProt model: Number of MCMC warmup iterations to run for each chain
@@ -209,7 +217,7 @@ bayesprot <- function(
 #' @param nthread Number of CPU threads to employ
 #' @return \code{control} object to pass to \link{bayesprot}
 #' @export
-control <- function(
+new_control <- function(
   peptide.model = "independent",
   peptide.prior = "empirical",
   feature.model = "independent",
