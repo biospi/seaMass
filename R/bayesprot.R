@@ -40,11 +40,13 @@ bayesprot <- function(
   # dea
   if (!is.null(de.functions) && !is.list(de.functions)) {
     de.functions <- list(de.functions)
+  }  
+  if (!is.null(de.functions)) {
+    if(is.null(names(de.functions))) {
+      names(de.functions) <- 1:length(de.functions)
+    }
+    names(de.functions) <- ifelse(names(de.functions) == "", 1:length(de.functions), names(de.functions))
   }
-  if (is.null(names(de.functions))) {
-    names(de.functions) <- 1:length(de.functions)
-  }
-  names(de.functions) <- ifelse(names(de.functions) == "", 1:length(de.functions), names(de.functions))
   control$de.functions <- de.functions
 
   # merge Run and Assay, remove Injection
