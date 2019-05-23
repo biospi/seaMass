@@ -547,6 +547,7 @@ execute_model <- function(
           if(is.null(DT$Count1)) {
             family <- "gaussian"
           } else {
+            family <- "cengaussian"
             DT[, Count1 := log(Count1)]
           }
         } else {

@@ -149,6 +149,7 @@ bayesprot <- function(
   setorder(DT, ProteinID, PeptideID, FeatureID, AssayID, SampleID)
 
   # set up missingness
+  if (control$missingness.threshold > 0) DT[, Count := ifelse(Count < missingness.threshold, NA, Count)]
   if (control$missingness.model == "feature") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
   if (control$missingness.model == "censored") DT[, Count1 := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
   if (control$missingness.model == "censored" | control$missingness.model == "zero") DT[is.na(Count), Count := 0.0]
