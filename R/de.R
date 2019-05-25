@@ -46,6 +46,7 @@ dea_metafor <- function(fit, data.design = design(fit), ...) {
 #' Return 'metafor' differential expression as a list of FDR-controlled data tables
 #'
 #' @import data.table
+#' @import metafor
 #' @export
 protein_de <- function(fit, key = 1, as.data.table = F) {
   if (class(fit) == "bayesprot_de_metafor") {

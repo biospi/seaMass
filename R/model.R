@@ -25,11 +25,16 @@ process_model1 <- function(
     message("[", paste0(Sys.time(), "]  computing peptide & feature priors..."))
     chains <- formatC(1:control$model.nchain, width = ceiling(log10(control$model.nchain + 1)) + 1, format = "d", flag = "0")
 
-    # fit peptide posterior medians
-    DT.peptide.vars <- peptide_vars1_ln(fit)
-    peptide.fit <- fitdistrplus::fitdist(1.0 / DT.peptide.vars$est, "gamma", method = "mge", gof = "CvM", start = list(shape = 1.0, scale = 20), lower = 0.0001)
-    peptide.nu <- as.numeric(2.0 * peptide.fit$estimate["shape"])
-    peptide.V <- as.numeric((2.0 * 1.0 / peptide.fit$estimate["scale"]) / peptide.nu)
+    if(!is.null(control$peptide.model)) {
+      # fit peptide posterior medians
+      DT.peptide.vars <- peptide_vars1_ln(fit)
+      peptide.fit <- fitdistrplus::fitdist(1.0 / DT.peptide.vars$est, "gamma", method = "mge", gof = "CvM", start = list(shape = 1.0, scale = 20), lower = 0.0001)
+      peptide.nu <- as.numeric(2.0 * peptide.fit$estimate["shape"])
+      peptide.V <- as.numeric((2.0 * 1.0 / peptide.fit$estimate["scale"]) / peptide.nu)
+    } else {
+      peptide.nu <- NULL
+      peptide.V <- NULL
+    }
 
     # fit feature posterior medians
     DT.feature.vars <- feature_vars1_ln(fit)
@@ -50,16 +55,24 @@ process_model1 <- function(
       data.table(median = m, fc = paste0("  ", ifelse(m < 0, format(-2^-m, digits = 3), format(2^m, digits = 3)), "fc"))
     }
 
-    DT.prior.vars.meta <- rbind(
-      data.table(Type = "Peptide", DT.peptide.vars[, as.list(prior.vars.meta(sqrt(est)))]),
-      data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.meta(sqrt(est)))])
-    )
+    if(!is.null(control$peptide.model)) {
+      DT.prior.vars.meta <- rbind(
+        data.table(Type = "Peptide", DT.peptide.vars[, as.list(prior.vars.meta(sqrt(est)))]),
+        data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.meta(sqrt(est)))])
+      )
+    } else {
+      DT.prior.vars.meta <- data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.meta(sqrt(est)))])
+    }
     DT.prior.vars.meta[, Type := factor(Type, levels = unique(Type))]
 
-    DT.prior.fit.meta <- rbind(
-      data.table(Type = "Peptide", DT.peptide.vars[, as.list(prior.vars.meta(sqrt(peptide.V)))]),
-      data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.meta(sqrt(feature.V)))])
-    )
+    if(!is.null(control$peptide.model)) {
+      DT.prior.fit.meta <- rbind(
+        data.table(Type = "Peptide", DT.peptide.vars[, as.list(prior.vars.meta(sqrt(peptide.V)))]),
+        data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.meta(sqrt(feature.V)))])
+      )
+    } else {
+      DT.prior.fit.meta <- data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.meta(sqrt(feature.V)))])
+    }
     DT.prior.fit.meta[, Type := factor(Type, levels = unique(Type))]
 
     prior.vars.density <- function(x) {
@@ -68,16 +81,24 @@ process_model1 <- function(
       DT
     }
 
-    DT.prior.vars.density <- rbind(
-      data.table(Type = "Peptide", DT.peptide.vars[, as.list(prior.vars.density(sqrt(est)))]),
-      data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.density(sqrt(est)))])
-    )
+    if(!is.null(control$peptide.model)) {
+      DT.prior.vars.density <- rbind(
+        data.table(Type = "Peptide", DT.peptide.vars[, as.list(prior.vars.density(sqrt(est)))]),
+        data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.density(sqrt(est)))])
+      )
+    } else {
+      DT.prior.vars.density <- data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.density(sqrt(est)))])
+    }
     DT.prior.vars.density[, Type := factor(Type, levels = unique(Type))]
 
-    DT.prior.fit.density <- rbind(
-      data.table(Type = "Peptide", DT.peptide.vars[, as.list(prior.vars.density(sqrt(MCMCglmm::rIW(peptide.V * diag(1), peptide.nu, n = 1000000))))]),
-      data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.density(sqrt(MCMCglmm::rIW(feature.V * diag(1), feature.nu, n = 1000000))))])
-    )
+    if(!is.null(control$peptide.model)) {
+      DT.prior.fit.density <- rbind(
+        data.table(Type = "Peptide", DT.peptide.vars[, as.list(prior.vars.density(sqrt(MCMCglmm::rIW(peptide.V * diag(1), peptide.nu, n = 1000000))))]),
+        data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.density(sqrt(MCMCglmm::rIW(feature.V * diag(1), feature.nu, n = 1000000))))])
+      )
+    } else {
+      DT.prior.fit.density <- data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.density(sqrt(MCMCglmm::rIW(feature.V * diag(1), feature.nu, n = 1000000))))])
+    }
     DT.prior.fit.density[, Type := factor(Type, levels = unique(Type))]
 
     fmt_signif <- function(signif = 2) {
@@ -119,7 +140,11 @@ peptide_vars1_ln <- function(fit) {
   ), function(file) {
     DT <- rbindlist(lapply(chains, function(chain) fst::read.fst(sub(paste0(chains[1], "(\\..*fst)$"), paste0(chain, "\\1"), file), as.data.table = T)))
     DT <- DT[, value := (value * log(2))^2]
-    DT[, .(est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID, priors)]
+    if(control(fit)$peptide.model != "single") {
+      DT[, .(est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID, priors)]
+    } else {
+      DT[, .(est = median(value), SE = mad(value)), by = .(ProteinID, priors)]
+    }
   }))
 
   return(DT.peptide.vars)
@@ -136,7 +161,11 @@ feature_vars1_ln <- function(fit) {
   ), function(file) {
     DT <- rbindlist(lapply(chains, function(chain) fst::read.fst(sub(paste0(chains[1], "(\\..*fst)$"), paste0(chain, "\\1"), file), as.data.table = T)))
     DT <- DT[, value := (value * log(2))^2]
-    DT[, .(est = median(value), SE = mad(value)), by = .(ProteinID, FeatureID, priors)]
+    if(control(fit)$feature.model != "single") {
+      DT[, .(est = median(value), SE = mad(value)), by = .(ProteinID, FeatureID, priors)]
+    } else {
+      DT[, .(est = median(value), SE = mad(value)), by = .(ProteinID, priors)]
+    }
   }))
 
   return(DT.feature.vars)
@@ -343,36 +372,42 @@ process_model2 <- function(
 
     # THE REST
 
-    # peptide deviations write out
-    DT.peptide.deviations <- peptide_deviations(fit, as.data.table = T)
-    fst::write.fst(DT.peptide.deviations, file.path(fit, "model2", "peptide.deviations.fst"))
+    if(!is.null(control$peptide.model)) {
+      # peptide deviations write out
+      DT.peptide.deviations <- peptide_deviations(fit, as.data.table = T)
+      fst::write.fst(DT.peptide.deviations, file.path(fit, "model2", "peptide.deviations.fst"))
 
-    DT.peptide.deviations <- merge(DT.design[, .(Sample, SampleID)], DT.peptide.deviations, by = "SampleID")
-    DT.peptide.deviations[, SampleSE := paste0("SE:", Sample)]
-    DT.peptide.deviations[, Sample := paste0("est:", Sample)]
-    DT.peptide.deviations.ses <- dcast(DT.peptide.deviations, ProteinID + PeptideID + priors ~ SampleSE, value.var = "SE")
-    DT.peptide.deviations <- dcast(DT.peptide.deviations, ProteinID + PeptideID + priors ~ Sample, value.var = "est")
-    DT.peptide.deviations <- cbind(DT.peptide.deviations, DT.peptide.deviations.ses[, 4:ncol(DT.peptide.deviations.ses), with = F])
-    setcolorder(DT.peptide.deviations, c("ProteinID", "PeptideID", "priors", paste0(c("est:", "SE:"), rep(levels(DT.design$Sample), each = 2))))
-    DT.peptide.deviations <- merge(DT.peptides, DT.peptide.deviations, by = "PeptideID")
-    DT.peptide.deviations <- merge(DT.proteins[, .(ProteinID, Protein, ProteinInfo)], DT.peptide.deviations, by = "ProteinID")
-    fwrite(DT.peptide.deviations, file.path(fit, "output", "peptide_log2deviations.csv"))
-    rm(DT.peptide.deviations)
+      DT.peptide.deviations <- merge(DT.design[, .(Sample, SampleID)], DT.peptide.deviations, by = "SampleID")
+      DT.peptide.deviations[, SampleSE := paste0("SE:", Sample)]
+      DT.peptide.deviations[, Sample := paste0("est:", Sample)]
+      DT.peptide.deviations.ses <- dcast(DT.peptide.deviations, ProteinID + PeptideID + priors ~ SampleSE, value.var = "SE")
+      DT.peptide.deviations <- dcast(DT.peptide.deviations, ProteinID + PeptideID + priors ~ Sample, value.var = "est")
+      DT.peptide.deviations <- cbind(DT.peptide.deviations, DT.peptide.deviations.ses[, 4:ncol(DT.peptide.deviations.ses), with = F])
+      setcolorder(DT.peptide.deviations, c("ProteinID", "PeptideID", "priors", paste0(c("est:", "SE:"), rep(levels(DT.design$Sample), each = 2))))
+      DT.peptide.deviations <- merge(DT.peptides, DT.peptide.deviations, by = "PeptideID")
+      DT.peptide.deviations <- merge(DT.proteins[, .(ProteinID, Protein, ProteinInfo)], DT.peptide.deviations, by = "ProteinID")
+      fwrite(DT.peptide.deviations, file.path(fit, "output", "peptide_log2deviations.csv"))
+      rm(DT.peptide.deviations)
 
-    # peptide stdevs in base 2
-    DT.peptide.stdevs <- peptide_stdevs(fit, as.data.table = T)
-    fst::write.fst(DT.peptide.stdevs, file.path(fit, "model2", "peptide.stdevs.fst"))
+      # peptide stdevs in base 2
+      DT.peptide.stdevs <- peptide_stdevs(fit, as.data.table = T)
+      fst::write.fst(DT.peptide.stdevs, file.path(fit, "model2", "peptide.stdevs.fst"))
 
-    DT.peptide.stdevs <- merge(DT.peptides, DT.peptide.stdevs, by = "PeptideID")
-    DT.peptide.stdevs <- merge(DT.proteins[, .(ProteinID, Protein, ProteinInfo)], DT.peptide.stdevs, by = "ProteinID")
-    fwrite(DT.peptide.stdevs, file.path(fit, "output", "peptide_log2SDs.csv"))
-    rm(DT.peptide.stdevs)
+      if (control$peptide.model != "single") {
+        DT.peptide.stdevs <- merge(DT.peptides, DT.peptide.stdevs, by = "PeptideID")
+      }
+      DT.peptide.stdevs <- merge(DT.proteins[, .(ProteinID, Protein, ProteinInfo)], DT.peptide.stdevs, by = "ProteinID")
+      fwrite(DT.peptide.stdevs, file.path(fit, "output", "peptide_log2SDs.csv"))
+      rm(DT.peptide.stdevs)
+    }
 
     # feature stdevs in base 2
     DT.feature.stdevs <- feature_stdevs(fit, as.data.table = T)
     fst::write.fst(DT.feature.stdevs, file.path(fit, "model2", "feature.stdevs.fst"))
 
-    DT.feature.stdevs <- merge(DT.features, DT.feature.stdevs, by = "FeatureID")
+    if (control$feature.model != "single") {
+      DT.feature.stdevs <- merge(DT.features, DT.feature.stdevs, by = "FeatureID")
+    }
     DT.feature.stdevs <- merge(DT.proteins[, .(ProteinID, Protein, ProteinInfo)], DT.feature.stdevs, by = "ProteinID")
     fwrite(DT.feature.stdevs, file.path(fit, "output", "feature_log2SDs.csv"))
     rm(DT.feature.stdevs)
@@ -473,7 +508,7 @@ execute_model <- function(
           random <- NULL
           prior.random <- NULL
         } else if (control$peptide.model == "single") {
-          random <- as.formula("~PeptideID")
+          random <- as.formula("~PeptideID:SampleID")
           prior.random <- list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2)
           if (!is.null(priors) && !is.null(control$peptide.prior)) {
             prior.random <- list(V = priors$peptide.V, nu = priors$peptide.nu)
@@ -491,14 +526,14 @@ execute_model <- function(
 
         # residual
         if (control$feature.model == "single") {
-          rcov <- as.formula("~AssayID")
+          rcov <- as.formula("~FeatureID:AssayID")
           if (!is.null(priors) && !is.null(control$feature.prior)) {
             prior.rcov <- list(V = priors$feature.V, nu = priors$feature.nu)
           } else {
             prior.rcov <- list(V = 1, nu = 0.02)
           }
         } else {
-          rcov <- as.formula(paste0("~", ifelse(nF == 1, "AssayID", "idh(FeatureID):AssayID")))
+          rcov <- as.formula(paste0("~", ifelse(nF == 1, "FeatureID:AssayID", "idh(FeatureID):AssayID")))
           if (!is.null(priors) && !is.null(control$feature.prior)) {
             prior.rcov <- list(V = priors$feature.V * diag(nF), nu = priors$feature.nu)
           } else {
@@ -512,6 +547,7 @@ execute_model <- function(
           if(is.null(DT$Count1)) {
             family <- "gaussian"
           } else {
+            family <- "cengaussian"
             DT[, Count1 := log(Count1)]
           }
         } else {
@@ -564,8 +600,8 @@ execute_model <- function(
         setcolorder(output$DT.protein.quants, c("ProteinID", "AssayID", "priors", "chainID", "mcmcID"))
 
         # extract peptide deviations
-        if (!is.null(control$peptide.model) && control$peptide.model == "independent") {
-          if (nT == 1) {
+        if (!is.null(control$peptide.model)) {
+          if (nT == 1 || control$peptide.model == "single") {
             output$DT.peptide.deviations <- as.data.table(model$Sol[, grep("^PeptideID:SampleID\\.[0-9]+\\.[0-9]+$", colnames(model$Sol)), drop = F])
             output$DT.peptide.deviations[, mcmcID := factor(formatC(1:nrow(output$DT.peptide.deviations), width = ceiling(log10(nrow(output$DT.peptide.deviations))) + 1, format = "d", flag = "0"))]
             output$DT.peptide.deviations <- melt(output$DT.peptide.deviations, variable.name = "PeptideID", id.vars = "mcmcID")
@@ -590,10 +626,10 @@ execute_model <- function(
         # extract peptide stdevs
         if (!is.null(control$peptide.model)) {
           if (control$peptide.model == "single" || nT == 1) {
-            output$DT.peptide.stdevs <- as.data.table(model$VCV[, ifelse(control$peptide.model == "single", "PeptideID", "PeptideID:SampleID"), drop = F])
-            setnames(output$DT.peptide.stdevs, ifelse(control$peptide.model == "single", "PeptideID", "PeptideID:SampleID"), "value")
+            output$DT.peptide.stdevs <- as.data.table(model$VCV[, "PeptideID:SampleID", drop = F])
+            setnames(output$DT.peptide.stdevs, "PeptideID:SampleID", "value")
             output$DT.peptide.stdevs[, mcmcID := factor(formatC(1:nrow(output$DT.peptide.stdevs), width = ceiling(log10(nrow(output$DT.peptide.stdevs))) + 1, format = "d", flag = "0"))]
-            if (control$feature.model != "single") {
+            if (control$peptide.model != "single") {
               output$DT.peptide.stdevs[, PeptideID := factor(levels(DT$PeptideID))]
             }
           } else {
@@ -603,17 +639,21 @@ execute_model <- function(
             output$DT.peptide.stdevs[, PeptideID := factor(sub("^PeptideID([0-9]+)\\.SampleID$", "\\1", PeptideID))]
             setcolorder(output$DT.peptide.stdevs, c("value", "mcmcID"))
           }
+          output$DT.peptide.stdevs[, ProteinID := DT[1, ProteinID]]
+          output$DT.peptide.stdevs[, chainID := factor(chainID)]
+          output$DT.peptide.stdevs[, priors := !is.null(priors)]
+          output$DT.peptide.stdevs[, value := sqrt(value) / log(2)]
+          if(control$peptide.model != "single") {
+            setcolorder(output$DT.peptide.stdevs, c("ProteinID", "PeptideID", "priors", "chainID", "mcmcID"))
+          } else {
+            setcolorder(output$DT.peptide.stdevs, c("ProteinID", "priors", "chainID", "mcmcID"))
+          }
         }
-        output$DT.peptide.stdevs[, ProteinID := DT[1, ProteinID]]
-        output$DT.peptide.stdevs[, chainID := factor(chainID)]
-        output$DT.peptide.stdevs[, priors := !is.null(priors)]
-        output$DT.peptide.stdevs[, value := sqrt(value) / log(2)]
-        setcolorder(output$DT.peptide.stdevs, c("ProteinID", "PeptideID", "priors", "chainID", "mcmcID"))
 
         # extract feature variances
         if (control$feature.model == "single" || nF == 1) {
-          output$DT.feature.stdevs <- as.data.table(model$VCV[, "AssayID", drop = F])
-          setnames(output$DT.feature.stdevs, "AssayID", "value")
+          output$DT.feature.stdevs <- as.data.table(model$VCV[, "FeatureID:AssayID", drop = F])
+          setnames(output$DT.feature.stdevs, "FeatureID:AssayID", "value")
           output$DT.feature.stdevs[, mcmcID := factor(formatC(1:nrow(output$DT.feature.stdevs), width = ceiling(log10(nrow(output$DT.feature.stdevs))) + 1, format = "d", flag = "0"))]
           if (control$feature.model != "single") {
             output$DT.feature.stdevs[, FeatureID := factor(levels(DT$FeatureID))]
@@ -629,7 +669,11 @@ execute_model <- function(
         output$DT.feature.stdevs[, chainID := factor(chainID)]
         output$DT.feature.stdevs[, priors := !is.null(priors)]
         output$DT.feature.stdevs[, value := sqrt(value) / log(2)]
-        setcolorder(output$DT.feature.stdevs, c("ProteinID", "FeatureID", "priors", "chainID", "mcmcID"))
+        if (control$feature.model != "single") {
+          setcolorder(output$DT.feature.stdevs, c("ProteinID", "FeatureID", "priors", "chainID", "mcmcID"))
+        } else {
+          setcolorder(output$DT.feature.stdevs, c("ProteinID", "priors", "chainID", "mcmcID"))
+        }
 
         # write out if large enough
         if (object.size(output$DT.protein.quants) > 2^18) {
