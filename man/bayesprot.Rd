@@ -5,7 +5,7 @@
 \title{Fit the BayesProt Bayesian Protein-level quantification model}
 \usage{
 bayesprot(data, data.design = new_design(data),
-  normalisation.proteins = levels(data$Protein), de.functions = NULL,
+  normalisation.proteins = levels(data$Protein), de.func = NULL,
   plots = F, output = "bayesprot", control = new_control())
 }
 \arguments{
@@ -18,7 +18,7 @@ and fully-blocked iTraq/TMT/SILAC designs.}
 
 \item{normalisation.proteins}{Proteins to use in the normalisation; default is all proteins.}
 
-\item{de.functions}{List of differential expression analysis functions to run}
+\item{de.func}{List of differential expression analysis functions to run}
 
 \item{output}{Folder on disk whether all intermediate and output data will be stored; default is \code{"bayesprot"}.}
 

@@ -2,55 +2,49 @@
 % Please edit documentation in R/bayesprot.R
 \name{new_control}
 \alias{new_control}
-\title{Control parameters for the BayesProt Bayesian Protein-level quantification model}
+\title{Control parameters for the BayesProt Bayesian model}
 \usage{
-new_control(peptide.model = "independent", peptide.prior = "empirical",
-  feature.model = "independent", feature.prior = "empirical",
+new_control(peptide.model = "independent", peptide.prior = 2,
+  feature.model = "independent", feature.prior = 2,
   error.model = "poisson", missingness.model = "censored",
-  missingness.threshold = 0, plots = FALSE, model.npeptide = 3,
-  model.seed = 0, model.nchain = 4, model.nwarmup = 256,
-  model.thin = 1, model.nsample = 1024,
+  missingness.threshold = 0, model.seed = 0, model.nchain = 4,
+  model.nwarmup = 256, model.thin = 1, model.nsample = 1024,
   nthread = parallel::detectCores(logical = FALSE), hpc = NULL)
 }
 \arguments{
 \item{peptide.model}{Either \code{NULL} (no peptide model), \code{single} (single random effect) or \code{independent}
 (per-peptide independent random effects; default)}
 
-\item{peptide.prior}{Either \code{NULL} (uninformative) or \code{empirical} (empirical Bayes; default).}
+\item{peptide.prior}{Empirical Bayes priors are used only for peptides where the parent protein has this number of peptides or less (default is 2)}
 
 \item{feature.model}{Either \code{single} (single residual) or \code{independent} (per-feature independent residuals; default)}
 
-\item{feature.prior}{Either \code{NULL} (uninformative) or \code{empirical} (empirical Bayes; default)}
+\item{feature.prior}{Empirical Bayes priors are used only for features where the parent protein has this number of features or less (default is 2)}
 
 \item{error.model}{Either \code{lognormal} or \code{poisson} (default)}
 
+\item{missingness.model}{Either \code{zero} (NAs set to 0), \code{feature} (NAs set to lowest quant of that feature) or
+\code{censored} (NAs modelled as censored between 0 and lowest quant of that feature; default)}
+
 \item{missingness.threshold}{All feature quants below this are treated as missing}
 
-\item{model.npeptide}{Empirical Bayes model: Priors are only used for proteins with less than this number of peptides.}
+\item{model.seed}{Random number seed}
 
-\item{model.seed}{Full BayesProt model: Random numnber seed}
+\item{model.nchain}{Number of MCMC chains to run}
 
-\item{model.nchain}{Full BayesProt model: Number of MCMC chains to run}
+\item{model.nwarmup}{Number of MCMC warmup iterations to run for each chain}
 
-\item{model.nwarmup}{Full BayesProt model: Number of MCMC warmup iterations to run for each chain}
+\item{model.thin}{MCMC thinning factor}
 
-\item{model.thin}{Full BayesProt model: MCMC thinning factor}
-
-\item{model.nsample}{Full BayesProt model: Total number of MCMC samples to generate}
+\item{model.nsample}{Total number of MCMC samples to deliver downstream}
 
 \item{nthread}{Number of CPU threads to employ}
 
-\item{hpc}{Either \code{NULL} (execute locally), \code{pbs}, \code{sge} or \code{slurm} (submit to HPC cluster)}
-
-\item{control$missingness.model}{Either \code{zero} (NAs set to 0), \code{feature} (NAs set to lowest quant of that feature) or
-\code{censored} (NAs modelled as censored between 0 and lowest quant of that feature; default)}
-
-\item{normalisation.model}{Use either \code{NULL} (no normalisation), \code{median} (median) or \code{cov.rob} (robust
-covariance estimation)}
+\item{hpc}{Either \code{NULL} (execute locally), \code{pbs}, \code{sge} or \code{slurm} (submit to HPC cluster) [TODO]}
 }
 \value{
-\code{control} object to pass to \link{bayesprot}
+\code{bayesprot_control} object to pass to \link{bayesprot}
 }
 \description{
-Control parameters for the BayesProt Bayesian Protein-level quantification model
+Control parameters for the BayesProt Bayesian model
 }
