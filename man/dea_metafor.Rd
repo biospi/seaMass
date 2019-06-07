@@ -4,8 +4,9 @@
 \alias{dea_metafor}
 \title{Mixed-effects univariate differential expression analysis with 'metafor'}
 \usage{
-dea_metafor(fit, data.design = design(fit), ...)
+dea_metafor(fit, data.design = design(fit), mods = ~Condition,
+  random = ~1 | Sample, ...)
 }
 \description{
-Mixed-effects univariate differential expression analysis with 'metafor'
+Default is to a one-way ANOVA on the column 'Condition' in 'data.design'.
 }

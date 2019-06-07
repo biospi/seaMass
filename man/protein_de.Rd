@@ -2,10 +2,10 @@
 % Please edit documentation in R/dea.R
 \name{protein_de}
 \alias{protein_de}
-\title{Return 'metafor' differential expression as a list of FDR-controlled data tables}
+\title{Return differential expression as a list of FDR-controlled data tables}
 \usage{
-protein_de(fit, key = 1, as.data.table = F)
+protein_de(fits, key = 1, as.data.table = F)
 }
 \description{
-Return 'metafor' differential expression as a list of FDR-controlled data tables
+Return differential expression as a list of FDR-controlled data tables
 }

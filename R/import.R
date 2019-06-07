@@ -392,11 +392,15 @@ import_MSstats <- function(data) {
   )
 
   if (length(unique(data$Run)) == 1) {
-    DT[, Run := factor(data$IsotopeLabelType, levels = unique(data$IsotopeLabelType))]
-  } else if (length(unique(data$IsotopeLabelType)) == 1) {
-    DT[, Run := factor(data$Run, levels = unique(data$Run))]
+    DT[, Run := NA_integer_]
   } else {
-    DT[, Run := factor(paste(DT$Run, DT$Label, sep = ","), levels = unique(paste(DT$Run, DT$Label, sep = ",")))]
+    DT[, Run := factor(data$Run, levels = unique(data$Run))]
+  }
+
+  if (length(unique(data$IsotopeLabelType)) == 1) {
+    DT[, Channel := NA_integer_]
+  } else {
+    DT[, Channel := factor(data$IsotopeLabelType, levels = unique(data$IsotopeLabelType))]
   }
 
   setDF(DT)

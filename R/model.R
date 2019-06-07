@@ -294,9 +294,6 @@ process_model2 <- function(
 
     # summarise MCMC samples and save
     DT.protein.quants.summary <- DT.protein.quants[, .(est = median(value), SE = mad(value)), by = .(ProteinID, AssayID)]
-    #DT.protein.quants.summary <- merge(DT.protein.quants.summary, DT.design[, .(AssayID, Assay)], by = "AssayID")
-    #DT.protein.quants.summary <- merge(DT.protein.quants.summary, DT.proteins[, .(ProteinID, Protein)], by = "ProteinID")
-    #setcolorder(DT.protein.quants.summary, c("ProteinID", "Protein", "AssayID", "Assay"))
     fst::write.fst(DT.protein.quants.summary, file.path(fit, "model2", "protein.quants.summary.fst"))
 
     DT.protein.quants.summary.out <- merge(DT.design[, .(AssayID, Sample, Assay)], DT.protein.quants.summary, by = "AssayID")
@@ -323,26 +320,20 @@ process_model2 <- function(
         message("[", paste0(Sys.time(), "]  performing differential expression analysis ", i, "/", length(control$de.func), "..."))
 
         # run de
-        out <- control$de.func[[i]](fit, as.data.table = T)
+        fits <- control$de.func[[i]](fit, as.data.table = T)
+        #saveRDS(out,  file.path(fit, "model2", "de", paste0(deID[i], ".rds")))
 
-        # save output
-        if (class(out) == "bayesprot_de_metafor") {
-          saveRDS(out,  file.path(fit, "model2", "de", paste0(deID[i], ".rds")))
-          out <- protein_de(out, as.data.table = T)
-        }
+        DTs.de <- protein_de(fits, as.data.table = T)
+        fst::write.fst(rbindlist(DTs.de, idcol = "Effect"), file.path(fit, "model2", "de", paste0(deID[i], ".fst")))
 
-        bID <- formatC(1:length(out), width = ceiling(log10(length(out) + 1)) + 1, format = "d", flag = "0")
-        for (j in 1:length(out)) {
-          if (nrow(out[[j]]) > 0) {
-            fst::write.fst(out[[j]], file.path(fit, "model2", "de", paste0(deID[i], ".", bID[j], ".fst")))
-
-            # pretty version
-            out[[j]] <- merge(out[[j]], DT.proteins[, .(ProteinID, Protein, ProteinInfo, nPeptide, nFeature, nMeasure, prior)], by = "ProteinID", sort = F)
-            #out[[j]] <- merge(out[[j]], DT.real.ct, by = "ProteinID", sort = F)
-            setcolorder(out[[j]], c("ProteinID", "Protein", "ProteinInfo", "nPeptide", "nFeature", "nMeasure", "prior"))
-            fwrite(out[[j]], file.path(fit, "output", paste0("protein_log2DE_", names(control$de.func)[i], "_", names(out)[j], ".csv")))
-            g <- bayesprot::plot_fdr(out[[j]], 1.0)
-            ggplot2::ggsave(file.path(fit, "output", paste0("protein_log2DE_fdr_", names(control$de.func)[i], "_", names(out)[j], ".pdf")), g, width = 8, height = 8)
+        for (j in 1:length(DTs.de)) {
+          if (nrow(DTs.de[[j]]) > 0) {
+            # save pretty version
+            DTs.de[[j]] <- merge(DTs.de[[j]], DT.proteins[, .(ProteinID, Protein, ProteinInfo, nPeptide, nFeature, nMeasure, prior)], by = "ProteinID", sort = F)
+            setcolorder(DTs.de[[j]], c("ProteinID", "Protein", "ProteinInfo", "nPeptide", "nFeature", "nMeasure", "prior"))
+            fwrite(DTs.de[[j]], file.path(fit, "output", paste0("protein_log2DE_", names(control$de.func)[i], "_", names(DTs.de)[j], ".csv")))
+            g <- bayesprot::plot_fdr(DTs.de[[j]], 1.0)
+            ggplot2::ggsave(file.path(fit, "output", paste0("protein_log2DE_fdr_", names(control$de.func)[i], "_", names(DTs.de)[j], ".pdf")), g, width = 8, height = 8)
           }
         }
       }
@@ -362,7 +353,7 @@ process_model2 <- function(
       DT[, AssayID := paste(AssayID, chainID, mcmcID, sep = ".")]
       DT <- data.table::dcast(DT, ProteinID ~ AssayID, value.var = "value")
       DT <- DT[complete.cases(DT)]
-      data.table::dcast(melt(DT, id.vars = "ProteinID",), variable ~ ProteinID, value.var = "value")
+      data.table::dcast(melt(DT, id.vars = "ProteinID"), variable ~ ProteinID, value.var = "value")
     }))
 
     # X
@@ -451,9 +442,6 @@ process_model2 <- function(
       DT.peptide.deviations <- rbindlist(DT.peptide.deviations)
 
       DT.peptide.deviations <- DT.peptide.deviations[, .(prior = any(prior), est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID, SampleID)]
-      #DT.peptide.deviations <- merge(DT.peptide.deviations, DT.peptides[, .(PeptideID, Peptide)], by = "PeptideID")
-      #DT.peptide.deviations <- merge(DT.peptide.deviations, DT.proteins[, .(ProteinID, Protein)], by = "ProteinID")
-      #setcolorder(DT.peptide.deviations, c("ProteinID", "Protein", "PeptideID", "Peptide", "SampleID", "Sample"))
       fst::write.fst(DT.peptide.deviations, file.path(fit, "model2", "peptide.deviations.summary.fst"))
 
       DT.peptide.deviations <- merge(DT.peptide.deviations, DT.design[, .(SampleID, Sample)], by = "SampleID")
@@ -492,9 +480,6 @@ process_model2 <- function(
       DT.peptide.stdevs <- rbindlist(DT.peptide.stdevs)
 
       DT.peptide.stdevs <- DT.peptide.stdevs[, .(prior = any(prior), est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID)]
-      #DT.peptide.stdevs <- merge(DT.peptide.stdevs, DT.peptides[, .(PeptideID, Peptide)], by = "PeptideID")
-      #DT.peptide.stdevs <- merge(DT.peptide.stdevs, DT.proteins[, .(ProteinID, Protein)], by = "ProteinID")
-      #setcolorder(DT.peptide.stdevs, c("ProteinID", "Protein", "PeptideID", "Peptide"))
       fst::write.fst(DT.peptide.stdevs, file.path(fit, "model2", "peptide.stdevs.summary.fst"))
 
       if (control$peptide.model != "single") {
@@ -529,16 +514,13 @@ process_model2 <- function(
     DT.feature.stdevs <- rbindlist(DT.feature.stdevs)
 
     DT.feature.stdevs <- DT.feature.stdevs[, .(prior = any(prior), est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID, FeatureID)]
-    #DT.feature.stdevs <- merge(DT.feature.stdevs, DT.features[, .(FeatureID, Feature)], by = "FeatureID")
-    #DT.feature.stdevs <- merge(DT.feature.stdevs, DT.proteins[, .(ProteinID, Protein)], by = "ProteinID")
-    #setcolorder(DT.feature.stdevs, c("ProteinID", "Protein", "FeatureID", "Feature"))
     fst::write.fst(DT.feature.stdevs, file.path(fit, "model2", "feature.stdevs.summary.fst"))
 
     if (control$feature.model != "single") {
       DT.feature.stdevs <- merge(DT.features, DT.feature.stdevs, by = "FeatureID")
     }
-    DT.feature.stdevs <- merge(DT.peptides[, .(PeptideID, Peptide)], DT.feature.stdevs, by = "PeptideID",)
-    DT.feature.stdevs <- merge(DT.proteins[, .(ProteinID, Protein, ProteinInfo)], DT.feature.stdevs, by = "ProteinID",)
+    DT.feature.stdevs <- merge(DT.peptides[, .(PeptideID, Peptide)], DT.feature.stdevs, by = "PeptideID")
+    DT.feature.stdevs <- merge(DT.proteins[, .(ProteinID, Protein, ProteinInfo)], DT.feature.stdevs, by = "ProteinID")
     fwrite(DT.feature.stdevs, file.path(fit, "output", "feature_log2SDs.csv"))
     rm(DT.feature.stdevs)
 
@@ -595,7 +577,7 @@ execute_model <- function(
     message(paste0("[", Sys.time(), "]  modelling nprotein=", nrow(DT.proteins), "/", nlevels(DT.proteins$ProteinID), " nitt=", nitt, "/", nitt * control$model.nchain, "..."))
     pb <- txtProgressBar(max = sum(DT.proteins$timing), style = 3)
     progress <- function(n, tag) setTxtProgressBar(pb, getTxtProgressBar(pb) + DT.proteins$timing[tag])
-    output <- foreach(i = 1:nrow(DT.proteins), .combine = rbindlistlist, .multicombine = T, .packages = "data.table", .options.snow = list(progress = progress)) %dopar% {
+    output <- foreach(i = 1:nrow(DT.proteins), .inorder = F, .combine = rbindlistlist, .multicombine = T, .packages = "data.table", .options.snow = list(progress = progress)) %dopar% {
       # prepare DT for MCMCglmm
       DT <- fst::read.fst(file.path(fit, "input", "input.fst"), as.data.table = T, from = DT.proteins[i, from], to = DT.proteins[i, to])
       DT <- droplevels(DT)

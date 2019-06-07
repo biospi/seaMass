@@ -47,9 +47,6 @@ bayesprot <- function(
   }
 
   # dea
-  if (!is.null(de.func) && !is.list(de.func)) {
-    de.func <- list(de.func)
-  }
   if (!is.null(de.func)) {
     if(is.null(names(de.func))) {
       names(de.func) <- 1:length(de.func)
@@ -68,6 +65,18 @@ bayesprot <- function(
     }
   }
   dir.create(output)
+
+  # threshold and remove thresholded features/peptides/proteins
+  setnames(DT, "Count", "RawCount")
+  DT[, Count := ifelse(RawCount <= control$missingness.threshold, NA, RawCount)]
+  # remove assays that have no non-NA measurements for a protein
+  #DT[, notNA := sum(!is.na(Count)), by = .(ProteinID, AssayID)]
+  #DT <- DT[notNA > 0]
+  # remove features with no non-NA measurements
+  DT[, notNA := sum(!is.na(Count)), by = .(Feature)]
+  DT <- DT[notNA > 0]
+  DT[, notNA := NULL]
+  DT <- droplevels(DT)
 
   # build Protein index
   DT.proteins <- DT[, .(
@@ -144,16 +153,10 @@ bayesprot <- function(
   DT <- merge(DT, DT.design[, .(Run, Channel, AssayID, SampleID)], by = c("Run", "Channel"), sort = F)
   DT[, Run := NULL]
   DT[, Channel := NULL]
-  setcolorder(DT, c("ProteinID", "PeptideID", "FeatureID", "AssayID", "SampleID"))
+  setcolorder(DT, c("ProteinID", "PeptideID", "FeatureID", "AssayID", "SampleID", "RawCount"))
   setorder(DT, ProteinID, PeptideID, FeatureID, AssayID, SampleID)
 
-  # set up missingness - first threshold
-  DT[, Count := ifelse(Count <= control$missingness.threshold, NA, Count)]
-  # remove assays that have no non-NA measurements for a protein
-  DT[, notNA := sum(!is.na(Count)), by = .(ProteinID, AssayID)]
-  DT <- DT[notNA > 0]
-  DT[, notNA := NULL]
-  # them censoring model
+  # censoring model
   if (control$missingness.model == "feature") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
   if (control$missingness.model == "censored") DT[, Count1 := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
   if (control$missingness.model == "censored" | control$missingness.model == "zero") DT[is.na(Count), Count := 0.0]
