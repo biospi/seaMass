@@ -307,8 +307,7 @@ plot_pr <- function(data, ymax = NULL) {
   g <- g + ggplot2::scale_y_reverse(breaks = c(0.0, 0.01, 0.05, 0.1, 0.2), labels = ylabels(), expand = c(0.001, 0.001))
   g <- g + ggplot2::coord_cartesian(xlim = c(0, max(DTs.pr$TrueDiscoveries)), ylim = c(ymax, 0))
   g <- g + ggplot2::xlab(paste0("True Discoveries [ Sensitivity x ", max(DTs.pr$TrueDiscoveries), " ] from ", max(DTs.pr$Discoveries), " total proteins"))
-  g <- g + ggplot2::ylab("Solid Line: FDP [ 1 - Precision ], Dashed Line: FDR")
-  g <- g + ggplot2::ylab("False Discovery Proportion")
+  g <- g + ggplot2::ylab("Solid Line: False Discovery Proportion [ 1 - Precision ], Dashed Line: FDR")
   g <- g + ggplot2::scale_linetype_manual(values = rep("solid", length(levels(DTs.pr$Method))))
 
   if (is.data.frame(data)) {
