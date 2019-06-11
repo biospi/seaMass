@@ -68,7 +68,6 @@ dea_metafor <- function(fit, data.design = design(fit), mods = ~ Condition, rand
           log2FC.lower = output$fits[[1]]$ci.lb,
           log2FC = output$fits[[1]]$b[, 1],
           log2FC.upper = output$fits[[1]]$ci.ub,
-          SE = output$fits[[1]]$se,
           t.value = output$fits[[1]]$zval,
           p.value = output$fits[[1]]$pval
         )
@@ -160,8 +159,8 @@ dea_metafor_pairwise <- function(fit, data.design = design(fit), mods = ~ Condit
       if (length(n1.real) == 0) n1.real <- 0
       n2.real = DT.n[ProteinID == DT$ProteinID[1] & Condition == cts[2, j], N]
       if (length(n2.real) == 0) n2.real <- 0
-      n1.test <- sum(DT$Condition == cts[1, j])
-      n2.test <- sum(DT$Condition == cts[2, j])
+      n1.test <- length(unique(DT[Condition == cts[1, j], SampleID]))
+      n2.test <- length(unique(DT[Condition == cts[2, j], SampleID]))
 
       output$output <- rbindlist(lapply(output$fits, function(fit) {
         if (!is.null(fit$b) && length(fit$b) > 0) {
@@ -174,7 +173,6 @@ dea_metafor_pairwise <- function(fit, data.design = design(fit), mods = ~ Condit
             log2FC.lower = fit$ci.lb,
             log2FC = fit$b[, 1],
             log2FC.upper = fit$ci.ub,
-            SE = fit$se,
             t.value = fit$zval,
             p.value = fit$pval
           )
@@ -256,17 +254,16 @@ dea_MCMCglmm <- function(fit, data.design = design(fit), fixed = ~ Condition, pr
       n.test <- length(unique(DT$Sample))
 
       output$output <- rbindlist(lapply(output$fits, function(fit) {
-        sol <- summary(fit)$solutions
-        if (nrow(sol) > 0) {
+        sum <- summary(fit)
+        if (nrow(sum$solutions) > 0) {
           data.table(
-            Effect = rownames(sol),
+            Effect = rownames(sum$solutions),
             n.test = n.test,
             n.real = n.real,
-            log2FC.lower = sol[, "l-95% CI"],
-            log2FC = sol[, "post.mean"],
-            log2FC.upper = sol[, "u-95% CI"],
-            eff.samp = sol[, "eff.samp"],
-            pMCMC = sol[, "pMCMC"]
+            log2FC.lower = sum$solutions[, "l-95% CI"],
+            log2FC = sum$solutions[, "post.mean"],
+            log2FC.upper = sum$solutions[, "u-95% CI"],
+            pMCMC = sum$solutions[, "pMCMC"]
           )
         } else {
           NULL
@@ -342,9 +339,9 @@ dea_MCMCglmm_pairwise <- function(fit, data.design = design(fit), fixed = ~ Cond
         DT.contrast[, Condition := factor(ifelse(Condition %in% cts[, j], Condition, NA), levels = cts[, j])]
 
         output$log <- capture.output({
-          output$fits[[j]] <- MCMCglmm::MCMCglmm(fixed = fixed, mev = DT$SE^2, data = DT, prior = prior, verbose = F, ...)
+          output$fits[[j]] <- MCMCglmm::MCMCglmm(fixed = fixed, mev = DT.contrast$SE^2, data = DT.contrast, prior = prior, verbose = F, ...)
         }, type = "message")
-      }
+       }
       names(output$fits) <- sapply(1:ncol(cts), function(j) paste(cts[,j], collapse = "v"))
 
       # output
@@ -352,22 +349,21 @@ dea_MCMCglmm_pairwise <- function(fit, data.design = design(fit), fixed = ~ Cond
       if (length(n1.real) == 0) n1.real <- 0
       n2.real = DT.n[ProteinID == DT$ProteinID[1] & Condition == cts[2, j], N]
       if (length(n2.real) == 0) n2.real <- 0
-      n1.test <- sum(DT$Condition == cts[1, j])
-      n2.test <- sum(DT$Condition == cts[2, j])
+      n1.test <- length(unique(DT[Condition == cts[1, j], SampleID]))
+      n2.test <- length(unique(DT[Condition == cts[2, j], SampleID]))
 
       output$output <- rbindlist(lapply(output$fits, function(fit) {
         sol <- summary(fit)$solutions
         if (nrow(sol) > 0) {
           data.table(
             Effect = paste0(paste(cts[,j], collapse = "v"), "_", rownames(sol)),
-            n1.test = sum(DT$Condition == cts[1, j]),
-            n2.test = sum(DT$Condition == cts[2, j]),
+            n1.test = n1.test,
+            n2.test = n2.test,
             n1.real = n1.real,
             n2.real = n2.real,
             log2FC.lower = sol[, "l-95% CI"],
             log2FC = sol[, "post.mean"],
             log2FC.upper = sol[, "u-95% CI"],
-            eff.samp = sol[, "eff.samp"],
             pMCMC = sol[, "pMCMC"]
           )
         } else {
@@ -394,29 +390,30 @@ dea_MCMCglmm_pairwise <- function(fit, data.design = design(fit), fixed = ~ Cond
 #' @import data.table
 #' @import metafor
 #' @export
-protein_de <- function(fits, key = 1, as.data.table = F) {
-  if (class(fits) == "bayesprot_de_metafor") {
-    DTs.de <- rbindlist(lapply(1:length(fits), function(i) data.table(ProteinID = factor(names(fits[i])), fits[[i]]$output)))
+protein_de <- function(fit, key = 1, as.data.table = F) {
+  if (class(fit) == "bayesprot_de_metafor") {
+    DTs.de <- rbindlist(lapply(1:length(fit), function(i) data.table(ProteinID = factor(names(fit[i])), fit[[i]]$output)))
     DTs.de <- split(DTs.de, by = "Effect", keep.by = F)
     for (DT in DTs.de) {
       setorder(DT, p.value, na.last = T)
       DT[, FDR := p.adjust(p.value, method = "BH")]
       if (!as.data.table) setDF(DT)
     }
-  } else if (class(fits) == "bayesprot_de_MCMCglmm") {
-    DTs.de <- rbindlist(lapply(1:length(fits), function(i) data.table(ProteinID = factor(names(fits[i])), fits[[i]]$output)))
+  } else if (class(fit) == "bayesprot_de_MCMCglmm") {
+    DTs.de <- rbindlist(lapply(1:length(fit), function(i) data.table(ProteinID = factor(names(fit[i])), fit[[i]]$output)))
     DTs.de <- split(DTs.de, by = "Effect", keep.by = F)
     for (DT in DTs.de) {
-      DT[, abslog2FC := abs(log2FC)]
-      setorder(DT, pMCMC, -abslogFC, na.last = T)
-      DT[, abslog2FC := NULL]
+      DT[, log2FC.delta := log2FC.upper - log2FC.lower]
+      setorder(DT, pMCMC, log2FC.delta, na.last = T)
+      DT[, log2FC.delta := NULL]
       DT[, FDR := cumsum(pMCMC) / .I]
       if (!as.data.table) setDF(DT)
     }
   }
   else {
-    de.func <- control(fit)$de.func
-    deID <- formatC(match(key, names(de.func)), width = ceiling(log10(length(de.func) + 1)) + 1, format = "d", flag = "0")
+    dea.func <- control(fit)$dea.func
+    if (is.character(key)) key = match(key, names(dea.func))
+    deID <- formatC(key, width = ceiling(log10(length(dea.func) + 1)) + 1, format = "d", flag = "0")
     DTs.de <- fst::read.fst(file.path(fit, "model2", "de", paste0(deID, ".fst")), as.data.table = T)
     DTs.de <- split(DTs.de, by = "Effect", keep.by = F)
   }

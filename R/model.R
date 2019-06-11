@@ -312,15 +312,15 @@ process_model2 <- function(
 
 
     # differential expression analysis
-    if (!is.null(control$de.func)) {
+    if (!is.null(control$dea.func)) {
       dir.create(file.path(fit, "model2", "de"), showWarnings = F)
-      deID <- formatC(1:length(control$de.func), width = ceiling(log10(length(control$de.func) + 1)) + 1, format = "d", flag = "0")
+      deID <- formatC(1:length(control$dea.func), width = ceiling(log10(length(control$dea.func) + 1)) + 1, format = "d", flag = "0")
 
-      for (i in 1:length(control$de.func)) {
-        message("[", paste0(Sys.time(), "]  performing differential expression analysis ", i, "/", length(control$de.func), "..."))
+      for (i in 1:length(control$dea.func)) {
+        message("[", paste0(Sys.time(), "]  performing differential expression analysis ", i, "/", length(control$dea.func), "..."))
 
         # run de
-        fits <- control$de.func[[i]](fit, as.data.table = T)
+        fits <- control$dea.func[[i]](fit)
         #saveRDS(out,  file.path(fit, "model2", "de", paste0(deID[i], ".rds")))
 
         DTs.de <- protein_de(fits, as.data.table = T)
@@ -331,9 +331,9 @@ process_model2 <- function(
             # save pretty version
             DTs.de[[j]] <- merge(DTs.de[[j]], DT.proteins[, .(ProteinID, Protein, ProteinInfo, nPeptide, nFeature, nMeasure, prior)], by = "ProteinID", sort = F)
             setcolorder(DTs.de[[j]], c("ProteinID", "Protein", "ProteinInfo", "nPeptide", "nFeature", "nMeasure", "prior"))
-            fwrite(DTs.de[[j]], file.path(fit, "output", paste0("protein_log2DE_", names(control$de.func)[i], "_", names(DTs.de)[j], ".csv")))
+            fwrite(DTs.de[[j]], file.path(fit, "output", paste0("protein_log2DE_", names(control$dea.func)[i], "_", names(DTs.de)[j], ".csv")))
             g <- bayesprot::plot_fdr(DTs.de[[j]], 1.0)
-            ggplot2::ggsave(file.path(fit, "output", paste0("protein_log2DE_fdr_", names(control$de.func)[i], "_", names(DTs.de)[j], ".pdf")), g, width = 8, height = 8)
+            ggplot2::ggsave(file.path(fit, "output", paste0("protein_log2DE_fdr_", names(control$dea.func)[i], "_", names(DTs.de)[j], ".pdf")), g, width = 8, height = 8)
           }
         }
       }
@@ -577,7 +577,7 @@ execute_model <- function(
     message(paste0("[", Sys.time(), "]  modelling nprotein=", nrow(DT.proteins), "/", nlevels(DT.proteins$ProteinID), " nitt=", nitt, "/", nitt * control$model.nchain, "..."))
     pb <- txtProgressBar(max = sum(DT.proteins$timing), style = 3)
     progress <- function(n, tag) setTxtProgressBar(pb, getTxtProgressBar(pb) + DT.proteins$timing[tag])
-    output <- foreach(i = 1:nrow(DT.proteins), .inorder = F, .combine = rbindlistlist, .multicombine = T, .packages = "data.table", .options.snow = list(progress = progress)) %dopar% {
+    output <- foreach(i = 1:nrow(DT.proteins), .combine = rbindlistlist, .multicombine = T, .packages = "data.table", .options.snow = list(progress = progress)) %dopar% {
       # prepare DT for MCMCglmm
       DT <- fst::read.fst(file.path(fit, "input", "input.fst"), as.data.table = T, from = DT.proteins[i, from], to = DT.proteins[i, to])
       DT <- droplevels(DT)
@@ -814,29 +814,46 @@ execute_model <- function(
 
     # write out concatenation of smaller output
     message(paste0("[", Sys.time(), "]  writing output..."))
-
+    output$DT.summaries[, ProteinID := factor(as.character(ProteinID))]
+    setorder(output$DT.summaries, ProteinID, chainID)
     fst::write.fst(output$DT.summaries, file.path(path.output, file.path(paste0("summaries.", stage), paste0(chainID, ".fst"))))
     output$DT.summaries <- NULL
 
+    setorder(output$DT.timings, ProteinID, chainID)
+    output$DT.timings[, ProteinID := factor(as.character(ProteinID))]
     fst::write.fst(output$DT.timings, file.path(path.output, file.path(paste0("timings.", stage), paste0(chainID, ".fst"))))
     output$DT.timings <- NULL
 
     if (!is.null(output$DT.peptide.deviations) && nrow(output$DT.peptide.deviations) > 0) {
+      output$DT.peptide.deviations[, ProteinID := factor(as.character(ProteinID))]
+      output$DT.peptide.deviations[, PeptideID := factor(as.character(PeptideID))]
+      output$DT.peptide.deviations[, SampleID := factor(as.character(SampleID))]
+      setorder(output$DT.peptide.deviations, ProteinID, PeptideID, SampleID, chainID, mcmcID)
       fst::write.fst(output$DT.peptide.deviations, file.path(path.output, file.path(paste0("peptide.deviations.", stage), paste0(chainID, ".fst"))))
       output$DT.peptide.deviations <- NULL
     }
 
     if (!is.null(output$DT.peptide.stdevs) && nrow(output$DT.peptide.stdevs) > 0) {
+      output$DT.peptide.stdevs[, ProteinID := factor(as.character(ProteinID))]
+      output$DT.peptide.stdevs[, PeptideID := factor(as.character(PeptideID))]
+      setorder(output$DT.peptide.stdevs, ProteinID, PeptideID, chainID, mcmcID)
       fst::write.fst(output$DT.peptide.stdevs, file.path(path.output, file.path(paste0("peptide.stdevs.", stage), paste0(chainID, ".fst"))))
       output$DT.peptide.stdevs <- NULL
     }
 
     if (!is.null(output$DT.feature.stdevs) && nrow(output$DT.feature.stdevs) > 0) {
+      output$DT.feature.stdevs[, ProteinID := factor(as.character(ProteinID))]
+      output$DT.feature.stdevs[, PeptideID := factor(as.character(PeptideID))]
+      output$DT.feature.stdevs[, FeatureID := factor(as.character(FeatureID))]
+      setorder(output$DT.feature.stdevs, ProteinID, PeptideID, FeatureID, chainID, mcmcID)
       fst::write.fst(output$DT.feature.stdevs, file.path(path.output, file.path(paste0("feature.stdevs.", stage), paste0(chainID, ".fst"))))
       output$DT.feature.stdevs <- NULL
     }
 
     if (!is.null(output$DT.protein.quants) && nrow(output$DT.protein.quants) > 0) {
+      output$DT.protein.quants[, ProteinID := factor(as.character(ProteinID))]
+      output$DT.protein.quants[, AssayID := factor(as.character(AssayID))]
+      setorder(output$DT.protein.quants, ProteinID, AssayID, chainID, mcmcID)
       fst::write.fst(output$DT.protein.quants, file.path(path.output, file.path(paste0("protein.quants.", stage), paste0(chainID, ".fst"))))
       output$DT.protein.quants <- NULL
     }

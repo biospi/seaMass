@@ -300,7 +300,7 @@ plot_pr <- function(data, ymax = NULL) {
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype = "dotted")
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype = "dotted")
   g <- g + ggplot2::geom_ribbon(ggplot2::aes(ymin = FDR.lower, ymax = FDR.upper), colour = NA, alpha = 0.3)
-  #g <- g + ggplot2::geom_line(ggplot2::aes(y = FDR), lty = "dashed")
+  g <- g + ggplot2::geom_line(ggplot2::aes(y = FDR), lty = "dashed")
   g <- g + ggplot2::geom_step(direction = "vh")
   g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
   #g <- g + ggplot2::scale_y_continuous(trans = rev_sqrt_trans(), breaks = c(0.0, 0.01, 0.05, 0.1, 0.2, 0.5, pi, 1.0), labels = ylabels(), expand = c(0.001, 0.001))

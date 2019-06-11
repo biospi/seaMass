@@ -13,7 +13,7 @@
 #'   analysis. By default, all assays are set as reference channels, which is appropriate only for label-free studies
 #'   and fully-blocked iTraq/TMT/SILAC designs.
 #' @param normalisation.proteins Proteins to use in the normalisation; default is all proteins.
-#' @param de.func List of differential expression analysis functions to run
+#' @param dea.func List of differential expression analysis functions to run
 #' @param plot Generate all plots (todo)
 #' @param output Folder on disk whether all intermediate and output data will be stored; default is \code{"bayesprot"}.
 #' @param control A control object created with \link{new_control} specifying control parameters for the model.
@@ -25,35 +25,52 @@ bayesprot <- function(
   data,
   data.design = new_design(data),
   normalisation.proteins = levels(data$Protein),
-  de.func = NULL,
+  dea.func = NULL,
   plots = F,
   output = "bayesprot",
   control = new_control()
 ) {
   message(paste0("[", Sys.time(), "] BAYESPROT started"))
 
-  # set up
-  DT <- as.data.table(data)
-  if (!is.null(DT$Injection)) DT[, Injection := NULL]
-  DT.design <- as.data.table(data.design)
+  # setup
   control$output <- basename(output)
+  DT <- as.data.table(data)
+  DT.design <- as.data.table(data.design)[!is.na(Assay)]
 
   # validate parameters
+  if (any(is.na(DT.design$Sample))) {
+    stop("all assays need to be assignd to samples in 'data.design'")
+  }
   if (!is.null(normalisation.proteins) && !all(normalisation.proteins %in% levels(DT$Protein))) {
     stop("all 'normalisation.proteins' need to be in levels(data$Protein)")
   }
   if (control$model.nchain == 1) {
-    message("WARNING: You are specifying only a single MCMC chain, convergence diagnostics will be unavailable. It is recommended to specify at least model.nchain=4 in 'control' for publishable results.")
+    message("WARNING: You are specifying only a single MCMC chain, convergence diagnostics will be unavailable. It is recommended to specify model.nchain=4 or more in 'control' for publishable results.")
   }
 
-  # dea
-  if (!is.null(de.func)) {
-    if(is.null(names(de.func))) {
-      names(de.func) <- 1:length(de.func)
+  # filter DT
+  if (!is.null(DT$Injection)) DT[, Injection := NULL]
+  DT <- merge(DT, DT.design[, .(Run, Channel, Assay)], by = c("Run", "Channel"))
+  DT[, Run := NULL]
+  DT[, Channel := NULL]
+  # missingness.threshold
+  setnames(DT, "Count", "RawCount")
+  DT[, Count := ifelse(RawCount <= control$missingness.threshold, NA, RawCount)]
+  # remove features with no non-NA measurements
+  DT[, notNA := sum(!is.na(Count)), by = .(Feature)]
+  DT <- DT[notNA > 0]
+  DT[, notNA := NULL]
+  # drop unused levels
+  DT <- droplevels(DT)
+
+  # tidy dea
+  if (!is.null(dea.func)) {
+    if(is.null(names(dea.func))) {
+      names(dea.func) <- 1:length(dea.func)
     }
-    names(de.func) <- ifelse(names(de.func) == "", 1:length(de.func), names(de.func))
+    names(dea.func) <- ifelse(names(dea.func) == "", 1:length(dea.func), names(dea.func))
   }
-  control$de.func <- de.func
+  control$dea.func <- dea.func
 
   # create output directory
   output <- path.expand(output)
@@ -65,18 +82,6 @@ bayesprot <- function(
     }
   }
   dir.create(output)
-
-  # threshold and remove thresholded features/peptides/proteins
-  setnames(DT, "Count", "RawCount")
-  DT[, Count := ifelse(RawCount <= control$missingness.threshold, NA, RawCount)]
-  # remove assays that have no non-NA measurements for a protein
-  #DT[, notNA := sum(!is.na(Count)), by = .(ProteinID, AssayID)]
-  #DT <- DT[notNA > 0]
-  # remove features with no non-NA measurements
-  DT[, notNA := sum(!is.na(Count)), by = .(Feature)]
-  DT <- DT[notNA > 0]
-  DT[, notNA := NULL]
-  DT <- droplevels(DT)
 
   # build Protein index
   DT.proteins <- DT[, .(
@@ -126,7 +131,6 @@ bayesprot <- function(
     TopPeptideID = min(as.integer(PeptideID))
   ), by = Feature]
   setorder(DT.features, TopPeptideID, -nMeasure, Feature)
-  #DT.features[, TopPeptideID := factor(formatC(TopPeptideID, width = ceiling(log10(nrow(DT.peptides))) + 1, format = "d", flag = "0"), levels = levels(DT.peptides$PeptideID))]
   DT.features[, TopPeptideID := NULL]
   DT.features[, FeatureID := factor(formatC(1:nrow(DT.features), width = ceiling(log10(nrow(DT.features))) + 1, format = "d", flag = "0"))]
   DT.features[, Feature := factor(Feature, levels = Feature)]
@@ -150,9 +154,7 @@ bayesprot <- function(
   DT.design[, Sample := factor(Sample, levels = Sample)]
   setcolorder(DT.design, c("AssayID", "Assay", "SampleID", "Sample", "Run", "Channel"))
 
-  DT <- merge(DT, DT.design[, .(Run, Channel, AssayID, SampleID)], by = c("Run", "Channel"), sort = F)
-  DT[, Run := NULL]
-  DT[, Channel := NULL]
+  DT <- merge(DT, DT.design[, .(Assay, AssayID, SampleID)], by = "Assay", sort = F)
   setcolorder(DT, c("ProteinID", "PeptideID", "FeatureID", "AssayID", "SampleID", "RawCount"))
   setorder(DT, ProteinID, PeptideID, FeatureID, AssayID, SampleID)
 

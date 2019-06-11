@@ -1,4 +1,4 @@
-# BayesProt v1.2.0 (beta)
+# BayesProt v1.2.0 beta2 (9th June 2019)
 Bayesian mixed-effects model and uncertainty propagation for mass spectrometry proteomics, achieving sensitive protein-level quantification and differential expression analysis. Currently works with imported data from SCIEX ProteinPilot, Thermo ProteomeDiscoverer, Waters Progenesis and OpenSWATH/PyProphet across iTraq/TMT, SILAC, Label-free and SWATH data types.
 
 ## Current citation
@@ -10,6 +10,8 @@ BayesProt is an R package that works on Windows, MacOS and Linux. Small studies 
 
 ## Installation
 
+Please install the R package directly from our Github repository (use the same command to upgrade to the latest version):
+
 ```
 install.packages("remotes")
 remotes::install_github("biospi/bayesprot", dependencies = T)
@@ -17,16 +19,16 @@ remotes::install_github("biospi/bayesprot", dependencies = T)
 
 ## Usage
 
-Firstly, you need to use an 'import' function to convert from an upstream tool format to BayesProt's standardised 'data.frame' format. Then you can assign runs if you've used fractionation and specify a study design if you'd like to do differential expression analysis. Finally, you use the 'bayesprot' function to fit the model and generate the results.
+Firstly, you need to use an 'import' function to convert from an upstream tool format to BayesProt's standardised 'data.frame' format. Then you can assign injections to runs if you've used fractionation, and specify a study design if you'd like to do differential expression analysis. Finally, you use the 'bayesprot' function to fit the model and generate the results.
 
 ### Tutorial
 
-Load the included ProteinPilot iTraq dataset (note this is a small subset of the fractions from our spike-in study and as such is not useful for anything else than this tutorial).
+Load the included ProteinPilot iTraq dataset (note this is a small subset of proteins from our spike-in study and as such is not useful for anything else than this tutorial).
 
 ```
 library(bayesprot)
 
-# import tutorial iTraq dataset
+# Import tutorial iTraq dataset.
 file <- system.file(file.path("demo", "Tutorial_PeptideSummary.txt.bz2"), package = "bayesprot")
 data <- import_ProteinPilot(file)
 ```
@@ -34,53 +36,65 @@ data <- import_ProteinPilot(file)
 Unfortunately the input file does not contain information for linking fractions to runs, so BayesProt allows you to update the imported data with this information. If your study does not employ fractionation, you can skip this section.
 
 ```
-# get skeleton injection-run table from imported data
+# Get skeleton injection-run table from imported data.
 data.runs <- runs(data)
 
-# indicate which injection refers to which run
-data.runs$Run <- factor(c(rep_len(1, 10), rep_len(2, 10)))
+# Indicate which injection refers to which run; use 'NA' to indicate injections to ignore.
+data.runs$Run[1:26] <- NA
+data.runs$Run[27:52] <- "1"
+data.runs$Run[53:78] <- "2"
 
-# update the imported data with this information
+# Update the imported data with the run information and remove any ignored injections.
 runs(data) <- data.runs
 ```
 
-Next, you can give the assays the names you prefer, and assign samples to assays (in case you have technical replicates, for example).
+Next, you can give the assays the names you prefer, and assign samples to assays (in case you have pure technical replicates, for example).
 
 ```
-# get skeleton design matrix
+# Get skeleton design matrix
 data.design <- new_design(data)
 
-# you can give the assays different names
+# You can rename assays, or remove them from the analysis with 'NA'.
 data.design$Assay <- factor(c(
-  "1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7", "1.8",
-  "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8"
+  NA, NA, NA, NA, "1.1", "1.2", "1.3", "1.4",
+  NA, NA, NA, NA, "2.1", "2.2", "2.3", "2.4"
 ))
 
-# you can assign samples to assays (here we have 6 'A' samples, 6 'B' samples and 4 'O' samples - others)
+# Assign samples to assays (a 1-to-1 mapping if all your samples are separately digested;
+#  pure technical replicates should share the same sample name).
 data.design$Sample <- factor(c(
-  "A1", "A2", "B1", "B2", "A3", "A4", "B3", "B4",
-  "O1", "O2", "O3", "O4", "A5", "A6", "B5", "B6"
+  NA, NA, NA, NA, "A1", "A2", "B1", "B2",
+  NA, NA, NA, NA, "A3", "A4", "B3", "B4"
 ))
 ```
 
-Optionally, you can do differential expression analysis (or any mixed-effects model supported by the 'metafor' package). You can do it post-hoc using the 'fit' object returned by 'bayesprot', or you can supply one or more functions to run during the 'bayesprot' call. There is a pre-canned function for doing a Student's t-test (as this test uses the uncertainty in the quants, it has much better performance than doing the t-tests yourself!), which needs you to specify a 'Condition' column in your experiment design:
+Optionally, you can do differential expression analysis (or any mixed-effects model supported by the 'metafor' or'MCMCglmm' packages). You can run a 'dea' function post-hoc using the 'fit' object returned by 'bayesprot', or you can supply one or more 'dea' functions to run during the 'bayesprot' call. If your experiment contains two or more treatment groups, we suggest you use a 'pairwise' function, which will perform the model seperately for each pair of conditions specified by a 'Condition' column in your experiment design:
 
 ```
-# specify the pre-canned t-test function
-de.func <- protein_de_ttest
-
-# specify the conditions for differential expression analysis (use NA to ignore irrelevant assays)
-data.design$Condition <- factor(c(
-  "A", "A", "B", "B", "A", "A", "B", "B",
-  NA,  NA,  NA,  NA, "A", "A", "B", "B")
+# specify a list of one of more differential expression analysis functions. Here we specify
+#  both standard and Bayesian pair-wise t-tests (Note: the 'pairwise' function is advantageous
+#  even if you have only two conditions as it reports per-protein sample size for each condition).
+dea.func <- list(
+  t.test = dea_metafor_pairwise,
+  bayesian.t.test = dea_MCMCglmm_pairwise
 )
+
+# The default parameters for the 'dea_...' functions expect a column 'Condition' to be specified
+#  in 'data.design'. You can use 'NA' to ignore irrelevant samples.
+data.design$Condition <- factor(c(
+  NA, NA, NA, NA, "A", "A", "B", "B",
+  NA, NA, NA, NA, "A", "A", "B", "B"
+))
 ```
 
 If you have multiple channels per run (e.g. iTraq, TMT, SILAC) you need to specify the reference assay(s) for each run so that quants can be linked between runs. BayesProt does not need specific reference samples (e.g. pooled samples) to have been run as long as you have a blocked design with the same proportion of samples in each treatment group in each run. For example, below we have designated 4 A and 4 B samples as reference channels for Run 1, and 2 A and 2 B samples as reference channels for Run 2.
 
 ```
+# iTraq/TMT/SILAC only: Since we have more than one iTraq run we need to normalise across them.
+#  Here we can specify specific reference assays e.g. pooled reference samples, of if the study
+#  design has been blocked appropriately, we can just use all relevant assays:
 data.design$ref <- factor(c(
-  T, T, T, T, T, T, T, T,
+  F, F, F, F, T, T, T, T,
   F, F, F, F, T, T, T, T)
 )
 ```
@@ -88,12 +102,12 @@ data.design$ref <- factor(c(
 Finally, run the model. Intermediate and results data is stored in the directory specified by the BayesProt 'output' parameter, and any internal control parameters (such as the number of CPU threads to use) can be specified through a 'control' object'. For differential expression analysis, a Bayesian version of median normalisation will be used. By default all proteins are considered in the normalisation, but you can choose a subset if required with the 'normalisation.proteins' parameter as shown below.
 
 ```
-# run BayesProt
+# Run BayesProt, using the rat proteins only for normalisation.
 fit <- bayesprot(
   data,
   data.design = data.design,
   normalisation.proteins = levels(data$Protein)[grep("_RAT$", levels(data$Protein))],
-  de.func = de.func,
+  dea.func = dea.func,
   output = "Tutorial.bayesprot",
   control = new_control(nthread = 16)
 )
@@ -102,15 +116,25 @@ fit <- bayesprot(
 Once run, results tables (in csv format) and diagnostic plots (PCA, exposures aka 'normalisation coefficients') are available in the 'output' subdirectory of the output directory specified above. Or you can use the R package functions to retrieve results and generate plots from the fit object created by the 'bayesprot' call:
 
 ```
-# output list of proteins analysed
-print(proteins(fit))
+# Output list of proteins analysed.
+data.proteins <- proteins(fit)
+print(data.proteins)
 
-# output protein quants
-print(protein_quants(fit))
+# Output processed design matrix
+data.design <- design(fit)
+print(data.design)
 
-# output fdr-controlled differential expression
-print(protein_de(fit))
+# Output protein quants with accessions and assay/sample names
+data.protein.quants <- protein_quants(fit)
+data.protein.quants <- merge(data.protein.quants, data.design[, c("AssayID", "Assay", "Sample")])
+data.protein.quants <- merge(data.protein.quants, data.proteins[, c("ProteinID", "Protein")])
+print(data.protein.quants)
 
-# view the plot for the top differential expression candidate
-plot_peptides(fit, data.de$ProteinID[5])
+# Output fdr-controlled differential expression for the 't.test' analysis, with accessions.
+data.de <- protein_de(fit, "t.test")$AvB_ConditionB
+data.de <- merge(data.de, data.proteins[, c("ProteinID", "Protein")], sort = F)
+print(data.de)
+
+# View the plot for the top differential expression candidate.
+plot_peptides(fit, protein = data.de$Protein[1])
 ```

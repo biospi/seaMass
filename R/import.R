@@ -7,7 +7,10 @@
 #' @import data.table
 #' @export
 runs <- function(data) {
-  data <- setDF(setDT(data)[, .(Run = first(Run)), keyby = Injection])
+  data <- setDT(data)[, .(Run = first(Run)), keyby = Injection]
+  data[, Run := as.character(Run)]
+  data[, Injection := as.character(Injection)]
+  setDF(data)
   return(data)
 }
 
@@ -19,7 +22,11 @@ runs <- function(data) {
 `runs<-` <- function(data, value) {
   DT <- setDT(data)
   DT[, Run := NULL]
-  DT <- merge(DT, value, by = "Injection")
+  DT.runs <- as.data.table(value)
+  DT.runs <- DT.runs[complete.cases(DT.runs)]
+  if (!is.factor(DT.runs$Injection)) DT.runs[, Injection := factor(Injection)]
+  if (!is.factor(DT.runs$Run)) DT.runs[, Run := factor(Run)]
+  DT <- merge(DT, DT.runs, by = "Injection")
   data <- setDF(DT)
   return(data)
 }
@@ -35,13 +42,11 @@ runs <- function(data) {
 #' @import data.table
 #' @export
 new_design <- function(data) {
-  data.design <- unique(setDT(data)[, .(Run, Channel)])
-  names <- paste(data.design$Run, data.design$Channel, sep = ",")
-  names <- sub("^NA,", "", names)
-  names <- sub(",NA$", "", names)
-  data.design[, Assay := names]
-  data.design[, Sample := names]
-  data.design[, Condition := NA_integer_]
+  data.design <- setDT(data)[, .(Assay = paste(Run, Channel, sep = ",")), keyby = .(Run, Channel)]
+  data.design[, Assay := sub("^,", "", Assay)]
+  data.design[, Assay := sub(",$", "", Assay)]
+  data.design[, Sample := Assay]
+  data.design[, Condition := NA]
   data.design[, ref := T]
   setDF(data.design)
   setDF(data)
@@ -118,7 +123,7 @@ import_ProteinPilot <- function(
   DT[, Peptide := factor(Peptide)]
   DT[, Feature := factor(Feature)]
   DT[, Injection := factor(Injection)]
-  DT[, Run := NA_integer_]
+  DT[, Run := factor("")]
   DT <- melt(DT, variable.name = "Channel", value.name = "Count", measure.vars = colnames(DT)[grep("^Channel\\.", colnames(DT))])
   levels(DT$Channel) <- sub("^Channel\\.", "", levels(DT$Channel))
 
@@ -149,7 +154,7 @@ import_ProteomeDiscoverer <- function(
     if (is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
     DT.raw <- setDT(data)
   } else {
-    DT.raw <- fread(file, showProgress = T)
+    DT.raw <- fread(file = file, showProgress = T)
   }
 
   # only use rows that ProteomeDiscoverer uses for quant
@@ -210,7 +215,7 @@ import_ProteomeDiscoverer <- function(
   DT[, Peptide := factor(Peptide)]
   DT[, Feature := factor(Feature)]
   DT[, Injection := factor(Injection)]
-  DT[, Run := NA_integer_]
+  DT[, Run := factor("")]
   DT <- melt(DT, variable.name = "Channel", value.name = "Count", measure.vars = colnames(DT)[grep("^Channel\\.", colnames(DT))])
   levels(DT$Channel) <- sub("^Channel\\.", "", levels(DT$Channel))
 
@@ -363,7 +368,7 @@ import_OpenSwath_PyProphet <- function(
   DT[, Peptide := factor(Peptide)]
   DT[, Feature := factor(Feature)]
   DT <- melt(DT, variable.name = "Run", value.name = "Count", measure.vars = assays)
-  DT[, Channel := NA_integer_]
+  DT[, Channel := factor("")]
   setcolorder(DT, c("Protein", "ProteinInfo", "Peptide", "Feature", "Run", "Channel"))
 
   setDF(DT)
@@ -388,20 +393,10 @@ import_MSstats <- function(data) {
     ProteinInfo = "",
     Peptide = factor(data$PeptideSequence),
     Feature = factor(data$FragmentIon),
+    Run = factor(data$Run, levels = unique(data$Run)),
+    Channel = factor(data$IsotopeLabelType, levels = unique(data$IsotopeLabelType)),
     Count = as.numeric(data$Intensity)
   )
-
-  if (length(unique(data$Run)) == 1) {
-    DT[, Run := NA_integer_]
-  } else {
-    DT[, Run := factor(data$Run, levels = unique(data$Run))]
-  }
-
-  if (length(unique(data$IsotopeLabelType)) == 1) {
-    DT[, Channel := NA_integer_]
-  } else {
-    DT[, Channel := factor(data$IsotopeLabelType, levels = unique(data$IsotopeLabelType))]
-  }
 
   setDF(DT)
   return(DT)
