@@ -220,13 +220,15 @@ process_model2 <- function(
     })
 
     DT.protein.quants.index <- rbindlist(lapply(1:length(DT.protein.quants), function(i) DT.protein.quants[[i]]$DT.index))
-    DT.protein.quants.index[, ProteinID := factor(as.character(ProteinID))]
-    DT.protein.quants.index <- merge(DT.protein.quants.index, DT.proteins[, .(ProteinID, Protein)], by = "ProteinID")
-    setcolorder(DT.protein.quants.index, c("Protein", "ProteinID", "file1", "from", "to"))
+    DT.protein.quants.index[, ProteinID := factor(ProteinID, levels = levels(DT.proteins$ProteinID))]
+    DT.protein.quants.index <- merge(DT.proteins[, .(ProteinID, Protein)], DT.protein.quants.index, by = "ProteinID", all.x = T)
     fst::write.fst(DT.protein.quants.index, file.path(fit, "model2", "protein.quants.index.fst"))
 
     for (i in 1:length(DT.protein.quants)) DT.protein.quants[[i]] <- DT.protein.quants[[i]]$DT
     DT.protein.quants <- rbindlist(DT.protein.quants)
+    # highlights if any quants are missing
+    DT.protein.quants[, ProteinID := factor(ProteinID, levels = levels(DT.proteins$ProteinID))]
+    DT.protein.quants <- merge(DT.proteins[, .(ProteinID)], DT.protein.quants, by = "ProteinID", all.x = T)
 
     # assay exposures
     if (any(DT.proteins$norm)) {
@@ -293,20 +295,28 @@ process_model2 <- function(
     }
 
     # summarise MCMC samples and save
-    DT.protein.quants.summary <- DT.protein.quants[, .(est = median(value), SE = mad(value)), by = .(ProteinID, AssayID)]
+    DT.protein.quants.summary <- DT.protein.quants[, .(prior = first(prior), nPeptide = first(nPeptide), nFeature = first(nFeature), est = median(value), SE = mad(value)), by = .(ProteinID, AssayID)]
     fst::write.fst(DT.protein.quants.summary, file.path(fit, "model2", "protein.quants.summary.fst"))
 
     DT.protein.quants.summary.out <- merge(DT.design[, .(AssayID, Sample, Assay)], DT.protein.quants.summary, by = "AssayID")
     headings <- interaction(DT.protein.quants.summary.out$Sample, DT.protein.quants.summary.out$Assay, drop = T, sep = ":")
     DT.protein.quants.summary.out[, Assay := headings]
     DT.protein.quants.summary.out[, AssaySE := headings]
+    DT.protein.quants.summary.out[, AssayNPeptide := headings]
+    DT.protein.quants.summary.out[, AssayNFeature := headings]
     DT.protein.quants.summary.out[, Sample := NULL]
-    levels(DT.protein.quants.summary.out$AssaySE) <- paste0("SE:", levels(DT.protein.quants.summary.out$AssaySE))
     levels(DT.protein.quants.summary.out$Assay) <- paste0("est:", levels(DT.protein.quants.summary.out$Assay))
-    DT.protein.quants.summary.out.ses <- data.table::dcast(DT.protein.quants.summary.out, ProteinID ~ AssaySE, value.var = "SE")
+    levels(DT.protein.quants.summary.out$AssaySE) <- paste0("SE:", levels(DT.protein.quants.summary.out$AssaySE))
+    levels(DT.protein.quants.summary.out$AssayNPeptide) <- paste0("nPeptide:", levels(DT.protein.quants.summary.out$AssayNPeptide))
+    levels(DT.protein.quants.summary.out$AssayNFeature) <- paste0("nFeature:", levels(DT.protein.quants.summary.out$AssayNFeature))
+    DT.protein.quants.summary.out.SEs <- data.table::dcast(DT.protein.quants.summary.out, ProteinID ~ AssaySE, value.var = "SE")
+    DT.protein.quants.summary.out.nPeptides <- data.table::dcast(DT.protein.quants.summary.out, ProteinID ~ AssayNPeptide, value.var = "nPeptide")
+    DT.protein.quants.summary.out.nFeatures <- data.table::dcast(DT.protein.quants.summary.out, ProteinID ~ AssayNFeature, value.var = "nFeature")
     DT.protein.quants.summary.out <- data.table::dcast(DT.protein.quants.summary.out, ProteinID ~ Assay, value.var = "est")
-    DT.protein.quants.summary.out <- cbind(DT.protein.quants.summary.out, DT.protein.quants.summary.out.ses[, 2:ncol(DT.protein.quants.summary.out.ses), with = F])
-    setcolorder(DT.protein.quants.summary.out, c("ProteinID", paste0(c("est:", "SE:"), rep(levels(headings), each = 2))))
+    DT.protein.quants.summary.out <- cbind(DT.protein.quants.summary.out, DT.protein.quants.summary.out.SEs[, 2:ncol(DT.protein.quants.summary.out.SEs), with = F])
+    DT.protein.quants.summary.out <- cbind(DT.protein.quants.summary.out, DT.protein.quants.summary.out.nPeptides[, 2:ncol(DT.protein.quants.summary.out.nPeptides), with = F])
+    DT.protein.quants.summary.out <- cbind(DT.protein.quants.summary.out, DT.protein.quants.summary.out.nFeatures[, 2:ncol(DT.protein.quants.summary.out.nFeatures), with = F])
+    setcolorder(DT.protein.quants.summary.out, c("ProteinID", paste0(c("est:", "SE:", "nPeptide:", "nFeature:"), rep(levels(headings), each = 4))))
     DT.protein.quants.summary.out <- merge(DT.proteins[, .(ProteinID, Protein, ProteinInfo, nPeptide, nFeature, nMeasure)], DT.protein.quants.summary.out, by = "ProteinID")
     fwrite(DT.protein.quants.summary.out, file.path(fit, "output", "protein_log2quants.csv"))
 
@@ -314,27 +324,22 @@ process_model2 <- function(
     # differential expression analysis
     if (!is.null(control$dea.func)) {
       dir.create(file.path(fit, "model2", "de"), showWarnings = F)
-      deID <- formatC(1:length(control$dea.func), width = ceiling(log10(length(control$dea.func) + 1)) + 1, format = "d", flag = "0")
 
       for (i in 1:length(control$dea.func)) {
         message("[", paste0(Sys.time(), "]  performing differential expression analysis ", i, "/", length(control$dea.func), "..."))
 
         # run de
-        fits <- control$dea.func[[i]](fit)
-        #saveRDS(out,  file.path(fit, "model2", "de", paste0(deID[i], ".rds")))
+        DTs.de <- setDT(control$dea.func[[i]](fit, output = names(control$dea.func)[i]))
+        fst::write.fst(DTs.de, file.path(fit, "model2", "de", paste0(names(control$dea.func)[i], ".fst")))
 
-        DTs.de <- protein_de(fits, as.data.table = T)
-        fst::write.fst(rbindlist(DTs.de, idcol = "Effect"), file.path(fit, "model2", "de", paste0(deID[i], ".fst")))
-
+        DTs.de <- split(DTs.de, by = c("Model", "Covariate"), drop = T)
         for (j in 1:length(DTs.de)) {
-          if (nrow(DTs.de[[j]]) > 0) {
-            # save pretty version
-            DTs.de[[j]] <- merge(DTs.de[[j]], DT.proteins[, .(ProteinID, Protein, ProteinInfo, nPeptide, nFeature, nMeasure, prior)], by = "ProteinID", sort = F)
-            setcolorder(DTs.de[[j]], c("ProteinID", "Protein", "ProteinInfo", "nPeptide", "nFeature", "nMeasure", "prior"))
-            fwrite(DTs.de[[j]], file.path(fit, "output", paste0("protein_log2DE_", names(control$dea.func)[i], "_", names(DTs.de)[j], ".csv")))
-            g <- bayesprot::plot_fdr(DTs.de[[j]], 1.0)
-            ggplot2::ggsave(file.path(fit, "output", paste0("protein_log2DE_fdr_", names(control$dea.func)[i], "_", names(DTs.de)[j], ".pdf")), g, width = 8, height = 8)
-          }
+          # save pretty version
+          DT.de <- merge(DTs.de[[j]], DT.proteins[, .(ProteinID, Protein, ProteinInfo, nPeptide, nFeature, nMeasure, prior)], by = "ProteinID", sort = F)
+          setcolorder(DT.de, c("ProteinID", "Protein", "ProteinInfo", "nPeptide", "nFeature", "nMeasure", "prior"))
+          fwrite(DT.de[, !c("Model", "Covariate")], file.path(fit, "output", paste0("protein_log2DE_", names(control$dea.func)[i], "_", names(DTs.de)[j], ".csv")))
+          g <- bayesprot::plot_fdr(DT.de, 1.0)
+          ggplot2::ggsave(file.path(fit, "output", paste0("protein_log2DE_fdr_", names(control$dea.func)[i], "_", names(DTs.de)[j], ".pdf")), g, width = 8, height = 8)
         }
       }
     }
@@ -584,6 +589,13 @@ execute_model <- function(
       DT[, Count := round(Count)]
       if (!is.null(DT$Count1)) DT[, Count1 := round(Count1)]
 
+      # calculate how many real (non-imputed) peptides and features back each Assay and Sample
+      DT.assay.n <- DT[, .(nFeature = sum(!is.na(RawCount))), by = .(AssayID, PeptideID)]
+      DT.assay.n <- DT.assay.n[, .(nPeptide = sum(nFeature > 0), nFeature = sum(nFeature)), by = AssayID]
+      DT.sample.n <- DT[, .(nFeature = sum(!is.na(RawCount))), by = .(SampleID, PeptideID)]
+      DT.sample.n <- DT.sample.n[, .(nPeptide = sum(nFeature > 0), nFeature = sum(nFeature)), by = SampleID]
+      DT[, RawCount := NULL]
+
       # create co-occurence matrix of which assays are present in each feature
       DT[, BaselineID := AssayID]
       mat.tmp <- merge(DT, DT, by = "FeatureID", allow.cartesian = T)
@@ -705,8 +717,11 @@ execute_model <- function(
         refs <- DT.design[ref == T, AssayID]
         mean.refs <- function(AssayID, value) mean(value[AssayID %in% refs])
         output$DT.protein.quants <- output$DT.protein.quants[, .(AssayID, value = (value - mean.refs(AssayID, value)) / log(2)), by = .(ProteinID, chainID, mcmcID)]
-        output$DT.protein.quants[, priors := stage == 2]
-        setcolorder(output$DT.protein.quants, c("ProteinID", "AssayID", "priors", "chainID", "mcmcID"))
+        output$DT.protein.quants[, prior := stage == 2]
+
+        # merge with DT.assay.n
+        output$DT.protein.quants <- merge(output$DT.protein.quants, DT.assay.n, by = "AssayID")
+        setcolorder(output$DT.protein.quants, c("ProteinID", "prior", "AssayID", "nPeptide", "nFeature", "chainID", "mcmcID"))
 
         # extract peptide deviations
         if (!is.null(control$peptide.model)) {
@@ -727,7 +742,10 @@ execute_model <- function(
           output$DT.peptide.deviations[, chainID := factor(chainID)]
           output$DT.peptide.deviations[, prior := nlevels(DT$PeptideID) <= control$peptide.prior]
           output$DT.peptide.deviations[, value := value / log(2)]
-          setcolorder(output$DT.peptide.deviations, c("ProteinID", "PeptideID", "SampleID", "prior", "chainID", "mcmcID"))
+
+          # merge with DT.n.real
+          output$DT.peptide.deviations <- merge(output$DT.peptide.deviations, DT.sample.n, by = "SampleID")
+          setcolorder(output$DT.peptide.deviations, c("ProteinID", "prior", "SampleID", "nPeptide", "nFeature", "PeptideID", "chainID", "mcmcID"))
         }
 
         model$Sol <- NULL
@@ -752,8 +770,9 @@ execute_model <- function(
           output$DT.peptide.stdevs[, chainID := factor(chainID)]
           output$DT.peptide.stdevs[, prior := nlevels(DT$PeptideID) <= control$peptide.prior]
           output$DT.peptide.stdevs[, value := sqrt(value) / log(2)]
+
           if(control$peptide.model != "single") {
-            setcolorder(output$DT.peptide.stdevs, c("ProteinID", "PeptideID", "prior", "chainID", "mcmcID"))
+            setcolorder(output$DT.peptide.stdevs, c("ProteinID", "prior", "PeptideID", "chainID", "mcmcID"))
           } else {
             setcolorder(output$DT.peptide.stdevs, c("ProteinID", "prior", "chainID", "mcmcID"))
           }
@@ -778,10 +797,11 @@ execute_model <- function(
         output$DT.feature.stdevs[, chainID := factor(chainID)]
         output$DT.feature.stdevs[, prior := nlevels(DT$FeatureID) <= control$feature.prior]
         output$DT.feature.stdevs[, value := sqrt(value) / log(2)]
+
         if (control$feature.model != "single") {
-          setcolorder(output$DT.feature.stdevs, c("ProteinID", "PeptideID", "FeatureID", "prior", "chainID", "mcmcID"))
+          setcolorder(output$DT.feature.stdevs, c("ProteinID", "prior", "PeptideID", "FeatureID", "chainID", "mcmcID"))
         } else {
-          setcolorder(output$DT.feature.stdevs, c("ProteinID", "PeptideID", "prior", "chainID", "mcmcID"))
+          setcolorder(output$DT.feature.stdevs, c("ProteinID", "prior", "PeptideID", "chainID", "mcmcID"))
         }
 
         # write out if large enough

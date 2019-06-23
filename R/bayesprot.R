@@ -36,6 +36,8 @@ bayesprot <- function(
   control$output <- basename(output)
   DT <- as.data.table(data)
   DT.design <- as.data.table(data.design)[!is.na(Assay)]
+  if (!is.factor(DT.design$Assay)) DT.design[, Assay := factor(Assay, levels = unique(Assay))]
+  if (!is.factor(DT.design$Sample)) DT.design[, Sample := factor(Sample, levels = unique(Sample))]
 
   # validate parameters
   if (any(is.na(DT.design$Sample))) {
@@ -102,7 +104,7 @@ bayesprot <- function(
   DT.proteins[, timing := a[1] + a[2]*nPeptide + a[3]*nFeature + a[4]*nPeptide*nPeptide + a[5]*nFeature*nFeature + a[6]*nPeptide*nFeature]
   setorder(DT.proteins, -timing)
   DT.proteins[, ProteinID := factor(formatC(1:nrow(DT.proteins), width = ceiling(log10(nrow(DT.proteins))) + 1, format = "d", flag = "0"))]
-  DT.proteins[, Protein := factor(Protein, levels = Protein)]
+  DT.proteins[, Protein := factor(Protein, levels = unique(Protein))]
   DT.proteins[, prior := nPeptide <= control$peptide.prior | nFeature <= control$feature.prior]
   setcolorder(DT.proteins, c("ProteinID"))
 
@@ -119,7 +121,7 @@ bayesprot <- function(
   setorder(DT.peptides, TopProteinID, -nFeature, -nMeasure, Peptide)
   DT.peptides[, TopProteinID := NULL]
   DT.peptides[, PeptideID := factor(formatC(1:nrow(DT.peptides), width = ceiling(log10(nrow(DT.peptides))) + 1, format = "d", flag = "0"))]
-  DT.peptides[, Peptide := factor(Peptide, levels = Peptide)]
+  DT.peptides[, Peptide := factor(Peptide, levels = unique(Peptide))]
   setcolorder(DT.peptides, "PeptideID")
 
   DT <- merge(DT, DT.peptides[, .(Peptide, PeptideID)], by = "Peptide", sort = F)
@@ -133,28 +135,25 @@ bayesprot <- function(
   setorder(DT.features, TopPeptideID, -nMeasure, Feature)
   DT.features[, TopPeptideID := NULL]
   DT.features[, FeatureID := factor(formatC(1:nrow(DT.features), width = ceiling(log10(nrow(DT.features))) + 1, format = "d", flag = "0"))]
-  DT.features[, Feature := factor(Feature, levels = Feature)]
+  DT.features[, Feature := factor(Feature, levels = unique(Feature))]
   setcolorder(DT.features, "FeatureID")
 
   DT <- merge(DT, DT.features[, .(Feature, FeatureID)], by = "Feature", sort = F)
   DT[, Feature := NULL]
 
-  # build Assay index
-  DT.assays <- merge(DT, DT.design)[, .(
+  # build Assay index (design)
+  DT.design <- merge(merge(DT, DT.design)[, .(
     nProtein = length(unique(as.character(ProteinID))),
     nPeptide = length(unique(as.character(PeptideID))),
     nFeature = length(unique(as.character(FeatureID))),
     nMeasure = sum(!is.na(Count))
-  ), keyby = Assay]
-  DT.assays[, AssayID := factor(formatC(1:nrow(DT.assays), width = ceiling(log10(nrow(DT.assays))) + 1, format = "d", flag = "0"))]
-  DT.assays[, Assay := factor(Assay, levels = Assay)]
-  DT.design <- merge(DT.assays, DT.design, by = "Assay")
-  if (!is.factor(DT.design$Sample)) DT.design[, Sample := factor(Sample)]
+  ), keyby = Assay], DT.design, keyby = Assay)
+  DT.design[, AssayID := factor(formatC(1:nrow(DT.design), width = ceiling(log10(nrow(DT.design))) + 1, format = "d", flag = "0"))]
   DT.design[, SampleID := factor(Sample, labels = formatC(1:nlevels(droplevels(DT.design$Sample)), width = ceiling(log10(nlevels(droplevels(DT.design$Sample)))) + 1, format = "d", flag = "0"))]
-  DT.design[, Sample := factor(Sample, levels = Sample)]
-  setcolorder(DT.design, c("AssayID", "Assay", "SampleID", "Sample", "Run", "Channel"))
+  setcolorder(DT.design, c("AssayID", "Assay", "Run", "Channel", "SampleID", "Sample"))
 
   DT <- merge(DT, DT.design[, .(Assay, AssayID, SampleID)], by = "Assay", sort = F)
+  DT[, Assay := NULL]
   setcolorder(DT, c("ProteinID", "PeptideID", "FeatureID", "AssayID", "SampleID", "RawCount"))
   setorder(DT, ProteinID, PeptideID, FeatureID, AssayID, SampleID)
 
