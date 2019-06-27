@@ -1,4 +1,4 @@
-# BayesProt v1.2.0 beta2 (9th June 2019)
+# BayesProt v1.2.0 beta3 (27th June 2019)
 Bayesian mixed-effects model and uncertainty propagation for mass spectrometry proteomics, achieving sensitive protein-level quantification and differential expression analysis. Currently works with imported data from SCIEX ProteinPilot, Thermo ProteomeDiscoverer, Waters Progenesis and OpenSWATH/PyProphet across iTraq/TMT, SILAC, Label-free and SWATH data types.
 
 ## Current citation
