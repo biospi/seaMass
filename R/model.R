@@ -199,10 +199,6 @@ process_model2 <- function(
     DT.features <- features(fit, as.data.table = T)
     chains <- formatC(1:control$model.nchain, width = ceiling(log10(control$model.nchain + 1)) + 1, format = "d", flag = "0")
 
-    # create nicer assay label for plots
-    DT.design[, AssayInfo := paste0(Sample, ":", seq_len(.N)), by = Sample]
-    DT.design[, AssayInfo := factor(sub(":1$", "", Sample))]
-
     # EXPOSURE-CORRECTED PROTEIN QUANTS
     message("[", paste0(Sys.time(), "]  computing exposure-corrected protein quants..."))
 
@@ -240,12 +236,12 @@ process_model2 <- function(
         m = median(x)
         data.table(median = m, fc = paste0("  ", ifelse(m < 0, format(-2^-m, digits = 3), format(2^m, digits = 3)), "fc"))
       }
-      DT.assay.exposures.meta <- merge(DT.design[, .(AssayID, AssayInfo)], DT.assay.exposures[, as.list(assay.exposures.meta(value)), by = AssayID], by = "AssayID")
+      DT.assay.exposures.meta <- merge(DT.design[, .(AssayID, Assay)], DT.assay.exposures[, as.list(assay.exposures.meta(value)), by = AssayID], by = "AssayID")
 
       assay.exposures.density <- function(x) {
         as.data.table(density(x, n = 4096)[c("x","y")])
       }
-      DT.assay.exposures.density <- merge(DT.design[, .(AssayID, AssayInfo)], DT.assay.exposures[, as.list(assay.exposures.density(value)), by = AssayID], by = "AssayID")
+      DT.assay.exposures.density <- merge(DT.design[, .(AssayID, Assay)], DT.assay.exposures[, as.list(assay.exposures.density(value)), by = AssayID], by = "AssayID")
 
       x.max <- max(0.5, max(abs(DT.assay.exposures.density$x)))
       g <- ggplot2::ggplot(DT.assay.exposures.density, ggplot2::aes(x = x, y = y))
@@ -260,7 +256,7 @@ process_model2 <- function(
       g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
       g <- g + ggplot2::scale_y_continuous(expand = c(0, 0))
       g <- g + ggplot2::coord_cartesian(xlim = c(-x.max, x.max) * 1.1, ylim = c(0, max(DT.assay.exposures.density$y) * 1.35))
-      g <- g + ggplot2::facet_grid(AssayInfo ~ .)
+      g <- g + ggplot2::facet_grid(Assay ~ .)
       g <- g + ggplot2::xlab(expression('Log2 Ratio'))
       g <- g + ggplot2::ylab("Probability Density")
       g <- g + ggplot2::geom_vline(xintercept = 0,size = 1/2, colour = "darkgrey")
@@ -268,7 +264,7 @@ process_model2 <- function(
       g <- g + ggplot2::geom_line(data = DT.assay.exposures.density, ggplot2::aes(x = x,y = y), size = 1/2)
       g <- g + ggplot2::geom_vline(data = DT.assay.exposures.meta, ggplot2::aes(xintercept = median), size = 1/2)
       g <- g + ggplot2::geom_text(data = DT.assay.exposures.meta, ggplot2::aes(x = median, label = fc), y = max(DT.assay.exposures.density$y) * 1.25, hjust = 0, vjust = 1, size = 3)
-      ggplot2::ggsave(file.path(fit, "output", "assay_exposures.pdf"), g, width = 8, height = 0.5 + 0.75 * length(levels(DT.assay.exposures.density$AssayInfo)), limitsize = F)
+      ggplot2::ggsave(file.path(fit, "output", "assay_exposures.pdf"), g, width = 8, height = 0.5 + 0.75 * length(levels(DT.assay.exposures.density$Assay)), limitsize = F)
 
       # apply exposures
       DT.protein.quants <- merge(DT.protein.quants, DT.assay.exposures[, .(AssayID, chainID, mcmcID, exposure = value)], by = c("AssayID", "chainID", "mcmcID"))
@@ -286,8 +282,8 @@ process_model2 <- function(
         coda::gelman.diag(chains, autoburnin = F)$psrf[1]
       }
       DT.protein.quants.rhats <- DT.protein.quants[, .(rhat = rhat(.SD)), by = .(AssayID, ProteinID)]
-      DT.protein.quants.rhats <- merge(DT.design[, .(AssayID, AssayInfo)], DT.protein.quants.rhats, by = "AssayID")
-      DT.protein.quants.rhats <- dcast(DT.protein.quants.rhats, ProteinID ~ AssayInfo, value.var = "rhat")
+      DT.protein.quants.rhats <- merge(DT.design[, .(AssayID, Assay)], DT.protein.quants.rhats, by = "AssayID")
+      DT.protein.quants.rhats <- dcast(DT.protein.quants.rhats, ProteinID ~ Assay, value.var = "rhat")
       colnames(DT.protein.quants.rhats)[2:ncol(DT.protein.quants.rhats)] <- paste0("rhat:", colnames(DT.protein.quants.rhats)[2:ncol(DT.protein.quants.rhats)])
       DT.protein.quants.rhats <- merge(DT.proteins[, .(ProteinID, Protein, nPeptide, nFeature, nMeasure)], DT.protein.quants.rhats, by = "ProteinID")
       fwrite(DT.protein.quants.rhats, file.path(fit, "output", "protein_log2quants_rhats.csv"))
@@ -329,7 +325,7 @@ process_model2 <- function(
         message("[", paste0(Sys.time(), "]  performing differential expression analysis ", i, "/", length(control$dea.func), "..."))
 
         # run de
-        DTs.de <- setDT(control$dea.func[[i]](fit, output = names(control$dea.func)[i]))
+        DTs.de <- fdr(control$dea.func[[i]](fit, output = names(control$dea.func)[i]), as.data.table = T)
         fst::write.fst(DTs.de, file.path(fit, "model2", "de", paste0(names(control$dea.func)[i], ".fst")))
 
         DTs.de <- split(DTs.de, by = c("Model", "Covariate"), drop = T)
@@ -348,23 +344,31 @@ process_model2 <- function(
 
     # PCA PLOT
 
+    # remove assays with zero variance (pure reference samples)
+    DT.assays.pca <- DT.protein.quants.summary[, .(use = var(est) >= 0.0000001), by = AssayID]
+    DT.protein.quants.summary <- merge(DT.protein.quants.summary, DT.assays.pca, by = "AssayID")[use == T][, !"use"]
+    # DT.protein.quants <- merge(DT.protein.quants, DT.assays.pca, by = "AssayID")[use == T][, !"use"]
+
     # est
     DT.pca.est <- data.table::dcast(DT.protein.quants.summary, ProteinID ~ AssayID, value.var = "est")
     DT.pca.est <- DT.pca.est[complete.cases(DT.pca.est)]
     DT.pca.est <- data.table::dcast(melt(DT.pca.est, id.vars = "ProteinID"), variable ~ ProteinID, value.var = "value")
 
     # MCMC quants
-    DT.pca.mcmc <- rbindlist(lapply(split(DT.protein.quants, by = c("chainID", "mcmcID")), function(DT) {
-      DT[, AssayID := paste(AssayID, chainID, mcmcID, sep = ".")]
-      DT <- data.table::dcast(DT, ProteinID ~ AssayID, value.var = "value")
-      DT <- DT[complete.cases(DT)]
-      data.table::dcast(melt(DT, id.vars = "ProteinID"), variable ~ ProteinID, value.var = "value")
-    }))
+    # DT.pca.mcmc <- rbindlist(lapply(split(DT.protein.quants, by = c("chainID", "mcmcID")), function(DT) {
+    #   DT[, AssayID := paste(AssayID, chainID, mcmcID, sep = ".")]
+    #   DT <- data.table::dcast(DT, ProteinID ~ AssayID, value.var = "value")
+    #   DT <- DT[complete.cases(DT)]
+    #   data.table::dcast(melt(DT, id.vars = "ProteinID"), variable ~ ProteinID, value.var = "value")
+    # }))
 
     # X
-    DT.X <- setDF(rbind(DT.pca.mcmc, DT.pca.est))
-    rownames(DT.X) <- DT.X$variable
-    DT.X$variable <- NULL
+    #DT.X <- setDF(rbind(DT.pca.mcmc, DT.pca.est))
+    #rownames(DT.X) <- DT.X$variable
+    #DT.X$variable <- NULL
+    setDF(DT.pca.est)
+    rownames(DT.pca.est) <- DT.pca.est$variable
+    DT.pca.est$variable <- NULL
 
     # SE and col.w
     DT.pca.SE <- data.table::dcast(DT.protein.quants.summary, ProteinID ~ AssayID, value.var = "SE")
@@ -374,7 +378,8 @@ process_model2 <- function(
     col.w <- 1.0 / rowMeans(DT.pca.SE^2)
 
     # FactoMineR PCA
-    pca.assays <- FactoMineR::PCA(setDF(DT.X), scale.unit = F, ind.sup = 1:nrow(DT.pca.mcmc), row.w = row.w, col.w = col.w, graph = F)
+    pca.assays <- FactoMineR::PCA(setDF(DT.pca.est), scale.unit = F, row.w = row.w, col.w = col.w, graph = F)
+    #pca.assays <- FactoMineR::PCA(setDF(DT.X), scale.unit = F, ind.sup = 1:nrow(DT.pca.mcmc), row.w = row.w, col.w = col.w, graph = F)
 
     # extract individuals
     DT.pca.assays <- data.table(
@@ -386,31 +391,31 @@ process_model2 <- function(
     DT.pca.assays[, SampleAssay := factor(paste0("(", Sample, ") ", Assay))]
 
     # extract sup individuals
-    DT.pca.assays.sup <- data.table(
-      PC1 = pca.assays$ind.sup$coord[,1],
-      PC2 = pca.assays$ind.sup$coord[,2],
-      AssayID = rownames(pca.assays$ind$coord)
-    )
-    DT.pca.assays.sup.density <- DT.pca.assays.sup[, {
-      dens <- ks::kde(cbind(PC1, PC2))
-      DT <- data.table(
-        expand.grid(x = dens$eval.points[[1]], y = dens$eval.points[[2]]),
-        z = as.vector(dens$estimate) / dens$cont["5%"]
-      )
-    }, by = AssayID]
-    DT.pca.assays.sup <- merge(DT.pca.assays.sup, DT.design, by = "AssayID")
-    DT.pca.assays.sup.density <- merge(DT.pca.assays.sup.density, DT.design, by = "AssayID")
+    # DT.pca.assays.sup <- data.table(
+    #   PC1 = pca.assays$ind.sup$coord[,1],
+    #   PC2 = pca.assays$ind.sup$coord[,2],
+    #   AssayID = rownames(pca.assays$ind$coord)
+    # )
+    # DT.pca.assays.sup.density <- DT.pca.assays.sup[, {
+    #   dens <- ks::kde(cbind(PC1, PC2))
+    #   DT <- data.table(
+    #     expand.grid(x = dens$eval.points[[1]], y = dens$eval.points[[2]]),
+    #     z = as.vector(dens$estimate) / dens$cont["5%"]
+    #   )
+    # }, by = AssayID]
+    # DT.pca.assays.sup <- merge(DT.pca.assays.sup, DT.design, by = "AssayID")
+    # DT.pca.assays.sup.density <- merge(DT.pca.assays.sup.density, DT.design, by = "AssayID")
 
     # Just showing the individual samples...
     g <- ggplot2::ggplot(DT.pca.assays, ggplot2::aes(x = PC1, y = PC2))
     if (is.null(DT.pca.assays$Condition)) {
-      g <- g + ggplot2::geom_point(data = DT.pca.assays.sup, alpha = 0.01)
-      g <- g + ggplot2::stat_contour(data = DT.pca.assays.sup.density, ggplot2::aes(group = AssayID, x = x, y = y, z = z), breaks = 1)
+      #g <- g + ggplot2::geom_point(data = DT.pca.assays.sup, alpha = 0.01)
+      #g <- g + ggplot2::stat_contour(data = DT.pca.assays.sup.density, ggplot2::aes(group = AssayID, x = x, y = y, z = z), breaks = 1)
       g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = SampleAssay), size = 3.0)
       g <- g + ggplot2::geom_point()
     } else {
-      g <- g + ggplot2::geom_point(data = DT.pca.assays.sup, alpha = 0.01)
-      g <- g + ggplot2::stat_contour(data = DT.pca.assays.sup.density, ggplot2::aes(colour = Condition, group = AssayID, x = x, y = y, z = z), breaks = 1)
+      #g <- g + ggplot2::geom_point(data = DT.pca.assays.sup, alpha = 0.01)
+      #g <- g + ggplot2::stat_contour(data = DT.pca.assays.sup.density, ggplot2::aes(colour = Condition, group = AssayID, x = x, y = y, z = z), breaks = 1)
       g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = SampleAssay, colour = Condition), size = 3.0)
       g <- g + ggplot2::geom_point(ggplot2::aes(colour = Condition))
     }

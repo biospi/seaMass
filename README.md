@@ -68,19 +68,17 @@ data.design$Sample <- factor(c(
 ))
 ```
 
-Optionally, you can do differential expression analysis (or any mixed-effects model supported by the 'metafor' or'MCMCglmm' packages). You can run a 'dea' function post-hoc using the 'fit' object returned by 'bayesprot', or you can supply one or more 'dea' functions to run during the 'bayesprot' call. If your experiment contains two or more treatment groups, we suggest you use a 'pairwise' function, which will perform the model seperately for each pair of conditions specified by a 'Condition' column in your experiment design:
+Optionally, you can do differential expression analysis (or any mixed-effects model supported by the 'metafor' package). You can run a 'dea' function post-hoc using the 'fit' object returned by 'bayesprot', or you can supply one or more 'dea' functions to run during the 'bayesprot' call. If your experiment contains two or more treatment groups, we suggest you use a 'pairwise' function (only function implemented at present), which will perform the model seperately for each pair of conditions specified by a 'Condition' column in your experiment design:
 
 ```
-# specify a list of one of more differential expression analysis functions. Here we specify
-#  both standard and Bayesian pair-wise t-tests (Note: the 'pairwise' function is advantageous
-#  even if you have only two conditions as it reports per-protein sample size for each condition).
-dea.func <- list(
-  t.test = dea_metafor_pairwise,
-  bayesian.t.test = dea_MCMCglmm_pairwise
-)
+# specify a list of one of more differential expression analysis functions. Bayesprot currently
+#  implements tests between conditions using the 'dea_metafor_pairwise' function. By default
+#  these are t.tests but you can add covariates, random effects etc using the 'metafor::rma.mv'
+#  syntax
+dea.func <- list(t.tests = dea_metafor_pairwise)
 
-# The default parameters for the 'dea_...' functions expect a column 'Condition' to be specified
-#  in 'data.design'. You can use 'NA' to ignore irrelevant samples.
+# 'dea_metafor_pairwise' expects a column 'Condition' to have been specified in 'data.design'.
+#  You can use 'NA' to ignore irrelevant samples.
 data.design$Condition <- factor(c(
   NA, NA, NA, NA, "A", "A", "B", "B",
   NA, NA, NA, NA, "A", "A", "B", "B"
@@ -109,7 +107,7 @@ fit <- bayesprot(
   normalisation.proteins = levels(data$Protein)[grep("_RAT$", levels(data$Protein))],
   dea.func = dea.func,
   output = "Tutorial.bayesprot",
-  control = new_control(nthread = 16)
+  control = new_control(nthread = 4)
 )
 ```
 
@@ -131,7 +129,7 @@ data.protein.quants <- merge(data.protein.quants, data.proteins[, c("ProteinID",
 print(data.protein.quants)
 
 # Output fdr-controlled differential expression for the 't.test' analysis, with accessions.
-data.de <- protein_de(fit, "t.test")$AvB_ConditionB
+data.de <- protein_de(fit)
 data.de <- merge(data.de, data.proteins[, c("ProteinID", "Protein")], sort = F)
 print(data.de)
 

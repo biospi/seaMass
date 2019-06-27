@@ -129,6 +129,16 @@ protein_quants <- function(fit, proteinID = NULL, protein = NULL, normalised = T
 }
 
 
+#' Return differential protein expression
+#'
+#' @import data.table
+#' @import metafor
+#' @export
+protein_de <- function(fit, key = 1, as.data.table = F) {
+  return(fst::read.fst(file.path(fit, "model2", "de", paste0(names(control(fit)$dea.func[key]), ".fst")), as.data.table = as.data.table))
+}
+
+
 #' @rdname bayesprot_fit
 #' @import data.table
 #' @export
