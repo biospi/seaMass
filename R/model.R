@@ -325,7 +325,7 @@ process_model2 <- function(
         message("[", paste0(Sys.time(), "]  performing differential expression analysis ", i, "/", length(control$dea.func), "..."))
 
         # run de
-        DTs.de <- fdr(control$dea.func[[i]](fit, output = names(control$dea.func)[i]), as.data.table = T)
+        DTs.de <- fdr_ashr(control$dea.func[[i]](fit, output = names(control$dea.func)[i]), as.data.table = T)
         fst::write.fst(DTs.de, file.path(fit, "model2", "de", paste0(names(control$dea.func)[i], ".fst")))
 
         DTs.de <- split(DTs.de, by = c("Model", "Covariate"), drop = T)

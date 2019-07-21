@@ -18,9 +18,8 @@ plot_fdr <- function(data, ymax = 0.2) {
   }
 
   DT[, Discoveries := 1:.N, by = .(mcmcID, chainID)]
-  #DT <- DT[mcmcID %in% levels(mcmcID)[1:100]]
 
-  xmax <- max(DT[FDR <= ymax, Discoveries])
+  xmax <- max(DT[qvalue <= ymax, Discoveries])
   ylabels <- function() function(x) format(x, digits = 2)
 
   rev_sqrt_trans <- function() {
@@ -31,7 +30,7 @@ plot_fdr <- function(data, ymax = 0.2) {
     );
   }
 
-  g <- ggplot2::ggplot(DT, ggplot2::aes(x = Discoveries, y = FDR, group = mcmcID))
+  g <- ggplot2::ggplot(DT, ggplot2::aes(x = Discoveries, y = qvalue, group = mcmcID))
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype = "dotted")
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype = "dotted")
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype = "dotted")
@@ -269,9 +268,9 @@ plot_pr <- function(data, ymax = NULL) {
 
   for (method in names(DTs.pr)) {
     DT.pr <- setDT(DTs.pr[[method]])
-    if (is.null(DT.pr$FDR.lower)) DT.pr[, FDR.lower := FDR]
-    if (is.null(DT.pr$FDR.upper)) DT.pr[, FDR.upper := FDR]
-    DT.pr <- DT.pr[, .(FDR.lower, FDR, FDR.upper, FD = ifelse(log2FC.truth == 0, 1, 0))]
+    if (is.null(DT.pr$qvalue.lower)) DT.pr[, qvalue.lower := qvalue]
+    if (is.null(DT.pr$qvalue.upper)) DT.pr[, qvalue.upper := qvalue]
+    DT.pr <- DT.pr[, .(qvalue.lower, qvalue, qvalue.upper, FD = ifelse(truth == 0, 1, 0))]
     DT.pr[, Discoveries := 1:nrow(DT.pr)]
     DT.pr[, TrueDiscoveries := cumsum(1 - FD)]
     DT.pr[, FDP := cumsum(FD) / Discoveries]
@@ -299,8 +298,8 @@ plot_pr <- function(data, ymax = NULL) {
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype = "dotted")
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype = "dotted")
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype = "dotted")
-  g <- g + ggplot2::geom_ribbon(ggplot2::aes(ymin = FDR.lower, ymax = FDR.upper), colour = NA, alpha = 0.3)
-  g <- g + ggplot2::geom_line(ggplot2::aes(y = FDR), lty = "dashed")
+  g <- g + ggplot2::geom_ribbon(ggplot2::aes(ymin = qvalue.lower, ymax = qvalue.upper), colour = NA, alpha = 0.3)
+  g <- g + ggplot2::geom_line(ggplot2::aes(y = qvalue), lty = "dashed")
   g <- g + ggplot2::geom_step(direction = "vh")
   g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
   #g <- g + ggplot2::scale_y_continuous(trans = rev_sqrt_trans(), breaks = c(0.0, 0.01, 0.05, 0.1, 0.2, 0.5, pi, 1.0), labels = ylabels(), expand = c(0.001, 0.001))

@@ -1,13 +1,125 @@
-#' Pair-wise mixed-effects univariate differential expression analysis with 'metafor'
+#' Mixed-effects univariate differential expression analysis with 'MCMCglmm'
 #'
 #' The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.
 #'
 #' @import data.table
 #' @import foreach
 #' @export
-dea_metafor_pairwise <- function(
+dea_MCMCglmm <- function(
   fit,
-  output = "dea_metafor_pairwise",
+  output = "dea_MCMCglmm",
+  data.design = design(fit),
+  save.intercept = FALSE,
+  fixed = ~ Condition,
+  prior = list(R = list(V = 1, nu = 0.02)),
+  use.SE = TRUE,
+  ...
+) {
+  arguments <- eval(substitute(alist(...)))
+  if (any(names(arguments) == "")) stop("all arguments in ... to be passed to 'metafor::rma.mv' must be named")
+  if ("mev" %in% names(arguments)) stop("do not pass a 'mev' argument to metafor")
+  if ("data" %in% names(arguments)) stop("do not pass a 'data' argument to metafor")
+  if ("verbose" %in% names(arguments)) stop("do not pass a 'verbose' argument to metafor")
+  if (is.null(data.design$AssayID)) data.design <- merge(data.design, design(fit, as.data.table = T)[, .(Assay, AssayID)], by = "Assay")
+
+  control = control(fit)
+  fixed <- as.formula(sub("^.*~", "est ~", deparse(fixed)))
+
+  input.data <- dea_init_data(fit, data.design)
+  input.meta <- dea_init_meta_pairwise(input.data$DT)
+  cts <- input.meta$contrasts
+
+  # start cluster and reproducible seed
+  cl <- parallel::makeCluster(control(fit)$nthread)
+  doSNOW::registerDoSNOW(cl)
+  pb <- txtProgressBar(max = length(input.data$DTs), style = 3)
+  DT.de <- foreach(DT.chunk = iterators::iter(input.data$DTs), .final = rbindlist, .inorder = F, .packages = "data.table", .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
+    # process chunk
+    output.chunk <- lapply(split(DT.chunk, by = "ProteinID", drop = T), function(DT) {
+      DT[, ProteinID := NULL]
+      DT[, BatchID := NULL]
+
+      output.protein <- lapply(1:ncol(cts), function (j) {
+        output.contrast <- list()
+
+        # input
+        output.contrast$DT.input <- DT[as.character(Condition) %in% cts[, j]]
+        output.contrast$DT.input[, Condition := factor(as.character(Condition), levels = cts[, j])]
+        output.contrast$DT.input <- droplevels(output.contrast$DT.input)
+        setcolorder(output.contrast$DT.input, c("AssayID", "Assay", "Run", "Channel", "Sample", "est", "SE"))
+
+        # fit
+        if (length(unique(output.contrast$DT.input[Condition == cts[1, j], Sample])) >= 2 &&
+            length(unique(output.contrast$DT.input[Condition == cts[2, j], Sample])) >= 2) {
+
+          if (use.SE) {
+            mev = DT$SE^2
+          } else {
+            mev = NULL
+          }
+
+          output.contrast$fit <- MCMCglmm::MCMCglmm(fixed = fixed, mev = mev, data = DT, prior = prior, verbose = F)
+          output.contrast$log <- paste0("[", Sys.time(), "] succeeded\n")
+        } else {
+          output.contrast$log <- paste0("[", Sys.time(), "] ignored as n < 2 for one or both conditions\n")
+        }
+
+        output.contrast
+      })
+      names(output.protein) <- sapply(1:length(output.protein), function(j) paste(cts[,j], collapse = "_v_"))
+
+      output.protein
+    })
+
+    # save chunk
+    saveRDS(output.chunk, file.path(fit, "model2", "de", paste0(output, ".", DT.chunk[1, BatchID], ".rds")))
+
+    # extract results
+    rbindlist(lapply(output.chunk, function (output.protein) {
+      rbindlist(lapply(output.protein, function (output.contrast) {
+        if (!is.null(output.contrast$fit)) {
+          DT.de <- as.data.table(output.contrast$fit$Sol)
+          DT.de[, mcmcID := factor(formatC(1:nrow(DT.de), width = ceiling(log10(nrow(DT.de))) + 1, format = "d", flag = "0"))]
+          if (!save.intercept) DT.de[, `(Intercept)` := NULL]
+          melt(DT.de, id.vars = "mcmcID", variable.name = "Covariate")
+        }
+      }), idcol = "Model")
+    }), idcol = "ProteinID")
+  }
+  setTxtProgressBar(pb, length(input.data$DTs))
+  close(pb)
+  parallel::stopCluster(cl)
+
+  DT.de[, Model := factor(Model, levels = sapply(1:ncol(cts), function (i) paste(cts[, i], collapse = "_v_")))]
+  DT.de[, Covariate := factor(Covariate, levels = unique(Covariate))]
+
+  # highlights if any proteins are missing for any model
+  DT.proteins <- CJ(proteins(fit, as.data.table = T)[, ProteinID], DT.de$Model, unique = T)[, .(ProteinID = V1, Model = V2)]
+  DT.de[, ProteinID := factor(ProteinID, levels = levels(DT.proteins$ProteinID))]
+  DT.de <- merge(DT.proteins, DT.de, by = c("ProteinID", "Model"), all.x = T, allow.cartesian = T)
+
+  # ensure every ProteinID::Model has a full set of covariates and n
+  DT.de <- DT.de[, merge(CJ(ProteinID, Covariate, unique = T), .SD, by = c("ProteinID", "Covariate"), keyby = "Covariate", all = T), by = Model]
+  DT.de <- DT.de[!is.na(Covariate)]
+
+  # merge in input.meta
+  DT.de <- merge(input.meta$DT, DT.de, by = c("Model", "ProteinID"))
+  setcolorder(DT.de, c("Model", "Covariate"))
+
+  return(DT.de)
+}
+
+
+#' Mixed-effects univariate differential expression analysis with 'metafor'
+#'
+#' The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.
+#'
+#' @import data.table
+#' @import foreach
+#' @export
+dea_metafor <- function(
+  fit,
+  output = "dea_metafor",
   data.design = design(fit),
   save.intercept = FALSE,
   mods = ~ Condition,
@@ -84,11 +196,13 @@ dea_metafor_pairwise <- function(
         if (!is.null(output.contrast$fit) && !is.null(output.contrast$fit$b) && length(output.contrast$fit$b) > 0) {
           DT.de <- data.table(
             Covariate = rownames(output.contrast$fit$b),
-            log2FC.lower = output.contrast$fit$ci.lb,
-            log2FC = output.contrast$fit$b[, 1],
-            log2FC.upper = output.contrast$fit$ci.ub,
-            t.value = output.contrast$fit$zval,
-            p.value = output.contrast$fit$pval
+            lower = output.contrast$fit$ci.lb,
+            upper = output.contrast$fit$ci.ub,
+            est = output.contrast$fit$b[, 1],
+            SE = output.contrast$fit$se,
+            DF = output.contrast$fit$k - output.contrast$fit$p,
+            tvalue = output.contrast$fit$zval,
+            pvalue = output.contrast$fit$pval
           )
           if (!save.intercept) DT.de <- DT.de[Covariate != "intrcpt"]
           DT.de
@@ -120,13 +234,119 @@ dea_metafor_pairwise <- function(
 }
 
 
-#' Filter and FDR-correct a differential expression analysis
+#' Univariate differential expression analysis using t-tests
 #'
+#' Student's t-tests are performed pair-wise across the levels of the 'Condition' in 'data.design'. Note this function does not use
+#' BayesProt's standard errors and hence should only be used for comparitative purposes with the other 'dea' methods.
 #'
 #' @import data.table
 #' @import foreach
 #' @export
-fdr <- function(
+dea_ttests <- function(
+  fit,
+  output = "dea_ttests",
+  data.design = design(fit),
+  paired = FALSE,
+  var.equal = TRUE
+) {
+  warning("This function does not use BayesProt's standard errors and hence should only be used for comparitative purposes with the other 'dea' methods.")
+
+  input.data <- dea_init_data(fit, data.design)
+  input.meta <- dea_init_meta_pairwise(input.data$DT)
+  cts <- input.meta$contrasts
+
+  # start cluster and reproducible seed
+  cl <- parallel::makeCluster(control(fit)$nthread)
+  doSNOW::registerDoSNOW(cl)
+  pb <- txtProgressBar(max = length(input.data$DTs), style = 3)
+  DT.de <- foreach(DT.chunk = iterators::iter(input.data$DTs), .final = rbindlist, .inorder = F, .packages = "data.table", .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
+    # process chunk
+    output.chunk <- lapply(split(DT.chunk, by = "ProteinID", drop = T), function(DT) {
+      DT[, ProteinID := NULL]
+      DT[, BatchID := NULL]
+
+      output.protein <- lapply(1:ncol(cts), function (j) {
+        output.contrast <- list()
+
+        # input
+        output.contrast$DT.input <- DT[as.character(Condition) %in% cts[, j]]
+        output.contrast$DT.input[, Condition := factor(as.character(Condition), levels = cts[, j])]
+        output.contrast$DT.input <- droplevels(output.contrast$DT.input)
+        setcolorder(output.contrast$DT.input, c("AssayID", "Assay", "Run", "Channel", "Sample", "est", "SE"))
+
+        # fit
+        if (length(unique(output.contrast$DT.input[Condition == cts[1, j], Sample])) >= 2 &&
+            length(unique(output.contrast$DT.input[Condition == cts[2, j], Sample])) >= 2) {
+
+          output.contrast$fit <- t.test(output.contrast$DT.input$est[output.contrast$DT.input$Condition == cts[1, j]],
+                                        output.contrast$DT.input$est[output.contrast$DT.input$Condition == cts[2, j]],
+                                        paired = paired, var.equal = var.equal)
+          output.contrast$fit$Covariate <- paste0("Condition", cts[2, j])
+          output.contrast$log <- paste0("[", Sys.time(), "] attempt succeeded\n")
+        } else {
+          output.contrast$log <- paste0("[", Sys.time(), "] ignored as n < 2 for one or both conditions\n")
+        }
+
+        output.contrast
+      })
+      names(output.protein) <- sapply(1:length(output.protein), function(j) paste(cts[,j], collapse = "_v_"))
+
+      output.protein
+    })
+
+    # save chunk
+    saveRDS(output.chunk, file.path(fit, "model2", "de", paste0(output, ".", DT.chunk[1, BatchID], ".rds")))
+
+    # extract results
+    rbindlist(lapply(output.chunk, function (output.protein) {
+      rbindlist(lapply(output.protein, function (output.contrast) {
+        if (!is.null(output.contrast$fit)) {
+          data.table(
+            Covariate = output.contrast$fit$Covariate,
+            lower = output.contrast$fit$conf.int[1],
+            upper = output.contrast$fit$conf.int[2],
+            est = output.contrast$fit$estimate[2],
+            SE = output.contrast$fit$stderr,
+            DF = output.contrast$fit$parameter,
+            tvalue = output.contrast$fit$statistic,
+            pvalue = output.contrast$fit$p.value
+          )
+        }
+      }), idcol = "Model")
+    }), idcol = "ProteinID")
+  }
+  setTxtProgressBar(pb, length(input.data$DTs))
+  close(pb)
+  parallel::stopCluster(cl)
+
+  DT.de[, Model := factor(Model, levels = sapply(1:ncol(cts), function (i) paste(cts[, i], collapse = "_v_")))]
+  DT.de[, Covariate := factor(Covariate, levels = unique(Covariate))]
+
+  # highlights if any protein are missing for any model
+  DT.proteins <- CJ(proteins(fit, as.data.table = T)[, ProteinID], DT.de$Model, unique = T)[, .(ProteinID = V1, Model = V2)]
+  DT.de[, ProteinID := factor(ProteinID, levels = levels(DT.proteins$ProteinID))]
+  DT.de <- merge(DT.proteins, DT.de, by = c("ProteinID", "Model"), all.x = T, allow.cartesian = T)
+
+  # ensure every ProteinID::Model has a full set of covariates and n
+  DT.de <- DT.de[, merge(CJ(ProteinID, Covariate, unique = T), .SD, by = c("ProteinID", "Covariate"), keyby = "Covariate", all = T), by = Model]
+  DT.de <- DT.de[!is.na(Covariate)]
+
+  # merge in input.meta
+  DT.de <- merge(input.meta$DT, DT.de, by = c("Model", "ProteinID"))
+  setcolorder(DT.de, c("Model", "Covariate"))
+
+  return(DT.de)
+}
+
+
+#' Add filter to a differential expression list prior to FDR calculation
+#'
+#'
+#' @import data.table
+#' @import foreach
+#' @import metRology
+#' @export
+dea_filter <- function(
   data,
   min.peptides = 1,
   min.peptides.per.condition = 0,
@@ -136,13 +356,13 @@ fdr <- function(
   min.test.samples.per.condition = 2,
   min.real.samples = 1,
   min.real.samples.per.condition = 0,
+  mixcompdist = "uniform",
   as.data.table = FALSE
 ) {
   if (min.test.samples.per.condition < 2) stop("sorry, 'min.test.samples.per.condition' needs to be at least 2")
 
-  # sort for FDR
   DT <- as.data.table(data)
-  DT[, FDR.use :=
+  DT[, use.FDR :=
        (`1:nMaxPeptide` >= min.peptides | `2:nMaxPeptide` >= min.peptides) &
        (`1:nMaxPeptide` >= min.peptides.per.condition & `2:nMaxPeptide` >= min.peptides.per.condition) &
        (`1:nMaxFeature` >= min.features | `2:nMaxFeature` >= min.features) &
@@ -151,9 +371,119 @@ fdr <- function(
        (`1:nTestSample` >= min.test.samples.per.condition & `2:nTestSample` >= min.test.samples.per.condition) &
        (`1:nRealSample` + `2:nTestSample` >= min.real.samples) &
        (`1:nRealSample` >= min.real.samples.per.condition & `2:nTestSample` >= min.real.samples.per.condition)]
-  DT[, FDR := ifelse(FDR.use, p.adjust(p.value, method = "BH"), NA), by = c("Model", "Covariate")]
-  DT[, FDR.use := NULL]
-  setorder(DT, Model, Covariate, FDR, p.value, na.last = T)
+
+  if (!as.data.table) setDF(DT.fdr)
+  return(DT)
+}
+
+
+#' False Discovery Rate correction with ash
+#'
+#'
+#' @import data.table
+#' @import foreach
+#' @import metRology
+#' @export
+fdr_ash <- function(
+  data,
+  mixcompdist = "uniform",
+  use.DF = TRUE,
+  as.data.table = FALSE,
+  ...
+) {
+  # filter
+  DT <- dea_filter(data, as.data.table = T, ...)
+
+  # start cluster and reproducible seed
+  cl <- parallel::makeCluster(control(fit)$nthread)
+  doSNOW::registerDoSNOW(cl)
+
+  # If input is MCMC samples, need to compute standard errors and degrees of freedom
+  if (!is.null(DT$mcmcID)) {
+    message(paste0("[", Sys.time(), "]  summarising MCMC samples..."))
+
+    DTs <- batch_split(DT)
+    pb <- txtProgressBar(max = length(DTs), style = 3)
+    DT <- foreach(DT.chunk = iterators::iter(DTs), .final = rbindlist, .inorder = F, .packages = c("data.table", "metRology"), .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
+      # calculate HPD and fit student's t distributions
+      if (use.DF) {
+        DT.out <- DT.chunk[, as.list(tryCatch(
+          fitdistrplus::fitdist(value, "t.scaled", start = list(mean = median(value), sd = mad(value), df = 3))$estimate,
+          error = function(e) list(mean = mad(value), sd = mad(value), df = Inf)
+        )), by = .(Model, Covariate, ProteinID)]
+        setnames(DT.out, c("mean", "sd", "df"), c("est", "SE", "DF"))
+      } else {
+        DT.out <- DT.chunk[, list(est = median(value), SE = mad(value), DF = Inf), by = .(Model, Covariate, ProteinID)]
+      }
+
+      # merge with protein info
+      DT.chunk[, mcmcID := NULL]
+      DT.chunk[, value := NULL]
+      DT.chunk[, BatchID := NULL]
+      merge(unique(DT.chunk), DT.out, by = c("Model", "Covariate", "ProteinID"))
+    }
+    setTxtProgressBar(pb, length(DTs))
+    close(pb)
+
+    message(paste0("[", Sys.time(), "]  running ash..."))
+  }
+
+  DTs <- split(DT, by = c("Model", "Covariate"), drop = T)
+  pb <- txtProgressBar(max = length(DTs), style = 3)
+  DT.fdr <- foreach(DT = iterators::iter(DTs), .final = rbindlist, .inorder = F, .packages = "data.table", .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
+    # run ash, but allowing variable DF
+    if (use.DF) {
+      lik_ts = list(
+        name = "t",
+        const = length(unique(DT[use.FDR == T, DF])) == 1,
+        lcdfFUN = function(x) stats::pt(x, df = DT[use.FDR == T, DF], log = T),
+        lpdfFUN = function(x) stats::dt(x, df = DT[use.FDR == T, DF], log = T),
+        etruncFUN = function(a,b) etrunct::e_trunct(a, b, df = DT[use.FDR == T, DF], r = 1),
+        e2truncFUN = function(a,b) etrunct::e_trunct(a, b, df = DT[use.FDR == T, DF], r = 2)
+      )
+      fit.fdr <- ashr::ash(DT[use.FDR == T, est], DT[use.FDR == T, SE], mixcompdist, lik = lik_ts)
+    } else {
+      fit.fdr <- ashr::ash(DT[use.FDR == T, est], DT[use.FDR == T, SE], mixcompdist)
+    }
+
+    setDT(fit.fdr$result)
+    fit.fdr$result[, betahat := NULL]
+    fit.fdr$result[, sebetahat := NULL]
+    fit.fdr$result[, ProteinID := DT[use.FDR == T, ProteinID]]
+    DT <- merge(DT, fit.fdr$result, all.x = T, by = "ProteinID")
+    DT[, use.FDR := NULL]
+    setorder(DT, Model, Covariate, qvalue, na.last = T)
+  }
+  setTxtProgressBar(pb, length(DTs))
+  close(pb)
+
+  parallel::stopCluster(cl)
+
+  if (!as.data.table) setDF(DT.fdr)
+  return(DT.fdr)
+}
+
+
+#' False Discovery Rate correction with the Benjamini-Hochberg method
+#'
+#'
+#' @import data.table
+#' @import foreach
+#' @export
+fdr_BH <- function(
+  data,
+  as.data.table = TRUE,
+  ...
+) {
+  if(is.null(data$pvalue)) stop("Benjamini-Hochberg FDR requires p-values, use ash FDR on Bayesian differential expression analyses")
+
+  # filter
+  DT <- dea_filter(data, as.data.table = T, ...)
+
+  # perform FDR
+  DT[, qvalue := ifelse(use.FDR, p.adjust(pvalue, method = "BH"), NA), by = c("Model", "Covariate")]
+  DT[, use.FDR := NULL]
+  setorder(DT, Model, Covariate, qvalue, pvalue, na.last = T)
 
   if (!as.data.table) setDF(DT)
   return(DT)
@@ -179,16 +509,20 @@ dea_init_data <- function(fit, data.design) {
   # prepare quants
   out$DT <- protein_quants(fit, as.data.table = T)
   out$DT <- merge(out$DT, out$DT.design, by = "AssayID")
-  #out$DT <- droplevels(out$DT[complete.cases(out$DT[, .(est, SE, Condition)])])
 
   # batch
-  out$DTs <- out$DT
-  out$DTs[, BatchID := ProteinID]
-  nbatch <- ceiling(nlevels(out$DTs$ProteinID) / 16)
-  levels(out$DTs$BatchID) <- rep(formatC(1:nbatch, width = ceiling(log10(nbatch)) + 1, format = "d", flag = "0"), each = 16)[1:nlevels(out$DTs$ProteinID)]
-  out$DTs <- split(out$DTs, by = "BatchID")
+  out$DTs <- batch_split(out$DT)
 
   return(out)
+}
+
+
+batch_split <- function(DT) {
+  DT[, BatchID := ProteinID]
+  nbatch <- ceiling(nlevels(DT$ProteinID) / 16)
+  levels(DT$BatchID) <- rep(formatC(1:nbatch, width = ceiling(log10(nbatch)) + 1, format = "d", flag = "0"), each = 16)[1:nlevels(DT$ProteinID)]
+
+  return(split(DT, by = "BatchID"))
 }
 
 
@@ -415,7 +749,7 @@ dea_init_meta_pairwise <- function(DT) {
 #' #' @import data.table
 #' #' @import foreach
 #' #' @export
-#' dea_MCMCglmm_pairwise <- function(fit, data.design = design(fit), fixed = ~ Condition, prior = list(R = list(V = 1, nu = 0.02)), ...) {
+#' dea_MCMCglmm <- function(fit, data.design = design(fit), fixed = ~ Condition, prior = list(R = list(V = 1, nu = 0.02)), ...) {
 #'   arguments <- eval(substitute(alist(...)))
 #'   if (any(names(arguments) == "")) stop("all arguments in ... to be passed to 'metafor::rma.mv' must be named")
 #'   if ("mev" %in% names(arguments)) stop("do not pass a 'mev' argument to metafor")

@@ -25,6 +25,7 @@ Imports:
     ks (>= 1.11.5),
     logKDE (>= 0.3.2),
     metafor (>= 2.0-0),
+    metRology (>= 0.9-28-1),
     mice (>= 3.4.0),
     MCMCglmm (>= 2.26),
     utf8 (>= 1.1.4)
