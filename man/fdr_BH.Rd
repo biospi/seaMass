@@ -4,7 +4,11 @@
 \alias{fdr_BH}
 \title{False Discovery Rate correction with the Benjamini-Hochberg method}
 \usage{
-fdr_BH(data, as.data.table = TRUE, ...)
+fdr_BH(data, min.peptides = 1, min.peptides.per.condition = 0,
+  min.features = 1, min.features.per.condition = 0,
+  min.test.samples = 4, min.test.samples.per.condition = 2,
+  min.real.samples = 1, min.real.samples.per.condition = 0,
+  as.data.table = FALSE, ...)
 }
 \description{
 False Discovery Rate correction with the Benjamini-Hochberg method

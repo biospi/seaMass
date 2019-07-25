@@ -13,8 +13,11 @@ dea_MCMCglmm <- function(
   fixed = ~ Condition,
   prior = list(R = list(V = 1, nu = 0.02)),
   use.SE = TRUE,
+  as.data.table = FALSE,
   ...
 ) {
+  if (!use.SE) message("WARNING: With use.SE = FALSE this function does not use BayesProt's standard errors and hence should only be used for comparative purposes with the other 'dea' methods.")
+
   arguments <- eval(substitute(alist(...)))
   if (any(names(arguments) == "")) stop("all arguments in ... to be passed to 'metafor::rma.mv' must be named")
   if ("mev" %in% names(arguments)) stop("do not pass a 'mev' argument to metafor")
@@ -106,6 +109,8 @@ dea_MCMCglmm <- function(
   DT.de <- merge(input.meta$DT, DT.de, by = c("Model", "ProteinID"))
   setcolorder(DT.de, c("Model", "Covariate"))
 
+  if (!as.data.table) setDF(DT.de)
+  else DT.de[]
   return(DT.de)
 }
 
@@ -124,6 +129,7 @@ dea_metafor <- function(
   save.intercept = FALSE,
   mods = ~ Condition,
   random = ~ 1 | Sample,
+  as.data.table = FALSE,
   ...
 ) {
   arguments <- eval(substitute(alist(...)))
@@ -230,6 +236,8 @@ dea_metafor <- function(
   DT.de <- merge(input.meta$DT, DT.de, by = c("Model", "ProteinID"))
   setcolorder(DT.de, c("Model", "Covariate"))
 
+  if (!as.data.table) setDF(DT.de)
+  else DT.de[]
   return(DT.de)
 }
 
@@ -247,9 +255,10 @@ dea_ttests <- function(
   output = "dea_ttests",
   data.design = design(fit),
   paired = FALSE,
-  var.equal = TRUE
+  var.equal = TRUE,
+  as.data.table = FALSE
 ) {
-  warning("This function does not use BayesProt's standard errors and hence should only be used for comparitative purposes with the other 'dea' methods.")
+  message("WARNING: This function does not use BayesProt's standard errors and hence should only be used for comparative purposes with the other 'dea' methods.")
 
   input.data <- dea_init_data(fit, data.design)
   input.meta <- dea_init_meta_pairwise(input.data$DT)
@@ -335,18 +344,20 @@ dea_ttests <- function(
   DT.de <- merge(input.meta$DT, DT.de, by = c("Model", "ProteinID"))
   setcolorder(DT.de, c("Model", "Covariate"))
 
+  if (!as.data.table) setDF(DT.de)
+  else DT.de[]
   return(DT.de)
 }
 
 
-#' Add filter to a differential expression list prior to FDR calculation
+#' False Discovery Rate correction with ash
 #'
 #'
 #' @import data.table
 #' @import foreach
 #' @import metRology
 #' @export
-dea_filter <- function(
+fdr_ash <- function(
   data,
   min.peptides = 1,
   min.peptides.per.condition = 0,
@@ -357,8 +368,12 @@ dea_filter <- function(
   min.real.samples = 1,
   min.real.samples.per.condition = 0,
   mixcompdist = "uniform",
-  as.data.table = FALSE
+  use.DF = TRUE,
+  as.data.table = FALSE,
+  nthread = parallel::detectCores(logical = FALSE),
+  ...
 ) {
+  # filter
   if (min.test.samples.per.condition < 2) stop("sorry, 'min.test.samples.per.condition' needs to be at least 2")
 
   DT <- as.data.table(data)
@@ -372,37 +387,15 @@ dea_filter <- function(
        (`1:nRealSample` + `2:nTestSample` >= min.real.samples) &
        (`1:nRealSample` >= min.real.samples.per.condition & `2:nTestSample` >= min.real.samples.per.condition)]
 
-  if (!as.data.table) setDF(DT.fdr)
-  return(DT)
-}
-
-
-#' False Discovery Rate correction with ash
-#'
-#'
-#' @import data.table
-#' @import foreach
-#' @import metRology
-#' @export
-fdr_ash <- function(
-  data,
-  mixcompdist = "uniform",
-  use.DF = TRUE,
-  as.data.table = FALSE,
-  ...
-) {
-  # filter
-  DT <- dea_filter(data, as.data.table = T, ...)
-
-  # start cluster and reproducible seed
-  cl <- parallel::makeCluster(control(fit)$nthread)
-  doSNOW::registerDoSNOW(cl)
-
   # If input is MCMC samples, need to compute standard errors and degrees of freedom
   if (!is.null(DT$mcmcID)) {
     message(paste0("[", Sys.time(), "]  summarising MCMC samples..."))
-
     DTs <- batch_split(DT)
+
+    # start cluster and reproducible seed
+    cl <- parallel::makeCluster(nthread)
+    doSNOW::registerDoSNOW(cl)
+
     pb <- txtProgressBar(max = length(DTs), style = 3)
     DT <- foreach(DT.chunk = iterators::iter(DTs), .final = rbindlist, .inorder = F, .packages = c("data.table", "metRology"), .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
       # calculate HPD and fit student's t distributions
@@ -425,12 +418,13 @@ fdr_ash <- function(
     setTxtProgressBar(pb, length(DTs))
     close(pb)
 
+    parallel::stopCluster(cl)
+
     message(paste0("[", Sys.time(), "]  running ash..."))
   }
 
   DTs <- split(DT, by = c("Model", "Covariate"), drop = T)
-  pb <- txtProgressBar(max = length(DTs), style = 3)
-  DT.fdr <- foreach(DT = iterators::iter(DTs), .final = rbindlist, .inorder = F, .packages = "data.table", .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
+  DT <- foreach(DT = iterators::iter(DTs), .final = rbindlist, .inorder = F, .packages = "data.table") %do% {
     # run ash, but allowing variable DF
     if (use.DF) {
       lik_ts = list(
@@ -449,18 +443,17 @@ fdr_ash <- function(
     setDT(fit.fdr$result)
     fit.fdr$result[, betahat := NULL]
     fit.fdr$result[, sebetahat := NULL]
+    rmcols <- which(colnames(DT) %in% colnames(fit.fdr$result))
+    if (length(rmcols) > 0) DT <- DT[, -rmcols, with = F]
     fit.fdr$result[, ProteinID := DT[use.FDR == T, ProteinID]]
     DT <- merge(DT, fit.fdr$result, all.x = T, by = "ProteinID")
     DT[, use.FDR := NULL]
     setorder(DT, Model, Covariate, qvalue, na.last = T)
   }
-  setTxtProgressBar(pb, length(DTs))
-  close(pb)
 
-  parallel::stopCluster(cl)
-
-  if (!as.data.table) setDF(DT.fdr)
-  return(DT.fdr)
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
 }
 
 
@@ -472,13 +465,33 @@ fdr_ash <- function(
 #' @export
 fdr_BH <- function(
   data,
-  as.data.table = TRUE,
+  min.peptides = 1,
+  min.peptides.per.condition = 0,
+  min.features = 1,
+  min.features.per.condition = 0,
+  min.test.samples = 4,
+  min.test.samples.per.condition = 2,
+  min.real.samples = 1,
+  min.real.samples.per.condition = 0,
+  as.data.table = FALSE,
   ...
 ) {
   if(is.null(data$pvalue)) stop("Benjamini-Hochberg FDR requires p-values, use ash FDR on Bayesian differential expression analyses")
 
   # filter
-  DT <- dea_filter(data, as.data.table = T, ...)
+  # filter
+  if (min.test.samples.per.condition < 2) stop("sorry, 'min.test.samples.per.condition' needs to be at least 2")
+
+  DT <- as.data.table(data)
+  DT[, use.FDR :=
+       (`1:nMaxPeptide` >= min.peptides | `2:nMaxPeptide` >= min.peptides) &
+       (`1:nMaxPeptide` >= min.peptides.per.condition & `2:nMaxPeptide` >= min.peptides.per.condition) &
+       (`1:nMaxFeature` >= min.features | `2:nMaxFeature` >= min.features) &
+       (`1:nMaxFeature` >= min.features.per.condition & `2:nMaxFeature` >= min.features.per.condition) &
+       (`1:nTestSample` + `2:nTestSample` >= min.test.samples) &
+       (`1:nTestSample` >= min.test.samples.per.condition & `2:nTestSample` >= min.test.samples.per.condition) &
+       (`1:nRealSample` + `2:nTestSample` >= min.real.samples) &
+       (`1:nRealSample` >= min.real.samples.per.condition & `2:nTestSample` >= min.real.samples.per.condition)]
 
   # perform FDR
   DT[, qvalue := ifelse(use.FDR, p.adjust(pvalue, method = "BH"), NA), by = c("Model", "Covariate")]
@@ -486,6 +499,7 @@ fdr_BH <- function(
   setorder(DT, Model, Covariate, qvalue, pvalue, na.last = T)
 
   if (!as.data.table) setDF(DT)
+  else DT[]
   return(DT)
 }
 

@@ -4,9 +4,9 @@
 \alias{dea_MCMCglmm}
 \title{Mixed-effects univariate differential expression analysis with 'MCMCglmm'}
 \usage{
-dea_MCMCglmm(fit, output = "dea", data.design = design(fit),
+dea_MCMCglmm(fit, output = "dea_MCMCglmm", data.design = design(fit),
   save.intercept = FALSE, fixed = ~Condition, prior = list(R = list(V
-  = 1, nu = 0.02)), use.SE = TRUE, ...)
+  = 1, nu = 0.02)), use.SE = TRUE, as.data.table = FALSE, ...)
 }
 \description{
 The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.

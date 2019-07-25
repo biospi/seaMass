@@ -4,8 +4,12 @@
 \alias{fdr_ash}
 \title{False Discovery Rate correction with ash}
 \usage{
-fdr_ash(data, mixcompdist = "uniform", use.DF = TRUE,
-  as.data.table = FALSE, ...)
+fdr_ash(data, min.peptides = 1, min.peptides.per.condition = 0,
+  min.features = 1, min.features.per.condition = 0,
+  min.test.samples = 4, min.test.samples.per.condition = 2,
+  min.real.samples = 1, min.real.samples.per.condition = 0,
+  mixcompdist = "uniform", use.DF = TRUE, as.data.table = FALSE,
+  nthread = parallel::detectCores(logical = FALSE), ...)
 }
 \description{
 False Discovery Rate correction with ash

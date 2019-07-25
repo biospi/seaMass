@@ -6,7 +6,7 @@
 \usage{
 dea_metafor(fit, output = "dea_metafor", data.design = design(fit),
   save.intercept = FALSE, mods = ~Condition, random = ~1 | Sample,
-  ...)
+  as.data.table = FALSE, ...)
 }
 \description{
 The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.

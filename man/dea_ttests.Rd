@@ -5,9 +5,9 @@
 \title{Univariate differential expression analysis using t-tests}
 \usage{
 dea_ttests(fit, output = "dea_ttests", data.design = design(fit),
-  paired = FALSE, var.equal = TRUE)
+  paired = FALSE, var.equal = TRUE, as.data.table = FALSE)
 }
 \description{
 Student's t-tests are performed pair-wise across the levels of the 'Condition' in 'data.design'. Note this function does not use
-BayesProt's standard errors and hence should not be used.
+BayesProt's standard errors and hence should only be used for comparitative purposes with the other 'dea' methods.
 }
