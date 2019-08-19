@@ -201,6 +201,7 @@ import_ProteomeDiscoverer <- function(
   if ("129" %in% colnames(DT.raw)) DT$Channel.129 <- DT.raw$`129`
   if ("130N" %in% colnames(DT.raw)) DT$Channel.130N <- DT.raw$`130N`
   if ("130C" %in% colnames(DT.raw)) DT$Channel.130C <- DT.raw$`130C`
+  if ("130" %in% colnames(DT.raw)) DT$Channel.130 <- DT.raw$`130`
   if ("131N" %in% colnames(DT.raw)) DT$Channel.131N <- DT.raw$`131N`
   if ("131C" %in% colnames(DT.raw)) DT$Channel.131C <- DT.raw$`131C`
   if ("131" %in% colnames(DT.raw)) DT$Channel.131 <- DT.raw$`131`
