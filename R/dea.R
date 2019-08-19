@@ -11,6 +11,8 @@ dea_MCMCglmm <- function(
   data.design = design(fit),
   save.intercept = FALSE,
   fixed = ~ Condition,
+  random = NULL,
+  rcov = ~ units,
   prior = list(R = list(V = 1, nu = 0.02)),
   use.SE = TRUE,
   as.data.table = FALSE,
@@ -61,7 +63,7 @@ dea_MCMCglmm <- function(
             mev = NULL
           }
 
-          output.contrast$fit <- MCMCglmm::MCMCglmm(fixed = fixed, mev = mev, data = DT, prior = prior, verbose = F)
+          output.contrast$fit <- MCMCglmm::MCMCglmm(fixed = fixed, random = random, rcov = rcov, mev = mev, data = DT, prior = prior, verbose = F)
           output.contrast$log <- paste0("[", Sys.time(), "] succeeded\n")
         } else {
           output.contrast$log <- paste0("[", Sys.time(), "] ignored as n < 2 for one or both conditions\n")
