@@ -317,9 +317,9 @@ dea_ttests <- function(
         if (!is.null(output.contrast$fit)) {
           data.table(
             Covariate = output.contrast$fit$Covariate,
-            lower = output.contrast$fit$conf.int[1],
-            upper = output.contrast$fit$conf.int[2],
-            est = output.contrast$fit$estimate[2],
+            lower = -output.contrast$fit$conf.int[2],
+            upper = -output.contrast$fit$conf.int[1],
+            est = output.contrast$fit$estimate[2] - output.contrast$fit$estimate[1],
             SE = output.contrast$fit$stderr,
             DF = output.contrast$fit$parameter,
             tvalue = output.contrast$fit$statistic,
