@@ -870,7 +870,7 @@ execute_model <- function(
 
     if (!is.null(output$DT.peptide.stdevs) && nrow(output$DT.peptide.stdevs) > 0) {
       output$DT.peptide.stdevs[, ProteinID := factor(as.character(ProteinID))]
-      if(control$feature.model != "single") {
+      if(control$peptide.model != "single") {
         output$DT.peptide.stdevs[, PeptideID := factor(as.character(PeptideID))]
         setorder(output$DT.peptide.stdevs, ProteinID, PeptideID, chainID, mcmcID)
       } else {
