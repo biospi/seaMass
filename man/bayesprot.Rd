@@ -5,8 +5,8 @@
 \title{Fit the BayesProt Bayesian Protein-level quantification model}
 \usage{
 bayesprot(data, data.design = new_design(data),
-  normalisation.proteins = levels(data$Protein), dea.func = NULL,
-  plots = F, output = "bayesprot", control = new_control())
+  norm.func = norm_median, dea.func = NULL, plots = F,
+  output = "bayesprot", control = new_control())
 }
 \arguments{
 \item{data}{A \link{data.frame} of input data as returned by \link{import_ProteinPilot} or \link{import_ProteomeDiscoverer}.}
@@ -16,7 +16,7 @@ assay-level study design, including reference assays, assay info and any covaria
 analysis. By default, all assays are set as reference channels, which is appropriate only for label-free studies
 and fully-blocked iTraq/TMT/SILAC designs.}
 
-\item{normalisation.proteins}{Proteins to use in the normalisation; default is all proteins.}
+\item{norm.func}{List of normalisation functions to run (default: median normalisation)}
 
 \item{dea.func}{List of differential expression analysis functions to run}
 

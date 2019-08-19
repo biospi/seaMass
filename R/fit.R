@@ -67,65 +67,65 @@ proteins <- function(fit, as.data.table = F) {
 #' @rdname bayesprot_fit
 #' @import data.table
 #' @export
-protein_quants <- function(fit, proteinID = NULL, protein = NULL, normalised = T, summary = T, as.data.table = F) {
-  DT.index <- fst::read.fst(file.path(fit, "model2", "protein.quants.index.fst"), as.data.table = T)
-  if (!is.null(protein)) {
-    proteinID <- DT.index[Protein == protein, ProteinID]
-  } else if (is.numeric(proteinID)) {
-    proteinID <- DT.index[as.numeric(ProteinID) == proteinID, ProteinID]
+exposures <- function(fit, key = 1, as.data.table = F) {
+  return(fst::read.fst(file.path(fit, "model2", "assay.exposures", paste0(names(control(fit)$norm.func[key]), ".fst")), as.data.table = as.data.table))
+}
+
+
+#' @rdname bayesprot_fit
+#' @import data.table
+#' @export
+protein_quants <- function(
+  fit,
+  ref.assays = design(fit)$Assay[design(fit)$ref == T],
+  proteinIDs = NULL,
+  proteins = NULL,
+  summary = T,
+  as.data.table = F
+) {
+  # load index
+  DT.index <- rbind(
+    fst::read.fst(file.path(fit, "model1", "protein.quants.1.index.fst"), as.data.table = T),
+    fst::read.fst(file.path(fit, "model2", "protein.quants.2.index.fst"), as.data.table = T)
+  )
+
+  # filter index
+  if (!is.null(proteins)) {
+    DT.index <- DT.index[Protein %in% proteins]
+  } else if (is.numeric(proteinIDs)) {
+    DT.index <- DT.index[as.numeric(ProteinID) %in% proteinIDs]
+  } else if (!is.null(proteinIDs)) {
+    DT.index <- DT.index[ProteinID %in% proteinIDs]
   }
 
-  # if normalised summary is needed, use that
-  if (normalised && summary) {
-    DT.protein.quants <- fst::read.fst(file.path(fit, "model2", "protein.quants.summary.fst"), as.data.table = as.data.table)
-    if (is.null(proteinID)) {
-      return(DT.protein.quants)
+  # ref.assays
+  ref.assayIDs <- design(fit, as.data.table = T)[Assay %in% ref.assays]$AssayID
+
+  # read quants
+  control <- control(fit)
+  chains <- formatC(1:control$model.nchain, width = ceiling(log10(control$model.nchain + 1)) + 1, format = "d", flag = "0")
+  DT <- rbindlist(lapply(1:nrow(DT.index), function(i) {
+    # centre to mean of relevant reference assay(s)
+    DT.protein <- rbindlist(lapply(chains, function(chain) {
+      DT.chain <- fst::read.fst(sub(paste0(chains[1], "(\\..*fst)$"), paste0(chain, "\\1"), file.path(fit, DT.index$file[i])), from = DT.index$from[i], to = DT.index$to[i], as.data.table = T)
+      DT.chain[, value := value - mean(value[AssayID %in% ref.assayIDs]), by = .(BaselineID, mcmcID)]
+      DT.chain
+    }))
+
+    # optionally summarise
+    if (summary)  {
+      DT.protein <- DT.protein[, .(prior = any(prior), nPeptide = first(nPeptide), nFeature = first(nFeature), est = median(value), SE = mad(value)), by = .(ProteinID, AssayID)]
+      #DT.protein <- DT.protein[, .(prior = any(prior), nPeptide = first(nPeptide), nFeature = first(nFeature), est = mean(value), SE = sd(value)), by = .(ProteinID, AssayID)]
     } else {
-      return(droplevels(DT.protein.quants[DT.protein.quants$ProteinID == proteinID,]))
+      DT.protein[, Baseline := NULL]
     }
-  }
 
-  if (normalised && file.exists(file.path(fit, "model2", "assay.exposures.fst"))) {
-    assay.exposures <- fst::read.fst(file.path(fit, "model2", "assay.exposures.fst"), as.data.table = T)
-  } else {
-    normalised <- F
-  }
+    DT.protein
+  }))
 
-  nchain <- control(fit)$model.nchain
-  chains <- formatC(1:nchain, width = ceiling(log10(nchain + 1)) + 1, format = "d", flag = "0")
-  if (is.null(proteinID)) {
-    DT.protein.quants <- rbindlist(lapply(unique(DT.index$file1), function(file) {
-      DT <- rbindlist(lapply(chains, function(chain) fst::read.fst(sub(paste0(chains[1], "(\\..*fst)$"), paste0(chain, "\\1"), file.path(fit, file)), as.data.table = T)))
-      if (normalised) {
-        DT <- merge(DT, assay.exposures[, .(AssayID, chainID, mcmcID, exposure = value)])
-        DT[, value := value - exposure]
-        DT[, exposure := NULL]
-      }
-      if (summary) DT[, .(prior = any(prior), est = median(value), SE = mad(value)), by = .(ProteinID, AssayID)]
-      DT
-    }))
-  } else {
-    DT.protein.quants <- rbindlist(lapply(chains, function(chain) {
-      fst::read.fst(
-        sub(paste0(chains[1], "(\\..*fst)$"), paste0(chain, "\\1"), file.path(fit, DT.index[ProteinID == proteinID, file1])),
-        from = DT.index[ProteinID == proteinID, from],
-        to = DT.index[ProteinID == proteinID, to],
-        as.data.table = T)
-    }))
-    if (normalised) {
-      DT.protein.quants <- merge(DT.protein.quants, assay.exposures[, .(AssayID, chainID, mcmcID, exposure = value)])
-      DT.protein.quants[, value := value - exposure]
-      DT.protein.quants[, exposure := NULL]
-    }
-    if (summary) DT.protein.quants <- DT.protein.quants[, .(prior = any(prior), est = median(value), SE = mad(value)), by = .(ProteinID, AssayID)]
-    DT.protein.quants
-  }
-
-  #DT.protein.quants <- merge(design(fit, as.data.table = T)[, .(AssayID, Assay)], DT.protein.quants, by = "AssayID")
-  #DT.protein.quants <- droplevels(merge(DT.index[, .(ProteinID, Protein)], DT.protein.quants, by = "ProteinID"))
-
-  if (!as.data.table) setDF(DT.protein.quants)
-  return(droplevels(DT.protein.quants))
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
 }
 
 

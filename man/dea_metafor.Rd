@@ -4,9 +4,10 @@
 \alias{dea_metafor}
 \title{Mixed-effects univariate differential expression analysis with 'metafor'}
 \usage{
-dea_metafor(fit, output = "dea_metafor", data.design = design(fit),
-  save.intercept = FALSE, mods = ~Condition, random = ~1 | Sample,
-  as.data.table = FALSE, ...)
+dea_metafor(fit, data.design = design(fit), condition = "Condition",
+  mods = as.formula(paste("~", condition)), random = ~1 | Sample,
+  output = "metafor", save.intercept = FALSE, as.data.table = FALSE,
+  ...)
 }
 \description{
 The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.

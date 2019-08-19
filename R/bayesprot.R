@@ -12,7 +12,7 @@
 #'   assay-level study design, including reference assays, assay info and any covariates for optional differential expression
 #'   analysis. By default, all assays are set as reference channels, which is appropriate only for label-free studies
 #'   and fully-blocked iTraq/TMT/SILAC designs.
-#' @param normalisation.proteins Proteins to use in the normalisation; default is all proteins.
+#' @param norm.func List of normalisation functions to run (default: median normalisation)
 #' @param dea.func List of differential expression analysis functions to run
 #' @param plot Generate all plots (todo)
 #' @param output Folder on disk whether all intermediate and output data will be stored; default is \code{"bayesprot"}.
@@ -24,7 +24,7 @@
 bayesprot <- function(
   data,
   data.design = new_design(data),
-  normalisation.proteins = levels(data$Protein),
+  norm.func = norm_median,
   dea.func = NULL,
   plots = F,
   output = "bayesprot",
@@ -42,9 +42,6 @@ bayesprot <- function(
   # validate parameters
   if (any(is.na(DT.design$Sample))) {
     stop("all assays need to be assignd to samples in 'data.design'")
-  }
-  if (!is.null(normalisation.proteins) && !all(normalisation.proteins %in% levels(DT$Protein))) {
-    stop("all 'normalisation.proteins' need to be in levels(data$Protein)")
   }
   if (control$model.nchain == 1) {
     message("WARNING: You are specifying only a single MCMC chain, convergence diagnostics will be unavailable. It is recommended to specify model.nchain=4 or more in 'control' for publishable results.")
@@ -65,8 +62,23 @@ bayesprot <- function(
   # drop unused levels
   DT <- droplevels(DT)
 
+  # tidy norm
+  if (!is.null(norm.func)) {
+    if (is.function(norm.func)) {
+      norm.func <- list(norm.func)
+    }
+    if(is.null(names(norm.func))) {
+      names(norm.func) <- 1:length(norm.func)
+    }
+    names(norm.func) <- ifelse(names(norm.func) == "", 1:length(norm.func), names(norm.func))
+  }
+  control$norm.func <- norm.func
+
   # tidy dea
   if (!is.null(dea.func)) {
+    if (is.function(dea.func)) {
+      dea.func <- list(dea.func)
+    }
     if(is.null(names(dea.func))) {
       names(dea.func) <- 1:length(dea.func)
     }
@@ -92,11 +104,6 @@ bayesprot <- function(
     nFeature = length(unique(as.character(Feature))),
     nMeasure = sum(!is.na(Count))
   ), by = Protein]
-  if (is.null(normalisation.proteins)) {
-    DT.proteins[, norm := F]
-  } else {
-    DT.proteins[, norm := Protein %in% as.character(normalisation.proteins)]
-  }
 
   # use pre-trained regression model to estimate how long each Protein will take to process in order to assign Proteins to batches
   # Intercept, nPeptide, nFeature, nPeptide^2, nFeature^2, nPeptide*nFeature
@@ -142,7 +149,7 @@ bayesprot <- function(
   DT[, Feature := NULL]
 
   # build Assay index (design)
-  DT.design <- merge(merge(DT, DT.design)[, .(
+  DT.design <- merge(merge(DT, DT.design, by = "Assay")[, .(
     nProtein = length(unique(as.character(ProteinID))),
     nPeptide = length(unique(as.character(PeptideID))),
     nFeature = length(unique(as.character(FeatureID))),

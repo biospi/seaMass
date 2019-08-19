@@ -7,12 +7,13 @@
 #' @export
 dea_MCMCglmm <- function(
   fit,
-  output = "dea_MCMCglmm",
   data.design = design(fit),
-  save.intercept = FALSE,
-  fixed = ~ Condition,
+  condition = "Condition",
+  fixed = as.formula(paste("~", condition)),
   prior = list(R = list(V = 1, nu = 0.02)),
   use.SE = TRUE,
+  output = "MCMCglmm",
+  save.intercept = FALSE,
   as.data.table = FALSE,
   ...
 ) {
@@ -28,15 +29,14 @@ dea_MCMCglmm <- function(
   control = control(fit)
   fixed <- as.formula(sub("^.*~", "est ~", deparse(fixed)))
 
-  input.data <- dea_init_data(fit, data.design)
-  input.meta <- dea_init_meta_pairwise(input.data$DT)
-  cts <- input.meta$contrasts
+  input <- dea_init(fit, data.design, condition)
+  cts <- input$contrasts
 
   # start cluster and reproducible seed
   cl <- parallel::makeCluster(control(fit)$nthread)
   doSNOW::registerDoSNOW(cl)
-  pb <- txtProgressBar(max = length(input.data$DTs), style = 3)
-  DT.de <- foreach(DT.chunk = iterators::iter(input.data$DTs), .final = rbindlist, .inorder = F, .packages = "data.table", .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
+  pb <- txtProgressBar(max = length(input$DTs), style = 3)
+  DT.de <- foreach(DT.chunk = iterators::iter(input$DTs), .final = rbindlist, .inorder = F, .packages = "data.table", .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
     # process chunk
     output.chunk <- lapply(split(DT.chunk, by = "ProteinID", drop = T), function(DT) {
       DT[, ProteinID := NULL]
@@ -46,22 +46,23 @@ dea_MCMCglmm <- function(
         output.contrast <- list()
 
         # input
-        output.contrast$DT.input <- DT[as.character(Condition) %in% cts[, j]]
-        output.contrast$DT.input[, Condition := factor(as.character(Condition), levels = cts[, j])]
+        output.contrast$DT.input <- DT[as.character(get(condition)) %in% cts[, j]]
+        output.contrast$DT.input[, (condition) := factor(as.character(get(condition)), levels = cts[, j])]
         output.contrast$DT.input <- droplevels(output.contrast$DT.input)
         setcolorder(output.contrast$DT.input, c("AssayID", "Assay", "Run", "Channel", "Sample", "est", "SE"))
+        print(output.contrast$DT.input)
 
         # fit
-        if (length(unique(output.contrast$DT.input[Condition == cts[1, j], Sample])) >= 2 &&
-            length(unique(output.contrast$DT.input[Condition == cts[2, j], Sample])) >= 2) {
+        if (length(unique(output.contrast$DT.input[get(condition) == cts[1, j], Sample])) >= 2 &&
+            length(unique(output.contrast$DT.input[get(condition) == cts[2, j], Sample])) >= 2) {
 
           if (use.SE) {
-            mev = DT$SE^2
+            mev = output.contrast$DT.input$SE^2
           } else {
             mev = NULL
           }
 
-          output.contrast$fit <- MCMCglmm::MCMCglmm(fixed = fixed, mev = mev, data = DT, prior = prior, verbose = F)
+          output.contrast$fit <- MCMCglmm::MCMCglmm(fixed = fixed, mev = mev, data = output.contrast$DT.input, prior = prior, verbose = F)
           output.contrast$log <- paste0("[", Sys.time(), "] succeeded\n")
         } else {
           output.contrast$log <- paste0("[", Sys.time(), "] ignored as n < 2 for one or both conditions\n")
@@ -89,7 +90,7 @@ dea_MCMCglmm <- function(
       }), idcol = "Model")
     }), idcol = "ProteinID")
   }
-  setTxtProgressBar(pb, length(input.data$DTs))
+  setTxtProgressBar(pb, length(input$DTs))
   close(pb)
   parallel::stopCluster(cl)
 
@@ -106,7 +107,7 @@ dea_MCMCglmm <- function(
   DT.de <- DT.de[!is.na(Covariate)]
 
   # merge in input.meta
-  DT.de <- merge(input.meta$DT, DT.de, by = c("Model", "ProteinID"))
+  DT.de <- merge(input$DT.meta, DT.de, by = c("Model", "ProteinID"))
   setcolorder(DT.de, c("Model", "Covariate"))
 
   if (!as.data.table) setDF(DT.de)
@@ -124,11 +125,12 @@ dea_MCMCglmm <- function(
 #' @export
 dea_metafor <- function(
   fit,
-  output = "dea_metafor",
   data.design = design(fit),
-  save.intercept = FALSE,
-  mods = ~ Condition,
+  condition = "Condition",
+  mods = as.formula(paste("~", condition)),
   random = ~ 1 | Sample,
+  output = "metafor",
+  save.intercept = FALSE,
   as.data.table = FALSE,
   ...
 ) {
@@ -140,15 +142,14 @@ dea_metafor <- function(
   if ("test" %in% names(arguments)) stop("do not pass a 'test' argument to metafor")
   if (!("control" %in% names(arguments))) control = list()
 
-  input.data <- dea_init_data(fit, data.design)
-  input.meta <- dea_init_meta_pairwise(input.data$DT)
-  cts <- input.meta$contrasts
+  input <- dea_init(fit, data.design, condition)
+  cts <- input$contrasts
 
   # start cluster and reproducible seed
   cl <- parallel::makeCluster(control(fit)$nthread)
   doSNOW::registerDoSNOW(cl)
-  pb <- txtProgressBar(max = length(input.data$DTs), style = 3)
-  DT.de <- foreach(DT.chunk = iterators::iter(input.data$DTs), .final = rbindlist, .inorder = F, .packages = "data.table", .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
+  pb <- txtProgressBar(max = length(input$DTs), style = 3)
+  DT.de <- foreach(DT.chunk = iterators::iter(input$DTs), .final = rbindlist, .inorder = F, .packages = "data.table", .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
     # process chunk
     output.chunk <- lapply(split(DT.chunk, by = "ProteinID", drop = T), function(DT) {
       DT[, ProteinID := NULL]
@@ -158,8 +159,8 @@ dea_metafor <- function(
         output.contrast <- list()
 
         # input
-        output.contrast$DT.input <- DT[as.character(Condition) %in% cts[, j]]
-        output.contrast$DT.input[, Condition := factor(as.character(Condition), levels = cts[, j])]
+        output.contrast$DT.input <- DT[as.character(get(condition)) %in% cts[, j]]
+        output.contrast$DT.input[, (condition) := factor(as.character(get(condition)), levels = cts[, j])]
         output.contrast$DT.input <- droplevels(output.contrast$DT.input)
         setcolorder(output.contrast$DT.input, c("AssayID", "Assay", "Run", "Channel", "Sample", "est", "SE"))
 
@@ -171,8 +172,8 @@ dea_metafor <- function(
         }
 
         # fit
-        if (length(unique(output.contrast$DT.input[Condition == cts[1, j], Sample])) >= 2 &&
-            length(unique(output.contrast$DT.input[Condition == cts[2, j], Sample])) >= 2) {
+        if (length(unique(output.contrast$DT.input[get(condition) == cts[1, j], Sample])) >= 2 &&
+            length(unique(output.contrast$DT.input[get(condition) == cts[2, j], Sample])) >= 2) {
 
           for (i in 0:9) {
             control$sigma2.init = 0.025 + 0.1 * i
@@ -216,7 +217,7 @@ dea_metafor <- function(
       }), idcol = "Model")
     }), idcol = "ProteinID")
   }
-  setTxtProgressBar(pb, length(input.data$DTs))
+  setTxtProgressBar(pb, length(input$DTs))
   close(pb)
   parallel::stopCluster(cl)
 
@@ -233,7 +234,7 @@ dea_metafor <- function(
   DT.de <- DT.de[!is.na(Covariate)]
 
   # merge in input.meta
-  DT.de <- merge(input.meta$DT, DT.de, by = c("Model", "ProteinID"))
+  DT.de <- merge(input$DT.meta, DT.de, by = c("Model", "ProteinID"))
   setcolorder(DT.de, c("Model", "Covariate"))
 
   if (!as.data.table) setDF(DT.de)
@@ -252,7 +253,7 @@ dea_metafor <- function(
 #' @export
 dea_ttests <- function(
   fit,
-  output = "dea_ttests",
+  output = "ttests",
   data.design = design(fit),
   paired = FALSE,
   var.equal = TRUE,
@@ -260,15 +261,14 @@ dea_ttests <- function(
 ) {
   message("WARNING: This function does not use BayesProt's standard errors and hence should only be used for comparative purposes with the other 'dea' methods.")
 
-  input.data <- dea_init_data(fit, data.design)
-  input.meta <- dea_init_meta_pairwise(input.data$DT)
-  cts <- input.meta$contrasts
+  input <- dea_init(fit, data.design)
+  cts <- input$contrasts
 
   # start cluster and reproducible seed
   cl <- parallel::makeCluster(control(fit)$nthread)
   doSNOW::registerDoSNOW(cl)
-  pb <- txtProgressBar(max = length(input.data$DTs), style = 3)
-  DT.de <- foreach(DT.chunk = iterators::iter(input.data$DTs), .final = rbindlist, .inorder = F, .packages = "data.table", .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
+  pb <- txtProgressBar(max = length(input$DTs), style = 3)
+  DT.de <- foreach(DT.chunk = iterators::iter(input$DTs), .final = rbindlist, .inorder = F, .packages = "data.table", .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
     # process chunk
     output.chunk <- lapply(split(DT.chunk, by = "ProteinID", drop = T), function(DT) {
       DT[, ProteinID := NULL]
@@ -278,14 +278,14 @@ dea_ttests <- function(
         output.contrast <- list()
 
         # input
-        output.contrast$DT.input <- DT[as.character(Condition) %in% cts[, j]]
-        output.contrast$DT.input[, Condition := factor(as.character(Condition), levels = cts[, j])]
+        output.contrast$DT.input <- DT[as.character(get(condition)) %in% cts[, j]]
+        output.contrast$DT.input[, Condition := factor(as.character(get(condition)), levels = cts[, j])]
         output.contrast$DT.input <- droplevels(output.contrast$DT.input)
         setcolorder(output.contrast$DT.input, c("AssayID", "Assay", "Run", "Channel", "Sample", "est", "SE"))
 
         # fit
-        if (length(unique(output.contrast$DT.input[Condition == cts[1, j], Sample])) >= 2 &&
-            length(unique(output.contrast$DT.input[Condition == cts[2, j], Sample])) >= 2) {
+        if (length(unique(output.contrast$DT.input[get(condition) == cts[1, j], Sample])) >= 2 &&
+            length(unique(output.contrast$DT.input[get(condition) == cts[2, j], Sample])) >= 2) {
 
           output.contrast$fit <- t.test(output.contrast$DT.input$est[output.contrast$DT.input$Condition == cts[1, j]],
                                         output.contrast$DT.input$est[output.contrast$DT.input$Condition == cts[2, j]],
@@ -324,7 +324,7 @@ dea_ttests <- function(
       }), idcol = "Model")
     }), idcol = "ProteinID")
   }
-  setTxtProgressBar(pb, length(input.data$DTs))
+  setTxtProgressBar(pb, length(input$DTs))
   close(pb)
   parallel::stopCluster(cl)
 
@@ -341,7 +341,7 @@ dea_ttests <- function(
   DT.de <- DT.de[!is.na(Covariate)]
 
   # merge in input.meta
-  DT.de <- merge(input.meta$DT, DT.de, by = c("Model", "ProteinID"))
+  DT.de <- merge(input$DT.meta, DT.de, by = c("Model", "ProteinID"))
   setcolorder(DT.de, c("Model", "Covariate"))
 
   if (!as.data.table) setDF(DT.de)
@@ -402,7 +402,7 @@ fdr_ash <- function(
       if (use.DF) {
         DT.out <- DT.chunk[, as.list(tryCatch(
           fitdistrplus::fitdist(value, "t.scaled", start = list(mean = median(value), sd = mad(value), df = 3))$estimate,
-          error = function(e) list(mean = mad(value), sd = mad(value), df = Inf)
+          error = function(e) list(mean = median(value), sd = mad(value), df = Inf)
         )), by = .(Model, Covariate, ProteinID)]
         setnames(DT.out, c("mean", "sd", "df"), c("est", "SE", "DF"))
       } else {
@@ -504,28 +504,46 @@ fdr_BH <- function(
 }
 
 
-dea_init_data <- function(fit, data.design) {
+dea_init <- function(fit, data.design, condition) {
   out = list()
 
   # prepare design
-  if (is.null(data.design$AssayID)) {
-    out$DT.design <- merge(data.design, design(fit, as.data.table = T))
-  } else {
-    out$DT.design <- data.table::as.data.table(data.design)
-  }
-  if (!is.null(out$DT.design$nProtein)) out$DT.design[, nProtein := NULL]
+  out$DT.design <- data.table::as.data.table(data.design)
+  if (!is.null(out$DT.design$nAssayID)) out$DT.design[, AssayID := NULL]
   if (!is.null(out$DT.design$nPeptide)) out$DT.design[, nPeptide := NULL]
   if (!is.null(out$DT.design$nFeature)) out$DT.design[, nFeature := NULL]
-  if (!is.null(out$DT.design$nMeasure)) out$DT.design[, nMeasure := NULL]
-  if (!is.null(out$DT.design$SampleID)) out$DT.design[, SampleID := NULL]
-  if (!is.null(out$DT.design$ref)) out$DT.design[, ref := NULL]
+  out$DT.design <- merge(out$DT.design, design(fit, as.data.table = T)[, .(AssayID, Assay, nPeptide, nFeature)], by = "Assay")
 
   # prepare quants
-  out$DT <- protein_quants(fit, as.data.table = T)
-  out$DT <- merge(out$DT, out$DT.design, by = "AssayID")
+  out$DTs <- merge(protein_quants(fit, as.data.table = T), out$DT.design, by = "AssayID")
+
+  # organise data by pairwise levels of condition
+  out$contrasts = combn(levels(out$DTs[, get(condition)]), 2)
+  out$DT.meta <- data.table::rbindlist(lapply(1:ncol(out$contrasts), function(j) {
+    DT.output <- merge(
+      out$DTs[, .(AssayID, ProteinID, prior, nPeptide, nFeature)],
+      out$DTs[as.character(get(condition)) %in% out$contrasts[, j]],
+      by = c("AssayID", "ProteinID", "prior", "nPeptide", "nFeature"), all.x = T
+    )
+    DT.output[, (condition) := factor(as.character(get(condition)), levels = out$contrasts[, j])]
+    DT.output <- DT.output[, .(
+      `1:nMaxPeptide` = max(0, nPeptide[get(condition) == levels(get(condition))[1]], na.rm = T),
+      `2:nMaxPeptide` = max(0, nPeptide[get(condition) == levels(get(condition))[2]], na.rm = T),
+      `1:nMaxFeature` = max(0, nFeature[get(condition) == levels(get(condition))[1]], na.rm = T),
+      `2:nMaxFeature` = max(0, nFeature[get(condition) == levels(get(condition))[2]], na.rm = T),
+      `1:nTestSample` = length(unique(Sample[!is.na(Sample) & get(condition) == levels(get(condition))[1]])),
+      `2:nTestSample` = length(unique(Sample[!is.na(Sample) & get(condition) == levels(get(condition))[2]])),
+      `1:nRealSample` = sum(0, nPeptide[get(condition) == levels(get(condition))[1]] > 0, na.rm = T),
+      `2:nRealSample` = sum(0, nPeptide[get(condition) == levels(get(condition))[2]] > 0, na.rm = T)
+    ), by = ProteinID]
+    DT.output[, Model := factor(paste(out$contrasts[, j], collapse = "_v_"))]
+    data.table::setcolorder(DT.output, "Model")
+
+    DT.output
+  }))
 
   # batch
-  out$DTs <- batch_split(out$DT)
+  out$DTs <- batch_split(out$DTs)
 
   return(out)
 }
@@ -538,47 +556,6 @@ batch_split <- function(DT) {
 
   return(split(DT, by = "BatchID"))
 }
-
-
-dea_init_meta_pairwise <- function(DT) {
-  out = list(contrasts = combn(levels(DT$Condition), 2))
-
-  out$DT <- data.table::rbindlist(lapply(1:ncol(out$contrasts), function(j) {
-    DT.output <- merge(
-      DT[, .(AssayID, ProteinID, prior, nPeptide, nFeature)],
-      DT[as.character(Condition) %in% out$contrasts[, j]],
-      by = c("AssayID", "ProteinID", "prior", "nPeptide", "nFeature"), all.x = T
-    )
-    DT.output[, Condition := factor(as.character(Condition), levels = out$contrasts[, j])]
-    DT.output <- DT.output[, .(
-      `1:nMaxPeptide` = max(0, nPeptide[Condition == levels(Condition)[1]], na.rm = T),
-      `2:nMaxPeptide` = max(0, nPeptide[Condition == levels(Condition)[2]], na.rm = T),
-      `1:nMaxFeature` = max(0, nFeature[Condition == levels(Condition)[1]], na.rm = T),
-      `2:nMaxFeature` = max(0, nFeature[Condition == levels(Condition)[2]], na.rm = T),
-      `1:nTestSample` = length(unique(Sample[!is.na(Sample) & Condition == levels(Condition)[1]])),
-      `2:nTestSample` = length(unique(Sample[!is.na(Sample) & Condition == levels(Condition)[2]])),
-      `1:nRealSample` = sum(0, nPeptide[Condition == levels(Condition)[1]] > 0, na.rm = T),
-      `2:nRealSample` = sum(0, nPeptide[Condition == levels(Condition)[2]] > 0, na.rm = T)
-    ), by = ProteinID]
-    DT.output[, Model := factor(paste(out$contrasts[, j], collapse = "_v_"))]
-    data.table::setcolorder(DT.output, "Model")
-
-    DT.output
-  }))
-
-  return(out)
-}
-
-
-
-
-
-
-
-
-
-
-
 
 
 #' #' Mixed-effects univariate differential expression analysis with 'metafor'

@@ -8,6 +8,7 @@
 \alias{features}
 \alias{peptides}
 \alias{proteins}
+\alias{exposures}
 \alias{protein_quants}
 \alias{peptide_deviations}
 \alias{peptide_stdevs}
@@ -29,8 +30,11 @@ peptides(fit, as.data.table = F)
 
 proteins(fit, as.data.table = F)
 
-protein_quants(fit, proteinID = NULL, protein = NULL, normalised = T,
-  summary = T, as.data.table = F)
+exposures(fit, key = 1, as.data.table = F)
+
+protein_quants(fit, ref.assays = design(fit)$Assay[design(fit)$ref == T],
+  proteinIDs = NULL, proteins = NULL, summary = T,
+  as.data.table = F)
 
 peptide_deviations(fit, proteinID = NULL, protein = NULL,
   summary = T, as.data.table = F)
