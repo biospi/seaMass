@@ -407,7 +407,7 @@ fdr_ash <- function(
       if (use.DF) {
         DT.out <- DT.chunk[, as.list(tryCatch(
           fitdistrplus::fitdist(value, "t.scaled", start = list(mean = median(value), sd = mad(value), df = 3))$estimate,
-          error = function(e) list(mean = mad(value), sd = mad(value), df = Inf)
+          error = function(e) list(mean = median(value), sd = mad(value), df = Inf)
         )), by = .(Model, Covariate, ProteinID)]
         setnames(DT.out, c("mean", "sd", "df"), c("est", "SE", "DF"))
       } else {
