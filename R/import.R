@@ -7,7 +7,10 @@
 #' @import data.table
 #' @export
 runs <- function(data) {
-  data <- setDF(setDT(data)[, .(Run = Run[1]), keyby = Injection])
+  data <- setDT(data)[, .(Run = first(Run)), keyby = Injection]
+  data[, Run := as.character(Run)]
+  data[, Injection := as.character(Injection)]
+  setDF(data)
   return(data)
 }
 
@@ -19,7 +22,11 @@ runs <- function(data) {
 `runs<-` <- function(data, value) {
   DT <- setDT(data)
   DT[, Run := NULL]
-  DT <- merge(DT, setDT(value), by = "Injection")
+  DT.runs <- as.data.table(value)
+  DT.runs <- DT.runs[complete.cases(DT.runs)]
+  if (!is.factor(DT.runs$Injection)) DT.runs[, Injection := factor(Injection)]
+  if (!is.factor(DT.runs$Run)) DT.runs[, Run := factor(Run)]
+  DT <- merge(DT, DT.runs, by = "Injection")
   data <- setDF(DT)
   return(data)
 }
@@ -35,9 +42,15 @@ runs <- function(data) {
 #' @import data.table
 #' @export
 new_design <- function(data) {
-  names <- levels(interaction(data$Run, data$Assay, drop = T, sep = ",", lex.order = T))
-  if (length(names) == 0) names <- levels(data$Assay)
-  return(data.frame(Assay = names, Sample = names, ref = T))
+  data.design <- setDT(data)[, .(Assay = paste(Run, Channel, sep = ",")), keyby = .(Run, Channel)]
+  data.design[, Assay := sub("^,", "", Assay)]
+  data.design[, Assay := sub(",$", "", Assay)]
+  data.design[, Sample := Assay]
+  data.design[, Condition := NA]
+  data.design[, ref := T]
+  setDF(data.design)
+  setDF(data)
+  return(data.design)
 }
 
 
@@ -91,14 +104,14 @@ import_ProteinPilot <- function(
     Feature = Spectrum,
     Injection = as.integer(matrix(unlist(strsplit(as.character(DT.raw$Spectrum), ".", fixed = T)), ncol = 5, byrow = T)[, 1])
   )]
-  if("Area 113" %in% colnames(DT.raw)) DT$Assay.113 <- DT.raw$`Area 113`
-  if("Area 114" %in% colnames(DT.raw)) DT$Assay.114 <- DT.raw$`Area 114`
-  if("Area 115" %in% colnames(DT.raw)) DT$Assay.115 <- DT.raw$`Area 115`
-  if("Area 116" %in% colnames(DT.raw)) DT$Assay.116 <- DT.raw$`Area 116`
-  if("Area 117" %in% colnames(DT.raw)) DT$Assay.117 <- DT.raw$`Area 117`
-  if("Area 118" %in% colnames(DT.raw)) DT$Assay.118 <- DT.raw$`Area 118`
-  if("Area 119" %in% colnames(DT.raw)) DT$Assay.119 <- DT.raw$`Area 119`
-  if("Area 121" %in% colnames(DT.raw)) DT$Assay.121 <- DT.raw$`Area 121`
+  if("Area 113" %in% colnames(DT.raw)) DT$Channel.113 <- DT.raw$`Area 113`
+  if("Area 114" %in% colnames(DT.raw)) DT$Channel.114 <- DT.raw$`Area 114`
+  if("Area 115" %in% colnames(DT.raw)) DT$Channel.115 <- DT.raw$`Area 115`
+  if("Area 116" %in% colnames(DT.raw)) DT$Channel.116 <- DT.raw$`Area 116`
+  if("Area 117" %in% colnames(DT.raw)) DT$Channel.117 <- DT.raw$`Area 117`
+  if("Area 118" %in% colnames(DT.raw)) DT$Channel.118 <- DT.raw$`Area 118`
+  if("Area 119" %in% colnames(DT.raw)) DT$Channel.119 <- DT.raw$`Area 119`
+  if("Area 121" %in% colnames(DT.raw)) DT$Channel.121 <- DT.raw$`Area 121`
 
   # group ambiguous PSMs so BayesProt treats them as a single peptide per protein
   DT[, Peptide := paste(sort(as.character(Peptide)), collapse = " "), by = .(Protein, Feature)]
@@ -110,9 +123,9 @@ import_ProteinPilot <- function(
   DT[, Peptide := factor(Peptide)]
   DT[, Feature := factor(Feature)]
   DT[, Injection := factor(Injection)]
-  DT[, Run := NA_integer_]
-  DT <- melt(DT, variable.name = "Assay", value.name = "Count", measure.vars = colnames(DT)[grep("^Assay\\.", colnames(DT))])
-  levels(DT$Assay) <- sub("^Assay\\.", "", levels(DT$Assay))
+  DT[, Run := factor("")]
+  DT <- melt(DT, variable.name = "Channel", value.name = "Count", measure.vars = colnames(DT)[grep("^Channel\\.", colnames(DT))])
+  levels(DT$Channel) <- sub("^Channel\\.", "", levels(DT$Channel))
 
   setDF(DT)
   return(DT)
@@ -141,7 +154,7 @@ import_ProteomeDiscoverer <- function(
     if (is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
     DT.raw <- setDT(data)
   } else {
-    DT.raw <- fread(file, showProgress = T)
+    DT.raw <- fread(file = file, showProgress = T)
   }
 
   # only use rows that ProteomeDiscoverer uses for quant
@@ -171,26 +184,26 @@ import_ProteomeDiscoverer <- function(
     Feature = paste0(`Spectrum File`, ",", `First Scan`),
     Injection = `Spectrum File`
   )]
-  if ("Light" %in% colnames(DT.raw)) DT$Assay.Light <- DT.raw$Light
-  if ("Medium" %in% colnames(DT.raw)) DT$Assay.Medium <- DT.raw$Medium
-  if ("Heavy" %in% colnames(DT.raw)) DT$Assay.Heavy <- DT.raw$Heavy
-  if ("126N" %in% colnames(DT.raw)) DT$Assay.126N <- DT.raw$`126N`
-  if ("126C" %in% colnames(DT.raw)) DT$Assay.126C <- DT.raw$`126C`
-  if ("126" %in% colnames(DT.raw)) DT$Assay.126 <- DT.raw$`126`
-  if ("127N" %in% colnames(DT.raw)) DT$Assay.127N <- DT.raw$`127N`
-  if ("127C" %in% colnames(DT.raw)) DT$Assay.127C <- DT.raw$`127C`
-  if ("127" %in% colnames(DT.raw)) DT$Assay.127 <- DT.raw$`127`
-  if ("128N" %in% colnames(DT.raw)) DT$Assay.128N <- DT.raw$`128N`
-  if ("128C" %in% colnames(DT.raw)) DT$Assay.128C <- DT.raw$`128C`
-  if ("128" %in% colnames(DT.raw)) DT$Assay.128 <- DT.raw$`128`
-  if ("129N" %in% colnames(DT.raw)) DT$Assay.129N <- DT.raw$`129N`
-  if ("129C" %in% colnames(DT.raw)) DT$Assay.129C <- DT.raw$`129C`
-  if ("129" %in% colnames(DT.raw)) DT$Assay.129 <- DT.raw$`129`
-  if ("130N" %in% colnames(DT.raw)) DT$Assay.130N <- DT.raw$`130N`
-  if ("130C" %in% colnames(DT.raw)) DT$Assay.130C <- DT.raw$`130C`
-  if ("131N" %in% colnames(DT.raw)) DT$Assay.131N <- DT.raw$`131N`
-  if ("131C" %in% colnames(DT.raw)) DT$Assay.131C <- DT.raw$`131C`
-  if ("131" %in% colnames(DT.raw)) DT$Assay.131 <- DT.raw$`131`
+  if ("Light" %in% colnames(DT.raw)) DT$Channel.Light <- DT.raw$Light
+  if ("Medium" %in% colnames(DT.raw)) DT$Channel.Medium <- DT.raw$Medium
+  if ("Heavy" %in% colnames(DT.raw)) DT$Channel.Heavy <- DT.raw$Heavy
+  if ("126N" %in% colnames(DT.raw)) DT$Channel.126N <- DT.raw$`126N`
+  if ("126C" %in% colnames(DT.raw)) DT$Channel.126C <- DT.raw$`126C`
+  if ("126" %in% colnames(DT.raw)) DT$Channel.126 <- DT.raw$`126`
+  if ("127N" %in% colnames(DT.raw)) DT$Channel.127N <- DT.raw$`127N`
+  if ("127C" %in% colnames(DT.raw)) DT$Channel.127C <- DT.raw$`127C`
+  if ("127" %in% colnames(DT.raw)) DT$Channel.127 <- DT.raw$`127`
+  if ("128N" %in% colnames(DT.raw)) DT$Channel.128N <- DT.raw$`128N`
+  if ("128C" %in% colnames(DT.raw)) DT$Channel.128C <- DT.raw$`128C`
+  if ("128" %in% colnames(DT.raw)) DT$Channel.128 <- DT.raw$`128`
+  if ("129N" %in% colnames(DT.raw)) DT$Channel.129N <- DT.raw$`129N`
+  if ("129C" %in% colnames(DT.raw)) DT$Channel.129C <- DT.raw$`129C`
+  if ("129" %in% colnames(DT.raw)) DT$Channel.129 <- DT.raw$`129`
+  if ("130N" %in% colnames(DT.raw)) DT$Channel.130N <- DT.raw$`130N`
+  if ("130C" %in% colnames(DT.raw)) DT$Channel.130C <- DT.raw$`130C`
+  if ("131N" %in% colnames(DT.raw)) DT$Channel.131N <- DT.raw$`131N`
+  if ("131C" %in% colnames(DT.raw)) DT$Channel.131C <- DT.raw$`131C`
+  if ("131" %in% colnames(DT.raw)) DT$Channel.131 <- DT.raw$`131`
 
   # group ambiguous PSMs so BayesProt treats them as a single peptide per protein
   DT[, Peptide := paste(sort(as.character(Peptide)), collapse = " "), by = .(Protein, Feature)]
@@ -202,9 +215,9 @@ import_ProteomeDiscoverer <- function(
   DT[, Peptide := factor(Peptide)]
   DT[, Feature := factor(Feature)]
   DT[, Injection := factor(Injection)]
-  DT[, Run := NA_integer_]
-  DT <- melt(DT, variable.name = "Assay", value.name = "Count", measure.vars = colnames(DT)[grep("^Assay\\.", colnames(DT))])
-  levels(DT$Assay) <- sub("^Assay\\.", "", levels(DT$Assay))
+  DT[, Run := factor("")]
+  DT <- melt(DT, variable.name = "Channel", value.name = "Count", measure.vars = colnames(DT)[grep("^Channel\\.", colnames(DT))])
+  levels(DT$Channel) <- sub("^Channel\\.", "", levels(DT$Channel))
 
   setDF(DT)
   return(DT)
@@ -280,8 +293,8 @@ import_Progenesis <- function(
   DT[, Protein := factor(Protein)]
   DT[, Peptide := factor(Peptide)]
   DT[, Feature := factor(Feature)]
-  DT <- melt(DT, variable.name = "Assay", value.name = "Count", measure.vars = colnames(DT)[grep("^Raw abundance ", colnames(DT))])
-  levels(DT$Assay) <- sub("^Raw abundance ", "", levels(DT$Assay))
+  DT <- melt(DT, variable.name = "Run", value.name = "Count", measure.vars = colnames(DT)[grep("^Raw abundance ", colnames(DT))])
+  levels(DT$Run) <- sub("^Raw abundance ", "", levels(DT$Run))
   DT[, Count := as.numeric(Count)]
 
   setDF(DT)
@@ -300,7 +313,6 @@ import_Progenesis <- function(
 #' @return A \link{data.frame} for input into \link{bayesprot}.
 #' @import data.table
 #' @export
-
 import_OpenSwath_PyProphet <- function(
   files = NULL,
   shared = F,
@@ -326,7 +338,7 @@ import_OpenSwath_PyProphet <- function(
       Protein = ProteinName,
       Peptide = FullPeptideName,
       Feature = gsub(";", ";bayesprot;", aggr_Fragment_Annotation),
-      Assay = filename,
+      Run = filename,
       Count = gsub(";", ";bayesprot;", aggr_Peak_Area)
     )]
     DT <- DT[, lapply(.SD, function(x) unlist(tstrsplit(x, ";bayesprot;", fixed = T)))]
@@ -335,31 +347,56 @@ import_OpenSwath_PyProphet <- function(
   }))
 
   # remove features that have more than one identification in any assay
-  DT[, N := .N, by = .(Feature, Assay)]
+  DT[, N := .N, by = .(Feature, Run)]
   DT <- DT[N == 1]
   DT[, N := NULL]
-  assays <- unique(DT$Assay)
+  assays <- unique(DT$Run)
 
   # create wide data table
-  DT <- dcast(DT, Protein + Peptide + Feature ~ Assay, value.var = "Count")
+  DT <- dcast(DT, Protein + Peptide + Feature ~ Run, value.var = "Count")
 
   # remove shared
-  if (!shared) {
-    DT[, N := length(unique(Protein)), by = Peptide]
-    DT <- DT[N == 1]
-    DT[, N := NULL]
-  }
+  if (!shared) DT <- DT[grepl("^1/", DT$Protein)]
 
   # group ambiguous PSMs so BayesProt treats them as a single peptide per protein
   DT[, Peptide := paste(sort(as.character(Peptide)), collapse = " "), by = .(Protein, Feature)]
   DT <- unique(DT)
 
   # melt
-  DT[, ProteinInfo := factor("")]
-  DT[, Protein := factor(Protein)]
+  DT[, ProteinInfo := factor(Protein)]
+  DT[, Protein := factor(sub("^1/", "", Protein))]
   DT[, Peptide := factor(Peptide)]
   DT[, Feature := factor(Feature)]
-  DT <- melt(DT, variable.name = "Assay", value.name = "Count", measure.vars = assays)
+  DT <- melt(DT, variable.name = "Run", value.name = "Count", measure.vars = assays)
+  DT[, Channel := factor("")]
+  setcolorder(DT, c("Protein", "ProteinInfo", "Peptide", "Feature", "Run", "Channel"))
+
+  setDF(DT)
+  return(DT)
+}
+
+
+#' Import data outputed by an MSstats import routine
+#'
+#' Reads in a set of \code{_with_dscore} datasets processed by OpenSWATH and PyProphet for processing with \link{bayesprot}.
+#'
+#' @param files One of more \code{_with_dscore} files to import and merge.
+#' @param m_score.cutoff Include only features with PyProphet m_score >= than this?
+#' @param data Advanced: Rather than specifying \code{files}, you can enter a \link{data.frame} preloaded with
+#'   \link[data.table]{fread} default parameters.
+#' @return A \link{data.frame} for input into \link{bayesprot}.
+#' @import data.table
+#' @export
+import_MSstats <- function(data) {
+  DT <- data.table(
+    Protein = factor(data$ProteinName),
+    ProteinInfo = "",
+    Peptide = factor(data$PeptideSequence),
+    Feature = factor(data$FragmentIon),
+    Run = factor(data$Run, levels = unique(data$Run)),
+    Channel = factor(data$IsotopeLabelType, levels = unique(data$IsotopeLabelType)),
+    Count = as.numeric(data$Intensity)
+  )
 
   setDF(DT)
   return(DT)

@@ -5,11 +5,9 @@
 \alias{del}
 \alias{design}
 \alias{control}
-\alias{input}
 \alias{features}
 \alias{peptides}
 \alias{proteins}
-\alias{priors}
 \alias{protein_quants}
 \alias{peptide_deviations}
 \alias{peptide_stdevs}
@@ -17,7 +15,7 @@
 \alias{timings}
 \title{Interrogating the \code{bayesprot} fit object}
 \usage{
-bayesprot_fit(dir)
+bayesprot_fit(dir, force = F)
 
 del(fit)
 
@@ -25,23 +23,23 @@ design(fit, as.data.table = F)
 
 control(fit)
 
-input(fit, as.data.table = F, from = 1, to = NULL)
-
 features(fit, as.data.table = F)
 
 peptides(fit, as.data.table = F)
 
 proteins(fit, as.data.table = F)
 
-priors(fit)
+protein_quants(fit, proteinID = NULL, protein = NULL, normalised = T,
+  summary = T, as.data.table = F)
 
-protein_quants(fit, normalised = T, summary = T, as.data.table = F)
+peptide_deviations(fit, proteinID = NULL, protein = NULL,
+  summary = T, as.data.table = F)
 
-peptide_deviations(fit, summary = T, as.data.table = F)
+peptide_stdevs(fit, proteinID = NULL, protein = NULL, summary = T,
+  as.data.table = F)
 
-peptide_stdevs(fit, summary = T, as.data.table = F)
-
-feature_stdevs(fit, summary = T, as.data.table = F)
+feature_stdevs(fit, proteinID = NULL, protein = NULL, summary = T,
+  as.data.table = F)
 
 timings(fit, as.data.table = F)
 }

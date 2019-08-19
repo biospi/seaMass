@@ -1,42 +1,99 @@
 library(bayesprot)
 
-# import tutorial iTraq dataset
+#######################################
+
+# Import tutorial iTraq dataset.
 file <- system.file(file.path("demo", "Tutorial_PeptideSummary.txt.bz2"), package = "bayesprot")
 data <- import_ProteinPilot(file)
 
-# get skeleton injection-run table from imported data
+#######################################
+
+# Get skeleton injection-run table from imported data.
 data.runs <- runs(data)
-# indicate which injection refers to which run
-data.runs$Run <- factor(c(rep_len(1, 10), rep_len(2, 10)))
-# update the imported data with this information
+
+# Indicate which injection refers to which run; use 'NA' to indicate injections to ignore.
+data.runs$Run[1:26] <- NA
+data.runs$Run[27:52] <- "1"
+data.runs$Run[53:78] <- "2"
+
+# Update the imported data with the run information and remove any ignored injections.
 runs(data) <- data.runs
 
-# get skeleton design matrix
-data.design <- design(data)
-# you can assign samples to assays
-data.design$Sample <- factor(c(
-  "A1", "A2", "B1", "B2", "A3", "A4", "B3", "B4",
-  "O1", "O2", "O3", "O4", "A5", "A6", "B5", "B6"
-))
-# specify the conditions for differential expression analysis (use NA to ignore irrelevant channels)
-data.design$Condition <- factor(c(
-  "A", "A", "B", "B", "A", "A", "B", "B",
-   NA,  NA,  NA,  NA, "A", "A", "B", "B")
-)
-# specify the reference channels
-data.design$ref <- !is.na(data.design$Condition)
+#######################################
 
-# run BayesProt
+# Get skeleton design matrix
+data.design <- new_design(data)
+
+# You can rename assays, or remove them from the analysis with 'NA'.
+data.design$Assay <- factor(c(
+  NA, NA, NA, NA, "1.1", "1.2", "1.3", "1.4",
+  NA, NA, NA, NA, "2.1", "2.2", "2.3", "2.4"
+))
+
+# Assign samples to assays (a 1-to-1 mapping if all your samples are separately digested;
+#  pure technical replicates should share the same sample name).
+data.design$Sample <- factor(c(
+  NA, NA, NA, NA, "A1", "A2", "B1", "B2",
+  NA, NA, NA, NA, "A3", "A4", "B3", "B4"
+))
+
+#######################################
+
+# specify a list of one of more differential expression analysis functions. Bayesprot currently
+#  implements tests between conditions using the 'dea_metafor_pairwise' function. By default
+#  these are t.tests but you can add covariates, random effects etc using the 'metafor::rma.mv'
+#  syntax
+dea.func <- list(t.tests = dea_metafor_pairwise)
+
+# 'dea_metafor_pairwise' expects a column 'Condition' to have been specified in 'data.design'.
+#  You can use 'NA' to ignore irrelevant samples.
+data.design$Condition <- factor(c(
+  NA, NA, NA, NA, "A", "A", "B", "B",
+  NA, NA, NA, NA, "A", "A", "B", "B"
+))
+
+#######################################
+
+# iTraq/TMT/SILAC only: Since we have more than one iTraq run we need to normalise across them.
+#  Here we can specify specific reference assays e.g. pooled reference samples, of if the study
+#  design has been blocked appropriately, we can just use all relevant assays:
+data.design$ref <- factor(c(
+  F, F, F, F, T, T, T, T,
+  F, F, F, F, T, T, T, T)
+)
+
+#######################################
+
+# Run BayesProt, using the rat proteins only for normalisation.
 fit <- bayesprot(
   data,
   data.design = data.design,
   normalisation.proteins = levels(data$Protein)[grep("_RAT$", levels(data$Protein))],
+  dea.func = dea.func,
   output = "Tutorial.bayesprot",
-  control = control(nthread = 4)
+  control = new_control(nthread = 4)
 )
 
-# get protein-level quants
-dd.quants <- protein_quants(fit)
-# get FDR-controlled differential expression
-dds.de <- de_metafor(fit)
+#######################################
 
+# Output list of proteins analysed.
+data.proteins <- proteins(fit)
+print(data.proteins)
+
+# Output processed design matrix
+data.design <- design(fit)
+print(data.design)
+
+# Output protein quants with accessions and assay/sample names
+data.protein.quants <- protein_quants(fit)
+data.protein.quants <- merge(data.protein.quants, data.design[, c("AssayID", "Assay", "Sample")])
+data.protein.quants <- merge(data.protein.quants, data.proteins[, c("ProteinID", "Protein")])
+print(data.protein.quants)
+
+# Output fdr-controlled differential expression for the 't.test' analysis, with accessions.
+data.de <- protein_de(fit)
+data.de <- merge(data.de, data.proteins[, c("ProteinID", "Protein")], sort = F)
+print(data.de)
+
+# View the plot for the top differential expression candidate.
+plot_peptides(fit, protein = data.de$Protein[1])
