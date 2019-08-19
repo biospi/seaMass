@@ -77,6 +77,7 @@ dea_MCMCglmm <- function(
     })
 
     # save chunk
+    dir.create(file.path(fit, "model2", "de"), showWarnings=F)
     saveRDS(output.chunk, file.path(fit, "model2", "de", paste0(output, ".", DT.chunk[1, BatchID], ".rds")))
 
     # extract results
@@ -196,6 +197,7 @@ dea_metafor <- function(
     })
 
     # save chunk
+    dir.create(file.path(fit, "model2", "de"), showWarnings=F)
     saveRDS(output.chunk, file.path(fit, "model2", "de", paste0(output, ".", DT.chunk[1, BatchID], ".rds")))
 
     # extract results
@@ -306,6 +308,7 @@ dea_ttests <- function(
     })
 
     # save chunk
+    dir.create(file.path(fit, "model2", "de"), showWarnings=F)
     saveRDS(output.chunk, file.path(fit, "model2", "de", paste0(output, ".", DT.chunk[1, BatchID], ".rds")))
 
     # extract results
