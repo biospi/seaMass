@@ -11,6 +11,8 @@ dea_MCMCglmm <- function(
   data.design = design(fit),
   save.intercept = FALSE,
   fixed = ~ Condition,
+  random = NULL,
+  rcov = ~ units,
   prior = list(R = list(V = 1, nu = 0.02)),
   use.SE = TRUE,
   as.data.table = FALSE,
@@ -61,7 +63,7 @@ dea_MCMCglmm <- function(
             mev = NULL
           }
 
-          output.contrast$fit <- MCMCglmm::MCMCglmm(fixed = fixed, mev = mev, data = DT, prior = prior, verbose = F)
+          output.contrast$fit <- MCMCglmm::MCMCglmm(fixed = fixed, random = random, rcov = rcov, mev = mev, data = DT, prior = prior, verbose = F)
           output.contrast$log <- paste0("[", Sys.time(), "] succeeded\n")
         } else {
           output.contrast$log <- paste0("[", Sys.time(), "] ignored as n < 2 for one or both conditions\n")
@@ -75,6 +77,7 @@ dea_MCMCglmm <- function(
     })
 
     # save chunk
+    dir.create(file.path(fit, "model2", "de"), showWarnings=F)
     saveRDS(output.chunk, file.path(fit, "model2", "de", paste0(output, ".", DT.chunk[1, BatchID], ".rds")))
 
     # extract results
@@ -194,6 +197,7 @@ dea_metafor <- function(
     })
 
     # save chunk
+    dir.create(file.path(fit, "model2", "de"), showWarnings=F)
     saveRDS(output.chunk, file.path(fit, "model2", "de", paste0(output, ".", DT.chunk[1, BatchID], ".rds")))
 
     # extract results
@@ -304,6 +308,7 @@ dea_ttests <- function(
     })
 
     # save chunk
+    dir.create(file.path(fit, "model2", "de"), showWarnings=F)
     saveRDS(output.chunk, file.path(fit, "model2", "de", paste0(output, ".", DT.chunk[1, BatchID], ".rds")))
 
     # extract results
@@ -312,9 +317,9 @@ dea_ttests <- function(
         if (!is.null(output.contrast$fit)) {
           data.table(
             Covariate = output.contrast$fit$Covariate,
-            lower = output.contrast$fit$conf.int[1],
-            upper = output.contrast$fit$conf.int[2],
-            est = output.contrast$fit$estimate[2],
+            lower = -output.contrast$fit$conf.int[2],
+            upper = -output.contrast$fit$conf.int[1],
+            est = output.contrast$fit$estimate[2] - output.contrast$fit$estimate[1],
             SE = output.contrast$fit$stderr,
             DF = output.contrast$fit$parameter,
             tvalue = output.contrast$fit$statistic,
@@ -402,7 +407,7 @@ fdr_ash <- function(
       if (use.DF) {
         DT.out <- DT.chunk[, as.list(tryCatch(
           fitdistrplus::fitdist(value, "t.scaled", start = list(mean = median(value), sd = mad(value), df = 3))$estimate,
-          error = function(e) list(mean = mad(value), sd = mad(value), df = Inf)
+          error = function(e) list(mean = median(value), sd = mad(value), df = Inf)
         )), by = .(Model, Covariate, ProteinID)]
         setnames(DT.out, c("mean", "sd", "df"), c("est", "SE", "DF"))
       } else {
