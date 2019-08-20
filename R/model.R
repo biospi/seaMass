@@ -612,6 +612,9 @@ execute_model <- function(
           output$DT.feature.stdevs[, mcmcID := factor(formatC(1:nrow(output$DT.feature.stdevs), width = ceiling(log10(nrow(output$DT.feature.stdevs))) + 1, format = "d", flag = "0"))]
           if (control$feature.model != "single") {
             output$DT.feature.stdevs[, FeatureID := factor(levels(DT$FeatureID))]
+            output$DT.feature.stdevs <- merge(output$DT.feature.stdevs, unique(DT[, .(FeatureID, PeptideID, ProteinID)]), by = "FeatureID")
+          } else {
+            output$DT.feature.stdevs[, ProteinID := DT[1, ProteinID]]
           }
         } else {
           output$DT.feature.stdevs <- as.data.table(model$VCV[, grep("^FeatureID[0-9]+\\.AssayID$", colnames(model$VCV)), drop = F])
@@ -619,8 +622,8 @@ execute_model <- function(
           output$DT.feature.stdevs <- melt(output$DT.feature.stdevs, variable.name = "FeatureID", id.vars = "mcmcID")
           output$DT.feature.stdevs[, FeatureID := factor(sub("^FeatureID([0-9]+)\\.AssayID$", "\\1", FeatureID))]
           setcolorder(output$DT.feature.stdevs, c("value", "mcmcID"))
+          output$DT.feature.stdevs <- merge(output$DT.feature.stdevs, unique(DT[, .(FeatureID, PeptideID, ProteinID)]), by = "FeatureID")
         }
-        output$DT.feature.stdevs <- merge(output$DT.feature.stdevs, unique(DT[, .(FeatureID, PeptideID, ProteinID)]), by = "FeatureID")
         output$DT.feature.stdevs[, chainID := factor(chainID)]
         output$DT.feature.stdevs[, prior := nlevels(DT$FeatureID) <= control$feature.prior]
         output$DT.feature.stdevs[, value := sqrt(value) / log(2)]
@@ -628,7 +631,7 @@ execute_model <- function(
         if (control$feature.model != "single") {
           setcolorder(output$DT.feature.stdevs, c("ProteinID", "prior", "PeptideID", "FeatureID", "chainID", "mcmcID"))
         } else {
-          setcolorder(output$DT.feature.stdevs, c("ProteinID", "prior", "PeptideID", "chainID", "mcmcID"))
+          setcolorder(output$DT.feature.stdevs, c("ProteinID", "prior", "chainID", "mcmcID"))
         }
 
         # write out if large enough
@@ -707,8 +710,14 @@ execute_model <- function(
     # write out peptide stdevs
     if (!is.null(output$DT.peptide.stdevs) && nrow(output$DT.peptide.stdevs) > 0) {
       output$DT.peptide.stdevs[, ProteinID := factor(as.character(ProteinID))]
-      output$DT.peptide.stdevs[, PeptideID := factor(as.character(PeptideID))]
-      setorder(output$DT.peptide.stdevs, ProteinID, PeptideID, chainID, mcmcID)
+
+      if(control$peptide.model != "single") {
+        output$DT.peptide.stdevs[, PeptideID := factor(as.character(PeptideID))]
+        setorder(output$DT.peptide.stdevs, ProteinID, PeptideID, chainID, mcmcID)
+      } else {
+        setorder(output$DT.peptide.stdevs, ProteinID, chainID, mcmcID)
+      }
+
       filename <- file.path(paste0("model", stage), paste0("peptide.stdevs.", stage), paste0(chainID, ".fst"))
       fst::write.fst(output$DT.peptide.stdevs, file.path(fit, filename))
 
@@ -732,9 +741,15 @@ execute_model <- function(
     # write out feature stdevs
     if (!is.null(output$DT.feature.stdevs) && nrow(output$DT.feature.stdevs) > 0) {
       output$DT.feature.stdevs[, ProteinID := factor(as.character(ProteinID))]
-      output$DT.feature.stdevs[, PeptideID := factor(as.character(PeptideID))]
-      output$DT.feature.stdevs[, FeatureID := factor(as.character(FeatureID))]
-      setorder(output$DT.feature.stdevs, ProteinID, PeptideID, FeatureID, chainID, mcmcID)
+
+      if(control$feature.model != "single") {
+        output$DT.feature.stdevs[, PeptideID := factor(as.character(PeptideID))]
+        output$DT.feature.stdevs[, FeatureID := factor(as.character(FeatureID))]
+        setorder(output$DT.feature.stdevs, ProteinID, PeptideID, FeatureID, chainID, mcmcID)
+      } else {
+        setorder(output$DT.feature.stdevs, ProteinID, chainID, mcmcID)
+      }
+
       filename <- file.path(paste0("model", stage), paste0("feature.stdevs.", stage), paste0(chainID, ".fst"))
       fst::write.fst(output$DT.feature.stdevs, file.path(fit, filename))
 

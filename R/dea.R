@@ -62,7 +62,7 @@ dea_MCMCglmm <- function(
             mev = NULL
           }
 
-          output.contrast$fit <- MCMCglmm::MCMCglmm(fixed = fixed, mev = mev, data = output.contrast$DT.input, prior = prior, verbose = F)
+          output.contrast$fit <- MCMCglmm::MCMCglmm(fixed = fixed, mev = mev, data = output.contrast$DT.input, prior = prior, verbose = F, ...)
           output.contrast$log <- paste0("[", Sys.time(), "] succeeded\n")
         } else {
           output.contrast$log <- paste0("[", Sys.time(), "] ignored as n < 2 for one or both conditions\n")
@@ -178,7 +178,7 @@ dea_metafor <- function(
           for (i in 0:9) {
             control$sigma2.init = 0.025 + 0.1 * i
             try( {
-              output.contrast$fit <- metafor::rma.mv(yi = est, V = SE^2, data = output.contrast$DT.input, control = control, test = "t", mods = mods, random = random)
+              output.contrast$fit <- metafor::rma.mv(yi = est, V = SE^2, data = output.contrast$DT.input, control = control, test = "t", mods = mods, random = random, ...)
               output.contrast$log <- paste0("[", Sys.time(), "] attempt ", i + 1, " succeeded\n")
               break
             })
@@ -258,7 +258,8 @@ dea_ttests <- function(
   paired = FALSE,
   var.equal = TRUE,
   output = "ttests",
-  as.data.table = FALSE
+  as.data.table = FALSE,
+  ...
 ) {
   message("WARNING: This function does not use BayesProt's standard errors and hence should only be used for comparative purposes with the other 'dea' methods.")
 
@@ -290,7 +291,7 @@ dea_ttests <- function(
 
           output.contrast$fit <- t.test(output.contrast$DT.input$est[output.contrast$DT.input$Condition == cts[1, j]],
                                         output.contrast$DT.input$est[output.contrast$DT.input$Condition == cts[2, j]],
-                                        paired = paired, var.equal = var.equal)
+                                        paired = paired, var.equal = var.equal, ...)
           output.contrast$fit$Covariate <- paste0("Condition", cts[2, j])
           output.contrast$log <- paste0("[", Sys.time(), "] attempt succeeded\n")
         } else {
@@ -313,9 +314,9 @@ dea_ttests <- function(
         if (!is.null(output.contrast$fit)) {
           data.table(
             Covariate = output.contrast$fit$Covariate,
-            lower = output.contrast$fit$conf.int[1],
-            upper = output.contrast$fit$conf.int[2],
-            est = output.contrast$fit$estimate[2],
+            lower = -output.contrast$fit$conf.int[2],
+            upper = -output.contrast$fit$conf.int[1],
+            est = output.contrast$fit$estimate[2] - output.contrast$fit$estimate[1],
             SE = output.contrast$fit$stderr,
             DF = output.contrast$fit$parameter,
             tvalue = output.contrast$fit$statistic,
