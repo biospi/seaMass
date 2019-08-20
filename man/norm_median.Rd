@@ -4,11 +4,8 @@
 \alias{norm_median}
 \title{Median normalisation}
 \usage{
-norm_median(fit, assay.dilutions = rep_len(1,
-  nlevels(design(fit)$Assay)),
-  ref.assays = design(fit)$Assay[design(fit)$ref == T],
-  ref.proteins = levels(proteins(fit)$Protein), as.data.table = FALSE,
-  ...)
+norm_median(fit, ref.proteins = levels(proteins(fit)$Protein),
+  as.data.table = FALSE, ...)
 }
 \description{
 blah

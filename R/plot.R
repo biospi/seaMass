@@ -4,6 +4,98 @@
 #' @return The sum of \code{x} and \code{y}.
 #' @import data.table
 #' @export
+plot_pca <- function(fit, data = protein_quants(fit), data.design = design(fit)) {
+  DT.protein.quants.summary <- as.data.table(data)
+  DT.design <- as.data.table(data.design)
+
+  # remove assays with zero variance (pure reference samples)
+  DT.assays.pca <- DT.protein.quants.summary[, .(use = var(est) >= 0.0000001), by = AssayID]
+  DT.protein.quants.summary <- merge(DT.protein.quants.summary, DT.assays.pca, by = "AssayID")[use == T][, !"use"]
+  # DT.protein.quants <- merge(DT.protein.quants, DT.assays.pca, by = "AssayID")[use == T][, !"use"]
+
+  # est
+  DT.pca.est <- data.table::dcast(DT.protein.quants.summary, ProteinID ~ AssayID, value.var = "est")
+  DT.pca.est <- DT.pca.est[complete.cases(DT.pca.est)]
+  DT.pca.est <- data.table::dcast(melt(DT.pca.est, id.vars = "ProteinID"), variable ~ ProteinID, value.var = "value")
+
+  # MCMC quants
+  # DT.pca.mcmc <- rbindlist(lapply(split(DT.protein.quants, by = c("chainID", "mcmcID")), function(DT) {
+  #   DT[, AssayID := paste(AssayID, chainID, mcmcID, sep = ".")]
+  #   DT <- data.table::dcast(DT, ProteinID ~ AssayID, value.var = "value")
+  #   DT <- DT[complete.cases(DT)]
+  #   data.table::dcast(melt(DT, id.vars = "ProteinID"), variable ~ ProteinID, value.var = "value")
+  # }))
+
+  # X
+  #DT.X <- setDF(rbind(DT.pca.mcmc, DT.pca.est))
+  #rownames(DT.X) <- DT.X$variable
+  #DT.X$variable <- NULL
+  setDF(DT.pca.est)
+  rownames(DT.pca.est) <- DT.pca.est$variable
+  DT.pca.est$variable <- NULL
+
+  # SE and col.w
+  DT.pca.SE <- data.table::dcast(DT.protein.quants.summary, ProteinID ~ AssayID, value.var = "SE")
+  DT.pca.SE <- DT.pca.SE[complete.cases(DT.pca.SE)]
+  DT.pca.SE$ProteinID <- NULL
+  row.w <- 1.0 / colMeans(DT.pca.SE^2)
+  col.w <- 1.0 / rowMeans(DT.pca.SE^2)
+
+  # FactoMineR PCA
+  pca.assays <- FactoMineR::PCA(setDF(DT.pca.est), scale.unit = F, row.w = row.w, col.w = col.w, graph = F)
+  #pca.assays <- FactoMineR::PCA(setDF(DT.X), scale.unit = F, ind.sup = 1:nrow(DT.pca.mcmc), row.w = row.w, col.w = col.w, graph = F)
+
+  # extract individuals
+  DT.pca.assays <- data.table(
+    PC1 = pca.assays$ind$coord[,1],
+    PC2 = pca.assays$ind$coord[,2],
+    AssayID = rownames(pca.assays$ind$coord)
+  )
+  DT.pca.assays <- merge(DT.pca.assays, DT.design, by = "AssayID")
+  DT.pca.assays[, SampleAssay := factor(paste0("(", Sample, ") ", Assay))]
+
+  # extract sup individuals
+  # DT.pca.assays.sup <- data.table(
+  #   PC1 = pca.assays$ind.sup$coord[,1],
+  #   PC2 = pca.assays$ind.sup$coord[,2],
+  #   AssayID = rownames(pca.assays$ind$coord)
+  # )
+  # DT.pca.assays.sup.density <- DT.pca.assays.sup[, {
+  #   dens <- ks::kde(cbind(PC1, PC2))
+  #   DT <- data.table(
+  #     expand.grid(x = dens$eval.points[[1]], y = dens$eval.points[[2]]),
+  #     z = as.vector(dens$estimate) / dens$cont["5%"]
+  #   )
+  # }, by = AssayID]
+  # DT.pca.assays.sup <- merge(DT.pca.assays.sup, DT.design, by = "AssayID")
+  # DT.pca.assays.sup.density <- merge(DT.pca.assays.sup.density, DT.design, by = "AssayID")
+
+  # Just showing the individual samples...
+  g <- ggplot2::ggplot(DT.pca.assays, ggplot2::aes(x = PC1, y = PC2))
+  if (all(is.na(DT.pca.assays$Condition))) {
+    #g <- g + ggplot2::geom_point(data = DT.pca.assays.sup, alpha = 0.01)
+    #g <- g + ggplot2::stat_contour(data = DT.pca.assays.sup.density, ggplot2::aes(group = AssayID, x = x, y = y, z = z), breaks = 1)
+    g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = SampleAssay), size = 3.0)
+    g <- g + ggplot2::geom_point()
+  } else {
+    #g <- g + ggplot2::geom_point(data = DT.pca.assays.sup, alpha = 0.01)
+    #g <- g + ggplot2::stat_contour(data = DT.pca.assays.sup.density, ggplot2::aes(colour = Condition, group = AssayID, x = x, y = y, z = z), breaks = 1)
+    g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = SampleAssay, colour = Condition), size = 3.0)
+    g <- g + ggplot2::geom_point(ggplot2::aes(colour = Condition))
+  }
+  g <- g + ggplot2::xlab(paste0("PC1 (", format(round(pca.assays$eig[1, "percentage of variance"], 2), nsmall = 2), "%)"))
+  g <- g + ggplot2::ylab(paste0("PC2 (", format(round(pca.assays$eig[2, "percentage of variance"], 2), nsmall = 2), "%)"))
+  g <- g + ggplot2::coord_fixed()
+  g
+}
+
+
+#' Add together two numbers.
+#'
+#' @param datafile A number.
+#' @return The sum of \code{x} and \code{y}.
+#' @import data.table
+#' @export
 
 plot_fdr <- function(data, ymax = 0.2) {
   DT <- as.data.table(data)

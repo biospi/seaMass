@@ -4,8 +4,9 @@
 \alias{dea_ttests}
 \title{Univariate differential expression analysis using t-tests}
 \usage{
-dea_ttests(fit, output = "ttests", data.design = design(fit),
-  paired = FALSE, var.equal = TRUE, as.data.table = FALSE)
+dea_ttests(fit, data.design = design(fit), condition = "Condition",
+  paired = FALSE, var.equal = TRUE, output = "ttests",
+  as.data.table = FALSE)
 }
 \description{
 Student's t-tests are performed pair-wise across the levels of the 'Condition' in 'data.design'. Note this function does not use

@@ -62,15 +62,9 @@ bayesprot <- function(
   # drop unused levels
   DT <- droplevels(DT)
 
-  # tidy norm
-  if (!is.null(norm.func)) {
-    if (is.function(norm.func)) {
-      norm.func <- list(norm.func)
-    }
-    if(is.null(names(norm.func))) {
-      names(norm.func) <- 1:length(norm.func)
-    }
-    names(norm.func) <- ifelse(names(norm.func) == "", 1:length(norm.func), names(norm.func))
+  # norm
+  if (!is.null(norm.func) && !is.function(norm.func)) {
+    stop("'norm.func' must be a function taking a bayesprot_fit object, or NULL")
   }
   control$norm.func <- norm.func
 

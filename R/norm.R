@@ -6,21 +6,15 @@
 #' @export
 norm_median <- function(
   fit,
-  assay.dilutions = rep_len(1, nlevels(design(fit)$Assay)),
-  ref.assays = design(fit)$Assay[design(fit)$ref == T],
+  #volumes = rep_len(1, nlevels(design(fit)$Assay)),
   ref.proteins = levels(proteins(fit)$Protein),
   as.data.table = FALSE,
   ...
 ) {
-  DT.proteins <- proteins(fit, as.data.table = T)
+  ref.proteinIDs <- proteins(fit, as.data.table = T)[Protein %in% ref.proteins, ProteinID]
 
-  if (!is.null(proteins) && !all(proteins %in% levels(DT.proteins$Protein))) {
-    stop("all 'proteins' used for normalisation need to be in levels(proteins()$Protein)")
-  }
-
-  DT.proteins[, norm := Protein %in% as.character(proteins)]
-  DT.assay.exposures <- protein_quants(fit, summary = F, as.data.table = T)[, .(
-    value = median(value[ProteinID %in% DT.proteins[norm == T, ProteinID]])
+  DT.assay.exposures <- protein_quants(fit, data.exposures = NULL, summary = F, as.data.table = T)[, .(
+    value = median(value[ProteinID %in% ref.proteinIDs])
   ), by = .(AssayID, chainID, mcmcID)]
 
   if (!as.data.table) setDF(DT.assay.exposures)

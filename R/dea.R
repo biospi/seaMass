@@ -76,7 +76,7 @@ dea_MCMCglmm <- function(
     })
 
     # save chunk
-    saveRDS(output.chunk, file.path(fit, "model2", "de", paste0(output, ".", DT.chunk[1, BatchID], ".rds")))
+    saveRDS(output.chunk, file.path(fit, "model2", "protein.de", paste0(output, ".", DT.chunk[1, BatchID], ".rds")))
 
     # extract results
     rbindlist(lapply(output.chunk, function (output.protein) {
@@ -195,7 +195,7 @@ dea_metafor <- function(
     })
 
     # save chunk
-    saveRDS(output.chunk, file.path(fit, "model2", "de", paste0(output, ".", DT.chunk[1, BatchID], ".rds")))
+    saveRDS(output.chunk, file.path(fit, "model2", "protein.de", paste0(output, ".", DT.chunk[1, BatchID], ".rds")))
 
     # extract results
     rbindlist(lapply(output.chunk, function (output.protein) {
@@ -253,15 +253,16 @@ dea_metafor <- function(
 #' @export
 dea_ttests <- function(
   fit,
-  output = "ttests",
   data.design = design(fit),
+  condition = "Condition",
   paired = FALSE,
   var.equal = TRUE,
+  output = "ttests",
   as.data.table = FALSE
 ) {
   message("WARNING: This function does not use BayesProt's standard errors and hence should only be used for comparative purposes with the other 'dea' methods.")
 
-  input <- dea_init(fit, data.design)
+  input <- dea_init(fit, data.design, condition)
   cts <- input$contrasts
 
   # start cluster and reproducible seed
@@ -304,7 +305,7 @@ dea_ttests <- function(
     })
 
     # save chunk
-    saveRDS(output.chunk, file.path(fit, "model2", "de", paste0(output, ".", DT.chunk[1, BatchID], ".rds")))
+    saveRDS(output.chunk, file.path(fit, "model2", "protein.de", paste0(output, ".", DT.chunk[1, BatchID], ".rds")))
 
     # extract results
     rbindlist(lapply(output.chunk, function (output.protein) {
@@ -359,6 +360,8 @@ dea_ttests <- function(
 #' @export
 fdr_ash <- function(
   data,
+  by.model = T,
+  by.covariate = T,
   min.peptides = 1,
   min.peptides.per.condition = 0,
   min.features = 1,
@@ -423,7 +426,11 @@ fdr_ash <- function(
     message(paste0("[", Sys.time(), "]  running ash..."))
   }
 
-  DTs <- split(DT, by = c("Model", "Covariate"), drop = T)
+  if (by.model && by.covariate) DTs <- split(DT, by = byby, drop = T)
+  else if (by.model) DTs <- split(DT, by = byby, drop = T)
+  else if (by.covariate) DTs <- split(DT, by = byby, drop = T)
+  else DTs <- list(DT)
+
   DT <- foreach(DT = iterators::iter(DTs), .final = rbindlist, .inorder = F, .packages = "data.table") %do% {
     # run ash, but allowing variable DF
     if (use.DF) {
@@ -445,11 +452,17 @@ fdr_ash <- function(
     fit.fdr$result[, sebetahat := NULL]
     rmcols <- which(colnames(DT) %in% colnames(fit.fdr$result))
     if (length(rmcols) > 0) DT <- DT[, -rmcols, with = F]
+    fit.fdr$result[, Model := DT[use.FDR == T, Model]]
+    fit.fdr$result[, Covariate := DT[use.FDR == T, Covariate]]
     fit.fdr$result[, ProteinID := DT[use.FDR == T, ProteinID]]
-    DT <- merge(DT, fit.fdr$result, all.x = T, by = "ProteinID")
+    DT <- merge(DT, fit.fdr$result, all.x = T, by = c("Model", "Covariate", "ProteinID"))
     DT[, use.FDR := NULL]
-    setorder(DT, Model, Covariate, qvalue, na.last = T)
   }
+
+  if (by.model && by.covariate) setorder(DT, Model, Covariate, qvalue, na.last = T)
+  else if (by.model) setorder(DT, Model, qvalue, na.last = T)
+  else if (by.covariate) setorder(DT, Covariate, qvalue, na.last = T)
+  else setorder(DT, qvalue, na.last = T)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -465,6 +478,8 @@ fdr_ash <- function(
 #' @export
 fdr_BH <- function(
   data,
+  by.model = T,
+  by.covariate = T,
   min.peptides = 1,
   min.peptides.per.condition = 0,
   min.features = 1,
@@ -494,9 +509,18 @@ fdr_BH <- function(
        (`1:nRealSample` >= min.real.samples.per.condition & `2:nTestSample` >= min.real.samples.per.condition)]
 
   # perform FDR
-  DT[, qvalue := ifelse(use.FDR, p.adjust(pvalue, method = "BH"), NA), by = c("Model", "Covariate")]
+  if (by.model && by.covariate) byby <- c("Model", "Covariate")
+  else if (by.model) byby <- "Model"
+  else if (by.covariate) byby <- "Covariate"
+  else byby <- NULL
+
+  DT[, qvalue := ifelse(use.FDR, p.adjust(pvalue, method = "BH"), NA), by = byby]
   DT[, use.FDR := NULL]
-  setorder(DT, Model, Covariate, qvalue, pvalue, na.last = T)
+
+  if (by.model && by.covariate) setorder(DT, Model, Covariate, qvalue, pvalue, na.last = T)
+  else if (by.model) setorder(DT, Model, qvalue, pvalue, na.last = T)
+  else if (by.covariate) setorder(DT, Covariate, qvalue, pvalue, na.last = T)
+  else setorder(DT, qvalue, pvalue, na.last = T)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -509,10 +533,10 @@ dea_init <- function(fit, data.design, condition) {
 
   # prepare design
   out$DT.design <- data.table::as.data.table(data.design)
-  if (!is.null(out$DT.design$nAssayID)) out$DT.design[, AssayID := NULL]
+  if (!is.null(out$DT.design$AssayID)) out$DT.design[, AssayID := NULL]
   if (!is.null(out$DT.design$nPeptide)) out$DT.design[, nPeptide := NULL]
   if (!is.null(out$DT.design$nFeature)) out$DT.design[, nFeature := NULL]
-  out$DT.design <- merge(out$DT.design, design(fit, as.data.table = T)[, .(AssayID, Assay, nPeptide, nFeature)], by = "Assay")
+  out$DT.design <- merge(out$DT.design, design(fit, as.data.table = T)[, .(AssayID, Assay)], by = "Assay")
 
   # prepare quants
   out$DTs <- merge(protein_quants(fit, as.data.table = T), out$DT.design, by = "AssayID")
