@@ -540,7 +540,7 @@ dea_init <- function(fit, data.design, condition) {
   out$DT.design <- merge(out$DT.design, design(fit, as.data.table = T)[, .(AssayID, Assay)], by = "Assay")
 
   # prepare quants
-  out$DTs <- merge(protein_quants(fit, as.data.table = T), out$DT.design, by = "AssayID")
+  out$DTs <- merge(protein_quants(fit, ref.assays = data.design$Assay[data.design$ref == T], as.data.table = T), out$DT.design, by = "AssayID")
 
   # organise data by pairwise levels of condition
   out$contrasts = combn(levels(out$DTs[, get(condition)]), 2)

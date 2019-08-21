@@ -4,7 +4,7 @@
 \alias{plot_pca}
 \title{Add together two numbers.}
 \usage{
-plot_pca(data)
+plot_pca(fit, data = protein_quants(fit), data.design = design(fit))
 }
 \arguments{
 \item{datafile}{A number.}

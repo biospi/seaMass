@@ -23,6 +23,7 @@ Imports:
     ggrepel (>= 0.8.0),
     gridExtra (>= 2.3),
     ks (>= 1.11.5),
+    limma (>= 3.40.6),
     logKDE (>= 0.3.2),
     metafor (>= 2.0-0),
     metRology (>= 0.9-28-1),

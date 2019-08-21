@@ -31,16 +31,23 @@ process_model1 <- function(
       peptide.fit <- fitdistrplus::fitdist(1.0 / DT.peptide.vars$est, "gamma", method = "mge", gof = "CvM", start = list(shape = 1.0, scale = 20), lower = 0.0001)
       peptide.nu <- as.numeric(2.0 * peptide.fit$estimate["shape"])
       peptide.V <- as.numeric((2.0 * 1.0 / peptide.fit$estimate["scale"]) / peptide.nu)
+      #peptide.fit <- limma::squeezeVar(DT.peptide.vars$est, 1)
+      #peptide.nu <- as.numeric(peptide.fit$df.prior)
+      #peptide.V <- as.numeric(peptide.fit$var.prior)
     } else {
       peptide.nu <- NULL
       peptide.V <- NULL
     }
+
 
     # fit feature posterior medians
     DT.feature.vars <- feature_vars1_ln(fit)
     feature.fit <- fitdistrplus::fitdist(1.0 / DT.feature.vars$est, "gamma", method = "mge", gof = "CvM", start = list(shape = 1.0, scale = 20), lower = 0.0001)
     feature.nu <- as.numeric(2.0 * feature.fit$estimate["shape"])
     feature.V <- as.numeric((2.0 * 1.0 / feature.fit$estimate["scale"]) / feature.nu)
+    #feature.fit <- limma::squeezeVar(DT.peptide.vars$est, 1)
+    #feature.nu <- as.numeric(feature.fit$df.prior)
+    #feature.V <- as.numeric(feature.fit$var.prior)
 
     # save output
     saveRDS(list(

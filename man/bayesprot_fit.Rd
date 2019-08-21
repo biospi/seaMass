@@ -17,7 +17,7 @@
 \alias{exposures}
 \title{Interrogating the \code{bayesprot} fit object}
 \usage{
-bayesprot_fit(dir, force = F)
+bayesprot_fit(dir = "bayesprot", force = F)
 
 del(fit)
 
