@@ -78,7 +78,7 @@ protein_quants <- function(
 ) {
   # load index
   DT.index <- rbind(
-    fst::read.fst(file.path(fit, "model1", "protein.quants.1.index.fst"), as.data.table = T),
+    #fst::read.fst(file.path(fit, "model1", "protein.quants.1.index.fst"), as.data.table = T),
     fst::read.fst(file.path(fit, "model2", "protein.quants.2.index.fst"), as.data.table = T)
   )
 
@@ -141,7 +141,7 @@ peptide_deviations <- function(
 ) {
   # load index
   DT.index <- rbind(
-    fst::read.fst(file.path(fit, "model1", "peptide.deviations.1.index.fst"), as.data.table = T),
+    #fst::read.fst(file.path(fit, "model1", "peptide.deviations.1.index.fst"), as.data.table = T),
     fst::read.fst(file.path(fit, "model2", "peptide.deviations.2.index.fst"), as.data.table = T)
   )
 
@@ -189,7 +189,7 @@ peptide_stdevs <- function(
 ) {
   # load index
   DT.index <- rbind(
-    fst::read.fst(file.path(fit, "model1", "peptide.stdevs.1.index.fst"), as.data.table = T),
+    #fst::read.fst(file.path(fit, "model1", "peptide.stdevs.1.index.fst"), as.data.table = T),
     fst::read.fst(file.path(fit, "model2", "peptide.stdevs.2.index.fst"), as.data.table = T)
   )
 
@@ -237,7 +237,7 @@ feature_stdevs <- function(
 ) {
   # load index
   DT.index <- rbind(
-    fst::read.fst(file.path(fit, "model1", "feature.stdevs.1.index.fst"), as.data.table = T),
+    #fst::read.fst(file.path(fit, "model1", "feature.stdevs.1.index.fst"), as.data.table = T),
     fst::read.fst(file.path(fit, "model2", "feature.stdevs.2.index.fst"), as.data.table = T)
   )
 
@@ -286,7 +286,7 @@ summary.bayesprot_fit <- function(
   if (!is.null(protein)) proteinID <- proteins(fit, as.data.table = T)[Protein == protein, ProteinID]
 
   DT.summaries <- rbindlist(lapply(c(
-    list.files(file.path(fit, "model1", "summaries.1"), "^[0-9]+\\..*fst$", full.names = T),
+    #list.files(file.path(fit, "model1", "summaries.1"), "^[0-9]+\\..*fst$", full.names = T),
     list.files(file.path(fit, "model2", "summaries.2"), "^[0-9]+\\..*fst$", full.names = T)
   ), function(file) fst::read.fst(file, as.data.table = T)))
 
@@ -299,7 +299,7 @@ summary.bayesprot_fit <- function(
 #' @export
 timings <- function(fit, as.data.table = F) {
   DT.timings <- rbindlist(lapply(c(
-    list.files(file.path(fit, "model1", "timings.1"), "^[0-9]+\\...*fst$", full.names = T),
+    #list.files(file.path(fit, "model1", "timings.1"), "^[0-9]+\\...*fst$", full.names = T),
     list.files(file.path(fit, "model2", "timings.2"), "^[0-9]+\\..*fst$", full.names = T)
   ), function(file) fst::read.fst(file, as.data.table = T)))
 

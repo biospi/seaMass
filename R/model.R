@@ -31,9 +31,9 @@ process_model1 <- function(
       peptide.fit <- fitdistrplus::fitdist(1.0 / DT.peptide.vars$est, "gamma", method = "mge", gof = "CvM", start = list(shape = 1.0, scale = 20), lower = 0.0001)
       peptide.nu <- as.numeric(2.0 * peptide.fit$estimate["shape"])
       peptide.V <- as.numeric((2.0 * 1.0 / peptide.fit$estimate["scale"]) / peptide.nu)
-      #peptide.fit <- limma::squeezeVar(DT.peptide.vars$est, 1)
-      #peptide.nu <- as.numeric(peptide.fit$df.prior)
-      #peptide.V <- as.numeric(peptide.fit$var.prior)
+      #feature.fit <- limma::squeezeVar(DT.peptide.vars$est, 5)
+      #feature.V <- as.numeric(feature.fit$var.prior)
+      #feature.nu <- as.numeric(feature.fit$df.prior)
     } else {
       peptide.nu <- NULL
       peptide.V <- NULL
@@ -401,8 +401,8 @@ execute_model <- function(
   dir.create(file.path(path.output, paste0("summaries.", stage)), showWarnings = F)
   dir.create(file.path(path.output, paste0("timings.", stage)), showWarnings = F)
 
-  # stage 1: nPeptide > control$peptide.prior && nFeature > control$feature.prior, stage 2: others
-  DT.proteins <- DT.proteins[prior == (stage == 2)]
+  # stage 1: nPeptide > control$peptide.prior && nFeature > control$feature.prior, stage 2: all
+  if (stage == 1) DT.proteins <- DT.proteins[prior == (stage == 2)]
 
   if (nrow(DT.proteins) > 0) {
     # start cluster and reproducible seed
@@ -467,15 +467,14 @@ execute_model <- function(
           prior.random <- NULL
         } else if (control$peptide.model == "single") {
           random <- as.formula("~PeptideID:SampleID")
-          prior.random <- list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2)
-          if (!is.null(priors) && nlevels(DT$PeptideID) <= control$peptide.prior) {
+          if (!is.null(priors)) {
             prior.random <- list(V = priors$peptide.V, nu = priors$peptide.nu)
           } else {
             prior.random <- list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2)
           }
         } else {
           random <- as.formula(paste0("~", ifelse(nT == 1, "PeptideID", "idh(PeptideID)"), ":SampleID"))
-          if (!is.null(priors) && nlevels(DT$PeptideID) <= control$peptide.prior) {
+          if (!is.null(priors)) {
             prior.random <- list(V = priors$peptide.V * diag(nT), nu = priors$peptide.nu)
           } else {
             prior.random <- list(V = diag(nT), nu = nT, alpha.mu = rep(0, nT), alpha.V = diag(25^2, nT))
@@ -485,15 +484,14 @@ execute_model <- function(
         # residual
         if (control$feature.model == "single") {
           rcov <- as.formula("~FeatureID:AssayID")
-          if (!is.null(priors) && nlevels(DT$FeatureID) <= control$feature.prior) {
+          if (!is.null(priors)) {
             prior.rcov <- list(V = priors$feature.V, nu = priors$feature.nu)
           } else {
             prior.rcov <- list(V = 1, nu = 0.02)
           }
         } else {
           rcov <- as.formula(paste0("~", ifelse(nF == 1, "FeatureID:AssayID", "idh(FeatureID):AssayID")))
-          if (!is.null(priors) && nlevels(DT$FeatureID) <= control$feature.prior) {
-            # need to figure out here which should have prior and which not
+          if (!is.null(priors)) {
             prior.rcov <- list(V = priors$feature.V * diag(nF), nu = priors$feature.nu)
           } else {
             prior.rcov <- list(V = diag(nF), nu = 0.02)
