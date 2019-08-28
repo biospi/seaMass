@@ -106,7 +106,6 @@ bayesprot <- function(
   setorder(DT.proteins, -timing)
   DT.proteins[, ProteinID := factor(formatC(1:nrow(DT.proteins), width = ceiling(log10(nrow(DT.proteins))) + 1, format = "d", flag = "0"))]
   DT.proteins[, Protein := factor(Protein, levels = unique(Protein))]
-  DT.proteins[, prior := nPeptide <= control$peptide.prior | nFeature <= control$feature.prior]
   setcolorder(DT.proteins, c("ProteinID"))
 
   DT <- merge(DT, DT.proteins[, .(Protein, ProteinID)], by = "Protein", sort = F)
@@ -163,8 +162,18 @@ bayesprot <- function(
   if (control$missingness.model == "censored") DT[, Count1 := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
   if (control$missingness.model == "censored" | control$missingness.model == "zero") DT[is.na(Count), Count := 0.0]
   if (control$missingness.model == "censored" & all(DT$Count == DT$Count1)) DT[, Count1 := NULL]
+
+  # filter DT for Empirical Bayes model0
+  DT1 <- unique(DT[, .(ProteinID, PeptideID, FeatureID)])
+  DT1[, nFeature := .N, by = .(ProteinID, PeptideID)]
+  DT1 <- DT1[nFeature >= control$feature.prior]
+  DT1[, nFeature := NULL]
+  DT1 <- DT1[as.numeric(ProteinID) <= as.numeric(unique(DT1[, .(ProteinID, PeptideID)])[control$peptide.prior, ProteinID])]
+  DT1 <- merge(DT, DT1, by = c("ProteinID", "PeptideID", "FeatureID"))
+
   # index in DT.proteins for fst random access
-  DT.proteins <- merge(DT.proteins, DT[, .(ProteinID = unique(ProteinID), from = .I[!duplicated(ProteinID)], to = .I[rev(!duplicated(rev(ProteinID)))])], by = "ProteinID", all.x = T, sort = F)
+  DT.proteins <- merge(DT.proteins, DT1[, .(ProteinID = unique(ProteinID), from.1 = .I[!duplicated(ProteinID)], to.1 = .I[rev(!duplicated(rev(ProteinID)))])], by = "ProteinID", all.x = T, sort = F)
+  DT.proteins <- merge(DT.proteins, DT[, .(ProteinID = unique(ProteinID), from.2 = .I[!duplicated(ProteinID)], to.2 = .I[rev(!duplicated(rev(ProteinID)))])], by = "ProteinID", all.x = T, sort = F)
 
   # save data and metadata
   dir.create(file.path(output, "input"))
@@ -173,7 +182,8 @@ bayesprot <- function(
   dir.create(file.path(output, "output"))
   if (plots) dir.create(file.path(output, "plots"))
   saveRDS(control, file.path(output, "input", "control.rds"))
-  fst::write.fst(DT, file.path(output, "input", "input.fst"))
+  fst::write.fst(DT1, file.path(output, "input", "input1.fst"))
+  fst::write.fst(DT, file.path(output, "input", "input2.fst"))
   fst::write.fst(DT.proteins, file.path(output, "input", "proteins.fst"))
   fst::write.fst(DT.peptides, file.path(output, "input", "peptides.fst"))
   fst::write.fst(DT.features, file.path(output, "input", "features.fst"))
@@ -211,9 +221,9 @@ bayesprot <- function(
 #'
 #' @param peptide.model Either \code{NULL} (no peptide model), \code{single} (single random effect) or \code{independent}
 #'   (per-peptide independent random effects; default)
-#' @param peptide.prior Empirical Bayes priors are used only for peptides where the parent protein has this number of peptides or less (default is 2)
+#' @param peptide.prior Number of peptides to use for computing Empirical Bayes peptide & feature priors
 #' @param feature.model Either \code{single} (single residual) or \code{independent} (per-feature independent residuals; default)
-#' @param feature.prior Empirical Bayes priors are used only for features where the parent protein has this number of features or less (default is 2)
+#' @param feature.prior Minimum number of features per peptide to use for computing Empirical Bayes peptide & feature priors
 #' @param error.model Either \code{lognormal} or \code{poisson} (default)
 #' @param missingness.model Either \code{zero} (NAs set to 0), \code{feature} (NAs set to lowest quant of that feature) or
 #'   \code{censored} (NAs modelled as censored between 0 and lowest quant of that feature; default)
@@ -229,7 +239,7 @@ bayesprot <- function(
 #' @export
 new_control <- function(
   peptide.model = "independent",
-  peptide.prior = 2,
+  peptide.prior = 1024,
   feature.model = "independent",
   feature.prior = 2,
   error.model = "poisson",

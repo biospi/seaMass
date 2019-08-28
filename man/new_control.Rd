@@ -4,8 +4,8 @@
 \alias{new_control}
 \title{Control parameters for the BayesProt Bayesian model}
 \usage{
-new_control(peptide.model = "independent", peptide.prior = 2,
-  feature.model = "independent", feature.prior = 2,
+new_control(peptide.model = "independent", peptide.prior = 1024,
+  feature.model = "independent", feature.prior = 3,
   error.model = "poisson", missingness.model = "censored",
   missingness.threshold = 0, model.seed = 0, model.nchain = 4,
   model.nwarmup = 256, model.thin = 1, model.nsample = 1024,
@@ -15,11 +15,11 @@ new_control(peptide.model = "independent", peptide.prior = 2,
 \item{peptide.model}{Either \code{NULL} (no peptide model), \code{single} (single random effect) or \code{independent}
 (per-peptide independent random effects; default)}
 
-\item{peptide.prior}{Empirical Bayes priors are used only for peptides where the parent protein has this number of peptides or less (default is 2)}
+\item{peptide.prior}{Number of peptides to use for computing Empirical Bayes peptide & feature priors}
 
 \item{feature.model}{Either \code{single} (single residual) or \code{independent} (per-feature independent residuals; default)}
 
-\item{feature.prior}{Empirical Bayes priors are used only for features where the parent protein has this number of features or less (default is 2)}
+\item{feature.prior}{Minimum number of features per peptide to use for computing Empirical Bayes peptide & feature priors}
 
 \item{error.model}{Either \code{lognormal} or \code{poisson} (default)}
 

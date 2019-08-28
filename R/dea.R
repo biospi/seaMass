@@ -394,7 +394,7 @@ fdr_ash <- function(
   # If input is MCMC samples, need to compute standard errors and degrees of freedom
   if (!is.null(DT$mcmcID)) {
     message(paste0("[", Sys.time(), "]  summarising MCMC samples..."))
-    DTs <- batch_split(DT)
+    DTs <- batch_split(DT, "ProteinID", 16)
 
     # start cluster and reproducible seed
     cl <- parallel::makeCluster(nthread)
@@ -546,9 +546,9 @@ dea_init <- function(fit, data.design, condition) {
   out$contrasts = combn(levels(out$DTs[, get(condition)]), 2)
   out$DT.meta <- data.table::rbindlist(lapply(1:ncol(out$contrasts), function(j) {
     DT.output <- merge(
-      out$DTs[, .(AssayID, ProteinID, prior, nPeptide, nFeature)],
+      out$DTs[, .(AssayID, ProteinID, nPeptide, nFeature)],
       out$DTs[as.character(get(condition)) %in% out$contrasts[, j]],
-      by = c("AssayID", "ProteinID", "prior", "nPeptide", "nFeature"), all.x = T
+      by = c("AssayID", "ProteinID", "nPeptide", "nFeature"), all.x = T
     )
     DT.output[, (condition) := factor(as.character(get(condition)), levels = out$contrasts[, j])]
     DT.output <- DT.output[, .(
@@ -568,18 +568,9 @@ dea_init <- function(fit, data.design, condition) {
   }))
 
   # batch
-  out$DTs <- batch_split(out$DTs)
+  out$DTs <- batch_split(out$DTs, "ProteinID", 16)
 
   return(out)
-}
-
-
-batch_split <- function(DT) {
-  DT[, BatchID := ProteinID]
-  nbatch <- ceiling(nlevels(DT$ProteinID) / 16)
-  levels(DT$BatchID) <- rep(formatC(1:nbatch, width = ceiling(log10(nbatch)) + 1, format = "d", flag = "0"), each = 16)[1:nlevels(DT$ProteinID)]
-
-  return(split(DT, by = "BatchID"))
 }
 
 

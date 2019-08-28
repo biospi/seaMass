@@ -114,8 +114,8 @@ protein_quants <- function(
 
     # optionally summarise
     if (summary)  {
-      DT.protein <- DT.protein[, .(prior = any(prior), nPeptide = first(nPeptide), nFeature = first(nFeature), est = median(value), SE = mad(value)), by = .(ProteinID, AssayID)]
-      #DT.protein <- DT.protein[, .(prior = any(prior), nPeptide = first(nPeptide), nFeature = first(nFeature), est = mean(value), SE = sd(value)), by = .(ProteinID, AssayID)]
+      DT.protein <- DT.protein[, .(nPeptide = first(nPeptide), nFeature = first(nFeature), est = median(value), SE = mad(value)), by = .(ProteinID, AssayID)]
+      #DT.protein <- DT.protein[, .(nPeptide = first(nPeptide), nFeature = first(nFeature), est = mean(value), SE = sd(value)), by = .(ProteinID, AssayID)]
     } else {
       DT.protein[, BaselineID := NULL]
     }
@@ -165,7 +165,7 @@ peptide_deviations <- function(
 
     # optionally summarise
     if (summary)  {
-      DT.protein <- DT.protein[, .(prior = any(prior), nPeptide = first(nPeptide), nFeature = first(nFeature), est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID, SampleID)]
+      DT.protein <- DT.protein[, .(nPeptide = first(nPeptide), nFeature = first(nFeature), est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID, SampleID)]
     }
 
     DT.protein
@@ -213,7 +213,7 @@ peptide_stdevs <- function(
 
     # optionally summarise
     if (summary)  {
-      DT.protein <- DT.protein[, .(prior = any(prior), est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID)]
+      DT.protein <- DT.protein[, .(est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID)]
     }
 
     DT.protein
@@ -261,7 +261,7 @@ feature_stdevs <- function(
 
     # optionally summarise
     if (summary)  {
-      DT.protein <- DT.protein[, .(prior = any(prior), est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID, FeatureID)]
+      DT.protein <- DT.protein[, .(est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID, FeatureID)]
     }
 
     DT.protein
