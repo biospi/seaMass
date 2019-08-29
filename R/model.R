@@ -28,12 +28,13 @@ process_model1 <- function(
     cl <- parallel::makeCluster(control$nthread)
     doSNOW::registerDoSNOW(cl)
 
-    # fit scaled chi squared distribution
+    # fit inverse scaled chi squared distribution
     fit.posterior <- function(value) {
-      peptide.fit <- fitdistrplus::fitdist(value, "gamma", method = "mme")
+      peptide.fit <- fitdistrplus::fitdist(1.0 / value, "gamma", method = "mge", gof = "CvM", start = list(shape = 1.0, scale = 20), lower = 0.0001)
       data.table(
-        est = median(value),
-        V = 1.0 / (as.numeric(peptide.fit$estimate["rate"] * peptide.fit$estimate["shape"])),
+        shape = as.numeric(peptide.fit$estimate["shape"]),
+        scale = as.numeric(peptide.fit$estimate["scale"]),
+        V = as.numeric(peptide.fit$estimate["shape"] / peptide.fit$estimate["scale"]),
         nu = 2.0 * as.numeric(peptide.fit$estimate["shape"])
       )
     }
@@ -65,7 +66,18 @@ process_model1 <- function(
     #  features.fit <- limma::fitFDist(DT.feature.vars$V[1:n], DT.feature.vars$nu[1:n])
     #  list(n = n, feature.V = features.fit$scale, feature.nu = features.fit$df2)
     #}))
-    features.fit <- limma::fitFDist(DT.feature.vars$V, DT.feature.vars$nu)
+    repeat{
+      delta <- 0
+      features.fit <- limma::fitFDist(DT.feature.vars$V, DT.feature.vars$nu)
+      if(!is.infinite(features.fit$df2)) {
+        break
+      } else if (delta >= 2.0) {
+        stop(paste0("delta 2.0 still failing, something odd is happening"))
+      } else {
+        delta <- delta + 0.1
+        warning(paste0("fit failed, trying nu + ", delta))
+      }
+    }
     feature.V <- features.fit$scale
     feature.nu <- features.fit$df2
 
@@ -106,7 +118,20 @@ process_model1 <- function(
       #
       #   list(n = n, peptide.V = peptides.fit$scale, peptide.nu = peptides.fit$df2)
       # }))
-      peptides.fit <- limma::fitFDist(DT.peptide.vars$V, DT.peptide.vars$nu)
+
+      # fit scaled F Distribution - Limma method fails with low DF as need to calculate mean. Hack - add some DF until it works.
+      repeat{
+        delta <- 0
+        peptides.fit <- limma::fitFDist(DT.peptide.vars$V, DT.peptide.vars$nu)
+        if(!is.infinite(peptides.fit$df2)) {
+          break
+        } else if (delta >= 2.0) {
+          stop(paste0("delta 2.0 still failing, something odd is happening"))
+        } else {
+          delta <- delta + 0.1
+          warning(paste0("fit failed, trying nu + ", delta))
+        }
+      }
       peptide.V <- peptides.fit$scale
       peptide.nu <- peptides.fit$df2
     } else {
@@ -145,21 +170,21 @@ process_model1 <- function(
 
       if(!is.null(control$peptide.model)) {
         DT.prior.vars.meta <- rbind(
-          data.table(Type = "Peptide", DT.peptide.vars[, as.list(prior.vars.meta(sqrt(est)))]),
-          data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.meta(sqrt(est)))])
+          data.table(Type = "Peptide", DT.peptide.vars[, as.list(prior.vars.meta(V))]),
+          data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.meta(V))])
         )
       } else {
-        DT.prior.vars.meta <- data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.meta(sqrt(est)))])
+        DT.prior.vars.meta <- data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.meta(V))])
       }
       DT.prior.vars.meta[, Type := factor(Type, levels = unique(Type))]
 
       if(!is.null(control$peptide.model)) {
         DT.prior.fit.meta <- rbind(
-          data.table(Type = "Peptide", DT.peptide.vars[, as.list(prior.vars.meta(sqrt(priors$peptide.V)))]),
-          data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.meta(sqrt(priors$feature.V)))])
+          data.table(Type = "Peptide", DT.peptide.vars[, as.list(prior.vars.meta(priors$peptide.V))]),
+          data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.meta(priors$feature.V))])
         )
       } else {
-        DT.prior.fit.meta <- data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.meta(sqrt(priors$feature.V)))])
+        DT.prior.fit.meta <- data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.meta(priors$feature.V))])
       }
       DT.prior.fit.meta[, Type := factor(Type, levels = unique(Type))]
 
@@ -171,21 +196,21 @@ process_model1 <- function(
 
       if(!is.null(control$peptide.model)) {
         DT.prior.vars.density <- rbind(
-          data.table(Type = "Peptide", DT.peptide.vars[, as.list(prior.vars.density(sqrt(est)))]),
-          data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.density(sqrt(est)))])
+          data.table(Type = "Peptide", DT.peptide.vars[, as.list(prior.vars.density(V))]),
+          data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.density(V))])
         )
       } else {
-        DT.prior.vars.density <- data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.density(sqrt(est)))])
+        DT.prior.vars.density <- data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.density(est))])
       }
       DT.prior.vars.density[, Type := factor(Type, levels = unique(Type))]
 
       if(!is.null(control$peptide.model)) {
         DT.prior.fit.density <- rbind(
-          data.table(Type = "Peptide", DT.peptide.vars[, as.list(prior.vars.density(sqrt(MCMCglmm::rIW(priors$peptide.V * diag(1), priors$peptide.nu, n = 1000000))))]),
-          data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.density(sqrt(MCMCglmm::rIW(priors$feature.V * diag(1), priors$feature.nu, n = 1000000))))])
+          data.table(Type = "Peptide", DT.peptide.vars[, as.list(prior.vars.density(MCMCglmm::rIW(priors$peptide.V * diag(1), priors$peptide.nu, n = 1000000)))]),
+          data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.density(MCMCglmm::rIW(priors$feature.V * diag(1), priors$feature.nu, n = 1000000)))])
         )
       } else {
-        DT.prior.fit.density <- data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.density(sqrt(MCMCglmm::rIW(priors$feature.V * diag(1), priors$feature.nu, n = 1000000))))])
+        DT.prior.fit.density <- data.table(Type = "Feature", DT.feature.vars[, as.list(prior.vars.density(MCMCglmm::rIW(priors$feature.V * diag(1), priors$feature.nu, n = 1000000)))])
       }
       DT.prior.fit.density[, Type := factor(Type, levels = unique(Type))]
 
@@ -202,9 +227,9 @@ process_model1 <- function(
                               plot.title = ggplot2::element_text(size = 10),
                               strip.background = ggplot2::element_blank(),
                               strip.text.y = ggplot2::element_text(angle = 0))
-      #g <- g + ggplot2::coord_cartesian(xlim = c(min(DT.prior.vars.density$x) / 1.1, max(DT.prior.vars.density$x) * 1.1), ylim = c(0, max(DT.prior.fit.density$y) * 1.35))
-      g <- g + ggplot2::coord_cartesian(xlim = c(0.01, 1), ylim = c(0, max(DT.prior.fit.density$y) * 1.35))
-      g <- g + ggplot2::xlab(expression('Ln Standard Deviation'))
+      g <- g + ggplot2::coord_cartesian(xlim = c(min(DT.prior.vars.density$x) / 1.1, max(DT.prior.vars.density$x) * 1.1), ylim = c(0, max(DT.prior.fit.density$y) * 1.35))
+      #g <- g + ggplot2::coord_cartesian(xlim = c(0.0001, 1000), ylim = c(0, max(DT.prior.fit.density$y) * 1.35))
+      g <- g + ggplot2::xlab(expression('Log Variance'))
       g <- g + ggplot2::ylab("Probability Density")
       g <- g + ggplot2::facet_grid(Type ~ .)
       g <- g + ggplot2::scale_x_log10(labels = fmt_signif(1), expand = c(0, 0))
@@ -216,7 +241,8 @@ process_model1 <- function(
       g <- g + ggplot2::geom_text(data = DT.prior.fit.meta, ggplot2::aes(x = median, label = fc), y = max(DT.prior.fit.density$y) * 1.25, hjust = 0, vjust = 1, size = 3, colour = "red")
       g
     }
-    g <- plot_priors(priors, DT.peptide.vars[1:1024], DT.feature.vars)
+    g <- plot_priors(priors, DT.peptide.vars, DT.feature.vars)
+    g
     ggplot2::ggsave(file.path(fit, "output", "peptide_feature_priors.pdf"), g, width = 8, height = 6, limitsize = F)
 
     # for (i in 8) {
@@ -855,14 +881,14 @@ execute_model <- function(
 
       if (chain == 1) {
         if (stage == 1) {
-          output$DT.peptide.stdevs.index2 <- output$DT.peptide.stdevs[, .(
+          output$DT.peptide.stdevs.2index <- output$DT.peptide.stdevs[, .(
             from = .I[!duplicated(output$DT.peptide.stdevs, by = c("ProteinID", "PeptideID"))],
             to = .I[!duplicated(output$DT.peptide.stdevs, fromLast = T, by = c("ProteinID", "PeptideID"))]
           )]
           output$DT.peptide.stdevs.index <- rbind(output$DT.peptide.stdevs.index, cbind(
-            output$DT.peptide.stdevs[output$DT.peptide.stdevs.index2$from, .(ProteinID, PeptideID)],
+            output$DT.peptide.stdevs[output$DT.peptide.stdevs.2index$from, .(ProteinID, PeptideID)],
             data.table(file = filename),
-            output$DT.peptide.stdevs.index2
+            output$DT.peptide.stdevs.2index
           ))
         } else {
           output$DT.peptide.stdevs.index <- rbind(output$DT.peptide.stdevs.index, output$DT.peptide.stdevs[, .(
@@ -899,14 +925,14 @@ execute_model <- function(
 
       if (chain == 1) {
         if (stage == 1) {
-          output$DT.feature.stdevs.index2 <- output$DT.feature.stdevs[, .(
+          output$DT.feature.stdevs.2index <- output$DT.feature.stdevs[, .(
             from = .I[!duplicated(output$DT.feature.stdevs, by = c("ProteinID", "PeptideID", "FeatureID"))],
             to = .I[!duplicated(output$DT.feature.stdevs, fromLast = T, by = c("ProteinID", "PeptideID", "FeatureID"))]
           )]
           output$DT.feature.stdevs.index <- rbind(output$DT.feature.stdevs.index, cbind(
-            output$DT.feature.stdevs[output$DT.feature.stdevs.index2$from, .(ProteinID, PeptideID, FeatureID)],
+            output$DT.feature.stdevs[output$DT.feature.stdevs.2index$from, .(ProteinID, PeptideID, FeatureID)],
             data.table(file = filename),
-            output$DT.feature.stdevs.index2
+            output$DT.feature.stdevs.2index
           ))
         } else {
           output$DT.feature.stdevs.index <- rbind(output$DT.feature.stdevs.index, output$DT.feature.stdevs[, .(

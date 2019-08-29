@@ -5,7 +5,7 @@
 \title{Control parameters for the BayesProt Bayesian model}
 \usage{
 new_control(peptide.model = "independent", peptide.prior = 1024,
-  feature.model = "independent", feature.prior = 3,
+  feature.model = "independent", feature.prior = 2,
   error.model = "poisson", missingness.model = "censored",
   missingness.threshold = 0, model.seed = 0, model.nchain = 4,
   model.nwarmup = 256, model.thin = 1, model.nsample = 1024,
