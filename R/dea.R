@@ -371,7 +371,7 @@ fdr_ash <- function(
   min.test.samples.per.condition = 2,
   min.real.samples = 1,
   min.real.samples.per.condition = 0,
-  mixcompdist = "uniform",
+  mixcompdist = "halfuniform",
   use.DF = TRUE,
   as.data.table = FALSE,
   nthread = parallel::detectCores(logical = FALSE),
@@ -402,10 +402,10 @@ fdr_ash <- function(
 
     pb <- txtProgressBar(max = length(DTs), style = 3)
     DT <- foreach(DT.chunk = iterators::iter(DTs), .final = rbindlist, .inorder = F, .packages = c("data.table", "metRology"), .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
-      # calculate HPD and fit student's t distributions
+      # calculate HPD and fit scaled student's t distributions
       if (use.DF) {
         DT.out <- DT.chunk[, as.list(tryCatch(
-          fitdistrplus::fitdist(value, "t.scaled", start = list(mean = median(value), sd = mad(value), df = 3))$estimate,
+          fitdistrplus::fitdist(value, "t.scaled", method = "mge", gof = "CvM", start = list(mean = median(value), sd = mad(value), df = 3))$estimate,
           error = function(e) list(mean = median(value), sd = mad(value), df = Inf)
         )), by = .(Model, Covariate, ProteinID)]
         setnames(DT.out, c("mean", "sd", "df"), c("est", "SE", "DF"))
@@ -427,9 +427,9 @@ fdr_ash <- function(
     message(paste0("[", Sys.time(), "]  running ash..."))
   }
 
-  if (by.model && by.covariate) DTs <- split(DT, by = byby, drop = T)
-  else if (by.model) DTs <- split(DT, by = byby, drop = T)
-  else if (by.covariate) DTs <- split(DT, by = byby, drop = T)
+  if (by.model && by.covariate) DTs <- split(DT, by = c("Model", "Covariate"), drop = T)
+  else if (by.model) DTs <- split(DT, by = "Model", drop = T)
+  else if (by.covariate) DTs <- split(DT, by = "Covariate", drop = T)
   else DTs <- list(DT)
 
   DT <- foreach(DT = iterators::iter(DTs), .final = rbindlist, .inorder = F, .packages = "data.table") %do% {

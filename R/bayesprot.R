@@ -168,8 +168,19 @@ bayesprot <- function(
   DT1[, nFeature := .N, by = .(ProteinID, PeptideID)]
   DT1 <- DT1[nFeature >= control$feature.prior]
   DT1[, nFeature := NULL]
-  DT1 <- DT1[as.numeric(ProteinID) <= as.numeric(unique(DT1[, .(ProteinID, PeptideID)])[control$peptide.prior, ProteinID])]
+
+  DT1.peptides <- unique(DT1[, .(ProteinID, PeptideID)])
+  DT1.peptides[, nPeptide := .N, by = ProteinID]
+  DT1.peptides <- DT1.peptides[nPeptide >= control$peptide.prior]
+  DT1.peptides[, nPeptide := NULL]
+
+  DT1 <- merge(DT1, DT1.peptides, by = c("ProteinID", "PeptideID"))
   DT1 <- merge(DT, DT1, by = c("ProteinID", "PeptideID", "FeatureID"))
+
+  #if (control$peptide.prior < nrow(unique(DT1[, .(ProteinID, PeptideID)]))) {
+  #  DT1 <- DT1[as.numeric(ProteinID) <= as.numeric(unique(DT1[, .(ProteinID, PeptideID)])[control$peptide.prior, ProteinID])]
+  #}
+  #DT1 <- merge(DT, DT1, by = c("ProteinID", "PeptideID", "FeatureID"))
 
   # index in DT.proteins for fst random access
   DT.proteins <- merge(DT.proteins, DT1[, .(ProteinID = unique(ProteinID), from.1 = .I[!duplicated(ProteinID)], to.1 = .I[rev(!duplicated(rev(ProteinID)))])], by = "ProteinID", all.x = T, sort = F)
@@ -239,7 +250,7 @@ bayesprot <- function(
 #' @export
 new_control <- function(
   peptide.model = "independent",
-  peptide.prior = 1024,
+  peptide.prior = 5,
   feature.model = "independent",
   feature.prior = 2,
   error.model = "poisson",
@@ -257,7 +268,7 @@ new_control <- function(
   if (!is.null(hpc) && hpc != "pbs" && hpc != "sge" && hpc != "slurm" && hpc != "remote") {
     stop("'hpc' needs to be either 'pbs', 'sge', 'slurm', 'remote' or NULL (default)")
   }
-  if (!is.null(peptide.model) && peptide.model != "single" && peptide.model != "independent") {
+  if (!is.null(peptide.model) && peptide.model != "single" && peptide.model != "random" && peptide.model != "independent") {
     stop("'peptide.model' needs to be either NULL, 'single' or 'independent' (default)")
   }
   if (!is.null(feature.model) && feature.model != "single" && feature.model != "independent") {

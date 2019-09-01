@@ -44,7 +44,12 @@ process_model1 <- function(
 
     DTs.index <- fst::read.fst(file.path(fit, "model1", "feature.stdevs.1.index.fst"), as.data.table = T)
     setorder(DTs.index, file, from)
-    DTs.index <- batch_split(DTs.index, "FeatureID", ceiling(nrow(DTs.index) / control$nthread))
+    features <- ceiling(nrow(DTs.index) / control$nthread)
+    if (control$feature.model == "independent") {
+      DTs.index <- batch_split(DTs.index, "FeatureID", ifelse(features < 32, features, 32))
+    } else {
+      DTs.index <- batch_split(DTs.index, "ProteinID", ifelse(features < 32, features, 32))
+    }
 
     pb <- txtProgressBar(max = length(DTs.index), style = 3)
     DT.feature.vars <- foreach(DT.index = iterators::iter(DTs.index), .final = rbindlist, .packages = c("data.table"), .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
@@ -55,7 +60,11 @@ process_model1 <- function(
           DT[, value := (value * log(2))^2]
           DT
         }))
-        DT.feature.var[, as.list(fit.posterior(value)), by = .(ProteinID, PeptideID, FeatureID)]
+        if (control$feature.model == "independent") {
+          DT.feature.var[, as.list(fit.posterior(value)), by = .(ProteinID, PeptideID, FeatureID)]
+        } else {
+          DT.feature.var[, as.list(fit.posterior(value)), by = .(ProteinID)]
+        }
       }))
     }
     setTxtProgressBar(pb, length(DTs.index))
@@ -87,7 +96,12 @@ process_model1 <- function(
       # load index
       DTs.index <- fst::read.fst(file.path(fit, "model1", "peptide.stdevs.1.index.fst"), as.data.table = T)
       setorder(DTs.index, file, from)
-      DTs.index <- batch_split(DTs.index, "PeptideID", ceiling(nrow(DTs.index) / control$nthread))
+      proteins <- ceiling(nrow(DTs.index) / control$nthread)
+      if (control$peptide.model == "independent") {
+        DTs.index <- batch_split(DTs.index, "PeptideID", ifelse(proteins < 32, proteins, 32))
+      } else {
+        DTs.index <- batch_split(DTs.index, "ProteinID", ifelse(proteins < 32, proteins, 32))
+      }
 
       # fit scaled chi squared distribution to each peptide
       pb <- txtProgressBar(max = length(DTs.index), style = 3)
@@ -99,7 +113,11 @@ process_model1 <- function(
             DT[, value := (value * log(2))^2]
             DT
           }))
-          DT.peptide.var[, as.list(fit.posterior(value)), by = .(ProteinID, PeptideID)]
+          if (control$peptide.model == "independent") {
+            DT.peptide.var[, as.list(fit.posterior(value)), by = .(ProteinID, PeptideID)]
+          } else {
+            DT.peptide.var[, as.list(fit.posterior(value)), by = .(ProteinID)]
+          }
         }))
       }
       setTxtProgressBar(pb, length(DTs.index))
@@ -150,16 +168,30 @@ process_model1 <- function(
 
     # PLOT VARIANCE FITS
     DT.peptide.vars[, nPeptide := .N, by = ProteinID]
-    g <- ggplot2::ggplot(DT.peptide.vars, ggplot2::aes(x = as.numeric(PeptideID), y = log2(V))) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1)
-    ggplot2::ggsave(file.path(fit, "model1", "peptide_vars_V.pdf"), g, width = 8, height = 6, limitsize = F)
-    g <- ggplot2::ggplot(DT.peptide.vars, ggplot2::aes(x = as.numeric(PeptideID), y = log2(nu))) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1)
-    ggplot2::ggsave(file.path(fit, "model1", "peptide_vars_nu.pdf"), g, width = 8, height = 6, limitsize = F)
+    if (control$peptide.model == "independent") {
+      g <- ggplot2::ggplot(DT.peptide.vars, ggplot2::aes(x = as.numeric(PeptideID), y = log2(V))) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1)
+      ggplot2::ggsave(file.path(fit, "model1", "peptide_vars_V.pdf"), g, width = 8, height = 6, limitsize = F)
+      g <- ggplot2::ggplot(DT.peptide.vars, ggplot2::aes(x = as.numeric(PeptideID), y = log2(nu))) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1)
+      ggplot2::ggsave(file.path(fit, "model1", "peptide_vars_nu.pdf"), g, width = 8, height = 6, limitsize = F)
+    } else {
+      g <- ggplot2::ggplot(DT.peptide.vars, ggplot2::aes(x = as.numeric(ProteinID), y = log2(V))) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1)
+      ggplot2::ggsave(file.path(fit, "model1", "peptide_vars_V.pdf"), g, width = 8, height = 6, limitsize = F)
+      g <- ggplot2::ggplot(DT.peptide.vars, ggplot2::aes(x = as.numeric(ProteinID), y = log2(nu))) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1)
+      ggplot2::ggsave(file.path(fit, "model1", "peptide_vars_nu.pdf"), g, width = 8, height = 6, limitsize = F)
+    }
 
     DT.feature.vars[, nPeptide := .N, by = ProteinID]
-    g <- ggplot2::ggplot(DT.feature.vars, ggplot2::aes(x = as.numeric(FeatureID), y = log2(V))) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1)
-    ggplot2::ggsave(file.path(fit, "model1", "feature_vars_V.pdf"), g, width = 8, height = 6, limitsize = F)
-    g <- ggplot2::ggplot(DT.feature.vars, ggplot2::aes(x = as.numeric(FeatureID), y = log2(nu))) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1)
-    ggplot2::ggsave(file.path(fit, "model1", "feature_vars_nu.pdf"), g, width = 8, height = 6, limitsize = F)
+    if (control$feature.model == "independent") {
+      g <- ggplot2::ggplot(DT.feature.vars, ggplot2::aes(x = as.numeric(FeatureID), y = log2(V))) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1)
+      ggplot2::ggsave(file.path(fit, "model1", "feature_vars_V.pdf"), g, width = 8, height = 6, limitsize = F)
+      g <- ggplot2::ggplot(DT.feature.vars, ggplot2::aes(x = as.numeric(FeatureID), y = log2(nu))) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1)
+      ggplot2::ggsave(file.path(fit, "model1", "feature_vars_nu.pdf"), g, width = 8, height = 6, limitsize = F)
+    } else {
+      g <- ggplot2::ggplot(DT.feature.vars, ggplot2::aes(x = as.numeric(ProteinID), y = log2(V))) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1)
+      ggplot2::ggsave(file.path(fit, "model1", "feature_vars_V.pdf"), g, width = 8, height = 6, limitsize = F)
+      g <- ggplot2::ggplot(DT.feature.vars, ggplot2::aes(x = as.numeric(ProteinID), y = log2(nu))) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1)
+      ggplot2::ggsave(file.path(fit, "model1", "feature_vars_nu.pdf"), g, width = 8, height = 6, limitsize = F)
+    }
 
     # PLOT PRIOR FIT
     plot_priors <- function(priors, DT.peptide.vars, DT.feature.vars) {
@@ -227,8 +259,8 @@ process_model1 <- function(
                               plot.title = ggplot2::element_text(size = 10),
                               strip.background = ggplot2::element_blank(),
                               strip.text.y = ggplot2::element_text(angle = 0))
-      g <- g + ggplot2::coord_cartesian(xlim = c(min(DT.prior.vars.density$x) / 1.1, max(DT.prior.vars.density$x) * 1.1), ylim = c(0, max(DT.prior.fit.density$y) * 1.35))
-      #g <- g + ggplot2::coord_cartesian(xlim = c(0.0001, 1000), ylim = c(0, max(DT.prior.fit.density$y) * 1.35))
+      #g <- g + ggplot2::coord_cartesian(xlim = c(min(DT.prior.vars.density$x) / 1.1, max(DT.prior.vars.density$x) * 1.1), ylim = c(0, max(DT.prior.fit.density$y) * 1.35))
+      g <- g + ggplot2::coord_cartesian(xlim = c(0.00001, 100), ylim = c(0, max(DT.prior.fit.density$y) * 1.35))
       g <- g + ggplot2::xlab(expression('Log Variance'))
       g <- g + ggplot2::ylab("Probability Density")
       g <- g + ggplot2::facet_grid(Type ~ .)
@@ -242,7 +274,6 @@ process_model1 <- function(
       g
     }
     g <- plot_priors(priors, DT.peptide.vars, DT.feature.vars)
-    g
     ggplot2::ggsave(file.path(fit, "output", "peptide_feature_priors.pdf"), g, width = 8, height = 6, limitsize = F)
 
     # for (i in 8) {
@@ -306,10 +337,12 @@ process_model2 <- function(
     # feature stdevs
     message("[", paste0(Sys.time(), "]   feature stdevs..."))
     DT.feature.stdevs <- feature_stdevs(fit, as.data.table = T)
-    if (control$feature.model != "single") {
+    if (control$feature.model == "independent") {
       DT.feature.stdevs <- merge(DT.features, DT.feature.stdevs, by = "FeatureID")
     }
-    DT.feature.stdevs <- merge(DT.peptides[, .(PeptideID, Peptide)], DT.feature.stdevs, by = "PeptideID")
+    if (control$feature.model == "independent") {
+      DT.feature.stdevs <- merge(DT.peptides[, .(PeptideID, Peptide)], DT.feature.stdevs, by = "PeptideID")
+    }
     DT.feature.stdevs <- merge(DT.proteins[, .(ProteinID, Protein, ProteinInfo)], DT.feature.stdevs, by = "ProteinID")
     fwrite(DT.feature.stdevs, file.path(fit, "output", "feature_log2SDs.csv"))
     rm(DT.feature.stdevs)
@@ -318,7 +351,7 @@ process_model2 <- function(
       # peptide stdevs
       message("[", paste0(Sys.time(), "]   peptide stdevs..."))
       DT.peptide.stdevs <- peptide_stdevs(fit, as.data.table = T)
-      if (control$peptide.model != "single") {
+      if (control$peptide.model == "independent") {
         DT.peptide.stdevs <- merge(DT.peptides, DT.peptide.stdevs, by = "PeptideID")
       }
       DT.peptide.stdevs <- merge(DT.proteins[, .(ProteinID, Protein, ProteinInfo)], DT.peptide.stdevs, by = "ProteinID")
@@ -371,7 +404,7 @@ process_model2 <- function(
 
     # normalisation
     if (!is.null(control$norm.func)) {
-        message("[", paste0(Sys.time(), "]  normalised protein quants..."))
+        message("[", paste0(Sys.time(), "]   normalised protein quants..."))
 
         # calculate exposures and save normalised protein quants
         DT.assay.exposures <- control$norm.func(fit)
@@ -556,19 +589,23 @@ execute_model <- function(
         if (is.null(control$peptide.model)) {
           random <- NULL
           prior.random <- NULL
-        } else if (control$peptide.model == "single") {
-          random <- as.formula("~PeptideID:SampleID")
-          if (!is.null(priors)) {
-            prior.random <- list(V = priors$peptide.V, nu = priors$peptide.nu)
-          } else {
-            prior.random <- list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2)
-          }
-        } else {
+        } else if (control$peptide.model == "independent") {
           random <- as.formula(paste0("~", ifelse(nT == 1, "PeptideID", "idh(PeptideID)"), ":SampleID"))
           if (!is.null(priors)) {
             prior.random <- list(V = priors$peptide.V * diag(nT), nu = priors$peptide.nu)
           } else {
             prior.random <- list(V = diag(nT), nu = nT, alpha.mu = rep(0, nT), alpha.V = diag(25^2, nT))
+          }
+        } else {
+          if (control$peptide.model == "random") {
+            random <- as.formula("~PeptideID")
+          } else {
+            random <- as.formula("~PeptideID:SampleID")
+          }
+          if (!is.null(priors)) {
+            prior.random <- list(V = priors$peptide.V, nu = priors$peptide.nu)
+          } else {
+            prior.random <- list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2)
           }
         }
 
@@ -681,7 +718,7 @@ execute_model <- function(
             output$DT.peptide.stdevs <- as.data.table(model$VCV[, "PeptideID:SampleID", drop = F])
             setnames(output$DT.peptide.stdevs, "PeptideID:SampleID", "value")
             output$DT.peptide.stdevs[, mcmcID := factor(formatC(1:nrow(output$DT.peptide.stdevs), width = ceiling(log10(nrow(output$DT.peptide.stdevs))) + 1, format = "d", flag = "0"))]
-            if (control$peptide.model != "single") {
+            if (control$peptide.model == "independent") {
               output$DT.peptide.stdevs[, PeptideID := factor(levels(DT$PeptideID))]
             }
           } else {
@@ -695,7 +732,7 @@ execute_model <- function(
           output$DT.peptide.stdevs[, chainID := factor(chainID)]
           output$DT.peptide.stdevs[, value := sqrt(value) / log(2)]
 
-          if(control$peptide.model != "single") {
+          if(control$peptide.model == "independent") {
             setcolorder(output$DT.peptide.stdevs, c("ProteinID", "PeptideID", "chainID", "mcmcID"))
           } else {
             setcolorder(output$DT.peptide.stdevs, c("ProteinID", "chainID", "mcmcID"))
@@ -707,7 +744,7 @@ execute_model <- function(
           output$DT.feature.stdevs <- as.data.table(model$VCV[, "FeatureID:AssayID", drop = F])
           setnames(output$DT.feature.stdevs, "FeatureID:AssayID", "value")
           output$DT.feature.stdevs[, mcmcID := factor(formatC(1:nrow(output$DT.feature.stdevs), width = ceiling(log10(nrow(output$DT.feature.stdevs))) + 1, format = "d", flag = "0"))]
-          if (control$feature.model != "single") {
+          if (control$feature.model == "independent") {
             output$DT.feature.stdevs[, FeatureID := factor(levels(DT$FeatureID))]
             output$DT.feature.stdevs <- merge(output$DT.feature.stdevs, unique(DT[, .(FeatureID, PeptideID, ProteinID)]), by = "FeatureID")
           } else {
@@ -724,7 +761,7 @@ execute_model <- function(
         output$DT.feature.stdevs[, chainID := factor(chainID)]
         output$DT.feature.stdevs[, value := sqrt(value) / log(2)]
 
-        if (control$feature.model != "single") {
+        if (control$feature.model == "independent") {
           setcolorder(output$DT.feature.stdevs, c("ProteinID", "PeptideID", "FeatureID", "chainID", "mcmcID"))
         } else {
           setcolorder(output$DT.feature.stdevs, c("ProteinID", "chainID", "mcmcID"))
@@ -768,7 +805,7 @@ execute_model <- function(
           fst::write.fst(output$DT.peptide.stdevs, file.path(fit, filename))
 
           if (chain == 1) {
-            if (stage == 1) {
+            if (stage == 1 && control$peptide.model == "independent") {
               output$DT.peptide.stdevs.index <- output$DT.peptide.stdevs[, .(
                 from = .I[!duplicated(output$DT.peptide.stdevs, by = c("ProteinID", "PeptideID"))],
                 to = .I[!duplicated(output$DT.peptide.stdevs, fromLast = T, by = c("ProteinID", "PeptideID"))]
@@ -796,7 +833,7 @@ execute_model <- function(
           fst::write.fst(output$DT.feature.stdevs, file.path(fit, filename))
 
           if (chain == 1) {
-            if (stage == 1) {
+            if (stage == 1 && control$feature.model == "independent") {
               output$DT.feature.stdevs.index <- output$DT.feature.stdevs[, .(
                 from = .I[!duplicated(output$DT.feature.stdevs, by = c("ProteinID", "PeptideID", "FeatureID"))],
                 to = .I[!duplicated(output$DT.feature.stdevs, fromLast = T, by = c("ProteinID", "PeptideID", "FeatureID"))]
@@ -869,7 +906,7 @@ execute_model <- function(
     if (!is.null(output$DT.peptide.stdevs) && nrow(output$DT.peptide.stdevs) > 0) {
       output$DT.peptide.stdevs[, ProteinID := factor(as.character(ProteinID))]
 
-      if(control$peptide.model != "single") {
+      if(control$peptide.model == "independent") {
         output$DT.peptide.stdevs[, PeptideID := factor(as.character(PeptideID))]
         setorder(output$DT.peptide.stdevs, ProteinID, PeptideID, chainID, mcmcID)
       } else {
@@ -880,7 +917,7 @@ execute_model <- function(
       fst::write.fst(output$DT.peptide.stdevs, file.path(fit, filename))
 
       if (chain == 1) {
-        if (stage == 1) {
+        if (stage == 1 && control$peptide.model == "independent") {
           output$DT.peptide.stdevs.2index <- output$DT.peptide.stdevs[, .(
             from = .I[!duplicated(output$DT.peptide.stdevs, by = c("ProteinID", "PeptideID"))],
             to = .I[!duplicated(output$DT.peptide.stdevs, fromLast = T, by = c("ProteinID", "PeptideID"))]
@@ -912,7 +949,7 @@ execute_model <- function(
     if (!is.null(output$DT.feature.stdevs) && nrow(output$DT.feature.stdevs) > 0) {
       output$DT.feature.stdevs[, ProteinID := factor(as.character(ProteinID))]
 
-      if(control$feature.model != "single") {
+      if(control$feature.model == "independent") {
         output$DT.feature.stdevs[, PeptideID := factor(as.character(PeptideID))]
         output$DT.feature.stdevs[, FeatureID := factor(as.character(FeatureID))]
         setorder(output$DT.feature.stdevs, ProteinID, PeptideID, FeatureID, chainID, mcmcID)
@@ -924,7 +961,7 @@ execute_model <- function(
       fst::write.fst(output$DT.feature.stdevs, file.path(fit, filename))
 
       if (chain == 1) {
-        if (stage == 1) {
+        if (stage == 1 && control$feature.model == "independent") {
           output$DT.feature.stdevs.2index <- output$DT.feature.stdevs[, .(
             from = .I[!duplicated(output$DT.feature.stdevs, by = c("ProteinID", "PeptideID", "FeatureID"))],
             to = .I[!duplicated(output$DT.feature.stdevs, fromLast = T, by = c("ProteinID", "PeptideID", "FeatureID"))]

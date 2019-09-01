@@ -213,7 +213,11 @@ peptide_stdevs <- function(
 
     # optionally summarise
     if (summary)  {
-      DT.protein <- DT.protein[, .(est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID)]
+      if (is.null(DT.protein$PeptideID)) {
+        DT.protein <- DT.protein[, .(est = median(value), SE = mad(value)), by = ProteinID]
+      } else {
+        DT.protein <- DT.protein[, .(est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID)]
+      }
     }
 
     DT.protein
@@ -261,7 +265,11 @@ feature_stdevs <- function(
 
     # optionally summarise
     if (summary)  {
-      DT.protein <- DT.protein[, .(est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID, FeatureID)]
+      if (is.null(DT.protein$FeatureID)) {
+        DT.protein <- DT.protein[, .(est = median(value), SE = mad(value)), by = .(ProteinID)]
+      } else {
+        DT.protein <- DT.protein[, .(est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID, FeatureID)]
+      }
     }
 
     DT.protein
@@ -326,5 +334,5 @@ exposures <- function(fit, as.data.table = F) {
 #' @import metafor
 #' @export
 protein_de <- function(fit, key = 1, as.data.table = F) {
-  return(fst::read.fst(file.path(fit, "model2", "de", paste0(names(control(fit)$dea.func[key]), ".fst")), as.data.table = as.data.table))
+  return(fst::read.fst(file.path(fit, "model2", "protein.de", paste0(names(control(fit)$dea.func[key]), ".fst")), as.data.table = as.data.table))
 }
