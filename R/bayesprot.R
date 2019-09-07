@@ -12,9 +12,10 @@
 #'   assay-level study design, including reference assays, assay info and any covariates for optional differential expression
 #'   analysis. By default, all assays are set as reference channels, which is appropriate only for label-free studies
 #'   and fully-blocked iTraq/TMT/SILAC designs.
-#' @param norm.func List of normalisation functions to run (default: median normalisation)
-#' @param dea.func List of differential expression analysis functions to run
-#' @param plot Generate all plots (todo)
+#' @param norm.func A normalisation function or list of functions to run, or NULL (default: median normalisation)
+#' @param dea.func A differential expression analysis function or list of functions to run, or NULL (default: NULL)
+#' @param fdr.func A false discovery rate (FDR) correction function or list of functions to run, or NULL (default: ash FDR correction)
+#' @param plot Generate all plots
 #' @param output Folder on disk whether all intermediate and output data will be stored; default is \code{"bayesprot"}.
 #' @param control A control object created with \link{new_control} specifying control parameters for the model.
 #' @return A \code{bayesprot_fit} object that can be interrogated for various results with \code{protein_quants},
@@ -24,8 +25,10 @@
 bayesprot <- function(
   data,
   data.design = new_design(data),
+  ref.assays = "ref",
   norm.func = norm_median,
   dea.func = NULL,
+  fdr.func = fdr_ash,
   plots = F,
   output = "bayesprot",
   control = new_control()
@@ -47,6 +50,43 @@ bayesprot <- function(
     message("WARNING: You are specifying only a single MCMC chain, convergence diagnostics will be unavailable. It is recommended to specify model.nchain=4 or more in 'control' for publishable results.")
   }
 
+  # tidy ref.assays
+  if (!is.list(ref.assays)) ref.assays <- list(ref.assays)
+  if (!all(sapply(ref.assays, is.character))) {
+    stop("'ref.assays' must be a string or list of strings, or NULL")
+  }
+  control$ref.assays <- ref.assays
+
+  # tidy norm
+  if (!is.list(norm.func)) norm.func <- list(norm.func)
+  if (all(sapply(norm.func, is.function))) {
+    if(is.null(names(norm.func))) names(norm.func) <- 1:length(norm.func)
+    names(norm.func) <- ifelse(names(norm.func) == "", 1:length(norm.func), names(norm.func))
+  } else {
+    stop("'norm.func' must be a function or list of functions taking a bayesprot_fit object, or NULL")
+  }
+  control$norm.func <- norm.func
+
+  # tidy dea
+  if (!is.list(dea.func)) dea.func <- list(dea.func)
+  if (all(sapply(dea.func, is.function))) {
+    if(is.null(names(dea.func))) names(dea.func) <- 1:length(dea.func)
+    names(dea.func) <- ifelse(names(dea.func) == "", 1:length(dea.func), names(dea.func))
+  } else {
+    stop("'dea.func' must be a function or list of functions taking a bayesprot_fit object, or NULL")
+  }
+  control$dea.func <- dea.func
+
+  # tidy fdr
+  if (!is.list(fdr.func)) fdr.func <- list(fdr.func)
+  if (all(sapply(fdr.func, is.function))) {
+    if(is.null(names(fdr.func))) names(fdr.func) <- 1:length(fdr.func)
+    names(fdr.func) <- ifelse(names(fdr.func) == "", 1:length(fdr.func), names(fdr.func))
+  } else {
+    stop("'fdr.func' must be a function or list of functions taking a bayesprot_fit object, or NULL")
+  }
+  control$fdr.func <- fdr.func
+
   # filter DT
   if (!is.null(DT$Injection)) DT[, Injection := NULL]
   DT <- merge(DT, DT.design[, .(Run, Channel, Assay)], by = c("Run", "Channel"))
@@ -62,29 +102,11 @@ bayesprot <- function(
   # drop unused levels
   DT <- droplevels(DT)
 
-  # norm
-  if (!is.null(norm.func) && !is.function(norm.func)) {
-    stop("'norm.func' must be a function taking a bayesprot_fit object, or NULL")
-  }
-  control$norm.func <- norm.func
-
-  # tidy dea
-  if (!is.null(dea.func)) {
-    if (is.function(dea.func)) {
-      dea.func <- list(dea.func)
-    }
-    if(is.null(names(dea.func))) {
-      names(dea.func) <- 1:length(dea.func)
-    }
-    names(dea.func) <- ifelse(names(dea.func) == "", 1:length(dea.func), names(dea.func))
-  }
-  control$dea.func <- dea.func
-
   # create output directory
   output <- path.expand(output)
   if (file.exists(output)) {
     if (file.exists(file.path(output, "bayesprot_fit"))) {
-      stop("completed output already exists - please try again with a different output name or delete the folder using 'del'")
+      stop("completed output already exists - please try again with a different output name or delete the folder using the function 'bayesprot::del'")
     } else {
       unlink(output, recursive = T)
     }
@@ -166,21 +188,26 @@ bayesprot <- function(
   # filter DT for Empirical Bayes model0
   DT1 <- unique(DT[, .(ProteinID, PeptideID, FeatureID)])
   DT1[, nFeature := .N, by = .(ProteinID, PeptideID)]
-  DT1 <- DT1[nFeature >= control$feature.prior]
+  DT1 <- DT1[nFeature >= control$feature.prior.min]
   DT1[, nFeature := NULL]
 
   DT1.peptides <- unique(DT1[, .(ProteinID, PeptideID)])
   DT1.peptides[, nPeptide := .N, by = ProteinID]
-  DT1.peptides <- DT1.peptides[nPeptide >= control$peptide.prior]
+  DT1.peptides <- DT1.peptides[nPeptide >= control$peptide.prior.min]
   DT1.peptides[, nPeptide := NULL]
+
+  if (control$peptide.prior.n < nrow(unique(DT1[, .(ProteinID, PeptideID)]))) {
+    DT1.peptides <- DT1.peptides[as.numeric(ProteinID) <= as.numeric(unique(droplevels(DT1)[, .(ProteinID, PeptideID)])[control$peptide.prior.n, ProteinID])]
+  }
 
   DT1 <- merge(DT1, DT1.peptides, by = c("ProteinID", "PeptideID"))
   DT1 <- merge(DT, DT1, by = c("ProteinID", "PeptideID", "FeatureID"))
 
-  #if (control$peptide.prior < nrow(unique(DT1[, .(ProteinID, PeptideID)]))) {
-  #  DT1 <- DT1[as.numeric(ProteinID) <= as.numeric(unique(DT1[, .(ProteinID, PeptideID)])[control$peptide.prior, ProteinID])]
-  #}
-  #DT1 <- merge(DT, DT1, by = c("ProteinID", "PeptideID", "FeatureID"))
+  DT.peptides <- merge(DT.peptides, unique(DT1[, .(PeptideID, prior = T)]), by = "PeptideID", all.x = T)
+  DT.peptides[is.na(prior), prior := F]
+
+  DT.features <- merge(DT.features, unique(DT1[, .(FeatureID, prior = T)]), by = "FeatureID", all.x = T)
+  DT.features[is.na(prior), prior := F]
 
   # index in DT.proteins for fst random access
   DT.proteins <- merge(DT.proteins, DT1[, .(ProteinID = unique(ProteinID), from.1 = .I[!duplicated(ProteinID)], to.1 = .I[rev(!duplicated(rev(ProteinID)))])], by = "ProteinID", all.x = T, sort = F)
@@ -232,9 +259,10 @@ bayesprot <- function(
 #'
 #' @param peptide.model Either \code{NULL} (no peptide model), \code{single} (single random effect) or \code{independent}
 #'   (per-peptide independent random effects; default)
-#' @param peptide.prior Number of peptides to use for computing Empirical Bayes peptide & feature priors
+#' @param peptide.prior.n Number of peptides to use for computing Empirical Bayes peptide and feature priors
+#' @param peptide.prior.min Minimum number of peptides per protein to use for computing Empirical Bayes peptide & feature priors
 #' @param feature.model Either \code{single} (single residual) or \code{independent} (per-feature independent residuals; default)
-#' @param feature.prior Minimum number of features per peptide to use for computing Empirical Bayes peptide & feature priors
+#' @param feature.prior.min Minimum number of features per peptide to use for computing Empirical Bayes peptide & feature priors
 #' @param error.model Either \code{lognormal} or \code{poisson} (default)
 #' @param missingness.model Either \code{zero} (NAs set to 0), \code{feature} (NAs set to lowest quant of that feature) or
 #'   \code{censored} (NAs modelled as censored between 0 and lowest quant of that feature; default)
@@ -250,9 +278,10 @@ bayesprot <- function(
 #' @export
 new_control <- function(
   peptide.model = "independent",
-  peptide.prior = 5,
+  peptide.prior.n = 1024,
+  peptide.prior.min = 5,
   feature.model = "independent",
-  feature.prior = 2,
+  feature.prior.min = 3,
   error.model = "poisson",
   missingness.model = "censored",
   missingness.threshold = 0,

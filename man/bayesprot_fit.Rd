@@ -10,8 +10,8 @@
 \alias{proteins}
 \alias{protein_quants}
 \alias{peptide_deviations}
-\alias{peptide_stdevs}
-\alias{feature_stdevs}
+\alias{peptide_vars}
+\alias{feature_vars}
 \alias{summary.bayesprot_fit}
 \alias{timings}
 \alias{exposures}
@@ -31,18 +31,19 @@ peptides(fit, as.data.table = F)
 
 proteins(fit, as.data.table = F)
 
-protein_quants(fit, proteins = NULL, proteinIDs = NULL,
+protein_quants(fit, proteinIDs = NULL,
   ref.assays = design(fit)$Assay[design(fit)$ref == T],
-  data.exposures = exposures(fit), summary = T, as.data.table = F)
+  data.exposures = exposures(fit), summary = T, as.data.table = F,
+  stage = 2, parallel = F)
 
-peptide_deviations(fit, proteins = NULL, proteinIDs = NULL,
-  summary = T, as.data.table = F)
+peptide_deviations(fit, proteinIDs = NULL, summary = T,
+  as.data.table = F, stage = 2, parallel = F)
 
-peptide_stdevs(fit, proteins = NULL, proteinIDs = NULL, summary = T,
-  as.data.table = F)
+peptide_vars(fit, peptideIDs = NULL, proteinIDs = NULL, summary = T,
+  as.data.table = F, stage = 2, parallel = F)
 
-feature_stdevs(fit, proteins = NULL, proteinIDs = NULL, summary = T,
-  as.data.table = F)
+feature_vars(fit, featureIDs = NULL, proteinIDs = NULL, summary = T,
+  as.data.table = F, stage = 2, parallel = F)
 
 \method{summary}{bayesprot_fit}(fit, protein = NULL, proteinID = NULL)
 

@@ -4,9 +4,9 @@
 \alias{bayesprot}
 \title{Fit the BayesProt Bayesian Protein-level quantification model}
 \usage{
-bayesprot(data, data.design = new_design(data),
-  norm.func = norm_median, dea.func = NULL, plots = F,
-  output = "bayesprot", control = new_control())
+bayesprot(data, data.design = new_design(data), ref.assays = "ref",
+  norm.func = norm_median, dea.func = NULL, fdr.func = fdr_ash,
+  plots = F, output = "bayesprot", control = new_control())
 }
 \arguments{
 \item{data}{A \link{data.frame} of input data as returned by \link{import_ProteinPilot} or \link{import_ProteomeDiscoverer}.}
@@ -16,15 +16,17 @@ assay-level study design, including reference assays, assay info and any covaria
 analysis. By default, all assays are set as reference channels, which is appropriate only for label-free studies
 and fully-blocked iTraq/TMT/SILAC designs.}
 
-\item{norm.func}{List of normalisation functions to run (default: median normalisation)}
+\item{norm.func}{A normalisation function or list of functions to run, or NULL (default: median normalisation)}
 
-\item{dea.func}{List of differential expression analysis functions to run}
+\item{dea.func}{A differential expression analysis function or list of functions to run, or NULL (default: NULL)}
+
+\item{fdr.func}{A false discovery rate (FDR) correction function or list of functions to run, or NULL (default: ash FDR correction)}
 
 \item{output}{Folder on disk whether all intermediate and output data will be stored; default is \code{"bayesprot"}.}
 
 \item{control}{A control object created with \link{new_control} specifying control parameters for the model.}
 
-\item{plot}{Generate all plots (todo)}
+\item{plot}{Generate all plots}
 }
 \value{
 A \code{bayesprot_fit} object that can be interrogated for various results with \code{protein_quants},

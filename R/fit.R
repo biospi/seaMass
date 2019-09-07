@@ -69,12 +69,13 @@ proteins <- function(fit, as.data.table = F) {
 #' @export
 protein_quants <- function(
   fit,
-  proteins = NULL,
   proteinIDs = NULL,
   ref.assays = design(fit)$Assay[design(fit)$ref == T],
   data.exposures = exposures(fit),
   summary = T,
-  as.data.table = F
+  as.data.table = F,
+  stage = 2,
+  parallel = F
 ) {
   # load index
   DT.index <- rbind(
@@ -134,42 +135,64 @@ protein_quants <- function(
 #' @export
 peptide_deviations <- function(
   fit,
-  proteins = NULL,
   proteinIDs = NULL,
   summary = T,
-  as.data.table = F
+  as.data.table = F,
+  stage = 2,
+  parallel = F
 ) {
-  # load index
-  DT.index <- rbind(
-    #fst::read.fst(file.path(fit, "model1", "peptide.deviations.1.index.fst"), as.data.table = T),
-    fst::read.fst(file.path(fit, "model2", "peptide.deviations.2.index.fst"), as.data.table = T)
-  )
+  if (summary == T && file.exists(file.path(file.path(fit, paste0("model", stage), paste0("peptide.deviations.", stage, ".summary.fst"))))) {
 
-  # filter index
-  if (!is.null(proteins)) {
-    DT.index <- DT.index[Protein %in% proteins]
-  } else if (is.numeric(proteinIDs)) {
-    DT.index <- DT.index[as.numeric(ProteinID) %in% proteinIDs]
-  } else if (!is.null(proteinIDs)) {
-    DT.index <- DT.index[ProteinID %in% proteinIDs]
-  }
-
-  # read quants
-  control <- control(fit)
-  chains <- formatC(1:control$model.nchain, width = ceiling(log10(control$model.nchain + 1)) + 1, format = "d", flag = "0")
-  DT <- rbindlist(lapply(1:nrow(DT.index), function(i) {
-    # centre to mean of relevant reference assay(s)
-    DT.protein <- rbindlist(lapply(chains, function(chain) {
-      fst::read.fst(sub(paste0(chains[1], "(\\..*fst)$"), paste0(chain, "\\1"), file.path(fit, DT.index$file[i])), from = DT.index$from[i], to = DT.index$to[i], as.data.table = T)
-    }))
-
-    # optionally summarise
-    if (summary)  {
-      DT.protein <- DT.protein[, .(nPeptide = first(nPeptide), nFeature = first(nFeature), est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID, SampleID)]
+    # load and filter from cache
+    DT <- fst::read.fst(file.path(file.path(fit, paste0("model", stage), paste0("peptide.deviations.", stage, ".summary.fst"))), as.data.table = T)
+    if (!is.null(proteinIDs)) {
+      DT <- DT[ProteinID %in% proteinIDs]
     }
 
-    DT.protein
-  }))
+  } else {
+
+    # load and filter index
+    DT.index <- fst::read.fst(file.path(fit, paste0("model", stage), paste0("peptide.deviations.", stage, ".index.fst")), as.data.table = T)
+    if (!is.null(proteinIDs)) {
+      DT.index <- DT.index[ProteinID %in% proteinIDs]
+    }
+
+    # read quants
+    control <- control(fit)
+    chains <- formatC(1:control$model.nchain, width = ceiling(log10(control$model.nchain + 1)) + 1, format = "d", flag = "0")
+    read_peptide_deviations <- function(DT.index) {
+      DT <- rbindlist(lapply(1:nrow(DT.index), function(i) {
+        # load
+        DT.protein <- rbindlist(lapply(chains, function(chain) {
+          fst::read.fst(sub(paste0(chains[1], "(\\..*fst)$"), paste0(chain, "\\1"), file.path(fit, DT.index$file[i])), from = DT.index$from[i], to = DT.index$to[i], as.data.table = T)
+        }))
+
+        # optionally summarise
+        if (summary)  {
+          DT.protein <- DT.protein[, as.list(fit_noncentral_scaled_t_distribution(value)), by = .(ProteinID, PeptideID, SampleID)]
+        }
+
+        DT.protein
+      }))
+    }
+
+    if (summary && parallel && nrow(DT.index) >= 32) {
+      n <- ceiling(nrow(DT.index) / control$nthread)
+      DTs.index <- batch_split(DT.index, "ProteinID", ifelse(n < 32, n, 32))
+
+      pb <- txtProgressBar(max = length(DTs.index), style = 3)
+      DT <- foreach(DT.index = iterators::iter(DTs.index), .combine = rbind, .inorder = F, .packages = c("data.table"), .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
+        read_peptide_deviations(DT.index[, .(from = min(from), to = max(to)), by = file])
+      }
+      setTxtProgressBar(pb, length(DTs.index))
+      close(pb)
+    } else {
+      DT <- read_peptide_deviations(DT.index)
+    }
+
+    # cache results
+    if (summary && is.null(proteinIDs)) fst::write.fst(DT, file.path(file.path(fit, paste0("model", stage), paste0("peptide.deviations.", stage, ".summary.fst"))))
+  }
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -180,48 +203,80 @@ peptide_deviations <- function(
 #' @rdname bayesprot_fit
 #' @import data.table
 #' @export
-peptide_stdevs <- function(
+peptide_vars <- function(
   fit,
-  proteins = NULL,
+  peptideIDs = NULL,
   proteinIDs = NULL,
   summary = T,
-  as.data.table = F
+  as.data.table = F,
+  stage = 2,
+  parallel = F
 ) {
-  # load index
-  DT.index <- rbind(
-    #fst::read.fst(file.path(fit, "model1", "peptide.stdevs.1.index.fst"), as.data.table = T),
-    fst::read.fst(file.path(fit, "model2", "peptide.stdevs.2.index.fst"), as.data.table = T)
-  )
+  if (summary == T && file.exists(file.path(file.path(fit, paste0("model", stage), paste0("peptide.vars.", stage, ".summary.fst"))))) {
 
-  # filter index
-  if (!is.null(proteins)) {
-    DT.index <- DT.index[Protein %in% proteins]
-  } else if (is.numeric(proteinIDs)) {
-    DT.index <- DT.index[as.numeric(ProteinID) %in% proteinIDs]
-  } else if (!is.null(proteinIDs)) {
-    DT.index <- DT.index[ProteinID %in% proteinIDs]
-  }
-
-  # read quants
-  control <- control(fit)
-  chains <- formatC(1:control$model.nchain, width = ceiling(log10(control$model.nchain + 1)) + 1, format = "d", flag = "0")
-  DT <- rbindlist(lapply(1:nrow(DT.index), function(i) {
-    # centre to mean of relevant reference assay(s)
-    DT.protein <- rbindlist(lapply(chains, function(chain) {
-      fst::read.fst(sub(paste0(chains[1], "(\\..*fst)$"), paste0(chain, "\\1"), file.path(fit, DT.index$file[i])), from = DT.index$from[i], to = DT.index$to[i], as.data.table = T)
-    }))
-
-    # optionally summarise
-    if (summary)  {
-      if (is.null(DT.protein$PeptideID)) {
-        DT.protein <- DT.protein[, .(est = median(value), SE = mad(value)), by = ProteinID]
-      } else {
-        DT.protein <- DT.protein[, .(est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID)]
-      }
+    # load and filter from cache
+    DT <- fst::read.fst(file.path(file.path(fit, paste0("model", stage), paste0("peptide.vars.", stage, ".summary.fst"))), as.data.table = T)
+    if (!is.null(peptideIDs)) {
+      DT <- DT[PeptideID %in% peptideIDs]
+    } else if (!is.null(proteinIDs)) {
+      DT <- DT[ProteinID %in% proteinIDs]
     }
 
-    DT.protein
-  }))
+  } else {
+
+    # load and filter index
+    DT.index <- fst::read.fst(file.path(fit, paste0("model", stage), paste0("peptide.vars.", stage, ".index.fst")), as.data.table = T)
+    if (!is.null(peptideIDs)) {
+      DT.index <- DT.index[PeptideID %in% peptideIDs]
+    } else if (!is.null(proteinIDs)) {
+      DT.index <- DT.index[ProteinID %in% proteinIDs]
+    }
+
+    # read quants
+    control <- control(fit)
+    chains <- formatC(1:control$model.nchain, width = ceiling(log10(control$model.nchain + 1)) + 1, format = "d", flag = "0")
+    read_peptide_vars <- function(DT.index) {
+      DT <- rbindlist(lapply(1:nrow(DT.index), function(i) {
+        # load
+        DT.protein <- rbindlist(lapply(chains, function(chain) {
+          fst::read.fst(sub(paste0(chains[1], "(\\..*fst)$"), paste0(chain, "\\1"), file.path(fit, DT.index$file[i])), from = DT.index$from[i], to = DT.index$to[i], as.data.table = T)
+        }))
+
+        # optionally summarise
+        if (summary)  {
+          if (is.null(DT.protein$PeptideID)) {
+            DT.protein <- DT.protein[, as.list(fit_scaled_inverse_chi_squared_distribution(value)), by = ProteinID]
+          } else {
+            DT.protein <- DT.protein[, as.list(fit_scaled_inverse_chi_squared_distribution(value)), by = .(ProteinID, PeptideID)]
+          }
+        }
+
+        DT.protein
+      }))
+    }
+
+    if (summary && parallel && nrow(DT.index) >= 32) {
+      n <- ceiling(nrow(DT.index) / control$nthread)
+      if (is.null(DT.index$PeptideID)) {
+        DTs.index <- batch_split(DT.index, "ProteinID", ifelse(n < 32, n, 32))
+      } else {
+        DT.index[, Batch := factor(paste(ProteinID, PeptideID, sep = "."))]
+        DTs.index <- batch_split(DT.index, "Batch", ifelse(n < 32, n, 32))
+      }
+
+      pb <- txtProgressBar(max = length(DTs.index), style = 3)
+      DT <- foreach(DT.index = iterators::iter(DTs.index), .combine = rbind, .inorder = F, .packages = c("data.table"), .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
+        read_peptide_vars(DT.index[, .(from = min(from), to = max(to)), by = file])
+      }
+      setTxtProgressBar(pb, length(DTs.index))
+      close(pb)
+    } else {
+      DT <- read_peptide_vars(DT.index)
+    }
+
+    # cache results
+    if (summary && is.null(peptideIDs) && is.null(proteinIDs)) fst::write.fst(DT, file.path(file.path(fit, paste0("model", stage), paste0("peptide.vars.", stage, ".summary.fst"))))
+  }
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -232,48 +287,81 @@ peptide_stdevs <- function(
 #' @rdname bayesprot_fit
 #' @import data.table
 #' @export
-feature_stdevs <- function(
+feature_vars <- function(
   fit,
-  proteins = NULL,
+  featureIDs = NULL,
   proteinIDs = NULL,
   summary = T,
-  as.data.table = F
+  as.data.table = F,
+  stage = 2,
+  parallel = F
 ) {
-  # load index
-  DT.index <- rbind(
-    #fst::read.fst(file.path(fit, "model1", "feature.stdevs.1.index.fst"), as.data.table = T),
-    fst::read.fst(file.path(fit, "model2", "feature.stdevs.2.index.fst"), as.data.table = T)
-  )
+  if (summary == T && file.exists(file.path(file.path(fit, paste0("model", stage), paste0("feature.vars.", stage, ".summary.fst"))))) {
 
-  # filter index
-  if (!is.null(proteins)) {
-    DT.index <- DT.index[Protein %in% proteins]
-  } else if (is.numeric(proteinIDs)) {
-    DT.index <- DT.index[as.numeric(ProteinID) %in% proteinIDs]
-  } else if (!is.null(proteinIDs)) {
-    DT.index <- DT.index[ProteinID %in% proteinIDs]
-  }
-
-  # read quants
-  control <- control(fit)
-  chains <- formatC(1:control$model.nchain, width = ceiling(log10(control$model.nchain + 1)) + 1, format = "d", flag = "0")
-  DT <- rbindlist(lapply(1:nrow(DT.index), function(i) {
-    # centre to mean of relevant reference assay(s)
-    DT.protein <- rbindlist(lapply(chains, function(chain) {
-      fst::read.fst(sub(paste0(chains[1], "(\\..*fst)$"), paste0(chain, "\\1"), file.path(fit, DT.index$file[i])), from = DT.index$from[i], to = DT.index$to[i], as.data.table = T)
-    }))
-
-    # optionally summarise
-    if (summary)  {
-      if (is.null(DT.protein$FeatureID)) {
-        DT.protein <- DT.protein[, .(est = median(value), SE = mad(value)), by = .(ProteinID)]
-      } else {
-        DT.protein <- DT.protein[, .(est = median(value), SE = mad(value)), by = .(ProteinID, PeptideID, FeatureID)]
-      }
+    # load and filter from cache
+    DT <- fst::read.fst(file.path(file.path(fit, paste0("model", stage), paste0("feature.vars.", stage, ".summary.fst"))), as.data.table = T)
+    if (!is.null(featureIDs)) {
+      DT <- DT[featureID %in% featureIDs]
+    } else if (!is.null(proteinIDs)) {
+      DT <- DT[ProteinID %in% proteinIDs]
     }
 
-    DT.protein
-  }))
+  } else {
+
+    # load and filter index
+    DT.index <- fst::read.fst(file.path(fit, paste0("model", stage), paste0("feature.vars.", stage, ".index.fst")), as.data.table = T)
+    if (!is.null(featureIDs)) {
+      DT.index <- DT.index[FeatureID %in% featureIDs]
+    } else if (!is.null(proteinIDs)) {
+      DT.index <- DT.index[ProteinID %in% proteinIDs]
+    }
+
+    # read quants
+    control <- control(fit)
+    chains <- formatC(1:control$model.nchain, width = ceiling(log10(control$model.nchain + 1)) + 1, format = "d", flag = "0")
+    read_feature_vars <- function(DT.index) {
+      DT <- rbindlist(lapply(1:nrow(DT.index), function(i) {
+        print(i)
+        # load
+        DT.protein <- rbindlist(lapply(chains, function(chain) {
+          fst::read.fst(sub(paste0(chains[1], "(\\..*fst)$"), paste0(chain, "\\1"), file.path(fit, DT.index$file[i])), from = DT.index$from[i], to = DT.index$to[i], as.data.table = T)
+        }))
+
+        # optionally summarise
+        if (summary)  {
+          if (is.null(DT.protein$FeatureID)) {
+            DT.protein <- DT.protein[, as.list(fit_scaled_inverse_chi_squared_distribution(value)), by = ProteinID]
+          } else {
+            DT.protein <- DT.protein[, as.list(fit_scaled_inverse_chi_squared_distribution(value)), by = .(ProteinID, PeptideID, FeatureID)]
+          }
+        }
+
+        DT.protein
+      }))
+    }
+
+    if (summary && parallel && nrow(DT.index) >= 32) {
+      n <- ceiling(nrow(DT.index) / control$nthread)
+      if (is.null(DT.index$FeatureID)) {
+        DTs.index <- batch_split(DT.index, "ProteinID", ifelse(n < 32, n, 32))
+      } else {
+        DT.index[, Batch := factor(paste(ProteinID, PeptideID, FeatureID, sep = "."))]
+        DTs.index <- batch_split(DT.index, "Batch", ifelse(n < 32, n, 32))
+      }
+
+      pb <- txtProgressBar(max = length(DTs.index), style = 3)
+      DT <- foreach(DT.index = iterators::iter(DTs.index), .combine = rbind, .inorder = F, .packages = c("data.table"), .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dopar% {
+        read_feature_vars(DT.index[, .(from = min(from), to = max(to)), by = file])
+      }
+      setTxtProgressBar(pb, length(DTs.index))
+      close(pb)
+    } else {
+      DT <- read_feature_vars(DT.index)
+    }
+
+    # cache results
+    if (summary && is.null(featureIDs) && is.null(proteinIDs)) fst::write.fst(DT, file.path(file.path(fit, paste0("model", stage), paste0("feature.vars.", stage, ".summary.fst"))))
+  }
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -335,4 +423,50 @@ exposures <- function(fit, as.data.table = F) {
 #' @export
 protein_de <- function(fit, key = 1, as.data.table = F) {
   return(fst::read.fst(file.path(fit, "model2", "protein.de", paste0(names(control(fit)$dea.func[key]), ".fst")), as.data.table = as.data.table))
+}
+
+
+#' fit_noncentral_scaled_t_distribution
+#'
+#' @import data.table
+#' @import metRology
+#' @export
+fit_noncentral_scaled_t_distribution <- function(value) {
+  mean.fit <- fitdistrplus::fitdist(value, "norm", method = "mge", gof = "CvM", start = list(mean = median(value), sd = mad(value)))
+
+  estimate <- tryCatch(
+    fitdistrplus::fitdist(value, "t.scaled", method = "mge", gof = "CvM", start = list(mean = median(value), sd = mad(value), df = 3))$estimate,
+    error = function(e) {
+      estimate <- c(fitdistrplus::fitdist(value, "norm", method = "mge", gof = "CvM", start = list(mean = median(value), sd = mad(value)))$estimate, df = Inf)
+    }
+  )
+  c(
+    mean = mean(value),
+    sd = sd(value),
+    median = median(value),
+    mad = mad(value),
+    n = mean.fit$estimate["mean"],
+    n = mean.fit$estimate["sd"],
+    t = estimate["mean"],
+    t = estimate["sd"],
+    t = estimate["df"]
+  )
+}
+
+
+fit_scaled_inverse_chi_squared_distribution <- function(value) {
+  var.fit <- fitdistrplus::fitdist(1.0 / value, "gamma", method = "mge", gof = "CvM", start = list(shape = 1.0, scale = 20), lower = 0.0001)
+  c(
+    tau2 = as.numeric(var.fit$estimate["shape"] / var.fit$estimate["scale"]),
+    nu = 2.0 * as.numeric(var.fit$estimate["shape"])
+  )
+}
+
+
+batch_split <- function(DT, column, n) {
+  DT[, BatchID := get(column)]
+  nbatch <- ceiling(nlevels(DT[[column]]) / n)
+  levels(DT$BatchID) <- rep(formatC(1:nbatch, width = ceiling(log10(nbatch)) + 1, format = "d", flag = "0"), each = n)[1:nlevels(DT[[column]])]
+
+  return(split(DT, by = "BatchID"))
 }
