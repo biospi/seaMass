@@ -267,44 +267,38 @@ process_model2 <- function(
       rm(DT.peptide.deviations)
     }
 
+    # csv summary
+    save_summary <- function(DT.protein.quants.summary, name = "") {
+      DT.out <- merge(DT.design[, .(AssayID, Sample, Assay)], DT.protein.quants.summary, by = "AssayID")
+      DT.out[, SampleAssay := paste(Sample, Assay, sep = "_")]
+      setcolorder(DT.out, "SampleAssay")
+      DT.out <- dcast(DT.out, ProteinID ~ SampleAssay, drop = FALSE, value.var = colnames(DT.out)[6:ncol(DT.out)])
+      DT.out <- merge(DT.proteins[, .(ProteinID, Protein, ProteinInfo, nPeptide, nFeature, nMeasure)], DT.out, by = "ProteinID")
+      fwrite(DT.out, file.path(fit, "output", paste0("protein_log2quants", name, ".csv")))
+    }
+
     # raw protein quants
     message("[", paste0(Sys.time(), "]   raw protein quants..."))
-    # save_summary <- function(DT.protein.quants.summary, name = "") {
-    #   DT.protein.quants.summary.out <- merge(DT.design[, .(AssayID, Sample, Assay)], DT.protein.quants.summary, by = "AssayID")
-    #   headings <- interaction(DT.protein.quants.summary.out$Sample, DT.protein.quants.summary.out$Assay, drop = T, sep = ":")
-    #   DT.protein.quants.summary.out[, Assay := headings]
-    #   DT.protein.quants.summary.out[, AssaySE := headings]
-    #   DT.protein.quants.summary.out[, AssayNPeptide := headings]
-    #   DT.protein.quants.summary.out[, AssayNFeature := headings]
-    #   DT.protein.quants.summary.out[, Sample := NULL]
-    #   levels(DT.protein.quants.summary.out$Assay) <- paste0("est:", levels(DT.protein.quants.summary.out$Assay))
-    #   levels(DT.protein.quants.summary.out$AssaySE) <- paste0("SE:", levels(DT.protein.quants.summary.out$AssaySE))
-    #   levels(DT.protein.quants.summary.out$AssayNPeptide) <- paste0("nPeptide:", levels(DT.protein.quants.summary.out$AssayNPeptide))
-    #   levels(DT.protein.quants.summary.out$AssayNFeature) <- paste0("nFeature:", levels(DT.protein.quants.summary.out$AssayNFeature))
-    #   DT.protein.quants.summary.out.SEs <- data.table::dcast(DT.protein.quants.summary.out, ProteinID ~ AssaySE, value.var = "SE")
-    #   DT.protein.quants.summary.out.nPeptides <- data.table::dcast(DT.protein.quants.summary.out, ProteinID ~ AssayNPeptide, value.var = "nPeptide")
-    #   DT.protein.quants.summary.out.nFeatures <- data.table::dcast(DT.protein.quants.summary.out, ProteinID ~ AssayNFeature, value.var = "nFeature")
-    #   DT.protein.quants.summary.out <- data.table::dcast(DT.protein.quants.summary.out, ProteinID ~ Assay, value.var = "est")
-    #   DT.protein.quants.summary.out <- cbind(DT.protein.quants.summary.out, DT.protein.quants.summary.out.SEs[, 2:ncol(DT.protein.quants.summary.out.SEs), with = F])
-    #   DT.protein.quants.summary.out <- cbind(DT.protein.quants.summary.out, DT.protein.quants.summary.out.nPeptides[, 2:ncol(DT.protein.quants.summary.out.nPeptides), with = F])
-    #   DT.protein.quants.summary.out <- cbind(DT.protein.quants.summary.out, DT.protein.quants.summary.out.nFeatures[, 2:ncol(DT.protein.quants.summary.out.nFeatures), with = F])
-    #   setcolorder(DT.protein.quants.summary.out, c("ProteinID", paste0(c("est:", "SE:", "nPeptide:", "nFeature:"), rep(levels(headings), each = 4))))
-    #   DT.protein.quants.summary.out <- merge(DT.proteins[, .(ProteinID, Protein, ProteinInfo, nPeptide, nFeature, nMeasure)], DT.protein.quants.summary.out, by = "ProteinID")
-    #   fwrite(DT.protein.quants.summary.out, file.path(fit, "output", paste0("protein_log2quants", name, ".csv")))
-    # }
-    DT.protein.quants.summary <- protein_quants(fit, data.exposures = NULL, as.data.table = T)
-    #save_summary(DT.protein.quants.summary, "_unnormalised")
+    for (k in 1:length(control$ref.assays)) {
+      message("[", paste0(Sys.time(), "]    ref.assays=", names(control$ref.assays)[k], "..."))
+      DT.protein.quants.summary <- protein_quants(fit, ref.assays = k, exposures = NULL, as.data.table = T, parallel = T)
+      save_summary(DT.protein.quants.summary, paste0("__", k, "__unnormalised"))
+    }
 
     # normalisation
     if (!is.null(control$norm.func)) {
-        message("[", paste0(Sys.time(), "]   normalised protein quants..."))
+      message("[", paste0(Sys.time(), "]   normalised protein quants..."))
+
+      for (k in 1:max(length(control$ref.assays), length(control$norm.func))) {
+        message("[", paste0(Sys.time(), "]    ref.assays=", names(control$ref.assays)[k], " norm.func=", names(control$norm.func)[k], "..."))
 
         # calculate exposures and save normalised protein quants
-        DT.assay.exposures <- control$norm.func(fit)
+        DT.assay.exposures <- control$norm.func[[k]](fit)
         setDT(DT.assay.exposures)
-        fst::write.fst(DT.assay.exposures, file.path(fit, "model2", "assay.exposures.fst"))
-        DT.protein.quants.summary <- protein_quants(fit, data.exposures = DT.assay.exposures, as.data.table = T)
-        save_summary(DT.protein.quants.summary, "_normalised")
+        fst::write.fst(DT.assay.exposures, file.path(fit, "model2", paste0("assay.exposures.", k, ".", k, ".fst")))
+
+        DT.protein.quants.summary <- protein_quants(fit, ref.assays = k, exposures = k, as.data.table = T, parallel = T)
+        save_summary(DT.protein.quants.summary, paste0("__", names(control$ref.assays)[k], "__", names(control$norm.func)[k], "_normalised"))
 
         # plot
         assay.exposures.meta <- function(x) {
@@ -339,7 +333,9 @@ process_model2 <- function(
         g <- g + ggplot2::geom_line(data = DT.assay.exposures.density, ggplot2::aes(x = x,y = y), size = 1/2)
         g <- g + ggplot2::geom_vline(data = DT.assay.exposures.meta, ggplot2::aes(xintercept = median), size = 1/2)
         g <- g + ggplot2::geom_text(data = DT.assay.exposures.meta, ggplot2::aes(x = median, label = fc), y = max(DT.assay.exposures.density$y) * 1.25, hjust = 0, vjust = 1, size = 3)
-        ggplot2::ggsave(file.path(fit, "output", paste0("assay_exposures.pdf")), g, width = 8, height = 0.5 + 0.75 * length(levels(DT.assay.exposures.density$Assay)), limitsize = F)
+        ggplot2::ggsave(file.path(fit, "output", paste0("assay_exposures__", names(control$ref.assays)[k], "__", names(control$norm.func)[k], "_normalised")),
+                        g, width = 8, height = 0.5 + 0.75 * length(levels(DT.assay.exposures.density$Assay)), limitsize = F)
+      }
     }
 
     # compute and write out Rhat

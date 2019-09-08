@@ -4,8 +4,9 @@
 \alias{norm_median}
 \title{Median normalisation}
 \usage{
-norm_median(fit, ref.proteins = levels(proteins(fit)$Protein),
-  as.data.table = FALSE, ...)
+norm_median(fit, ref.assays = 1,
+  ref.proteins = levels(proteins(fit)$Protein), as.data.table = FALSE,
+  ...)
 }
 \description{
 blah

@@ -8,13 +8,14 @@
 \alias{features}
 \alias{peptides}
 \alias{proteins}
+\alias{ref_assays}
+\alias{exposures}
 \alias{protein_quants}
 \alias{peptide_deviations}
 \alias{peptide_vars}
 \alias{feature_vars}
 \alias{summary.bayesprot_fit}
 \alias{timings}
-\alias{exposures}
 \title{Interrogating the \code{bayesprot} fit object}
 \usage{
 bayesprot_fit(dir = "bayesprot", force = F)
@@ -31,25 +32,26 @@ peptides(fit, as.data.table = F)
 
 proteins(fit, as.data.table = F)
 
-protein_quants(fit, proteinIDs = NULL,
-  ref.assays = design(fit)$Assay[design(fit)$ref == T],
-  data.exposures = exposures(fit), summary = T, as.data.table = F,
-  stage = 2, parallel = F)
+ref_assays(fit, key = 1, as.data.table = F)
+
+exposures(fit, ref.assays.key = 1, key = 1, as.data.table = F)
+
+protein_quants(fit, proteinIDs = NULL, ref.assays.key = 1,
+  exposures.key = 1, summary = T, as.data.table = F, parallel = F,
+  stage = 2)
 
 peptide_deviations(fit, proteinIDs = NULL, summary = T,
   as.data.table = F, stage = 2, parallel = F)
 
-peptide_vars(fit, peptideIDs = NULL, proteinIDs = NULL, summary = T,
-  as.data.table = F, stage = 2, parallel = F)
+peptide_vars(fit, peptideIDs = NULL, summary = T, as.data.table = F,
+  stage = 2, parallel = F)
 
-feature_vars(fit, featureIDs = NULL, proteinIDs = NULL, summary = T,
-  as.data.table = F, stage = 2, parallel = F)
+feature_vars(fit, featureIDs = NULL, summary = T, as.data.table = F,
+  stage = 2, parallel = F)
 
 \method{summary}{bayesprot_fit}(fit, protein = NULL, proteinID = NULL)
 
 timings(fit, as.data.table = F)
-
-exposures(fit, as.data.table = F)
 }
 \arguments{
 \item{dir}{directory containing the \link{bayesprot} fit to read}

@@ -55,7 +55,7 @@ execute_model <- function(
       DT.assay.n <- DT[, .(nFeature = sum(!is.na(RawCount))), by = .(AssayID, PeptideID)]
       DT.assay.n <- DT.assay.n[, .(nPeptide = sum(nFeature > 0), nFeature = sum(nFeature)), by = AssayID]
       DT.sample.n <- DT[, .(nFeature = sum(!is.na(RawCount))), by = .(SampleID, PeptideID)]
-      DT.sample.n <- DT.sample.n[, .(nPeptide = sum(nFeature > 0), nFeature = sum(nFeature)), by = SampleID]
+      DT.sample.n <- DT.sample.n[, nPeptide := sum(nFeature > 0), by = SampleID]
       DT[, RawCount := NULL]
 
       # create co-occurence matrix of which assays are present in each feature
@@ -200,8 +200,8 @@ execute_model <- function(
           output$DT.peptide.deviations[, value := value / log(2)]
 
           # merge with DT.n.real
-          output$DT.peptide.deviations <- merge(output$DT.peptide.deviations, DT.sample.n, by = "SampleID")
-          setcolorder(output$DT.peptide.deviations, c("ProteinID", "SampleID", "nPeptide", "nFeature", "PeptideID", "chainID", "mcmcID"))
+          output$DT.peptide.deviations <- merge(output$DT.peptide.deviations, DT.sample.n, by = c("PeptideID", "SampleID"))
+          setcolorder(output$DT.peptide.deviations, c("ProteinID", "SampleID", "nPeptide", "PeptideID", "nFeature", "chainID", "mcmcID"))
         }
 
         model$Sol <- NULL
@@ -293,11 +293,14 @@ execute_model <- function(
 
             if (chain == 1) {
               # construct index
-              output$DT.peptide.deviations.index <- data.table(
-                ProteinID = DT.proteins[i, ProteinID],
-                file = filename,
-                from = 1,
-                to = nrow(output$DT.peptide.deviations)
+              output$DT.peptide.deviations.index <- output$DT.peptide.deviations[, .(
+                from = .I[!duplicated(output$DT.peptide.deviations, by = c("ProteinID", "PeptideID"))],
+                to = .I[!duplicated(output$DT.peptide.deviations, fromLast = T, by = c("ProteinID", "PeptideID"))]
+              )]
+              output$DT.peptide.deviations.index <- cbind(
+                output$DT.peptide.deviations[output$DT.peptide.deviations.index$from, .(ProteinID, PeptideID)],
+                data.table(file = filename),
+                output$DT.peptide.deviations.index
               )
             }
 
@@ -307,7 +310,7 @@ execute_model <- function(
           }
         }
 
-        # if large enough write out peptidev vars now to conserve memory, otherwise don't to conserve disk space
+        # if large enough write out peptide vars now to conserve memory, otherwise don't to conserve disk space
         if (!is.null(output$DT.peptide.vars)) {
           if (object.size(output$DT.peptide.vars) > 2^18) {
             filename <- file.path(paste0("model", stage), paste0("peptide.vars.", stage), paste0(chainID, ".", DT.proteins[i, ProteinID], ".fst"))
@@ -402,17 +405,20 @@ execute_model <- function(
 
         # finish index construction
         if (chain == 1) {
-          output$DT.peptide.deviations.index <- rbind(output$DT.peptide.deviations.index, output$DT.peptide.deviations[, .(
-            ProteinID = unique(ProteinID),
-            file = filename,
-            from = .I[!duplicated(ProteinID)],
-            to = .I[rev(!duplicated(rev(ProteinID)))]
-          )])
+           output$DT.peptide.deviations.2index <- output$DT.peptide.deviations[, .(
+            from = .I[!duplicated(output$DT.peptide.deviations, by = c("ProteinID", "PeptideID"))],
+            to = .I[!duplicated(output$DT.peptide.deviations, fromLast = T, by = c("ProteinID", "PeptideID"))]
+          )]
+          output$DT.peptide.deviations.index <- rbind(output$DT.peptide.deviations.index, cbind(
+            output$DT.peptide.deviations[output$DT.peptide.deviations.2index$from, .(ProteinID, PeptideID)],
+            data.table(file = filename),
+            output$DT.peptide.deviations.2index
+          ))
         }
       }
 
       if (chain == 1) {
-        setkey(output$DT.peptide.deviations.index, ProteinID, file, from)
+        setkey(output$DT.peptide.deviations.index, ProteinID, file, from, PeptideID)
         fst::write.fst(output$DT.peptide.deviations.index, file.path(path.output, paste0("peptide.deviations.", stage, ".index.fst")))
       }
 

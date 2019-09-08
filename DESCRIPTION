@@ -29,5 +29,6 @@ Imports:
     metRology (>= 0.9-28-1),
     mice (>= 3.4.0),
     MCMCglmm (>= 2.26),
+    R.utils (>= 2.9.0),
     utf8 (>= 1.1.4)
 RoxygenNote: 6.1.1

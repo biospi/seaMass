@@ -52,8 +52,11 @@ bayesprot <- function(
 
   # tidy ref.assays
   if (!is.list(ref.assays)) ref.assays <- list(ref.assays)
-  if (!all(sapply(ref.assays, is.character))) {
-    stop("'ref.assays' must be a string or list of strings, or NULL")
+  if (all(sapply(ref.assays, is.character))) {
+    if(is.null(names(ref.assays))) names(ref.assays) <- 1:length(ref.assays)
+    names(ref.assays) <- ifelse(names(ref.assays) == "", 1:length(ref.assays), names(ref.assays))
+  } else {
+    stop("'ref.assays' must be a string or list of strings taking a bayesprot_fit object, or NULL")
   }
   control$ref.assays <- ref.assays
 
