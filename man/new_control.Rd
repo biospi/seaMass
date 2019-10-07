@@ -4,32 +4,37 @@
 \alias{new_control}
 \title{Control parameters for the BayesProt Bayesian model}
 \usage{
-new_control(peptide.model = "independent", peptide.prior.n = 1024,
-  peptide.prior.min = 5, feature.model = "independent",
-  feature.prior.min = 3, error.model = "poisson",
-  missingness.model = "censored", missingness.threshold = 0,
-  model.seed = 0, model.nchain = 4, model.nwarmup = 256,
-  model.thin = 1, model.nsample = 1024,
-  nthread = parallel::detectCores(logical = FALSE), hpc = NULL)
+new_control(feature.model = "independent", feature.eb.min = 3,
+  peptide.model = NULL, peptide.eb.min = 3,
+  assay.model = "independent", assay.eb.min = 3,
+  error.model = "poisson", missingness.model = "censored",
+  missingness.threshold = 0, model.seed = 0, model.nchain = 4,
+  model.nwarmup = 256, model.thin = 1, model.nsample = 1024,
+  dist.squeeze_var.func = squeeze_var, dist.var.func = dist_invchisq,
+  dist.mean.func = dist_lst, nthread = parallel::detectCores(logical =
+  FALSE), hpc = NULL)
 }
 \arguments{
-\item{peptide.model}{Either \code{NULL} (no peptide model), \code{single} (single random effect) or \code{independent}
-(per-peptide independent random effects; default)}
-
-\item{peptide.prior.n}{Number of peptides to use for computing Empirical Bayes peptide and feature priors}
-
-\item{peptide.prior.min}{Minimum number of peptides per protein to use for computing Empirical Bayes peptide & feature priors}
-
 \item{feature.model}{Either \code{single} (single residual) or \code{independent} (per-feature independent residuals; default)}
 
-\item{feature.prior.min}{Minimum number of features per peptide to use for computing Empirical Bayes peptide & feature priors}
+\item{feature.eb.min}{Minimum number of features per peptide to use for computing Empirical Bayes priors}
+
+\item{peptide.model}{Either \code{NULL} (no peptide model; default), \code{single} (single random effect) or \code{independent}
+(per-peptide independent random effects)}
+
+\item{peptide.eb.min}{Minimum number of peptides per protein to use for computing Empirical Bayes priors}
+
+\item{assay.model}{Either \code{NULL} (no assay model), \code{single} (single random effect) or \code{independent}
+(per-assay independent random effects; default)}
+
+\item{assay.eb.min}{Minimum number of assays per protein protein to use for computing Empirical Bayes priors}
 
 \item{error.model}{Either \code{lognormal} or \code{poisson} (default)}
 
 \item{missingness.model}{Either \code{zero} (NAs set to 0), \code{feature} (NAs set to lowest quant of that feature) or
 \code{censored} (NAs modelled as censored between 0 and lowest quant of that feature; default)}
 
-\item{missingness.threshold}{All feature quants below this are treated as missing}
+\item{missingness.threshold}{All feature quants equal to or below this are treated as missing (default = 0)}
 
 \item{model.seed}{Random number seed}
 

@@ -4,10 +4,19 @@
 \alias{dea_MCMCglmm}
 \title{Mixed-effects univariate differential expression analysis with 'MCMCglmm'}
 \usage{
-dea_MCMCglmm(fit, data.design = design(fit), condition = "Condition",
-  fixed = as.formula(paste("~", condition)), prior = list(R = list(V =
-  1, nu = 0.02)), use.SE = TRUE, output = "MCMCglmm",
-  save.intercept = FALSE, as.data.table = FALSE, ...)
+dea_MCMCglmm(fit, data = protein_quants(fit),
+  data.design = design(fit), condition = "Condition",
+  fixed = as.formula(paste("~", condition)), random = NULL,
+  rcov.welch = TRUE, save.intercept = FALSE, output = "MCMCglmm",
+  use.precision = TRUE, use.moderation = TRUE, as.data.table = FALSE,
+  model.seed = control(fit)$model.seed,
+  model.nchain = control(fit)$model.nchain,
+  model.nwarmup = control(fit)$model.nwarmup,
+  model.thin = control(fit)$model.thin,
+  model.nsample = control(fit)$model.nsample,
+  dist.mean.func = dist_mean_func(fit)$value,
+  dist.var.func = dist_var_func(fit)$value,
+  dist.squeeze.var.func = dist_squeeze_var_func(fit)$value)
 }
 \description{
 The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.

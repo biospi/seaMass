@@ -40,12 +40,12 @@ data.design$Sample <- factor(c(
 #######################################
 
 # specify a list of one of more differential expression analysis functions. Bayesprot currently
-#  implements tests between conditions using the 'dea_metafor_pairwise' function. By default
-#  these are t.tests but you can add covariates, random effects etc using the 'metafor::rma.mv'
+#  implements tests between conditions using the 'dea_MCMCglmm' function. By default
+#  these are t.tests but you can add covariates, random effects etc using the 'MCMCglmm::MCMCglmm'
 #  syntax
-dea.func <- list(t.tests = dea_metafor_pairwise)
+dea.func <- list(t.tests = dea_MCMCglmm)
 
-# 'dea_metafor_pairwise' expects a column 'Condition' to have been specified in 'data.design'.
+# 'dea_MCMCglmm' expects a column 'Condition' to have been specified in 'data.design'.
 #  You can use 'NA' to ignore irrelevant samples.
 data.design$Condition <- factor(c(
   NA, NA, NA, NA, "A", "A", "B", "B",
@@ -64,11 +64,19 @@ data.design$ref <- factor(c(
 
 #######################################
 
+# By default BayesProt uses median normalisation. If you want to normalise just to a specific
+# set of proteins, this is not (example is to all the rat proteins)
+norm_truth <- function(...) {
+  norm_median(..., ref.proteins = levels(data$Protein)[grep("_RAT", levels(data$Protein))])
+}
+
+#######################################
+
 # Run BayesProt, using the rat proteins only for normalisation.
 fit <- bayesprot(
   data,
   data.design = data.design,
-  normalisation.proteins = levels(data$Protein)[grep("_RAT$", levels(data$Protein))],
+  norm.func = list(truth = norm_truth),
   dea.func = dea.func,
   output = "Tutorial.bayesprot",
   control = new_control(nthread = 4)
@@ -91,9 +99,10 @@ data.protein.quants <- merge(data.protein.quants, data.proteins[, c("ProteinID",
 print(data.protein.quants)
 
 # Output fdr-controlled differential expression for the 't.test' analysis, with accessions.
-data.de <- protein_de(fit)
+data.de <- protein_fdr(fit)
 data.de <- merge(data.de, data.proteins[, c("ProteinID", "Protein")], sort = F)
 print(data.de)
 
-# View the plot for the top differential expression candidate.
-plot_peptides(fit, protein = data.de$Protein[1])
+# Plot precision-recall curve (sensitivity against false discovery rate.
+data.de$truth <- ifelse(grepl("_RAT", data.de$Protein), 0, 1)
+plot_pr(data.de)

@@ -5,8 +5,10 @@
 \title{Fit the BayesProt Bayesian Protein-level quantification model}
 \usage{
 bayesprot(data, data.design = new_design(data), ref.assays = "ref",
-  norm.func = norm_median, dea.func = NULL, fdr.func = fdr_ash,
-  plots = F, output = "bayesprot", control = new_control())
+  norm.func = list(median = norm_median), dea.func = NULL,
+  fdr.func = list(ash = fdr_ash), feature.vars = FALSE,
+  peptide.vars = FALSE, peptide.deviations = FALSE, plots = FALSE,
+  output = "bayesprot", control = new_control())
 }
 \arguments{
 \item{data}{A \link{data.frame} of input data as returned by \link{import_ProteinPilot} or \link{import_ProteomeDiscoverer}.}

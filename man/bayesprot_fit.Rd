@@ -2,56 +2,98 @@
 % Please edit documentation in R/fit.R
 \name{bayesprot_fit}
 \alias{bayesprot_fit}
+\alias{start_parallel}
+\alias{stop_parallel}
 \alias{del}
-\alias{design}
 \alias{control}
+\alias{design}
 \alias{features}
 \alias{peptides}
 \alias{proteins}
 \alias{ref_assays}
-\alias{exposures}
-\alias{protein_quants}
-\alias{peptide_deviations}
-\alias{peptide_vars}
-\alias{feature_vars}
+\alias{norm_func}
+\alias{dea_func}
+\alias{fdr_func}
+\alias{dist_squeeze_var_func}
+\alias{dist_var_func}
+\alias{dist_mean_func}
 \alias{summary.bayesprot_fit}
 \alias{timings}
+\alias{feature_vars}
+\alias{peptide_vars}
+\alias{assay_vars}
+\alias{peptide_deviations}
+\alias{protein_quants}
+\alias{protein_de}
+\alias{protein_fdr}
 \title{Interrogating the \code{bayesprot} fit object}
 \usage{
-bayesprot_fit(dir = "bayesprot", force = F)
+bayesprot_fit(dir = "bayesprot", quiet = FALSE, force = FALSE)
+
+start_parallel(fit, nthread = control(fit)$nthread)
+
+stop_parallel()
 
 del(fit)
 
-design(fit, as.data.table = F)
-
 control(fit)
 
-features(fit, as.data.table = F)
+design(fit, as.data.table = F)
 
-peptides(fit, as.data.table = F)
+features(fit, as.data.table = FALSE)
 
-proteins(fit, as.data.table = F)
+peptides(fit, as.data.table = FALSE)
 
-ref_assays(fit, key = 1, as.data.table = F)
+proteins(fit, as.data.table = FALSE)
 
-exposures(fit, ref.assays.key = 1, key = 1, as.data.table = F)
+ref_assays(fit, key = 1)
 
-protein_quants(fit, proteinIDs = NULL, ref.assays.key = 1,
-  exposures.key = 1, summary = T, as.data.table = F, parallel = F,
-  stage = 2)
+norm_func(fit, key = 1)
 
-peptide_deviations(fit, proteinIDs = NULL, summary = T,
-  as.data.table = F, stage = 2, parallel = F)
+dea_func(fit, key = 1)
 
-peptide_vars(fit, peptideIDs = NULL, summary = T, as.data.table = F,
-  stage = 2, parallel = F)
+fdr_func(fit, key = 1)
 
-feature_vars(fit, featureIDs = NULL, summary = T, as.data.table = F,
-  stage = 2, parallel = F)
+dist_squeeze_var_func(fit, key = 1)
 
-\method{summary}{bayesprot_fit}(fit, protein = NULL, proteinID = NULL)
+dist_var_func(fit, key = 1)
 
-timings(fit, as.data.table = F)
+dist_mean_func(fit, key = 1)
+
+\method{summary}{bayesprot_fit}(fit, proteinID, stage = "")
+
+timings(fit, stage = "", as.data.table = F)
+
+feature_vars(fit, featureIDs = NULL, stage = "",
+  chains = 1:control(fit)$model.nchain, summary = TRUE,
+  as.data.table = FALSE)
+
+peptide_vars(fit, peptideIDs = NULL, stage = "",
+  chains = 1:control(fit)$model.nchain, summary = TRUE,
+  as.data.table = FALSE)
+
+assay_vars(fit, assayIDs = NULL, stage = "",
+  chains = 1:control(fit)$model.nchain, summary = TRUE,
+  as.data.table = FALSE)
+
+peptide_deviations(fit, peptideIDs = NULL, stage = "",
+  chains = 1:control(fit)$model.nchain, summary = TRUE,
+  as.data.table = FALSE)
+
+protein_quants(fit, proteinIDs = NULL, norm.func.key = 1,
+  ref.assays.key = ifelse(is.null(norm.func.key), 1, norm.func.key),
+  stage = "", chains = 1:control(fit)$model.nchain, summary = TRUE,
+  as.data.table = FALSE)
+
+protein_de(fit, proteinIDs = NULL, dea.func.key = 1,
+  dist.mean.func.key = dea.func.key,
+  norm.func.key = dist.mean.func.key, ref.assays.key = norm.func.key,
+  as.data.table = FALSE)
+
+protein_fdr(fit, proteinIDs = NULL, fdr.func.key = 1,
+  dea.func.key = fdr.func.key, dist.mean.func.key = dea.func.key,
+  norm.func.key = dist.mean.func.key, ref.assays.key = norm.func.key,
+  as.data.table = FALSE)
 }
 \arguments{
 \item{dir}{directory containing the \link{bayesprot} fit to read}
