@@ -4,7 +4,7 @@
 \alias{dist_normal}
 \title{fit normal distribution with fitdistrplus}
 \usage{
-dist_normal(x, plots = FALSE)
+dist_normal(value, plots = FALSE, ...)
 }
 \description{
 fit normal distribution with fitdistrplus

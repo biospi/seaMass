@@ -43,7 +43,7 @@ data.design$Sample <- factor(c(
 #  implements tests between conditions using the 'dea_MCMCglmm' function. By default
 #  these are t.tests but you can add covariates, random effects etc using the 'MCMCglmm::MCMCglmm'
 #  syntax
-dea.func <- list(t.tests = dea_MCMCglmm)
+dea.func <- list(t.tests = dea_limma)
 
 # 'dea_MCMCglmm' expects a column 'Condition' to have been specified in 'data.design'.
 #  You can use 'NA' to ignore irrelevant samples.
@@ -65,14 +65,14 @@ data.design$ref <- factor(c(
 #######################################
 
 # By default BayesProt uses median normalisation. If you want to normalise just to a specific
-# set of proteins, this is not (example is to all the rat proteins)
+# set of proteins, do this (here to all the rat proteins).
 norm_truth <- function(...) {
   norm_median(..., ref.proteins = levels(data$Protein)[grep("_RAT", levels(data$Protein))])
 }
 
 #######################################
 
-# Run BayesProt, using the rat proteins only for normalisation.
+# run BayesProt.
 fit <- bayesprot(
   data,
   data.design = data.design,

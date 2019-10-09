@@ -4,7 +4,7 @@
 \alias{dist_invchisq}
 \title{fit scaled inverse chi squared distribution with fitdistrplus}
 \usage{
-dist_invchisq(x, plots = FALSE)
+dist_invchisq(value, plots = FALSE, ...)
 }
 \description{
 fit scaled inverse chi squared distribution with fitdistrplus

@@ -273,7 +273,7 @@ dea_MCMCglmm <- function(
       })
 
       # save chunk
-      saveRDS(output.chunk, file.path(fit, "model", "protein.de", paste0(output, ".", DT.chunk[1, ProteinID], ".rds")))
+      saveRDS(output.chunk, file.path(fit, "model", "protein.de", paste0(output, ifelse(is.null(DT.priors), "0", ""), ".", DT.chunk[1, ProteinID], ".rds")))
 
       # extract results
       out <- list()
@@ -373,7 +373,7 @@ dea_MCMCglmm <- function(
         DT <- rbindlist(lapply(1:model.nchain, function(chain) {
           fst::read.fst(paste0(file.path(fit, "model", DT.index[i, file]), ".", chain, ".fst"), from = DT.index[i, from], to = DT.index[i, to], as.data.table = T)
         }))
-        DT[, dist.var.func(value), by = .(Model, Effect, ProteinID)]
+        DT[, dist.var.func(chainID, mcmcID, value), by = .(Model, Effect, ProteinID)]
       }))
     }
 
@@ -384,12 +384,7 @@ dea_MCMCglmm <- function(
           DT <- rbindlist(lapply(1:model.nchain, function(chain) {
             fst::read.fst(paste0(file.path(fit, "model", DT.index[i, file]), ".", chain, ".fst"), from = DT.index[i, from], to = DT.index[i, to], as.data.table = T)
           }))
-
-          merge(
-            DT[, .(rhat = bayesprot::rhat(mcmcID, chainID, value)), by = .(Model, Effect, ProteinID)],
-            DT[, dist.mean.func(value), by = .(Model, Effect, ProteinID)],
-            by = c("Model", "Effect", "ProteinID")
-          )
+          DT[, dist.mean.func(chainID, mcmcID, value), by = .(Model, Effect, ProteinID)]
         }))
       }
     }
@@ -414,14 +409,14 @@ dea_MCMCglmm <- function(
     # squeeze variances
     DT.priors <- out$DT.rcov[, dist.squeeze.var.func(v, df), by = .(Model, Effect)]
     #DT.priors <- out$DT.rcov[, squeeze_var(v, df), by = .(Model, Effect)]
-    #system.time(print(out$DT.rcov[, dist_sf_with_fixed_df1(v, df, optim.method = "L-BFGS-B", control=list(trace=6, REPORT=1)), by = .(Model, Effect)]))
+    #system.time(print(out$DT.rcov[, dist_sf_with_fixed_df1(v, df, optim.method = "L-BFGS-B", control=list(trace=1, REPORT=1)), by = .(Model, Effect)]))
 
     # plot eb priors fits
-    g <- plot_priors(out$DT.rcov, DT.priors, c(0.0, 0.99))
+    g <- plot_fits(out$DT.rcov, DT.priors, c(0.0, 0.99), by = "Effect")
     suppressWarnings(ggplot2::ggsave(file.path(fit, "output", paste0("protein_de__", output, "__qc_vars.pdf")), g, width = 8, height = 0.5 + 1.5 * nrow(DT.priors), limitsize = F))
 
     # plot eb prior stdevs
-    g <- plot_priors(out$DT.rcov, DT.priors, c(0.01, 0.99), xlab = "log2 Standard Deviation", sqrt, function(x) x^2)
+    g <- plot_fits(out$DT.rcov, DT.priors, c(0.0, 0.99), by = "Effect", xlab = "log2 Standard Deviation", trans = sqrt, inv.trans = function(x) x^2)
     suppressWarnings(ggplot2::ggsave(file.path(fit, "output", paste0("protein_de__", output, "__qc_stdevs.pdf")), g, width = 8, height = 0.5 + 1.5 * nrow(DT.priors), limitsize = F))
 
     # moderated tests
@@ -522,7 +517,7 @@ dea_metafor <- function(
           for (i in 0:9) {
             control$sigma2.init = 0.025 + 0.1 * i
             try( {
-              output.contrast$fit <- metafor::rma.mv(yi = m, V = s^2, data = output.contrast$DT.input, control = control, test = "t", mods = mods, random = random, ...)
+              output.contrast$fit <- metafor::rma.mv(yi = m, V = s^2, data = output.contrast$DT.input, control = control, test = "t", mods = mods, random = random)
               output.contrast$log <- paste0("[", Sys.time(), "] attempt ", i + 1, " succeeded\n")
               break
             })
@@ -539,7 +534,7 @@ dea_metafor <- function(
     })
 
     # save chunk
-    saveRDS(output.chunk, file.path(fit, "model2", "protein.de", paste0(output, ".", DT.chunk[1, ProteinID], ".rds")))
+    saveRDS(output.chunk, file.path(fit, "model", "protein.de", paste0(output, ".", DT.chunk[1, ProteinID], ".rds")))
 
     # extract results
     rbindlist(lapply(output.chunk, function (output.protein) {
@@ -632,7 +627,7 @@ dea_ttests <- function(
 
           output.contrast$fit <- t.test(output.contrast$DT.input$m[output.contrast$DT.input$Condition == cts[1, j]],
                                         output.contrast$DT.input$m[output.contrast$DT.input$Condition == cts[2, j]],
-                                        paired = paired, var.equal = var.equal, ...)
+                                        paired = paired, var.equal = var.equal)
           output.contrast$fit$Effect <- paste0("Condition", cts[2, j])
           output.contrast$log <- paste0("[", Sys.time(), "] attempt succeeded\n")
         } else {
@@ -647,7 +642,7 @@ dea_ttests <- function(
     })
 
     # save chunk
-    saveRDS(output.chunk, file.path(fit, "model2", "protein.de", paste0(output, ".", DT.chunk[1, ProteinID], ".rds")))
+    saveRDS(output.chunk, file.path(fit, "model", "protein.de", paste0(output, ".", DT.chunk[1, ProteinID], ".rds")))
 
     # extract results
     rbindlist(lapply(output.chunk, function (output.protein) {
@@ -658,7 +653,7 @@ dea_ttests <- function(
             lower = -output.contrast$fit$conf.int[2],
             upper = -output.contrast$fit$conf.int[1],
             m = output.contrast$fit$estimate[2] - output.contrast$fit$estimate[1],
-            se = output.contrast$fit$stderr,
+            s = output.contrast$fit$stderr,
             df = output.contrast$fit$parameter,
             t = output.contrast$fit$statistic,
             pvalue = output.contrast$fit$p.value

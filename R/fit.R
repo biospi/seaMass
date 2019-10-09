@@ -59,7 +59,7 @@ read_mcmc <- function(fit, effectname, columnID, batchIDs, summaryIDs, itemIDs, 
       }
 
       # optional summarise
-      if (!is.null(summary.func$value)) DT <- DT[, summary.func$value(value), by = summaryIDs]
+      if (!is.null(summary.func$value)) DT <- DT[, summary.func$value(chainID, mcmcID, value), by = summaryIDs]
 
       setcolorder(DT, summaryIDs)
       return(DT)
@@ -336,13 +336,13 @@ peptide_vars <- function(
 #' @export
 assay_vars <- function(
   fit,
-  assayIDs = NULL,
+  proteinIDs = NULL,
   stage = "",
   chains = 1:control(fit)$model.nchain,
   summary = TRUE,
   as.data.table = FALSE
 ) {
-  return(read_mcmc(fit, "assay.vars", "AssayID", c("ProteinID", "AssayID"), c("ProteinID", "AssayID"), assayIDs, stage, chains, dist_var_func(fit, summary), as.data.table))
+  return(read_mcmc(fit, "assay.vars", "ProteinID", c("ProteinID", "AssayID"), c("ProteinID", "AssayID"), proteinIDs, stage, chains, dist_var_func(fit, summary), as.data.table))
 }
 
 
@@ -490,21 +490,17 @@ protein_fdr <- function(
 }
 
 
-#' Rhat computation
+#' rhats <- function(fit, data.func = protein_quants, data.IDs = proteins(fit)$ProteinID, as.data.table = FALSE) {
+#'   pb <- txtProgressBar(max = length(data.IDs), style = 3)
+#'   DT <- foreach(id = data.IDs, .combine = rbind, .packages = c("data.table"), .options.snow = list(progress = function(i) setTxtProgressBar(pb, i))) %dorng% {
+#'     DT <- data.func(fit, id, summary = F, as.data.table = T)
+#'     by.cols <- colnames(DT)[which(!colnames(DT) %in% c("chainID", "mcmcID", "value", "exposure"))]
+#'     DT[, .(rhat = rhat(mcmcID, chainID, value)), by = by.cols]
+#'   }
+#'   setTxtProgressBar(pb, length(data.IDs))
+#'   close(pb)
 #'
-#' @export
-#' @import doRNG
-rhats <- function(fit, data.func = protein_quants, data.IDs = proteins(fit)$ProteinID, as.data.table = FALSE) {
-  pb <- txtProgressBar(max = length(data.IDs), style = 3)
-  DT <- foreach(id = data.IDs, .combine = rbind, .packages = c("data.table"), .options.snow = list(progress = function(i) setTxtProgressBar(pb, i))) %dorng% {
-    DT <- data.func(fit, id, summary = F, as.data.table = T)
-    by.cols <- colnames(DT)[which(!colnames(DT) %in% c("chainID", "mcmcID", "value", "exposure"))]
-    DT[, .(rhat = rhat(mcmcID, chainID, value)), by = by.cols]
-  }
-  setTxtProgressBar(pb, length(data.IDs))
-  close(pb)
-
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
-}
+#'   if (!as.data.table) setDF(DT)
+#'   else DT[]
+#'   return(DT)
+#' }

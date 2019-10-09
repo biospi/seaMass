@@ -1,4 +1,4 @@
-# BayesProt v1.2.0 beta3 (27th June 2019)
+# BayesProt v2.0.0 (beta1 - 29th October 2019)
 Bayesian mixed-effects model and uncertainty propagation for mass spectrometry proteomics, achieving sensitive protein-level quantification and differential expression analysis. Currently works with imported data from SCIEX ProteinPilot, Thermo ProteomeDiscoverer, Waters Progenesis and OpenSWATH/PyProphet across iTraq/TMT, SILAC, Label-free and SWATH data types.
 
 ## Current citation
@@ -72,12 +72,10 @@ Optionally, you can do differential expression analysis (or any mixed-effects mo
 
 ```
 # specify a list of one of more differential expression analysis functions. Bayesprot currently
-#  implements tests between conditions using the 'dea_metafor_pairwise' function. By default
-#  these are t.tests but you can add covariates, random effects etc using the 'metafor::rma.mv'
-#  syntax
-dea.func <- list(t.tests = dea_metafor_pairwise)
+#  implements tests between conditions in a pairwise fashion using 'limma'
+dea.func <- list(t.tests = dea_limma)
 
-# 'dea_metafor_pairwise' expects a column 'Condition' to have been specified in 'data.design'.
+# 'dea_limma' expects a column 'Condition' to have been specified in 'data.design'.
 #  You can use 'NA' to ignore irrelevant samples.
 data.design$Condition <- factor(c(
   NA, NA, NA, NA, "A", "A", "B", "B",
@@ -97,14 +95,20 @@ data.design$ref <- factor(c(
 )
 ```
 
-Finally, run the model. Intermediate and results data is stored in the directory specified by the BayesProt 'output' parameter, and any internal control parameters (such as the number of CPU threads to use) can be specified through a 'control' object'. For differential expression analysis, a Bayesian version of median normalisation will be used. By default all proteins are considered in the normalisation, but you can choose a subset if required with the 'normalisation.proteins' parameter as shown below.
+Finally, run the model. Intermediate and results data is stored in the directory specified by the BayesProt 'output' parameter, and any internal control parameters (such as the number of CPU threads to use) can be specified through a 'control' object'. For differential expression analysis, a Bayesian version of median normalisation will be used. By default all proteins are considered in the normalisation, but you can choose a subset if required as illustrated below.
 
 ```
-# Run BayesProt, using the rat proteins only for normalisation.
+# By default BayesProt uses median normalisation. If you want to normalise just to a specific
+# set of proteins, do this (here to all the rat proteins).
+norm_truth <- function(...) {
+  norm_median(..., ref.proteins = levels(data$Protein)[grep("_RAT", levels(data$Protein))])
+}
+
+# run BayesProt.
 fit <- bayesprot(
   data,
   data.design = data.design,
-  normalisation.proteins = levels(data$Protein)[grep("_RAT$", levels(data$Protein))],
+  norm.func = list(truth = norm_truth),
   dea.func = dea.func,
   output = "Tutorial.bayesprot",
   control = new_control(nthread = 4)
@@ -129,10 +133,11 @@ data.protein.quants <- merge(data.protein.quants, data.proteins[, c("ProteinID",
 print(data.protein.quants)
 
 # Output fdr-controlled differential expression for the 't.test' analysis, with accessions.
-data.de <- protein_de(fit)
+data.de <- protein_fdr(fit)
 data.de <- merge(data.de, data.proteins[, c("ProteinID", "Protein")], sort = F)
 print(data.de)
 
-# View the plot for the top differential expression candidate.
-plot_peptides(fit, protein = data.de$Protein[1])
+# Plot precision-recall curve (sensitivity against false discovery rate.
+data.de$truth <- ifelse(grepl("_RAT", data.de$Protein), 0, 1)
+plot_pr(data.de)
 ```

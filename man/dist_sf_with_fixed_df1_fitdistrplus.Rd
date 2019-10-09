@@ -4,7 +4,7 @@
 \alias{dist_sf_with_fixed_df1_fitdistrplus}
 \title{fit scaled F distribution with per-datapoint fixed df1 with fitdistrplus}
 \usage{
-dist_sf_with_fixed_df1_fitdistrplus(x, df1, plots = FALSE, ...)
+dist_sf_with_fixed_df1_fitdistrplus(value, df1, plots = FALSE, ...)
 }
 \description{
 fit scaled F distribution with per-datapoint fixed df1 with fitdistrplus

@@ -72,7 +72,7 @@ peptide_vars(fit, peptideIDs = NULL, stage = "",
   chains = 1:control(fit)$model.nchain, summary = TRUE,
   as.data.table = FALSE)
 
-assay_vars(fit, assayIDs = NULL, stage = "",
+assay_vars(fit, proteinIDs = NULL, stage = "",
   chains = 1:control(fit)$model.nchain, summary = TRUE,
   as.data.table = FALSE)
 

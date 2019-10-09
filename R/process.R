@@ -17,65 +17,76 @@ process_model0 <- function(
   execute_model(fit, chain)
 
   if (length(list.files(file.path(fit, "model0"), "\\.finished$")) == control$model.nchain) {
-
     # PROCESS OUTPUT
     message(paste0("[", Sys.time(), "] OUTPUT stage=eb"))
     priors <- list()
 
-    # compute EB feature prior
     message("[", paste0(Sys.time(), "]  computing empirical Bayes feature variance prior..."))
     DT.feature.vars <- feature_vars(fit, stage = "0", as.data.table = T)
-    #priors$DT.feature <- DT.feature.vars[, dist_squeeze_var_func(fit)$value(v, df)]
-    priors$DT.feature <- DT.feature.vars[, squeeze_var(v, df)]
+
+    # plot feature variance fit
+    DT.feature.vars[, nPeptide := .N, by = ProteinID]
+    g <- ggplot2::ggplot(DT.feature.vars, ggplot2::aes(x = FeatureID, y = rhat)) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1) + ggplot2::scale_y_continuous(trans = "log2")
+    ggplot2::ggsave(file.path(fit, "model0", "feature_vars0_rhat.pdf"), g, width = 8, height = 6, limitsize = F)
+    g <- ggplot2::ggplot(DT.feature.vars, ggplot2::aes(x = FeatureID, y = v)) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1) + ggplot2::scale_y_continuous(trans = "log2")
+    ggplot2::ggsave(file.path(fit, "model0", "feature_vars0_v.pdf"), g, width = 8, height = 6, limitsize = F)
+    g <- ggplot2::ggplot(DT.feature.vars, ggplot2::aes(x = FeatureID, y = df)) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1) + ggplot2::scale_y_continuous(trans = "log2")
+    ggplot2::ggsave(file.path(fit, "model0", "feature_vars0_df.pdf"), g, width = 8, height = 6, limitsize = F)
+
+    # compute EB feature prior
+    priors$DT.feature <- DT.feature.vars[, dist_squeeze_var_func(fit)$value(v, df)]
 
     if(!is.null(control$peptide.model)) {
-      # compute EB peptide prior
       message("[", paste0(Sys.time(), "]  computing empirical Bayes peptide variance prior..."))
       DT.peptide.vars <- peptide_vars(fit, stage = "0", as.data.table = T)
+
+      # plot peptide variance fit
+      DT.peptide.vars[, nPeptide := .N, by = ProteinID]
+      g <- ggplot2::ggplot(DT.feature.vars, ggplot2::aes(x = PeptideID, y = rhat)) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1) + ggplot2::scale_y_continuous(trans = "log2")
+      ggplot2::ggsave(file.path(fit, "model0", "peptide_vars0_rhat.pdf"), g, width = 8, height = 6, limitsize = F)
+      g <- ggplot2::ggplot(DT.peptide.vars, ggplot2::aes(x = PeptideID, y = v)) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1) + ggplot2::scale_y_continuous(trans = "log2")
+      ggplot2::ggsave(file.path(fit, "model0", "peptide_vars0_v.pdf"), g, width = 8, height = 6, limitsize = F)
+      g <- ggplot2::ggplot(DT.peptide.vars, ggplot2::aes(x = PeptideID, y = df)) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1) + ggplot2::scale_y_continuous(trans = "log2")
+      ggplot2::ggsave(file.path(fit, "model0", "peptide_vars0_df.pdf"), g, width = 8, height = 6, limitsize = F)
+
+      # compute EB peptide prior
       priors$DT.peptide <- DT.peptide.vars[, dist_squeeze_var_func(fit)$value(v, df)]
     }
 
     if(!is.null(control$assay.model)) {
-      # compute EB assay prior(s)
       message("[", paste0(Sys.time(), "]  computing empirical Bayes assay variance prior..."))
       DT.assay.vars <- assay_vars(fit, stage = "0", as.data.table = T)
+
+      #DT <- assay_vars(fit, 80, stage = "0", summary = F, as.data.table = T)
+      #DT.fits <- DT[, dist_invchisq_mcmc(chainID, mcmcID, value, control=list(trace=1, REPORT=1)), by = .(ProteinID, AssayID)]
+      #plot_fits(DT, DT.fits, by = "AssayID", ci = c(0.001, 0.999), trans = log2, inv.trans = function(x) 2^x)
+      #DT <- protein_quants(fit,  1720, stage = "0", summary = F, as.data.table = T, norm.func.key = NULL)
+      #DT <- protein_quants(fit,  1, stage = "0", summary = F, as.data.table = T, norm.func.key = NULL)
+      #system.time(DT.fits <- DT[, dist_lst_mcmc(chainID, mcmcID, value), by = .(ProteinID, AssayID)])
+      #system.time(DT.fits <- DT[, dist_lst_mcmc(chainID, mcmcID, value, control=list(trace=1, REPORT=1)), by = .(ProteinID, AssayID)])
+      #plot_fits(DT, DT.fits, by = "AssayID", c(0.01, 0.99))
+
+      # plot assay variance fit
+      DT.assay.vars[, nPeptide := .N, by = ProteinID]
+      g <- ggplot2::ggplot(DT.feature.vars, ggplot2::aes(x = ProteinID, y = rhat)) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1) + ggplot2::scale_y_continuous(trans = "log2")
+      ggplot2::ggsave(file.path(fit, "model0", "assay_vars0_rhat.pdf"), g, width = 8, height = 6, limitsize = F)
+      g <- ggplot2::ggplot(DT.assay.vars, ggplot2::aes(x = ProteinID, y = v)) + ggplot2::geom_point(ggplot2::aes(colour = factor(AssayID)), size = 0.1) + ggplot2::scale_y_continuous(trans = "log2")
+      ggplot2::ggsave(file.path(fit, "model0", "assay_vars0_v.pdf"), g, width = 8, height = 6, limitsize = F)
+      g <- ggplot2::ggplot(DT.assay.vars, ggplot2::aes(x = ProteinID, y = df)) + ggplot2::geom_point(ggplot2::aes(colour = factor(AssayID)), size = 0.1) + ggplot2::scale_y_continuous(trans = "log2")
+      ggplot2::ggsave(file.path(fit, "model0", "assay_vars0_df.pdf"), g, width = 8, height = 6, limitsize = F)
+
+      # compute EB assay prior(s)
       if (control$assay.model == "single") {
         priors$DT.assay <- DT.assay.vars[, dist_squeeze_var_func(fit)$value(v, df)]
       } else {
-        #priors$DT.assay <- DT.assay.vars[, dist_squeeze_var_func(fit)$value(v, df), by = AssayID]
-        priors$DT.assay <- DT.assay.vars[, squeeze_var(v, df), by = AssayID]
+        priors$DT.assay <- DT.assay.vars[, dist_squeeze_var_func(fit)$value(v, df), by = AssayID]
       }
     }
 
     # save priors
     saveRDS(priors, file = file.path(fit, "model0", "priors.rds"))
 
-    # PLOTS
-
-    # plot feature variance fit
-    DT.feature.vars[, nPeptide := .N, by = ProteinID]
-    g <- ggplot2::ggplot(DT.feature.vars, ggplot2::aes(x = FeatureID, y = v)) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1) + ggplot2::scale_y_continuous(trans = "log2")
-    ggplot2::ggsave(file.path(fit, "model0", "feature_vars0_v.pdf"), g, width = 8, height = 6, limitsize = F)
-    g <- ggplot2::ggplot(DT.feature.vars, ggplot2::aes(x = FeatureID, y = df)) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1) + ggplot2::scale_y_continuous(trans = "log2")
-    ggplot2::ggsave(file.path(fit, "model0", "feature_vars0_df.pdf"), g, width = 8, height = 6, limitsize = F)
-
-    if(!is.null(control$peptide.model)) {
-      # plot peptide variance fit
-      DT.peptide.vars[, nPeptide := .N, by = ProteinID]
-      g <- ggplot2::ggplot(DT.peptide.vars, ggplot2::aes(x = PeptideID, y = v)) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1) + ggplot2::scale_y_continuous(trans = "log2")
-      ggplot2::ggsave(file.path(fit, "model0", "peptide_vars0_v.pdf"), g, width = 8, height = 6, limitsize = F)
-      g <- ggplot2::ggplot(DT.peptide.vars, ggplot2::aes(x = PeptideID, y = df)) + ggplot2::geom_point(ggplot2::aes(colour = log2(nPeptide)), size = 0.1) + ggplot2::scale_y_continuous(trans = "log2")
-      ggplot2::ggsave(file.path(fit, "model0", "peptide_vars0_df.pdf"), g, width = 8, height = 6, limitsize = F)
-    }
-
-    if(!is.null(control$assay.model)) {
-      # plot assay variance fit
-      DT.assay.vars[, nPeptide := .N, by = ProteinID]
-      g <- ggplot2::ggplot(DT.assay.vars, ggplot2::aes(x = ProteinID, y = v)) + ggplot2::geom_point(ggplot2::aes(colour = factor(AssayID)), size = 0.1) + ggplot2::scale_y_continuous(trans = "log2")
-      ggplot2::ggsave(file.path(fit, "model0", "assay_vars0_v.pdf"), g, width = 8, height = 6, limitsize = F)
-      g <- ggplot2::ggplot(DT.assay.vars, ggplot2::aes(x = ProteinID, y = df)) + ggplot2::geom_point(ggplot2::aes(colour = factor(AssayID)), size = 0.1) + ggplot2::scale_y_continuous(trans = "log2")
-      ggplot2::ggsave(file.path(fit, "model0", "assay_vars0_df.pdf"), g, width = 8, height = 6, limitsize = F)
-    }
+    # plot EB
 
     # prepare data tables
     DT.priors <- priors$DT.feature[, .(Effect = "Feature", v0, df0, v, df)]
@@ -113,11 +124,11 @@ process_model0 <- function(
     DT.vars[, Effect := factor(Effect, levels = unique(Effect))]
 
     # plot eb prior fits
-    g <- plot_priors(DT.vars, DT.priors, c(0.05, 0.95))
+    g <- plot_fits(DT.vars, DT.priors,  ci = c(0.05, 0.95), by = "Effect")
     suppressWarnings(ggplot2::ggsave(file.path(fit, "output", "protein_quant_qc_vars.pdf"), g, width = 8, height = 0.5 + 1.5 * nrow(DT.priors), limitsize = F))
 
     # plot eb prior stdevs
-    g <- plot_priors(DT.vars, DT.priors, c(0.01, 0.95), xlab = "log2 Standard Deviation", sqrt, function(x) x^2)
+    g <- plot_fits(DT.vars, DT.priors, ci = c(0.01, 0.95), by = "Effect", xlab = "log2 Standard Deviation", trans = sqrt, inv.trans = function(x) x^2)
     suppressWarnings(ggplot2::ggsave(file.path(fit, "output", "protein_quant_qc_stdevs.pdf"), g, width = 8, height = 0.5 + 1.5 * nrow(DT.priors), limitsize = F))
   }
 
@@ -228,27 +239,12 @@ process_model <- function(
       fwrite(DT.protein.quants, file.path(fit, "output", paste0("protein_log2quants__", ref_assays(fit, k)$key, "__", norm_func(fit, k)$key, ".csv")))
       rm(DT.protein.quants)
 
-      # rhats
-      if (control$model.nchain > 1) {
-        message("[", paste0(Sys.time(), "]    rhats..."))
-        data.func <- eval(str2expression(paste0("function(...) protein_quants(..., norm.func.key = ", k, ", ref.assays.key = ", k, ")")))
-        DT.rhats <- rhats(fit, data.func = data.func, as.data.table = T)
-
-        # save csv summary
-        DT.rhats <- merge(DT.design[, .(AssayID, Assay)], DT.rhats, by = "AssayID")
-        DT.rhats <- dcast(DT.rhats, ProteinID ~ Assay, value.var = "rhat")
-        colnames(DT.rhats)[2:ncol(DT.rhats)] <- paste0("rhat_", colnames(DT.rhats)[2:ncol(DT.rhats)])
-        DT.rhats <- merge(DT.proteins[, .(ProteinID, Protein, nPeptide, nFeature, nMeasure)], DT.rhats, by = "ProteinID")
-        fwrite(DT.rhats, file.path(fit, "output", paste0("protein_log2quants_rhats__", ref_assays(fit, k)$key, "__", norm_func(fit, k)$key, ".csv")))
-        rm(DT.rhats)
-      }
-
       # plots
       DT.protein.quants <- protein_quants(fit, norm.func.key = k, ref.assays.key = k, summary = F, as.data.table = T)
 
       g <- plot_exposures(fit, DT.protein.quants)
       ggplot2::ggsave(file.path(fit, "output", paste0("assay_exposures__", ref_assays(fit, k)$key, "__", norm_func(fit, k)$key, ".pdf")),
-                      g, width = 8, height = 0.5 + 0.75 * length(nrow(DT.design)), limitsize = F)
+                      g, width = 8, height = 0.5 + 0.75 * nrow(DT.design), limitsize = F)
 
       g <- plot_pca(fit, DT.protein.quants)
       ggplot2::ggsave(file.path(fit, "output", paste0("assay_pca__", ref_assays(fit, k)$key, "__", norm_func(fit, k)$key, ".pdf")),
@@ -280,12 +276,12 @@ process_model <- function(
       message("[", paste0(Sys.time(), "]   ref.assays=", ref_assays(fit, k)$key, " norm.func=", norm_func(fit, k)$key, " dea.func=", dea_func(fit, k)$key, " fdr.func=", fdr_func(fit, k)$key, "..."))
 
       # run fdr
-      DTs.fdr <- split(protein_fdr(fit, NULL, k, k, k, k, as.data.table = T), by = c("Model", "Covariate"), drop = T)
+      DTs.fdr <- split(protein_fdr(fit, fdr.func.key = k, dea.func.key = k, dist.mean.func.key = k, norm.func.key = k, ref.assays.key = k, as.data.table = T), by = c("Model", "Effect"), drop = T)
 
       for (i in 1:length(DTs.fdr)) {
         # save pretty version
-        DT.fdr <- merge(DTs.fdr[[i]], DT.proteins[, .(ProteinID, Protein, ProteinInfo, nPeptide, nFeature, nMeasure)], by = "ProteinID", sort = F)
-        setcolorder(DT.fdr, c("ProteinID", "Protein", "ProteinInfo", "nPeptide", "nFeature", "nMeasure"))
+        DT.fdr <- merge(DT.proteins[, .(ProteinID, Protein, ProteinInfo, nPeptide, nFeature, nMeasure)], DTs.fdr[[i]], by = "ProteinID")
+        setorder(DT.fdr, qvalue)
         fwrite(DT.fdr[, !c("Model", "Covariate")], file.path(fit, "output", paste0("protein_log2DE_", dea_func(fit, k)$key, "_", names(DTs.fdr)[i], ".csv")))
         g <- bayesprot::plot_fdr(DT.fdr, 1.0)
         ggplot2::ggsave(file.path(fit, "output", paste0("protein_log2DE_fdr_", dea_func(fit, k)$key, "_", names(DTs.fdr)[i], ".pdf")), g, width = 8, height = 8)

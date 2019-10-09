@@ -308,8 +308,8 @@ new_control <- function(
   model.thin = 1,
   model.nsample = 1024,
   dist.squeeze_var.func = squeeze_var,
-  dist.var.func = dist_invchisq,
-  dist.mean.func = dist_lst,
+  dist.var.func = dist_invchisq_mcmc,
+  dist.mean.func = dist_lst_mcmc,
   nthread = parallel::detectCores(logical = FALSE),
   hpc = NULL
 ) {

@@ -97,36 +97,55 @@ plot_pca <- function(fit, data = protein_quants(fit, summary = F), data.summary 
 #' @return The sum of \code{x} and \code{y}.
 #' @import data.table
 #' @export
-plot_priors <- function(DT.vars, DT.priors, ci, xlab = "v", trans = identity, inv.trans = identity, show.input = T, random = T) {
+plot_fits <- function(data, data.fits = NULL, ci = c(0.01, 0.99), by = NULL, xlab = "v", ylim = NULL, trans = identity, inv.trans = identity, show.input = T) {
+  DT <- as.data.table(data)
+  DT.fits <- as.data.table(data.fits)
+
   xlim <- c(
-    ifelse(is.infinite(trans(0)), min(quantile(DT.vars$v, probs = ci[1]), ci[2] * DT.priors$v), 0),
-    max(quantile(DT.vars$v, probs = ci[2]), (1 + ci[1]) * DT.priors$v0, (1 + ci[1]) * DT.priors$v)
+    #ifelse(is.infinite(trans(0)), min(quantile(DT$v, probs = ci[1]), ci[2] * DT.fits$v), 0),
+    #max(quantile(DT$v, probs = ci[2]), (1 + ci[1]) * DT.fits$v0, (1 + ci[1]) * DT.fits$v)
+    min(ifelse(is.infinite(trans(0)), quantile(DT$v, probs = ci[1]), 0), quantile(DT$v, probs = ci[1])),
+    quantile(DT$v, probs = ci[2])
   )
 
-  if (random) {
-    DT.vars[, x := extraDistr::rinvchisq(1, df, v), by = seq_len(nrow(DT.vars))]
+  if ("v" %in% colnames(DT)) {
+    DT[, x := extraDistr::rinvchisq(1, df, v), by = seq_len(nrow(DT))]
   } else {
-    DT.vars[, x := v]
+    DT[, x := value]
   }
 
-  DT.fits0 <- DT.priors[, .(v0, df0, z = seq(trans(xlim[1]), trans(xlim[2]), length.out = 10001)), by = Effect]
-  DT.fits0[, x := inv.trans(z)]
-  DT.fits0[, y := extraDistr::dinvchisq(x, df0, v0) * c(diff(x) / diff(z), NA)]
-
-  DT.fits <- DT.priors[, .(v, df, z = seq(trans(xlim[1]), trans(xlim[2]), length.out = 10001)), by = Effect]
-  DT.fits[, x := inv.trans(z)]
-  DT.fits[, y := extraDistr::dinvchisq(x, df, v) * c(diff(x) / diff(z), NA)]
-
-  g <- ggplot2::ggplot(DT.vars, ggplot2::aes(x = trans(x)))
+  g <- ggplot2::ggplot(DT, ggplot2::aes(x = trans(x)))
   g <- g + ggplot2::geom_hline(yintercept = 0, color = "darkgrey")
-  if (show.input) g <- g + ggplot2::geom_histogram(ggplot2::aes(y = ..density..), DT.vars, bins = 60, boundary = trans(xlim[1]), fill = "darkgrey")
-  g <- g + ggplot2::geom_line(ggplot2::aes(x = z, y = y), DT.fits0)
-  g <- g + ggplot2::geom_vline(ggplot2::aes(xintercept = trans(v0)), DT.priors)
-  g <- g + ggplot2::geom_line(ggplot2::aes(x = z, y = y), DT.fits, colour = "red")
-  g <- g + ggplot2::geom_vline(ggplot2::aes(xintercept = trans(v)), DT.priors, colour = "red")
+  if (show.input) g <- g + ggplot2::geom_histogram(ggplot2::aes(y = ..density..), DT, bins = 60, boundary = trans(xlim[1]), fill = "darkgrey")
+
+  if (!is.null(DT.fits)) {
+    if ("v0" %in% colnames(DT.fits)) {
+      DT.fits0 <- DT.fits[, .(v0, df0, z = seq(trans(xlim[1]), trans(xlim[2]), length.out = 10001)), by = by]
+      DT.fits0[, x := inv.trans(z)]
+      DT.fits0[, y := extraDistr::dinvchisq(x, df0, v0) * c(diff(x) / diff(z), NA)]
+      g <- g + ggplot2::geom_line(ggplot2::aes(x = z, y = y), DT.fits0)
+      g <- g + ggplot2::geom_vline(ggplot2::aes(xintercept = trans(v0)), DT.fits)
+    }
+
+    if ("v" %in% colnames(DT.fits)) {
+      DT.fits <- DT.fits[, .(v, df, z = seq(trans(xlim[1]), trans(xlim[2]), length.out = 10001)), by = by]
+      DT.fits[, x := inv.trans(z)]
+      DT.fits[, y := extraDistr::dinvchisq(x, df, v) * c(diff(x) / diff(z), NA)]
+      g <- g + ggplot2::geom_line(ggplot2::aes(x = z, y = y), DT.fits, colour = "red")
+      g <- g + ggplot2::geom_vline(ggplot2::aes(xintercept = trans(v)), DT.fits, colour = "red")
+    } else if ("m" %in% colnames(DT.fits)) {
+      DT.fits <- DT.fits[, .(m, s, df, z = seq(trans(xlim[1]), trans(xlim[2]), length.out = 10001)), by = by]
+      DT.fits[, x := inv.trans(z)]
+      DT.fits[, y := extraDistr::dlst(x, df, m, s) * c(diff(x) / diff(z), NA)]
+      g <- g + ggplot2::geom_line(ggplot2::aes(x = z, y = y), DT.fits, colour = "red")
+      g <- g + ggplot2::geom_vline(ggplot2::aes(xintercept = trans(m)), DT.fits, colour = "red")
+    }
+  }
+
   g <- g + ggplot2::scale_x_continuous(expand = c(0, 0), limits = trans(xlim))
   g <- g + ggplot2::xlab(xlab)
-  g <- g + ggplot2::facet_wrap(~Effect, ncol = 1)
+  if (!is.null(ylim)) g <- g + ggplot2::scale_y_continuous(limits = c(0, ylim))
+  if (!is.null(by)) g <- g + ggplot2::facet_wrap(as.formula(paste("~", by)), ncol = 1)
   return(g)
 }
 

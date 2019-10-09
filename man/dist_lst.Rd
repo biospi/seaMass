@@ -2,10 +2,10 @@
 % Please edit documentation in R/dist.R
 \name{dist_lst}
 \alias{dist_lst}
-\title{fit location-scale t distribution with fitdistrplus using quantile matching}
+\title{fit location-scale t distribution with fitdistrplus}
 \usage{
-dist_lst(x, plots = FALSE)
+dist_lst(value, plots = FALSE, ...)
 }
 \description{
-fit location-scale t distribution with fitdistrplus using quantile matching
+fit location-scale t distribution with fitdistrplus
 }

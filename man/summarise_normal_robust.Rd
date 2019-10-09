@@ -4,7 +4,7 @@
 \alias{summarise_normal_robust}
 \title{summarise using median/mad}
 \usage{
-summarise_normal_robust(x)
+summarise_normal_robust(value)
 }
 \description{
 summarise using median/mad
