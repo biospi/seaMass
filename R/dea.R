@@ -174,7 +174,7 @@ dea_MCMCglmm <- function(
   model.nsample = control(fit)$model.nsample,
   dist.mean.func = dist_mean_func(fit)$value,
   dist.var.func = dist_var_func(fit)$value,
-  dist.squeeze.var.func = dist_squeeze_var_func(fit)$value
+  dist.squeeze.var.func = squeeze_var_func(fit)$value
 ) {
   if (!use.precision) message("WARNING: With use.precision = FALSE this function does not use BayesProt quant precision estimates and hence should only be used for comparative purposes with the other 'dea' methods.")
 
@@ -413,11 +413,11 @@ dea_MCMCglmm <- function(
 
     # plot eb priors fits
     g <- plot_fits(out$DT.rcov, DT.priors, c(0.0, 0.99), by = "Effect")
-    suppressWarnings(ggplot2::ggsave(file.path(fit, "output", paste0("protein_de__", output, "__qc_vars.pdf")), g, width = 8, height = 0.5 + 1.5 * nrow(DT.priors), limitsize = F))
+    suppressWarnings(ggplot2::ggsave(file.path(fit, "model", paste0("protein_de__", output, "__qc_vars.pdf")), g, width = 8, height = 0.5 + 1.5 * nrow(DT.priors), limitsize = F))
 
     # plot eb prior stdevs
     g <- plot_fits(out$DT.rcov, DT.priors, c(0.0, 0.99), by = "Effect", xlab = "log2 Standard Deviation", trans = sqrt, inv.trans = function(x) x^2)
-    suppressWarnings(ggplot2::ggsave(file.path(fit, "output", paste0("protein_de__", output, "__qc_stdevs.pdf")), g, width = 8, height = 0.5 + 1.5 * nrow(DT.priors), limitsize = F))
+    suppressWarnings(ggplot2::ggsave(file.path(fit, "model", paste0("protein_de__", output, "__qc_stdevs.pdf")), g, width = 8, height = 0.5 + 1.5 * nrow(DT.priors), limitsize = F))
 
     # moderated tests
     out <- process_model(DT.priors, 1, model.nchain + 1)

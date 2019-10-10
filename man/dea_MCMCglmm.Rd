@@ -16,7 +16,7 @@ dea_MCMCglmm(fit, data = protein_quants(fit),
   model.nsample = control(fit)$model.nsample,
   dist.mean.func = dist_mean_func(fit)$value,
   dist.var.func = dist_var_func(fit)$value,
-  dist.squeeze.var.func = dist_squeeze_var_func(fit)$value)
+  dist.squeeze.var.func = squeeze_var_func(fit)$value)
 }
 \description{
 The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.

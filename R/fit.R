@@ -243,8 +243,8 @@ fdr_func <- function(fit, key = 1) {
 #' @rdname bayesprot_fit
 #' @import data.table
 #' @export
-dist_squeeze_var_func <- function(fit, key = 1) {
-  get_by_key(control(fit)$dist.squeeze_var.func, key)
+squeeze_var_func <- function(fit, key = 1) {
+  get_by_key(control(fit)$squeeze.var.func, key)
 }
 
 
@@ -305,9 +305,9 @@ timings <- function(
 feature_vars <- function(
   fit,
   featureIDs = NULL,
+  summary = TRUE,
   stage = "",
   chains = 1:control(fit)$model.nchain,
-  summary = TRUE,
   as.data.table = FALSE
 ) {
   return(read_mcmc(fit, "feature.vars", "FeatureID", c("ProteinID", "PeptideID", "FeatureID"), c("ProteinID", "PeptideID", "FeatureID"), featureIDs, stage, chains, dist_var_func(fit, summary), as.data.table))
@@ -321,9 +321,9 @@ feature_vars <- function(
 peptide_vars <- function(
   fit,
   peptideIDs = NULL,
+  summary = TRUE,
   stage = "",
   chains = 1:control(fit)$model.nchain,
-  summary = TRUE,
   as.data.table = FALSE
 ) {
   return(read_mcmc(fit, "peptide.vars", "PeptideID", c("ProteinID", "PeptideID"), c("ProteinID", "PeptideID"), peptideIDs, stage, chains, dist_var_func(fit, summary), as.data.table))
@@ -337,9 +337,9 @@ peptide_vars <- function(
 assay_vars <- function(
   fit,
   proteinIDs = NULL,
+  summary = TRUE,
   stage = "",
   chains = 1:control(fit)$model.nchain,
-  summary = TRUE,
   as.data.table = FALSE
 ) {
   return(read_mcmc(fit, "assay.vars", "ProteinID", c("ProteinID", "AssayID"), c("ProteinID", "AssayID"), proteinIDs, stage, chains, dist_var_func(fit, summary), as.data.table))
@@ -353,9 +353,9 @@ assay_vars <- function(
 peptide_deviations <- function(
   fit,
   peptideIDs = NULL,
+  summary = TRUE,
   stage = "",
   chains = 1:control(fit)$model.nchain,
-  summary = TRUE,
   as.data.table = FALSE
 ) {
   return(read_mcmc(fit, "peptide.deviations", "PeptideID", c("ProteinID", "PeptideID"), c("ProteinID", "PeptideID", "AssayID"), peptideIDs, stage, chains, dist_mean_func(fit, summary), as.data.table))
@@ -369,11 +369,11 @@ peptide_deviations <- function(
 protein_quants <- function(
   fit,
   proteinIDs = NULL,
-  norm.func.key = 1,
+  summary = TRUE,
+  norm.func.key = as.integer(summary),
   ref.assays.key = ifelse(is.null(norm.func.key), 1, norm.func.key),
   stage = "",
   chains = 1:control(fit)$model.nchain,
-  summary = TRUE,
   as.data.table = FALSE
 ) {
   norm.func <- norm_func(fit, norm.func.key)
@@ -436,19 +436,19 @@ protein_quants <- function(
 protein_de <- function(
   fit,
   proteinIDs = NULL,
-  dea.func.key = 1,
-  dist.mean.func.key = dea.func.key,
+  key = 1,
+  dist.mean.func.key = key,
   norm.func.key = dist.mean.func.key,
   ref.assays.key = norm.func.key,
   as.data.table = FALSE
 ) {
-  output <- paste(ref_assays(fit, ref.assays.key)$index, norm_func(fit, norm.func.key)$index, dist_mean_func(fit, dist.mean.func.key)$index, dea_func(fit, dea.func.key)$index, sep = ".")
+  output <- paste(ref_assays(fit, ref.assays.key)$index, norm_func(fit, norm.func.key)$index, dist_mean_func(fit, dist.mean.func.key)$index, dea_func(fit, key)$index, sep = ".")
   filename <- file.path(fit, "model", paste0("protein.de.", output, ".fst"))
   if (file.exists(filename)) {
     DT <- fst::read.fst(filename, as.data.table = as.data.table)
   } else {
     DT.protein.quants <- protein_quants(fit, norm.func.key = norm.func.key, ref.assays.key = ref.assays.key, summary = dist.mean.func.key, as.data.table = T)
-    DT <- dea_func(fit, dea.func.key)$value(fit, DT.protein.quants, output = output, as.data.table = T)
+    DT <- dea_func(fit, key)$value(fit, DT.protein.quants, output = output, as.data.table = T)
     fst::write.fst(DT, filename)
   }
 
@@ -466,19 +466,19 @@ protein_de <- function(
 protein_fdr <- function(
   fit,
   proteinIDs = NULL,
-  fdr.func.key = 1,
-  dea.func.key = fdr.func.key,
+  key = 1,
+  dea.func.key = key,
   dist.mean.func.key = dea.func.key,
   norm.func.key = dist.mean.func.key,
   ref.assays.key = norm.func.key,
   as.data.table = FALSE
 ) {
-  filename <- file.path(fit, "model", paste0("protein.fdr.", ref_assays(fit, ref.assays.key)$index, ".", norm_func(fit, norm.func.key)$index, ".", dist_mean_func(fit, dist.mean.func.key)$index, ".", dea_func(fit, dea.func.key)$index, ".", fdr_func(fit, fdr.func.key)$index, ".fst"))
+  filename <- file.path(fit, "model", paste0("protein.fdr.", ref_assays(fit, ref.assays.key)$index, ".", norm_func(fit, norm.func.key)$index, ".", dist_mean_func(fit, dist.mean.func.key)$index, ".", dea_func(fit, dea.func.key)$index, ".", fdr_func(fit, key)$index, ".fst"))
   if (file.exists(filename)) {
     DT <- fst::read.fst(filename, as.data.table = as.data.table)
   } else {
     DT.protein.de <- protein_de(fit, dea.func.key = dea.func.key, dist.mean.func.key = dist.mean.func.key, norm.func.key = norm.func.key, ref.assays.key = ref.assays.key, as.data.table = T)
-    DT <- fdr_func(fit, fdr.func.key)$value(fit, DT.protein.de, as.data.table = T)
+    DT <- fdr_func(fit, key)$value(fit, DT.protein.de, as.data.table = T)
     fst::write.fst(DT, filename)
   }
 

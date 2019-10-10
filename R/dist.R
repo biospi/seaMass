@@ -2,7 +2,15 @@
 #'
 #' @export
 summarise_normal_robust <- function(value) {
-  return(list(m = median(value), s = mad(value)))
+  return(list(m = median(value), s = mad(value), df = Inf))
+}
+
+
+#' fit normal distribution with fitdistrplus
+#'
+#' @export
+summarise_normal_robust_mcmc <- function(chainID, mcmcID, value, plots = FALSE) {
+  return(c(list(rhat = rhat(chainID, mcmcID, value, T)), summarise_normal_robust(value)))
 }
 
 
@@ -30,7 +38,7 @@ dist_normal <- function(value, plots = FALSE, ...) {
     tryCatch({
       ft <- fitdistrplus::fitdist(value, "norm", start = list(mean = est$m, sd = est$s), ...)
       if (plots) plot(ft)
-      est <- list(m = ft$estimate[["mean"]], s = ft$estimate[["sd"]])
+      est <- list(m = ft$estimate[["mean"]], s = ft$estimate[["sd"]], df = Inf)
     }, error = function(e) {
       warning("'dist_normal' fitting failed, falling back to robust approximation.")
     })
@@ -167,37 +175,37 @@ dist_sf_with_fixed_df1_fitdistrplus <- function(value, df1, plots = FALSE, ...) 
   est0 <- dist_invchisq(sapply(1:length(value), function(i) extraDistr::rinvchisq(1, df1[i], value[i])), plots = plots)
 
   # this then seeds the fit to a scaled F distribution
-  d_bayesprot_scaled_f <<- function(x, df2, scale, log = FALSE) {
-    #print(paste("d", df2, scale))
+  d_bayesprot_scaled_f <<- function(x, log_df2, log_scale, log = FALSE) {
+    #print(paste("d", exp(log_df2), exp(log_scale)))
     if (length(x) > 0) {
-      return(sapply(1:length(x), function(i) extraDistr::dbetapr(2^(x[i]), df1[i]/2, df2/2, df2/df1[i] * scale, log)))
+      return(sapply(1:length(x), function(i) extraDistr::dbetapr(2^(x[i]), df1[i]/2, exp(log_df2)/2, exp(log_df2)/df1[i] * exp(log_scale), log)))
     } else {
       return(vector("numeric", 0))
     }
   }
 
-  p_bayesprot_scaled_f <<- function(q, df2, scale, lower.tail = TRUE, log.p = FALSE) {
-    #print(paste("p", df2, scale))
+  p_bayesprot_scaled_f <<- function(q, log_df2, log_scale, lower.tail = TRUE, log.p = FALSE) {
+    #print(paste("p", exp(log_df2), exp(log_scale)))
     if (length(q) > 0) {
-      return(sapply(1:length(q), function(i) extraDistr::pbetapr(q[i], df1[i]/2, df2/2, df2/df1[i] * scale, lower.tail, log.p)))
+      return(sapply(1:length(q), function(i) extraDistr::pbetapr(q[i], df1[i]/2, exp(log_df2)/2, exp(log_df2)/df1[i] * exp(log_scale), lower.tail, log.p)))
     } else {
       return(vector("numeric", 0))
     }
   }
 
-  q_bayesprot_scaled_f <<- function(p, df2, scale, lower.tail = TRUE, log.p = FALSE) {
-    #print(paste("q", df2, scale))
+  q_bayesprot_scaled_f <<- function(p, log_df2, log_scale, lower.tail = TRUE, log.p = FALSE) {
+    #print(paste("q", exp(log_df2), exp(log_scale)))
     if (length(p) > 0) {
-      return(sapply(1:length(p), function(i) extraDistr::qbetapr(p[i], df1[i]/2, df2/2, df2/df1[i] * scale, lower.tail, log.p)))
+      return(sapply(1:length(p), function(i) extraDistr::qbetapr(p[i], df1[i]/2, exp(log_df2)/2, exp(log_df2)/df1[i] * exp(log_scale), lower.tail, log.p)))
     } else {
       return(vector("numeric", 0))
     }
   }
 
   tryCatch({
-    ft <- fitdistrplus::fitdist(log2(value), "_bayesprot_scaled_f", start = list(df2 = est0$df, scale = est0$v), lower = c(1e-16, 1e-16), ...)
+    ft <- fitdistrplus::fitdist(log2(value), "_bayesprot_scaled_f", start = list(log_df2 = log(est0$df), log_scale = log(est0$v)), ...)
     if (plots == T) plot(ft)
-    est <- list(v = ft$estimate[["scale"]], df = ft$estimate[["df2"]])
+    est <- list(v = exp(ft$estimate[["log_scale"]]), df = exp(ft$estimate[["log_df2"]]))
   }, error = function(e) {
     warning("'dist_sf_with_fixed_df1_fitdistrplus' fitting failed, falling back to 'dist_invchisq' fit to random sample.")
     est <- est0
@@ -210,11 +218,11 @@ dist_sf_with_fixed_df1_fitdistrplus <- function(value, df1, plots = FALSE, ...) 
 #' Our squeezeVar function - works for small DF unlike Limma squeezeVar, but slower
 #'
 #' @export
-squeeze_var <- function(v, df, use.deconvolution = TRUE, plots = FALSE) {
+squeeze_var <- function(v, df, use.deconvolution = TRUE, plots = FALSE, ...) {
   if (use.deconvolution) {
-    return(dist_sf_with_fixed_df1_fitdistrplus(v, df, plots = plots))
+    return(dist_sf_with_fixed_df1_fitdistrplus(v, df, plots = plots, ...))
   } else {
-    est <- dist_invchisq(sapply(1:length(v), function(i) extraDistr::rinvchisq(1, df[i], v[i])), plots = plots)
+    est <- dist_invchisq(sapply(1:length(v), function(i) extraDistr::rinvchisq(1, df[i], v[i])), plots = plots, ...)
     return(list(v0 = est$v, df0 = est$df, v = est$v, df = est$df))
   }
 }

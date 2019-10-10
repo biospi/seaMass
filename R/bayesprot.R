@@ -307,7 +307,7 @@ new_control <- function(
   model.nwarmup = 256,
   model.thin = 1,
   model.nsample = 1024,
-  dist.squeeze_var.func = squeeze_var,
+  squeeze.var.func = squeeze_var,
   dist.var.func = dist_invchisq_mcmc,
   dist.mean.func = dist_lst_mcmc,
   nthread = parallel::detectCores(logical = FALSE),
@@ -335,13 +335,13 @@ new_control <- function(
   control$version <- packageVersion("bayesprot")
   class(control) <- "bayesprot_control"
 
-  # tidy dist.squeeze_var.func
-  if (!is.list(control$dist.squeeze_var.func)) control$dist.squeeze_var.func <- list(control$dist.squeeze_var.func)
-  if (all(sapply(control$dist.squeeze_var.func, is.function))) {
-    if(is.null(names(control$dist.squeeze_var.func))) names(control$dist.squeeze_var.func) <- 1:length(control$dist.squeeze_var.func)
-    names(control$dist.squeeze_var.func) <- ifelse(names(control$dist.squeeze_var.func) == "", 1:length(control$dist.squeeze_var.func), names(control$dist.squeeze_var.func))
+  # tidy squeeze.var.func
+  if (!is.list(control$squeeze.var.func)) control$squeeze.var.func <- list(control$squeeze.var.func)
+  if (all(sapply(control$squeeze.var.func, is.function))) {
+    if(is.null(names(control$squeeze.var.func))) names(control$squeeze.var.func) <- 1:length(control$squeeze.var.func)
+    names(control$squeeze.var.func) <- ifelse(names(control$squeeze.var.func) == "", 1:length(control$squeeze.var.func), names(control$squeeze.var.func))
   } else {
-    stop("'dist.squeeze_var.func' must be a function or list of functions taking a bayesprot_fit object")
+    stop("'squeeze.var.func' must be a function or list of functions taking a bayesprot_fit object")
   }
 
   # tidy dist.var.func

@@ -14,7 +14,7 @@
 \alias{norm_func}
 \alias{dea_func}
 \alias{fdr_func}
-\alias{dist_squeeze_var_func}
+\alias{squeeze_var_func}
 \alias{dist_var_func}
 \alias{dist_mean_func}
 \alias{summary.bayesprot_fit}
@@ -54,7 +54,7 @@ dea_func(fit, key = 1)
 
 fdr_func(fit, key = 1)
 
-dist_squeeze_var_func(fit, key = 1)
+squeeze_var_func(fit, key = 1)
 
 dist_var_func(fit, key = 1)
 
@@ -64,34 +64,31 @@ dist_mean_func(fit, key = 1)
 
 timings(fit, stage = "", as.data.table = F)
 
-feature_vars(fit, featureIDs = NULL, stage = "",
-  chains = 1:control(fit)$model.nchain, summary = TRUE,
+feature_vars(fit, featureIDs = NULL, summary = TRUE, stage = "",
+  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
+
+peptide_vars(fit, peptideIDs = NULL, summary = TRUE, stage = "",
+  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
+
+assay_vars(fit, proteinIDs = NULL, summary = TRUE, stage = "",
+  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
+
+peptide_deviations(fit, peptideIDs = NULL, summary = TRUE,
+  stage = "", chains = 1:control(fit)$model.nchain,
   as.data.table = FALSE)
 
-peptide_vars(fit, peptideIDs = NULL, stage = "",
-  chains = 1:control(fit)$model.nchain, summary = TRUE,
-  as.data.table = FALSE)
-
-assay_vars(fit, proteinIDs = NULL, stage = "",
-  chains = 1:control(fit)$model.nchain, summary = TRUE,
-  as.data.table = FALSE)
-
-peptide_deviations(fit, peptideIDs = NULL, stage = "",
-  chains = 1:control(fit)$model.nchain, summary = TRUE,
-  as.data.table = FALSE)
-
-protein_quants(fit, proteinIDs = NULL, norm.func.key = 1,
+protein_quants(fit, proteinIDs = NULL, summary = TRUE,
+  norm.func.key = as.integer(summary),
   ref.assays.key = ifelse(is.null(norm.func.key), 1, norm.func.key),
-  stage = "", chains = 1:control(fit)$model.nchain, summary = TRUE,
+  stage = "", chains = 1:control(fit)$model.nchain,
   as.data.table = FALSE)
 
-protein_de(fit, proteinIDs = NULL, dea.func.key = 1,
-  dist.mean.func.key = dea.func.key,
+protein_de(fit, proteinIDs = NULL, key = 1, dist.mean.func.key = key,
   norm.func.key = dist.mean.func.key, ref.assays.key = norm.func.key,
   as.data.table = FALSE)
 
-protein_fdr(fit, proteinIDs = NULL, fdr.func.key = 1,
-  dea.func.key = fdr.func.key, dist.mean.func.key = dea.func.key,
+protein_fdr(fit, proteinIDs = NULL, key = 1, dea.func.key = key,
+  dist.mean.func.key = dea.func.key,
   norm.func.key = dist.mean.func.key, ref.assays.key = norm.func.key,
   as.data.table = FALSE)
 }

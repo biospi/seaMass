@@ -10,8 +10,8 @@ new_control(feature.model = "independent", feature.eb.min = 3,
   error.model = "poisson", missingness.model = "censored",
   missingness.threshold = 0, model.seed = 0, model.nchain = 4,
   model.nwarmup = 256, model.thin = 1, model.nsample = 1024,
-  dist.squeeze_var.func = squeeze_var,
-  dist.var.func = dist_invchisq_mcmc, dist.mean.func = dist_lst_mcmc,
+  squeeze.var.func = squeeze_var, dist.var.func = dist_invchisq_mcmc,
+  dist.mean.func = dist_lst_mcmc,
   nthread = parallel::detectCores(logical = FALSE), hpc = NULL)
 }
 \arguments{

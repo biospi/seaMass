@@ -34,7 +34,7 @@ process_model0 <- function(
     ggplot2::ggsave(file.path(fit, "model0", "feature_vars0_df.pdf"), g, width = 8, height = 6, limitsize = F)
 
     # compute EB feature prior
-    priors$DT.feature <- DT.feature.vars[, dist_squeeze_var_func(fit)$value(v, df)]
+    priors$DT.feature <- DT.feature.vars[, squeeze_var_func(fit)$value(v, df)]
 
     if(!is.null(control$peptide.model)) {
       message("[", paste0(Sys.time(), "]  computing empirical Bayes peptide variance prior..."))
@@ -50,7 +50,7 @@ process_model0 <- function(
       ggplot2::ggsave(file.path(fit, "model0", "peptide_vars0_df.pdf"), g, width = 8, height = 6, limitsize = F)
 
       # compute EB peptide prior
-      priors$DT.peptide <- DT.peptide.vars[, dist_squeeze_var_func(fit)$value(v, df)]
+      priors$DT.peptide <- DT.peptide.vars[, squeeze_var_func(fit)$value(v, df)]
     }
 
     if(!is.null(control$assay.model)) {
@@ -77,9 +77,9 @@ process_model0 <- function(
 
       # compute EB assay prior(s)
       if (control$assay.model == "single") {
-        priors$DT.assay <- DT.assay.vars[, dist_squeeze_var_func(fit)$value(v, df)]
+        priors$DT.assay <- DT.assay.vars[, squeeze_var_func(fit)$value(v, df)]
       } else {
-        priors$DT.assay <- DT.assay.vars[, dist_squeeze_var_func(fit)$value(v, df), by = AssayID]
+        priors$DT.assay <- DT.assay.vars[, squeeze_var_func(fit)$value(v, df), by = AssayID]
       }
     }
 
