@@ -263,7 +263,7 @@ process_model <- function(
         message("[", paste0(Sys.time(), "]   ref.assays=", ref_assays(fit, k)$key, " norm.func=", norm_func(fit, k)$key, " dea.func=", dea_func(fit, k)$key, "..."))
 
         # precompute DE
-        protein_de(fit, dea.func.key = k, dist.mean.func.key = k, norm.func.key = k, ref.assays.key = k, as.data.table = T)
+        protein_de(fit, key = k, as.data.table = T)
       }
     }
 
@@ -276,7 +276,7 @@ process_model <- function(
       message("[", paste0(Sys.time(), "]   ref.assays=", ref_assays(fit, k)$key, " norm.func=", norm_func(fit, k)$key, " dea.func=", dea_func(fit, k)$key, " fdr.func=", fdr_func(fit, k)$key, "..."))
 
       # run fdr
-      DTs.fdr <- split(protein_fdr(fit, fdr.func.key = k, dea.func.key = k, dist.mean.func.key = k, norm.func.key = k, ref.assays.key = k, as.data.table = T), by = c("Model", "Effect"), drop = T)
+      DTs.fdr <- split(protein_fdr(fit, key = k, as.data.table = T), by = c("Model", "Effect"), drop = T)
 
       for (i in 1:length(DTs.fdr)) {
         # save pretty version
