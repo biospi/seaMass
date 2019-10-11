@@ -282,7 +282,7 @@ process_model <- function(
         # save pretty version
         DT.fdr <- merge(DT.proteins[, .(ProteinID, Protein, ProteinInfo, nPeptide, nFeature, nMeasure)], DTs.fdr[[i]], by = "ProteinID")
         setorder(DT.fdr, qvalue)
-        fwrite(DT.fdr[, !c("Model", "Covariate")], file.path(fit, "output", paste0("protein_log2DE_", dea_func(fit, k)$key, "_", names(DTs.fdr)[i], ".csv")))
+        fwrite(DT.fdr[, !c("Model", "Effect")], file.path(fit, "output", paste0("protein_log2DE_", dea_func(fit, k)$key, "_", names(DTs.fdr)[i], ".csv")))
         g <- bayesprot::plot_fdr(DT.fdr, 1.0)
         ggplot2::ggsave(file.path(fit, "output", paste0("protein_log2DE_fdr_", dea_func(fit, k)$key, "_", names(DTs.fdr)[i], ".pdf")), g, width = 8, height = 8)
       }

@@ -9,7 +9,7 @@ fdr_ash <- function(
   fit,
   data = protein_de(fit),
   by.model = T,
-  by.covariate = T,
+  by.effect = T,
   as.data.table = FALSE,
   use.df = TRUE,
   min.peptides = 1,
@@ -37,9 +37,9 @@ fdr_ash <- function(
        (`1:nRealSample` + `2:nTestSample` >= min.real.samples) &
        (`1:nRealSample` >= min.real.samples.per.condition & `2:nTestSample` >= min.real.samples.per.condition)]
 
-  if (by.model && by.covariate) DTs <- split(DT, by = c("Model", "Effect"), drop = T)
+  if (by.model && by.effect) DTs <- split(DT, by = c("Model", "Effect"), drop = T)
   else if (by.model) DTs <- split(DT, by = "Model", drop = T)
-  else if (by.covariate) DTs <- split(DT, by = "Effect", drop = T)
+  else if (by.effect) DTs <- split(DT, by = "Effect", drop = T)
   else DTs <- list(DT)
 
   DT <- foreach(DT = iterators::iter(DTs), .final = rbindlist, .inorder = F, .packages = "data.table") %do% {
@@ -70,9 +70,9 @@ fdr_ash <- function(
     DT[, use.FDR := NULL]
   }
 
-  if (by.model && by.covariate) setorder(DT, Model, Effect, qvalue, na.last = T)
+  if (by.model && by.effect) setorder(DT, Model, Effect, qvalue, na.last = T)
   else if (by.model) setorder(DT, Model, qvalue, na.last = T)
-  else if (by.covariate) setorder(DT, Effect, qvalue, na.last = T)
+  else if (by.effect) setorder(DT, Effect, qvalue, na.last = T)
   else setorder(DT, qvalue, na.last = T)
 
   if (!as.data.table) setDF(DT)
@@ -91,7 +91,7 @@ fdr_BH <- function(
   fit,
   data = protein_de(fit),
   by.model = T,
-  by.covariate = T,
+  by.effect = T,
   as.data.table = FALSE,
   min.peptides = 1,
   min.peptides.per.condition = 0,
@@ -120,17 +120,17 @@ fdr_BH <- function(
        (`1:nRealSample` >= min.real.samples.per.condition & `2:nTestSample` >= min.real.samples.per.condition)]
 
   # perform FDR
-  if (by.model && by.covariate) byby <- c("Model", "Effect")
+  if (by.model && by.effect) byby <- c("Model", "Effect")
   else if (by.model) byby <- "Model"
-  else if (by.covariate) byby <- "Effect"
+  else if (by.effect) byby <- "Effect"
   else byby <- NULL
 
   DT[, qvalue := ifelse(use.FDR, p.adjust(pvalue, method = "BH"), NA), by = byby]
   DT[, use.FDR := NULL]
 
-  if (by.model && by.covariate) setorder(DT, Model, Effect, qvalue, pvalue, na.last = T)
+  if (by.model && by.effect) setorder(DT, Model, Effect, qvalue, pvalue, na.last = T)
   else if (by.model) setorder(DT, Model, qvalue, pvalue, na.last = T)
-  else if (by.covariate) setorder(DT, Effect, qvalue, pvalue, na.last = T)
+  else if (by.effect) setorder(DT, Effect, qvalue, pvalue, na.last = T)
   else setorder(DT, qvalue, pvalue, na.last = T)
 
   if (!as.data.table) setDF(DT)
