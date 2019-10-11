@@ -206,7 +206,7 @@ plot_exposures <- function(fit, data = protein_quants(fit, summary = F), data.de
 
 plot_fdr <- function(data, ymax = 0.2) {
   DT <- as.data.table(data)
-  DT <- DT[complete.cases(DT)]
+  DT <- DT[!is.na(qvalue)]
 
   if (is.null(DT$mcmcID)) {
     DT[, mcmcID := "NA"]

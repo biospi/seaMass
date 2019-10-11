@@ -477,7 +477,7 @@ protein_fdr <- function(
   if (file.exists(filename)) {
     DT <- fst::read.fst(filename, as.data.table = as.data.table)
   } else {
-    DT.protein.de <- protein_de(fit, dea.func.key = dea.func.key, dist.mean.func.key = dist.mean.func.key, norm.func.key = norm.func.key, ref.assays.key = ref.assays.key, as.data.table = T)
+    DT.protein.de <- protein_de(fit, key = dea.func.key, dist.mean.func.key = dist.mean.func.key, norm.func.key = norm.func.key, ref.assays.key = ref.assays.key, as.data.table = T)
     DT <- fdr_func(fit, key)$value(fit, DT.protein.de, as.data.table = T)
     fst::write.fst(DT, filename)
   }
