@@ -172,9 +172,9 @@ dea_MCMCglmm <- function(
   model.nwarmup  = control(fit)$model.nwarmup,
   model.thin = control(fit)$model.thin,
   model.nsample = control(fit)$model.nsample,
-  dist.mean.func = dist_mean_func(fit)$value,
-  dist.var.func = dist_var_func(fit)$value,
-  dist.squeeze.var.func = squeeze_var_func(fit)$value
+  dist.mean.func = dist_lst_mcmc,
+  dist.var.func = dist_invchisq_mcmc,
+  squeeze.var.func = squeeze_var
 ) {
   if (!use.precision) message("WARNING: With use.precision = FALSE this function does not use BayesProt quant precision estimates and hence should only be used for comparative purposes with the other 'dea' methods.")
 
@@ -233,7 +233,7 @@ dea_MCMCglmm <- function(
               for (l in levels(output.contrast$DT.input$Condition)) output.contrast$DT.input[, paste0("Condition", l) := ifelse(Condition == l, 1, 0)]
               rcov <- as.formula(paste("~", paste(paste0("idh(Condition", levels(output.contrast$DT.input$Condition), "):units"), collapse = "+")))
               if (is.null(DT.priors)) {
-                prior <- list(R = lapply(1:nlevels(output.contrast$DT.input$Condition), function(i) list(V = 1, nu = 0.02)))
+                prior <- list(R = lapply(1:nlevels(output.contrast$DT.input$Condition), function(i) list(V = 1, nu = 0.002)))
               } else {
                 prior <- list(R = split(DT.priors[Model == paste0(cts[1, j], "_v_", cts[2, j]), .(Effect, v, df)], by = "Effect", keep.by = F))
                 for (i in 1:length(prior$R)) prior$R[[i]] <- list(V = prior$R[[i]]$v, nu = prior$R[[i]]$df)
@@ -241,11 +241,13 @@ dea_MCMCglmm <- function(
             } else {
               rcov <- ~ units
               if (is.null(DT.priors)) {
-                prior <- list(R = list(V = 1, nu = 0.02))
+                prior <- list(R = list(V = 1, nu = 0.002))
               } else {
                 prior <- list(R = list(V = DT.priors$v, nu = DT.priors$df))
               }
             }
+
+            print(prior)
 
             output.contrast$fit <- MCMCglmm::MCMCglmm(
               fixed = fixed,
@@ -407,7 +409,7 @@ dea_MCMCglmm <- function(
     }
 
     # squeeze variances
-    DT.priors <- out$DT.rcov[, dist.squeeze.var.func(v, df), by = .(Model, Effect)]
+    DT.priors <- out$DT.rcov[, squeeze.var.func(v, df), by = .(Model, Effect)]
     #DT.priors <- out$DT.rcov[, squeeze_var(v, df), by = .(Model, Effect)]
     #system.time(print(out$DT.rcov[, dist_sf_with_fixed_df1(v, df, optim.method = "L-BFGS-B", control=list(trace=1, REPORT=1)), by = .(Model, Effect)]))
 
