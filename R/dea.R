@@ -54,14 +54,15 @@ dea_limma <- function(
   data = protein_quants(fit),
   data.design = design(fit),
   condition = "Condition",
-  use.precision = TRUE,
-  use.moderation = TRUE,
   output = "limma",
   save.intercept = FALSE,
   as.data.table = FALSE,
-  ...
+  ...,
+  use.moderation = TRUE,
+  use.precision = TRUE
 ) {
-  if (!use.precision) message("WARNING: With use.precision = FALSE this function does not use BayesProt quant precision estimates and hence should only be used for comparative purposes with the other 'dea' methods.")
+  message("WARNING: 'dea_limma' supports only a single residual variance, not Welch style per-condition variances")
+  if (!use.precision) message("WARNING: With 'use.precision = FALSE' this function does not use BayesProt quant precision estimates and hence should only be used for comparative purposes with the other 'dea' methods.")
 
   arguments <- eval(substitute(alist(...)))
   if (any(names(arguments) == "")) stop("all arguments in ... to be passed to 'limma::lmFit' must be named")
@@ -97,8 +98,8 @@ dea_limma <- function(
     } else {
       limma.weights <- NULL
     }
-    ft <- limma::lmFit(limma.object, limma.design, weights = limma.weights, ...)
-    if (use.moderation) ft <- limma::eBayes(ft)
+    ft <- limma::lmFit(limma.object, limma.design, weights = limma.weights)
+    if (use.moderation == T) ft <- limma::eBayes(ft)
 
     # save
     saveRDS(ft, file.path(fit, "model", "protein.de", paste0(output, ".", j, ".rds")))
@@ -108,19 +109,24 @@ dea_limma <- function(
     rbindlist(lapply(coefs, function (coef) {
       DT <- data.table(
         Effect = factor(coef),
-        ProteinID = as.integer(rownames(ft$coefficients)),
-        m = ft$coefficients[, coef],
-        s = ft$stdev.unscaled[, coef]
+        ProteinID = as.integer(rownames(ft$coefficients))
       )
 
-      if (use.moderation) {
-        DT[, s := s * sqrt(ft$s2.post)]
-        DT[, df := ft$df.total]
+      if (use.moderation == T) {
+        DT[, v_residual := ft$s2.post]
+        DT[, df_residual := ft$df.total]
+        DT[, m := ft$coefficients[, coef]]
+        DT[, s := ft$stdev.unscaled[, coef] * sqrt(ft$s2.post)]
+        DT[, df := df_residual]
         DT[, t := ft$t[, coef]]
         DT[, pvalue := ft$p.value[, coef]]
       } else {
-        DT[, df := ft$df.residual]
-        DT[, t := m / s / ft$sigma]
+        DT[, v_residual := ft$sigma^2]
+        DT[, df_residual := ft$df.residual]
+        DT[, m := ft$coefficients[, coef]]
+        DT[, s := ft$stdev.unscaled[, coef]]
+        DT[, df := df_residual]
+        DT[, t := m / s] # limma user manual appears to be wrong
         DT[, pvalue := 2 * pt(-abs(t), df)]
       }
 
@@ -139,7 +145,7 @@ dea_limma <- function(
 
   # merge in input.meta
   DT.de <- merge(input$DT.meta, DT.de, by = c("Model", "ProteinID"))
-  setcolorder(DT.de, c("Model", "Effect"))
+  setcolorder(DT.de, c("Model", "Effect", "ProteinID"))
 
   if (!as.data.table) setDF(DT.de)
   else DT.de[]
@@ -161,22 +167,23 @@ dea_MCMCglmm <- function(
   condition = "Condition",
   fixed = as.formula(paste("~", condition)),
   random = NULL,
-  rcov.welch = TRUE,
+  residual.welch = TRUE,
   save.intercept = FALSE,
   output = "MCMCglmm",
-  use.precision = TRUE,
-  use.moderation = TRUE,
   as.data.table = FALSE,
+  use.moderation = FALSE,
+  use.precision = TRUE,
+  dist.mean.func = dist_lst_mcmc,
+  dist.var.func = dist_invchisq_mcmc,
+  squeeze.var.func = squeeze_var,
   model.seed = control(fit)$model.seed,
   model.nchain = control(fit)$model.nchain,
   model.nwarmup  = control(fit)$model.nwarmup,
   model.thin = control(fit)$model.thin,
-  model.nsample = control(fit)$model.nsample,
-  dist.mean.func = dist_lst_mcmc,
-  dist.var.func = dist_invchisq_mcmc,
-  squeeze.var.func = squeeze_var
+  model.nsample = control(fit)$model.nsample
 ) {
-  if (!use.precision) message("WARNING: With use.precision = FALSE this function does not use BayesProt quant precision estimates and hence should only be used for comparative purposes with the other 'dea' methods.")
+  if (use.moderation) message("WARNING: 'use.moderation = TRUE' is alpha quality at best")
+  if (!use.precision) message("WARNING: With 'use.precision = FALSE' this function does not use BayesProt quant precision estimates and hence should only be used for comparative purposes with the other 'dea' methods.")
 
   if (is.null(data.design$AssayID)) data.design <- merge(data.design, design(fit, as.data.table = T)[, .(Assay, AssayID)], by = "Assay")
   control = control(fit)
@@ -229,7 +236,7 @@ dea_MCMCglmm <- function(
               mev = NULL
             }
 
-            if (rcov.welch) {
+            if (residual.welch) {
               for (l in levels(output.contrast$DT.input$Condition)) output.contrast$DT.input[, paste0("Condition", l) := ifelse(Condition == l, 1, 0)]
               rcov <- as.formula(paste("~", paste(paste0("idh(Condition", levels(output.contrast$DT.input$Condition), "):units"), collapse = "+")))
               if (is.null(DT.priors)) {
@@ -241,7 +248,7 @@ dea_MCMCglmm <- function(
             } else {
               rcov <- ~ units
               if (is.null(DT.priors)) {
-                prior <- list(R = list(V = 1, nu = 0.002))
+                prior <- list(R = list(V = 1, nu = 0.02))
               } else {
                 prior <- list(R = list(V = DT.priors$v, nu = DT.priors$df))
               }
@@ -299,7 +306,7 @@ dea_MCMCglmm <- function(
         rbindlist(lapply(output.protein, function (output.contrast) {
           if (!is.null(output.contrast$fit)) {
             nc <- ncol(output.contrast$fit$VCV)
-            if (rcov.welch) {
+            if (residual.welch) {
               DT.vcv <- as.data.table(output.contrast$fit$VCV[, (nc-nlevels(output.contrast$DT.input$Condition)+1):nc, drop = F])
             } else {
               DT.vcv <- as.data.table(output.contrast$fit$VCV[, nc, drop = F])
@@ -309,10 +316,10 @@ dea_MCMCglmm <- function(
           }
         }), idcol = "Model")
       }), idcol = "ProteinID")
-      if (rcov.welch) {
+      if (residual.welch) {
         levels(out$DT.rcov$Effect) <- sub(paste0(condition, "(.*)\\.units"), "\\1", levels(out$DT.rcov$Effect))
       } else {
-        levels(out$DT.rcov$Effect) <- "all"
+        levels(out$DT.rcov$Effect) <- "residual"
       }
       out$DT.rcov[, ProteinID := as.integer(ProteinID)]
       out$DT.rcov[, Model := factor(Model, levels = unique(Model))]
@@ -450,7 +457,7 @@ dea_MCMCglmm <- function(
 
   # merge in input.meta
   DT.de <- merge(input$DT.meta, DT.de, by = c("Model", "ProteinID"))
-  setcolorder(DT.de, c("Model", "Effect"))
+  setcolorder(DT.de, c("Model", "Effect", "ProteinID"))
 
   if (!as.data.table) setDF(DT.de)
   else DT.de[]
@@ -475,8 +482,12 @@ dea_metafor <- function(
   output = "metafor",
   save.intercept = FALSE,
   as.data.table = FALSE,
-  ...
+  ...,
+  use.moderation = FALSE
 ) {
+  if (use.moderation) message("WARNING: 'use.moderation = TRUE' is alpha quality at best")
+  message("WARNING: currently 'dea_metafor' supports only a single residual variance, not Welch style per-condition variances")
+
   arguments <- eval(substitute(alist(...)))
   if (any(names(arguments) == "")) stop("all arguments in ... to be passed to 'metafor::rma.mv' must be named")
   if ("yi" %in% names(arguments)) stop("do not pass a 'yi' argument to metafor")
@@ -544,6 +555,8 @@ dea_metafor <- function(
         if (!is.null(output.contrast$fit) && !is.null(output.contrast$fit$b) && length(output.contrast$fit$b) > 0) {
           DT.de <- data.table(
             Effect = rownames(output.contrast$fit$b),
+            v_residual = output.contrast$fit$sigma2,
+            df_residual = output.contrast$fit$k - output.contrast$fit$p,
             lower = output.contrast$fit$ci.lb,
             upper = output.contrast$fit$ci.ub,
             m = output.contrast$fit$b[, 1],
@@ -561,111 +574,31 @@ dea_metafor <- function(
   setTxtProgressBar(pb, length(DTs))
   close(pb)
 
-  DT.de[, ProteinID := as.integer(ProteinID)]
-  DT.de[, Model := factor(Model, levels = sapply(1:ncol(cts), function (i) paste(cts[, i], collapse = "_v_")))]
-  DT.de[, Effect := factor(Effect, levels = unique(Effect))]
+  if (use.moderation) {
+    squeeze_var_limma_metafor <- function(ProteinID, v_residual, m, s, df) {
+      ft <- list(
+        coefficients = m,
+        sigma = sqrt(v_residual),
+        df.residual = df
+      )
+      ft$stdev.unscaled <- s / ft$sigma
 
-  # highlights if any protein are missing for any model
-  DT.proteins <- CJ(proteins(fit, as.data.table = T)[, ProteinID], DT.de$Model, unique = T)[, .(ProteinID = V1, Model = V2)]
-  DT.de <- merge(DT.proteins, DT.de, by = c("ProteinID", "Model"), all.x = T, allow.cartesian = T)
+      ft <- limma::eBayes(ft)
 
-  # ensure every ProteinID::Model has a full set of covariates and n
-  DT.de <- DT.de[, merge(CJ(ProteinID, Effect, unique = T), .SD, by = c("ProteinID", "Effect"), keyby = "Effect", all = T), by = Model]
-  DT.de <- DT.de[!is.na(Effect)]
+      data.table(
+        ProteinID = ProteinID,
+        v_residual = ft$s2.post,
+        df_residual = ft$df.total,
+        m = ft$coefficients,
+        s = ft$stdev.unscaled * sqrt(ft$s2.post),
+        df = ft$df.total,
+        t = ft$t,
+        pvalue = ft$p.value
+      )
+    }
 
-  # merge in input.meta
-  DT.de <- merge(input$DT.meta, DT.de, by = c("Model", "ProteinID"))
-  setcolorder(DT.de, c("Model", "Effect"))
-
-  if (!as.data.table) setDF(DT.de)
-  else DT.de[]
-  return(DT.de)
-}
-
-
-#' Univariate differential expression analysis using t-tests
-#'
-#' Student's t-tests are performed pair-wise across the levels of the 'Condition' in 'data.design'. Note this function does not use
-#' BayesProt's standard errors and hence should only be used for comparitative purposes with the other 'dea' methods.
-#'
-#' @import data.table
-#' @import doRNG
-#' @export
-dea_ttests <- function(
-  fit,
-  data = protein_quants(fit),
-  data.design = design(fit),
-  condition = "Condition",
-  paired = FALSE,
-  var.equal = TRUE,
-  output = "ttests",
-  as.data.table = FALSE,
-  ...
-) {
-  message("WARNING: This function does not use BayesProt's quant precisions and hence should only be used for comparative purposes with the other 'dea' methods.")
-
-  input <- dea_init(fit, data, data.design, condition)
-  DTs <- batch_split(input$DT, "ProteinID", 16)
-  cts <- input$contrasts
-
-  pb <- txtProgressBar(max = length(DTs), style = 3)
-  DT.de <- foreach(DT.chunk = iterators::iter(DTs), .final = rbindlist, .inorder = F, .packages = "data.table", .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dorng% {
-    # process chunk
-    output.chunk <- lapply(split(DT.chunk, by = "ProteinID", drop = T), function(DT) {
-      DT[, ProteinID := NULL]
-
-      output.protein <- lapply(1:ncol(cts), function (j) {
-        output.contrast <- list()
-
-        # input
-        output.contrast$DT.input <- DT[as.character(get(condition)) %in% cts[, j]]
-        output.contrast$DT.input[, Condition := factor(as.character(get(condition)), levels = cts[, j])]
-        output.contrast$DT.input <- droplevels(output.contrast$DT.input)
-        setcolorder(output.contrast$DT.input, c("AssayID", "Assay", "Run", "Channel", "Sample", "m", "s"))
-
-        # fit
-        if (length(unique(output.contrast$DT.input[get(condition) == cts[1, j], Sample])) >= 2 &&
-            length(unique(output.contrast$DT.input[get(condition) == cts[2, j], Sample])) >= 2) {
-
-          output.contrast$fit <- t.test(output.contrast$DT.input$m[output.contrast$DT.input$Condition == cts[1, j]],
-                                        output.contrast$DT.input$m[output.contrast$DT.input$Condition == cts[2, j]],
-                                        paired = paired, var.equal = var.equal)
-          output.contrast$fit$Effect <- paste0("Condition", cts[2, j])
-          output.contrast$log <- paste0("[", Sys.time(), "] attempt succeeded\n")
-        } else {
-          output.contrast$log <- paste0("[", Sys.time(), "] ignored as n < 2 for one or both conditions\n")
-        }
-
-        output.contrast
-      })
-      names(output.protein) <- sapply(1:length(output.protein), function(j) paste(cts[,j], collapse = "_v_"))
-
-      output.protein
-    })
-
-    # save chunk
-    saveRDS(output.chunk, file.path(fit, "model", "protein.de", paste0(output, ".", DT.chunk[1, ProteinID], ".rds")))
-
-    # extract results
-    rbindlist(lapply(output.chunk, function (output.protein) {
-      rbindlist(lapply(output.protein, function (output.contrast) {
-        if (!is.null(output.contrast$fit)) {
-          data.table(
-            Effect = output.contrast$fit$Effect,
-            lower = -output.contrast$fit$conf.int[2],
-            upper = -output.contrast$fit$conf.int[1],
-            m = output.contrast$fit$estimate[2] - output.contrast$fit$estimate[1],
-            s = output.contrast$fit$stderr,
-            df = output.contrast$fit$parameter,
-            t = output.contrast$fit$statistic,
-            pvalue = output.contrast$fit$p.value
-          )
-        }
-      }), idcol = "Model")
-    }), idcol = "ProteinID")
+    DT.de2 <- DT.de[, squeeze_var_limma_metafor(ProteinID, v_residual, m, s, df), by = .(Model, Effect)]
   }
-  setTxtProgressBar(pb, length(DTs))
-  close(pb)
 
   DT.de[, ProteinID := as.integer(ProteinID)]
   DT.de[, Model := factor(Model, levels = sapply(1:ncol(cts), function (i) paste(cts[, i], collapse = "_v_")))]
@@ -681,11 +614,10 @@ dea_ttests <- function(
 
   # merge in input.meta
   DT.de <- merge(input$DT.meta, DT.de, by = c("Model", "ProteinID"))
-  setcolorder(DT.de, c("Model", "Effect"))
+  setcolorder(DT.de, c("Model", "Effect", "ProteinID"))
 
   if (!as.data.table) setDF(DT.de)
   else DT.de[]
   return(DT.de)
 }
-
 

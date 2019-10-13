@@ -7,7 +7,7 @@
 dea_metafor(fit, data = protein_quants(fit), data.design = design(fit),
   condition = "Condition", mods = as.formula(paste("~", condition)),
   random = ~1 | Sample, output = "metafor", save.intercept = FALSE,
-  as.data.table = FALSE, ...)
+  as.data.table = FALSE, ..., use.moderation = FALSE)
 }
 \description{
 The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.

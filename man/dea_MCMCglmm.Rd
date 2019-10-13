@@ -7,16 +7,15 @@
 dea_MCMCglmm(fit, data = protein_quants(fit),
   data.design = design(fit), condition = "Condition",
   fixed = as.formula(paste("~", condition)), random = NULL,
-  rcov.welch = TRUE, save.intercept = FALSE, output = "MCMCglmm",
-  use.precision = TRUE, use.moderation = TRUE, as.data.table = FALSE,
+  residual.welch = TRUE, save.intercept = FALSE, output = "MCMCglmm",
+  as.data.table = FALSE, use.moderation = FALSE,
+  use.precision = TRUE, dist.mean.func = dist_lst_mcmc,
+  dist.var.func = dist_invchisq_mcmc, squeeze.var.func = squeeze_var,
   model.seed = control(fit)$model.seed,
   model.nchain = control(fit)$model.nchain,
   model.nwarmup = control(fit)$model.nwarmup,
   model.thin = control(fit)$model.thin,
-  model.nsample = control(fit)$model.nsample,
-  dist.mean.func = dist_mean_func(fit)$value,
-  dist.var.func = dist_var_func(fit)$value,
-  dist.squeeze.var.func = squeeze_var_func(fit)$value)
+  model.nsample = control(fit)$model.nsample)
 }
 \description{
 The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.
