@@ -31,5 +31,5 @@ Imports:
     R.utils (>= 2.9.0),
     utf8 (>= 1.1.4)
 biocViews:
-    limma (>= 3.40.6),
+    limma
 RoxygenNote: 6.1.1
