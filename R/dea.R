@@ -470,6 +470,7 @@ dea_MCMCglmm <- function(
 #' The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.
 #'
 #' @import data.table
+#' @import metafor
 #' @import doRNG
 #' @export
 dea_metafor <- function(
@@ -530,7 +531,7 @@ dea_metafor <- function(
           for (i in 0:9) {
             control$sigma2.init = 0.025 + 0.1 * i
             try( {
-              output.contrast$fit <- metafor::rma.mv(yi = m, V = s^2, data = output.contrast$DT.input, control = control, test = "t", mods = mods, random = random)
+              output.contrast$fit <- rma.mv(yi = m, V = s^2, data = output.contrast$DT.input, control = control, test = "t", mods = mods, random = random)
               output.contrast$log <- paste0("[", Sys.time(), "] attempt ", i + 1, " succeeded\n")
               break
             })
@@ -556,12 +557,12 @@ dea_metafor <- function(
           DT.de <- data.table(
             Effect = rownames(output.contrast$fit$b),
             v_residual = output.contrast$fit$sigma2,
-            df_residual = output.contrast$fit$k - output.contrast$fit$p,
+            df_residual = df.residual(output.contrast$fit),
             lower = output.contrast$fit$ci.lb,
             upper = output.contrast$fit$ci.ub,
             m = output.contrast$fit$b[, 1],
             s = output.contrast$fit$se,
-            df = output.contrast$fit$k - output.contrast$fit$p,
+            df = df.residual(output.contrast$fit),
             t = output.contrast$fit$zval,
             pvalue = output.contrast$fit$pval
           )
