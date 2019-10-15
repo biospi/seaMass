@@ -12,6 +12,8 @@ License: GPL-3
 Encoding: UTF-8
 LazyData: true
 Depends: R (>= 3.4.0)
+biocViews:
+    limma
 Imports: 
     ashr (>= 2.2-32),
     data.table (>= 1.11.4),
@@ -30,6 +32,4 @@ Imports:
     MCMCglmm (>= 2.26),
     R.utils (>= 2.9.0),
     utf8 (>= 1.1.4)
-biocViews:
-    limma
 RoxygenNote: 6.1.1
