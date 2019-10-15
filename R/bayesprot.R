@@ -310,7 +310,7 @@ new_control <- function(
   squeeze.var.func = squeeze_var,
   dist.var.func = dist_invchisq_mcmc,
   dist.mean.func = dist_lst_mcmc,
-  nthread = parallel::detectCores(logical = FALSE) %/% 2,
+  nthread = parallel::detectCores() %/% 2,
   hpc = NULL
 ) {
   # validate parameters

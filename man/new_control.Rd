@@ -12,7 +12,7 @@ new_control(feature.model = "independent", feature.eb.min = 3,
   model.nwarmup = 256, model.thin = 1, model.nsample = 1024,
   squeeze.var.func = squeeze_var, dist.var.func = dist_invchisq_mcmc,
   dist.mean.func = dist_lst_mcmc,
-  nthread = parallel::detectCores(logical = FALSE)\%/\%2, hpc = NULL)
+  nthread = parallel::detectCores()\%/\%2, hpc = NULL)
 }
 \arguments{
 \item{feature.model}{Either \code{single} (single residual) or \code{independent} (per-feature independent residuals; default)}

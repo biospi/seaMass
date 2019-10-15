@@ -70,7 +70,7 @@ read_mcmc <- function(fit, effectname, columnID, batchIDs, summaryIDs, itemIDs, 
       DT <- read(fit, chains, DT.index)
     } else {
       n <- ceiling(nrow(DT.index) / control$nthread)
-      DTs.index <- batch_split(DT.index, batchIDs, ifelse(n < 64, n, 64))
+      DTs.index <- batch_split(DT.index, batchIDs, ifelse(n < 16, n, 16))
       pb <- txtProgressBar(max = length(DTs.index), style = 3)
       if (is.null(parallel::getDefaultCluster())) {
         DT <- rbindlist(lapply(1:length(DTs.index), function(i) {
@@ -79,7 +79,14 @@ read_mcmc <- function(fit, effectname, columnID, batchIDs, summaryIDs, itemIDs, 
           DT
         }))
       } else {
-        DT <- foreach(DT.index = iterators::iter(DTs.index), .combine = rbind, .packages = c("data.table"), .options.snow = list(progress = function(i) setTxtProgressBar(pb, i))) %dorng% {
+        DT <- foreach(
+          DT.index = iterators::iter(DTs.index),
+          .combine = rbind,
+          .inorder = F,
+          .packages = "data.table",
+          .verbose = T,
+          .options.snow = list(progress = function(i) setTxtProgressBar(pb, i))
+        ) %dorng% {
           read(fit, chains, DT.index)
         }
       }
@@ -489,18 +496,3 @@ protein_fdr <- function(
   return(DT)
 }
 
-
-#' rhats <- function(fit, data.func = protein_quants, data.IDs = proteins(fit)$ProteinID, as.data.table = FALSE) {
-#'   pb <- txtProgressBar(max = length(data.IDs), style = 3)
-#'   DT <- foreach(id = data.IDs, .combine = rbind, .packages = c("data.table"), .options.snow = list(progress = function(i) setTxtProgressBar(pb, i))) %dorng% {
-#'     DT <- data.func(fit, id, summary = F, as.data.table = T)
-#'     by.cols <- colnames(DT)[which(!colnames(DT) %in% c("chainID", "mcmcID", "value", "exposure"))]
-#'     DT[, .(rhat = rhat(mcmcID, chainID, value)), by = by.cols]
-#'   }
-#'   setTxtProgressBar(pb, length(data.IDs))
-#'   close(pb)
-#'
-#'   if (!as.data.table) setDF(DT)
-#'   else DT[]
-#'   return(DT)
-#' }

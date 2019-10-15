@@ -6,9 +6,10 @@
 \usage{
 dea_metafor(fit, data = protein_quants(fit), data.design = design(fit),
   condition = "Condition", mods = as.formula(paste("~", condition)),
-  random = ~1 | Sample, output = "metafor", save.intercept = FALSE,
-  as.data.table = FALSE, ..., use.moderation = FALSE)
+  random = ~Condition | Sample, struct = "DIAG", test = "t",
+  output = "metafor", save.intercept = FALSE, as.data.table = FALSE,
+  ...)
 }
 \description{
-The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.
+The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model. See 'rma.uni' manpage for limitations of this approach.
 }

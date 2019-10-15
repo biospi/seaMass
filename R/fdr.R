@@ -3,7 +3,6 @@
 #'
 #' @import data.table
 #' @import doRNG
-#' @import metRology
 #' @export
 fdr_ash <- function(
   fit,

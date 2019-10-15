@@ -32,17 +32,25 @@ execute_model <- function(
   dir.create(file.path(path.output, paste0("timings", stage)), showWarnings = F)
 
   if (nrow(DT.proteins) > 0) {
+    message(paste0("[", Sys.time(), "]  modelling nprotein=", nrow(DT.proteins), " nitt=", nitt, "..."))
+    pb <- txtProgressBar(max = sum(DT.proteins$timing), style = 3)
+    progress <- function(n, tag) setTxtProgressBar(pb, getTxtProgressBar(pb) + DT.proteins$timing[tag])
 
     rbindlistlist <- function(...) {
       input <- list(...)
       for (j in names(input[[1]])) input[[1]][[j]] <- rbindlist(lapply(1:length(input), function(i) input[[i]][[j]]))
       input[[1]]
     }
-    message(paste0("[", Sys.time(), "]  modelling nprotein=", nrow(DT.proteins), " nitt=", nitt, "..."))
-    pb <- txtProgressBar(max = sum(DT.proteins$timing), style = 3)
-    progress <- function(n, tag) setTxtProgressBar(pb, getTxtProgressBar(pb) + DT.proteins$timing[tag])
 
-    output <- foreach(i = 1:nrow(DT.proteins), .combine = rbindlistlist, .multicombine = T, .packages = "data.table", .options.snow = list(progress = progress)) %dorng% {
+    output <- foreach(
+      i = 1:nrow(DT.proteins),
+      .combine = rbindlistlist,
+      .multicombine = T,
+      .inorder = F,
+      .packages = "data.table",
+      .verbose = T,
+      .options.snow = list(progress = progress)
+    ) %dorng% {
       # load data
       if (stage == "0") {
         DT <- fst::read.fst(file.path(fit, "input", "input0.fst"), as.data.table = T, from = DT.proteins[i, from0], to = DT.proteins[i, to0])
@@ -448,6 +456,8 @@ execute_model <- function(
         }
       }
 
+      rm(model)
+      gc()
       output
     }
     setTxtProgressBar(pb, sum(DT.proteins$timing))

@@ -153,6 +153,164 @@ dea_limma <- function(
 }
 
 
+#' Mixed-effects univariate differential expression analysis with 'metafor'
+#'
+#' The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model. See 'rma.uni' manpage for limitations of this approach.
+#'
+#' @import data.table
+#' @import metafor
+#' @import doRNG
+#' @export
+dea_metafor <- function(
+  fit,
+  data = protein_quants(fit),
+  data.design = design(fit),
+  condition = "Condition",
+  mods = as.formula(paste("~", condition)),
+  random = ~ Condition | Sample,
+  struct = "DIAG",
+  test = "t",
+  output = "metafor",
+  save.intercept = FALSE,
+  as.data.table = FALSE,
+  ...
+) {
+  arguments <- eval(substitute(alist(...)))
+  if (any(names(arguments) == "")) stop("all arguments in ... to be passed to 'metafor::rma.mv' must be named")
+  if ("yi" %in% names(arguments)) stop("do not pass a 'yi' argument to metafor")
+  if ("V" %in% names(arguments)) stop("do not pass a 'V' argument to metafor")
+  if ("data" %in% names(arguments)) stop("do not pass a 'data' argument to metafor")
+  if ("test" %in% names(arguments)) stop("do not pass a 'test' argument to metafor")
+  if (!("control" %in% names(arguments))) control = list()
+
+  input <- dea_init(fit, data, data.design, condition)
+  cts <- input$contrasts
+  DTs.chunk <- batch_split(input$DT, "ProteinID", 16)
+
+  # start cluster and reproducible seed
+  pb <- txtProgressBar(max = length(DTs), style = 3)
+  DT.de <- foreach(
+    DT.chunk = iterators::iter(DTs.chunk),
+    .final = rbindlist,
+    .inorder = F,
+    .verbose = T,
+    .packages = "data.table",
+    .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))
+  ) %dorng% {
+    # process chunk
+    output.chunk <- lapply(split(DT.chunk, by = "ProteinID", drop = T), function(DT) {
+      DT[, ProteinID := NULL]
+
+      output.protein <- lapply(1:ncol(cts), function (j) {
+        output.contrast <- list()
+
+        # input
+        output.contrast$DT.input <- DT[as.character(get(condition)) %in% cts[, j]]
+        output.contrast$DT.input[, (condition) := factor(as.character(get(condition)), levels = cts[, j])]
+        output.contrast$DT.input <- droplevels(output.contrast$DT.input)
+        setcolorder(output.contrast$DT.input, c("AssayID", "Assay", "Run", "Channel", "Sample", "m", "s"))
+
+        if (nrow(output.contrast$DT.input) > 0) {
+          # metafor will moan if SE is 0
+          output.contrast$DT.input[, s := ifelse(s < 0.001, 0.001, s)]
+          # metafor will moan if the ratio between largest and smallest sampling variance is >= 1e7
+          output.contrast$DT.input[, s := ifelse(s^2 / min(s^2) >= 1e7, sqrt(min(s^2) * (1e7 - 1)), s)]
+        }
+
+        # fit
+        if (length(unique(output.contrast$DT.input[get(condition) == cts[1, j], Sample])) >= 2 &&
+            length(unique(output.contrast$DT.input[get(condition) == cts[2, j], Sample])) >= 2) {
+
+          for (i in 0:9) {
+            try( {
+              output.contrast$fit <- rma.mv(
+                yi = m,
+                V = s^2,
+                data = output.contrast$DT.input,
+                control = list(sigma2.init = 0.1 + 0.1 * i),
+                test = test,
+                mods = mods,
+                random = random,
+                struct = struct,
+                ...
+              )
+              #output.contrast$fit <- rma.uni(yi = m, sei = s, data = output.contrast$DT.input, mods = mods, test = test, ...)
+              output.contrast$log <- paste0("[", Sys.time(), "] attempt ", i + 1, " succeeded\n")
+              break
+            })
+          }
+        } else {
+          output.contrast$log <- paste0("[", Sys.time(), "] ignored as n < 2 for one or both conditions\n")
+        }
+
+        output.contrast
+      })
+      names(output.protein) <- sapply(1:length(output.protein), function(j) paste(cts[,j], collapse = "_v_"))
+
+      output.protein
+    })
+
+    # save chunk
+    saveRDS(output.chunk, file.path(fit, "model", "protein.de", paste0(output, ".", DT.chunk[1, ProteinID], ".rds")))
+
+    # extract results
+    DT.de <- rbindlist(lapply(output.chunk, function (output.protein) {
+      rbindlist(lapply(output.protein, function (output.contrast) {
+        if (!is.null(output.contrast$fit) && !is.null(output.contrast$fit$b) && length(output.contrast$fit$b) > 0) {
+          fit_stats <- data.table(t(fitstats(output.contrast$fit)))
+          names(fit_stats) <- sub(":$", "", names(fit_stats))
+          v_sigma2 <- data.table(t(output.contrast$fit$sigma2))
+          names(v_sigma2) <- paste0("v_s", 1:length(v_sigma2))
+          v_tau2 <- data.table(t(output.contrast$fit$tau2))
+          names(v_tau2) <- paste0("v_t", 1:length(v_tau2))
+          DT.de <- data.table(
+            Effect = rownames(output.contrast$fit$b),
+            fit_stats,
+            v_sigma2,
+            v_tau2,
+            lower = output.contrast$fit$ci.lb,
+            upper = output.contrast$fit$ci.ub,
+            m = output.contrast$fit$b[, 1],
+            s = output.contrast$fit$se,
+            df = df.residual(output.contrast$fit),
+            t = output.contrast$fit$zval,
+            pvalue = output.contrast$fit$pval
+          )
+          if (!save.intercept) DT.de <- DT.de[Effect != "intrcpt"]
+          DT.de
+        }
+      }), idcol = "Model")
+    }), idcol = "ProteinID")
+
+    rm(output.chunk)
+    gc()
+    DT.de
+  }
+  setTxtProgressBar(pb, length(DTs))
+  close(pb)
+
+  DT.de[, ProteinID := as.integer(ProteinID)]
+  DT.de[, Model := factor(Model, levels = sapply(1:ncol(cts), function (i) paste(cts[, i], collapse = "_v_")))]
+  DT.de[, Effect := factor(Effect, levels = unique(Effect))]
+
+  # highlights if any protein are missing for any model
+  DT.proteins <- CJ(proteins(fit, as.data.table = T)[, ProteinID], DT.de$Model, unique = T)[, .(ProteinID = V1, Model = V2)]
+  DT.de <- merge(DT.proteins, DT.de, by = c("ProteinID", "Model"), all.x = T, allow.cartesian = T)
+
+  # ensure every ProteinID::Model has a full set of covariates and n
+  DT.de <- DT.de[, merge(CJ(ProteinID, Effect, unique = T), .SD, by = c("ProteinID", "Effect"), keyby = "Effect", all = T), by = Model]
+  DT.de <- DT.de[!is.na(Effect)]
+
+  # merge in input.meta
+  DT.de <- merge(input$DT.meta, DT.de, by = c("Model", "ProteinID"))
+  setcolorder(DT.de, c("Model", "Effect", "ProteinID"))
+
+  if (!as.data.table) setDF(DT.de)
+  else DT.de[]
+  return(DT.de)
+}
+
+
 #' Mixed-effects univariate differential expression analysis with 'MCMCglmm'
 #'
 #' The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.
@@ -182,7 +340,7 @@ dea_MCMCglmm <- function(
   model.thin = control(fit)$model.thin,
   model.nsample = control(fit)$model.nsample
 ) {
-  if (use.moderation) message("WARNING: 'use.moderation = TRUE' is alpha quality at best")
+  if (use.moderation) message("WARNING: 'use.moderation = TRUE' has not been validated")
   if (!use.precision) message("WARNING: With 'use.precision = FALSE' this function does not use BayesProt quant precision estimates and hence should only be used for comparative purposes with the other 'dea' methods.")
 
   if (is.null(data.design$AssayID)) data.design <- merge(data.design, design(fit, as.data.table = T)[, .(Assay, AssayID)], by = "Assay")
@@ -326,6 +484,8 @@ dea_MCMCglmm <- function(
       out$DT.rcov[, chainID := chain]
       setcolorder(out$DT.rcov, c("ProteinID", "Model", "Effect", "chainID", "mcmcID"))
 
+      rm(output.chunk)
+      gc()
       out
     }
 
@@ -465,160 +625,4 @@ dea_MCMCglmm <- function(
 }
 
 
-#' Mixed-effects univariate differential expression analysis with 'metafor'
-#'
-#' The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.
-#'
-#' @import data.table
-#' @import metafor
-#' @import doRNG
-#' @export
-dea_metafor <- function(
-  fit,
-  data = protein_quants(fit),
-  data.design = design(fit),
-  condition = "Condition",
-  mods = as.formula(paste("~", condition)),
-  random = ~ 1 | Sample,
-  output = "metafor",
-  save.intercept = FALSE,
-  as.data.table = FALSE,
-  ...,
-  use.moderation = FALSE
-) {
-  if (use.moderation) message("WARNING: 'use.moderation = TRUE' is alpha quality at best")
-  message("WARNING: currently 'dea_metafor' supports only a single residual variance, not Welch style per-condition variances")
-
-  arguments <- eval(substitute(alist(...)))
-  if (any(names(arguments) == "")) stop("all arguments in ... to be passed to 'metafor::rma.mv' must be named")
-  if ("yi" %in% names(arguments)) stop("do not pass a 'yi' argument to metafor")
-  if ("V" %in% names(arguments)) stop("do not pass a 'V' argument to metafor")
-  if ("data" %in% names(arguments)) stop("do not pass a 'data' argument to metafor")
-  if ("test" %in% names(arguments)) stop("do not pass a 'test' argument to metafor")
-  if (!("control" %in% names(arguments))) control = list()
-
-  input <- dea_init(fit, data, data.design, condition)
-  cts <- input$contrasts
-  DTs <- batch_split(input$DT, "ProteinID", 16)
-
-  # start cluster and reproducible seed
-  pb <- txtProgressBar(max = length(DTs), style = 3)
-  DT.de <- foreach(DT.chunk = iterators::iter(DTs), .final = rbindlist, .inorder = F, .packages = "data.table", .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dorng% {
-    # process chunk
-    output.chunk <- lapply(split(DT.chunk, by = "ProteinID", drop = T), function(DT) {
-      DT[, ProteinID := NULL]
-
-      output.protein <- lapply(1:ncol(cts), function (j) {
-        output.contrast <- list()
-
-        # input
-        output.contrast$DT.input <- DT[as.character(get(condition)) %in% cts[, j]]
-        output.contrast$DT.input[, (condition) := factor(as.character(get(condition)), levels = cts[, j])]
-        output.contrast$DT.input <- droplevels(output.contrast$DT.input)
-        setcolorder(output.contrast$DT.input, c("AssayID", "Assay", "Run", "Channel", "Sample", "m", "s"))
-
-        if (nrow(output.contrast$DT.input) > 0) {
-          # metafor will moan if SE is 0
-          output.contrast$DT.input[, s := ifelse(s < 0.001, 0.001, s)]
-          # metafor will moan if the ratio between largest and smallest sampling variance is >= 1e7
-          output.contrast$DT.input[, s := ifelse(s^2 / min(s^2) >= 1e7, sqrt(min(s^2) * (1e7 - 1)), s)]
-        }
-
-        # fit
-        if (length(unique(output.contrast$DT.input[get(condition) == cts[1, j], Sample])) >= 2 &&
-            length(unique(output.contrast$DT.input[get(condition) == cts[2, j], Sample])) >= 2) {
-
-          for (i in 0:9) {
-            control$sigma2.init = 0.025 + 0.1 * i
-            try( {
-              output.contrast$fit <- rma.mv(yi = m, V = s^2, data = output.contrast$DT.input, control = control, test = "t", mods = mods, random = random)
-              output.contrast$log <- paste0("[", Sys.time(), "] attempt ", i + 1, " succeeded\n")
-              break
-            })
-          }
-        } else {
-          output.contrast$log <- paste0("[", Sys.time(), "] ignored as n < 2 for one or both conditions\n")
-        }
-
-        output.contrast
-      })
-      names(output.protein) <- sapply(1:length(output.protein), function(j) paste(cts[,j], collapse = "_v_"))
-
-      output.protein
-    })
-
-    # save chunk
-    saveRDS(output.chunk, file.path(fit, "model", "protein.de", paste0(output, ".", DT.chunk[1, ProteinID], ".rds")))
-
-    # extract results
-    rbindlist(lapply(output.chunk, function (output.protein) {
-      rbindlist(lapply(output.protein, function (output.contrast) {
-        if (!is.null(output.contrast$fit) && !is.null(output.contrast$fit$b) && length(output.contrast$fit$b) > 0) {
-          DT.de <- data.table(
-            Effect = rownames(output.contrast$fit$b),
-            v_residual = output.contrast$fit$sigma2,
-            df_residual = df.residual(output.contrast$fit),
-            lower = output.contrast$fit$ci.lb,
-            upper = output.contrast$fit$ci.ub,
-            m = output.contrast$fit$b[, 1],
-            s = output.contrast$fit$se,
-            df = df.residual(output.contrast$fit),
-            t = output.contrast$fit$zval,
-            pvalue = output.contrast$fit$pval
-          )
-          if (!save.intercept) DT.de <- DT.de[Effect != "intrcpt"]
-          DT.de
-        }
-      }), idcol = "Model")
-    }), idcol = "ProteinID")
-  }
-  setTxtProgressBar(pb, length(DTs))
-  close(pb)
-
-  if (use.moderation) {
-    squeeze_var_limma_metafor <- function(ProteinID, v_residual, m, s, df) {
-      ft <- list(
-        coefficients = m,
-        sigma = sqrt(v_residual),
-        df.residual = df
-      )
-      ft$stdev.unscaled <- s / ft$sigma
-
-      ft <- limma::eBayes(ft)
-
-      data.table(
-        ProteinID = ProteinID,
-        v_residual = ft$s2.post,
-        df_residual = ft$df.total,
-        m = ft$coefficients,
-        s = ft$stdev.unscaled * sqrt(ft$s2.post),
-        df = ft$df.total,
-        t = ft$t,
-        pvalue = ft$p.value
-      )
-    }
-
-    DT.de2 <- DT.de[, squeeze_var_limma_metafor(ProteinID, v_residual, m, s, df), by = .(Model, Effect)]
-  }
-
-  DT.de[, ProteinID := as.integer(ProteinID)]
-  DT.de[, Model := factor(Model, levels = sapply(1:ncol(cts), function (i) paste(cts[, i], collapse = "_v_")))]
-  DT.de[, Effect := factor(Effect, levels = unique(Effect))]
-
-  # highlights if any protein are missing for any model
-  DT.proteins <- CJ(proteins(fit, as.data.table = T)[, ProteinID], DT.de$Model, unique = T)[, .(ProteinID = V1, Model = V2)]
-  DT.de <- merge(DT.proteins, DT.de, by = c("ProteinID", "Model"), all.x = T, allow.cartesian = T)
-
-  # ensure every ProteinID::Model has a full set of covariates and n
-  DT.de <- DT.de[, merge(CJ(ProteinID, Effect, unique = T), .SD, by = c("ProteinID", "Effect"), keyby = "Effect", all = T), by = Model]
-  DT.de <- DT.de[!is.na(Effect)]
-
-  # merge in input.meta
-  DT.de <- merge(input$DT.meta, DT.de, by = c("Model", "ProteinID"))
-  setcolorder(DT.de, c("Model", "Effect", "ProteinID"))
-
-  if (!as.data.table) setDF(DT.de)
-  else DT.de[]
-  return(DT.de)
-}
 
