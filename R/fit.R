@@ -84,7 +84,6 @@ read_mcmc <- function(fit, effectname, columnID, batchIDs, summaryIDs, itemIDs, 
           .combine = rbind,
           .inorder = F,
           .packages = "data.table",
-          .verbose = T,
           .options.snow = list(progress = function(i) setTxtProgressBar(pb, i))
         ) %dorng% {
           read(fit, chains, DT.index)

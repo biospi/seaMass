@@ -11,4 +11,6 @@ dea_limma(fit, data = protein_quants(fit), data.design = design(fit),
 }
 \description{
 The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.
+ todo: see http://www.metafor-project.org/doku.php/tips:rma_vs_lm_lme_lmer
+ todo: https://stats.stackexchange.com/questions/142685/equivalent-to-welchs-t-test-in-gls-framework
 }

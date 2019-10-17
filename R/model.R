@@ -48,9 +48,10 @@ execute_model <- function(
       .multicombine = T,
       .inorder = F,
       .packages = "data.table",
-      .verbose = T,
       .options.snow = list(progress = progress)
     ) %dorng% {
+      #cat(capture.output(sort(sapply(ls(),function(x){object.size(get(x))}))), file = paste0(Sys.getpid(), ".out"), sep = "\n", append = T)
+
       # load data
       if (stage == "0") {
         DT <- fst::read.fst(file.path(fit, "input", "input0.fst"), as.data.table = T, from = DT.proteins[i, from0], to = DT.proteins[i, to0])
@@ -456,8 +457,6 @@ execute_model <- function(
         }
       }
 
-      rm(model)
-      gc()
       output
     }
     setTxtProgressBar(pb, sum(DT.proteins$timing))

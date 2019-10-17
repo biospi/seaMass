@@ -45,6 +45,8 @@ dea_init <- function(fit, data, data.design, condition) {
 #' Univariate differential expression analysis with 'limma::lmFit' linear model and 'limma::eBayes' moderation of standard errors
 #'
 #' The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.
+#'  todo: see http://www.metafor-project.org/doku.php/tips:rma_vs_lm_lme_lmer
+#'  todo: https://stats.stackexchange.com/questions/142685/equivalent-to-welchs-t-test-in-gls-framework
 #'
 #' @import data.table
 #' @import doRNG
@@ -188,12 +190,11 @@ dea_metafor <- function(
   DTs.chunk <- batch_split(input$DT, "ProteinID", 16)
 
   # start cluster and reproducible seed
-  pb <- txtProgressBar(max = length(DTs), style = 3)
+  pb <- txtProgressBar(max = length(DTs.chunk), style = 3)
   DT.de <- foreach(
     DT.chunk = iterators::iter(DTs.chunk),
     .final = rbindlist,
     .inorder = F,
-    .verbose = T,
     .packages = "data.table",
     .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))
   ) %dorng% {
@@ -282,11 +283,9 @@ dea_metafor <- function(
       }), idcol = "Model")
     }), idcol = "ProteinID")
 
-    rm(output.chunk)
-    gc()
     DT.de
   }
-  setTxtProgressBar(pb, length(DTs))
+  setTxtProgressBar(pb, length(DTs.chunk))
   close(pb)
 
   DT.de[, ProteinID := as.integer(ProteinID)]

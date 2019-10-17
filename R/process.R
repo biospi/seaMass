@@ -239,18 +239,19 @@ process_model <- function(
       fwrite(DT.protein.quants, file.path(fit, "output", paste0("protein_log2quants__", ref_assays(fit, k)$key, "__", norm_func(fit, k)$key, ".csv")))
       rm(DT.protein.quants)
 
-      # plots
-      DT.protein.quants <- protein_quants(fit, norm.func.key = k, ref.assays.key = k, summary = F, as.data.table = T)
+      # causes massive memory leak at the moment (possibly simply due to memory fragmentation the GC can do nothing about?)
+      #DT.protein.quants <- protein_quants(fit, norm.func.key = k, ref.assays.key = k, summary = F, as.data.table = T)
 
-      g <- plot_exposures(fit, DT.protein.quants)
-      ggplot2::ggsave(file.path(fit, "output", paste0("assay_exposures__", ref_assays(fit, k)$key, "__", norm_func(fit, k)$key, ".pdf")),
-                      g, width = 8, height = 0.5 + 0.75 * nrow(DT.design), limitsize = F)
+      #g <- plot_exposures(fit, DT.protein.quants)
+      #ggplot2::ggsave(file.path(fit, "output", paste0("assay_exposures__", ref_assays(fit, k)$key, "__", norm_func(fit, k)$key, ".pdf")),
+      #                g, width = 8, height = 0.5 + 0.75 * nrow(DT.design), limitsize = F)
 
-      g <- plot_pca(fit, DT.protein.quants)
-      ggplot2::ggsave(file.path(fit, "output", paste0("assay_pca__", ref_assays(fit, k)$key, "__", norm_func(fit, k)$key, ".pdf")),
-                      g, width = 12, height = 12, limitsize = F)
+      # plot_pca
+      #g <- plot_pca(fit, DT.protein.quants)
+      #ggplot2::ggsave(file.path(fit, "output", paste0("assay_pca__", ref_assays(fit, k)$key, "__", norm_func(fit, k)$key, ".pdf")),
+      #                g, width = 12, height = 12, limitsize = F)
 
-      rm(DT.protein.quants)
+      #rm(DT.protein.quants)
     }
 
     # differential expression analysis

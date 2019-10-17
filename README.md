@@ -17,6 +17,8 @@ install.packages("devtools")
 devtools::install_github("biospi/bayesprot", dependencies = TRUE)
 ```
 
+To upgrade to the latest version of BayesProt, simply run the second line again.
+
 ## Usage
 
 Firstly, you need to use an 'import' function to convert from an upstream tool format to BayesProt's standardised 'data.frame' format. Then you can assign injections to runs if you've used fractionation, and specify a study design if you'd like to do differential expression analysis. Finally, you use the 'bayesprot' function to fit the model and generate the results.
