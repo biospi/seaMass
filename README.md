@@ -10,14 +10,17 @@ BayesProt is an R package that works on Windows, MacOS and Linux. Small studies 
 
 ## Installation
 
-Please install the R package directly from our Github repository (use the same command to upgrade to the latest version):
+Please install the R package directly from our Github repository. To do this you first need to install the 'devtools' package: 
 
 ```
 install.packages("devtools")
-devtools::install_github("biospi/bayesprot", dependencies = TRUE)
 ```
 
-To upgrade to the latest version of BayesProt, simply run the second line again.
+Then to install BayesProt, or upgrade to the latest version, simply run:
+
+```
+devtools::install_github("biospi/bayesprot", dependencies = TRUE)
+```
 
 ## Usage
 
