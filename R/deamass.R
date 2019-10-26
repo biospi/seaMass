@@ -1,11 +1,11 @@
 .onAttach <- function(libname, pkgname) {
-  packageStartupMessage(paste0("BayesProt v", packageVersion("bayesprot"), "  |  © 2015-2019  BIOSP", utf8::utf8_encode("\U0001f441"), "  Laboratory"))
+  packageStartupMessage(paste0("deaMass v", packageVersion("deamass"), "  |  © 2015-2019  BIOSP", utf8::utf8_encode("\U0001f441"), "  Laboratory"))
   packageStartupMessage("This program comes with ABSOLUTELY NO WARRANTY.")
   packageStartupMessage("This is free software, and you are welcome to redistribute it under certain conditions.")
 }
 
 
-#' Fit the BayesProt Bayesian Protein-level quantification model
+#' Fit the deaMass Bayesian quantification model
 #'
 #' @param data A \link{data.frame} of input data as returned by \link{import_ProteinPilot} or \link{import_ProteomeDiscoverer}.
 #' @param data.design Optionally, a \link{data.frame} created by \link{design} and then customised, which specifies
@@ -16,13 +16,13 @@
 #' @param dea.func A differential expression analysis function or list of functions to run, or NULL (default: NULL)
 #' @param fdr.func A false discovery rate (FDR) correction function or list of functions to run, or NULL (default: ash FDR correction)
 #' @param plot Generate all plots
-#' @param output Folder on disk whether all intermediate and output data will be stored; default is \code{"bayesprot"}.
+#' @param output Folder on disk whether all intermediate and output data will be stored; default is \code{"deamass"}.
 #' @param control A control object created with \link{new_control} specifying control parameters for the model.
-#' @return A \code{bayesprot_fit} object that can be interrogated for various results with \code{protein_quants},
+#' @return A \code{deamass_fit} object that can be interrogated for various results with \code{protein_quants},
 #'   \code{peptide_deviations}, \code{peptide_stdevs}, \code{feature_stdevs}, \code{de_metafor} and \code{de_mice}. \code{del}
 #'   deletes all associated files on disk.
 #' @export
-bayesprot <- function(
+deamass <- function(
   data,
   data.design = new_design(data),
   ref.assays = "ref",
@@ -33,16 +33,16 @@ bayesprot <- function(
   peptide.vars = FALSE,
   peptide.deviations = FALSE,
   plots = FALSE,
-  output = "bayesprot",
+  output = "deamass",
   control = new_control()
 ) {
   setDTthreads(control$nthread)
 
   # check for finished output and return that
   output <- path.expand(output)
-  fit <- bayesprot_fit(output, T)
+  fit <- deamass_fit(output, T)
   if (!is.null(fit)) {
-    message("returning completed BayesProt fit object - if this wasn't your intention, supply a different 'output' directory or delete it with 'bayesprot::del'")
+    message("returning completed deaMass fit object - if this wasn't your intention, supply a different 'output' directory or delete it with 'deamass::del'")
     return(fit)
   }
 
@@ -283,16 +283,16 @@ bayesprot <- function(
     stop("not implemented yet")
   }
 
-  write.table(data.frame(), file.path(output, "bayesprot_fit"), col.names = F)
+  write.table(data.frame(), file.path(output, "deamass_fit"), col.names = F)
   message(paste0("[", Sys.time(), "] BAYESPROT finished!"))
 
   # return fit object
-  class(fit) <- "bayesprot_fit"
+  class(fit) <- "deamass_fit"
   return(fit)
 }
 
 
-#' Control parameters for the BayesProt Bayesian model
+#' Control parameters for the deaMass Bayesian model
 #'
 #' @param feature.model Either \code{single} (single residual) or \code{independent} (per-feature independent residuals; default)
 #' @param feature.eb.min Minimum number of features per peptide to use for computing Empirical Bayes priors
@@ -313,7 +313,7 @@ bayesprot <- function(
 #' @param model.nsample Total number of MCMC samples to deliver downstream
 #' @param hpc Either \code{NULL} (execute locally), \code{pbs}, \code{sge} or \code{slurm} (submit to HPC cluster) [TODO]
 #' @param nthread Number of CPU threads to employ
-#' @return \code{bayesprot_control} object to pass to \link{bayesprot}
+#' @return \code{deamass_control} object to pass to \link{deamass}
 #' @export
 new_control <- function(
   feature.model = "independent",
@@ -356,8 +356,8 @@ new_control <- function(
 
   # create control object
   control <- as.list(environment())
-  control$version <- packageVersion("bayesprot")
-  class(control) <- "bayesprot_control"
+  control$version <- packageVersion("deamass")
+  class(control) <- "deamass_control"
 
   # tidy squeeze.var.func
   if (!is.list(control$squeeze.var.func)) control$squeeze.var.func <- list(control$squeeze.var.func)
@@ -365,7 +365,7 @@ new_control <- function(
     if(is.null(names(control$squeeze.var.func))) names(control$squeeze.var.func) <- 1:length(control$squeeze.var.func)
     names(control$squeeze.var.func) <- ifelse(names(control$squeeze.var.func) == "", 1:length(control$squeeze.var.func), names(control$squeeze.var.func))
   } else {
-    stop("'squeeze.var.func' must be a function or list of functions taking a bayesprot_fit object")
+    stop("'squeeze.var.func' must be a function or list of functions taking a deamass_fit object")
   }
 
   # tidy dist.var.func
@@ -374,7 +374,7 @@ new_control <- function(
     if(is.null(names(control$dist.var.func))) names(control$dist.var.func) <- 1:length(control$dist.var.func)
     names(control$dist.var.func) <- ifelse(names(control$dist.var.func) == "", 1:length(control$dist.var.func), names(control$dist.var.func))
   } else {
-    stop("'dist.var.func' must be a function or list of functions taking a bayesprot_fit object")
+    stop("'dist.var.func' must be a function or list of functions taking a deamass_fit object")
   }
 
   # tidy dist.mean.func
@@ -383,7 +383,7 @@ new_control <- function(
     if(is.null(names(control$dist.mean.func))) names(control$dist.mean.func) <- 1:length(control$dist.mean.func)
     names(control$dist.mean.func) <- ifelse(names(control$dist.mean.func) == "", 1:length(control$dist.mean.func), names(control$dist.mean.func))
   } else {
-    stop("'dist.mean.func' must be a function or list of functions taking a bayesprot_fit object")
+    stop("'dist.mean.func' must be a function or list of functions taking a deamass_fit object")
   }
 
   return(control)

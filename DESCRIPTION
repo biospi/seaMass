@@ -1,35 +1,35 @@
-Package: bayesprot
+Package: deamass
 Type: Package
-Title: Bayesian Protein-level Quantification for Proteomics
-Version: 1.2.0
+Title: Differential expression analysis for mass spectrometry proteomics and metabolomics
+Version: 1.0.0.0
 Authors@R: as.person(c(
     "Andrew Dowsey <andrew.dowsey@bristol.ac.uk> [aut, cre]",
     "Alexander Phillips <a.m.phillips@liverpool.ac.uk> [ctb]",
     "Ranjeet Bhamber <ranjeet.bhamber@bristol.ac.uk> [ctb]"
   ))
-Description: Bayesian mixed-effects modelling for protein-level differential analysis of quantitative mass spectrometry proteomics data.
+Description: Differential expression analysis for mass spectrometry proteomics and metabolomics.
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
-Depends: R (>= 3.4.0)
+Depends: R (>= 3.6.0)
 biocViews:
 Imports: 
     ashr (>= 2.2-32),
-    data.table (>= 1.11.4),
-    doSNOW (>= 1.0.16),
+    data.table (>= 1.12.2),
+    doSNOW (>= 1.0.18),
     doRNG (>= 1.7.1),
     extraDistr (>= 1.8.11),
-    FactoMineR (>= 1.41),
-    fitdistrplus (>= 1.0-11),
-    fst (>= 0.8.8),
-    ggfortify (>= 0.4.5),
-    ggrepel (>= 0.8.0),
+    FactoMineR (>= 1.42),
+    fitdistrplus (>= 1.0-14),
+    fst (>= 0.9.0),
+    ggfortify (>= 0.4.7),
+    ggrepel (>= 0.8.1),
     gridExtra (>= 2.3),
     ks (>= 1.11.5),
     limma (>= 3.40.6),
     logKDE (>= 0.3.2),
-    metafor (>= 2.0-0),
-    MCMCglmm (>= 2.26),
+    metafor (>= 2.1-0),
+    MCMCglmm (>= 2.29),
     R.utils (>= 2.9.0),
     utf8 (>= 1.1.4)
 RoxygenNote: 6.1.1

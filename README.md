@@ -1,12 +1,12 @@
-# BayesProt v2.0.0 (beta1 - 29th October 2019)
-Bayesian mixed-effects model and uncertainty propagation for mass spectrometry proteomics, achieving sensitive protein-level quantification and differential expression analysis. Currently works with imported data from SCIEX ProteinPilot, Thermo ProteomeDiscoverer, Waters Progenesis and OpenSWATH/PyProphet across iTraq/TMT, SILAC, Label-free and SWATH data types.
+# deaMass v1.0.0.0 (alpha1 - 26th October 2019)
+Differential expression analysis for mass spectrometry proteomics and metabolomics using a mixed-effects model and uncertainty propagation, achieving sensitive protein and metabolite group-level quantification and differential expression analysis. Currently works with imported data from SCIEX ProteinPilot, Thermo ProteomeDiscoverer, Waters Progenesis and OpenSWATH/PyProphet across iTraq/TMT, SILAC, Label-free and SWATH data types.
 
 ## Current citation
 Xu et al, Nature Communications Biology 2019, 2:43, [https://doi.org/10.1038/s42003-018-0254-9]
 
 ## Requirements
 
-BayesProt is an R package that works on Windows, MacOS and Linux. Small studies (n=4 vs n=4) will take about one to two hours to process with default control parameters. Large studies (e.g. 100 samples) could take overnight or longer. Small studies will run with 16Gb of memory, but larger studies could take 64Gb or more. To reduce memory usage at the expense of speed, reduce the number of CPU threads via the 'nthread' parameter of the BayesProt 'control' object (see tutorial below).
+deaMass is an R package that works on Windows, MacOS and Linux. Small studies (n=4 vs n=4) will take about one to two hours to process with default control parameters. Large studies (e.g. 100 samples) could take overnight or longer. Small studies will run with 16Gb of memory, but larger studies could take 64Gb or more. To reduce memory usage at the expense of speed, reduce the number of CPU threads via the 'nthread' parameter of the deaMass 'control' object (see tutorial below).
 
 ## Installation
 
@@ -14,28 +14,28 @@ Please install the R package directly from our Github repository (use the same c
 
 ```
 install.packages("devtools")
-devtools::install_github("biospi/bayesprot", dependencies = TRUE)
+devtools::install_github("biospi/deamass", dependencies = TRUE)
 ```
 
-To upgrade to the latest version of BayesProt, simply run the second line again.
+To upgrade to the latest version of deaMass, simply run the second line again.
 
 ## Usage
 
-Firstly, you need to use an 'import' function to convert from an upstream tool format to BayesProt's standardised 'data.frame' format. Then you can assign injections to runs if you've used fractionation, and specify a study design if you'd like to do differential expression analysis. Finally, you use the 'bayesprot' function to fit the model and generate the results.
+Firstly, you need to use an 'import' function to convert from an upstream tool format to deaMass's standardised 'data.frame' format. Then you can assign injections to runs if you've used fractionation, and specify a study design if you'd like to do differential expression analysis. Finally, you use the 'deamass' function to fit the model and generate the results.
 
 ### Tutorial
 
 Load the included ProteinPilot iTraq dataset (note this is a small subset of proteins from our spike-in study and as such is not useful for anything else than this tutorial).
 
 ```
-library(bayesprot)
+library(deamass)
 
 # Import tutorial iTraq dataset.
-file <- system.file(file.path("demo", "Tutorial_PeptideSummary.txt.bz2"), package = "bayesprot")
+file <- system.file(file.path("demo", "Tutorial_PeptideSummary.txt.bz2"), package = "deamass")
 data <- import_ProteinPilot(file)
 ```
 
-Unfortunately the input file does not contain information for linking fractions to runs, so BayesProt allows you to update the imported data with this information. If your study does not employ fractionation, you can skip this section.
+Unfortunately the input file does not contain information for linking fractions to runs, so deaMass allows you to update the imported data with this information. If your study does not employ fractionation, you can skip this section.
 
 ```
 # Get skeleton injection-run table from imported data.
@@ -70,7 +70,7 @@ data.design$Sample <- factor(c(
 ))
 ```
 
-Optionally, you can do differential expression analysis (or any mixed-effects model supported by the 'metafor' package). You can run a 'dea' function post-hoc using the 'fit' object returned by 'bayesprot', or you can supply one or more 'dea' functions to run during the 'bayesprot' call. If your experiment contains two or more treatment groups, we suggest you use a 'pairwise' function (only function implemented at present), which will perform the model seperately for each pair of conditions specified by a 'Condition' column in your experiment design:
+Optionally, you can do differential expression analysis (or any mixed-effects model supported by the 'metafor' package). You can run a 'dea' function post-hoc using the 'fit' object returned by 'deamass', or you can supply one or more 'dea' functions to run during the 'deamass' call. If your experiment contains two or more treatment groups, we suggest you use a 'pairwise' function (only function implemented at present), which will perform the model seperately for each pair of conditions specified by a 'Condition' column in your experiment design:
 
 ```
 # specify a list of one of more differential expression analysis functions. Bayesprot currently
@@ -85,7 +85,7 @@ data.design$Condition <- factor(c(
 ))
 ```
 
-If you have multiple channels per run (e.g. iTraq, TMT, SILAC) you need to specify the reference assay(s) for each run so that quants can be linked between runs. BayesProt does not need specific reference samples (e.g. pooled samples) to have been run as long as you have a blocked design with the same proportion of samples in each treatment group in each run. For example, below we have designated 4 A and 4 B samples as reference channels for Run 1, and 2 A and 2 B samples as reference channels for Run 2.
+If you have multiple channels per run (e.g. iTraq, TMT, SILAC) you need to specify the reference assay(s) for each run so that quants can be linked between runs. deaMass does not need specific reference samples (e.g. pooled samples) to have been run as long as you have a blocked design with the same proportion of samples in each treatment group in each run. For example, below we have designated 4 A and 4 B samples as reference channels for Run 1, and 2 A and 2 B samples as reference channels for Run 2.
 
 ```
 # iTraq/TMT/SILAC only: Since we have more than one iTraq run we need to normalise across them.
@@ -97,27 +97,27 @@ data.design$ref <- factor(c(
 )
 ```
 
-Finally, run the model. Intermediate and results data is stored in the directory specified by the BayesProt 'output' parameter, and any internal control parameters (such as the number of CPU threads to use) can be specified through a 'control' object'. For differential expression analysis, a Bayesian version of median normalisation will be used. By default all proteins are considered in the normalisation, but you can choose a subset if required as illustrated below.
+Finally, run the model. Intermediate and results data is stored in the directory specified by the deaMass 'output' parameter, and any internal control parameters (such as the number of CPU threads to use) can be specified through a 'control' object'. For differential expression analysis, a Bayesian version of median normalisation will be used. By default all proteins are considered in the normalisation, but you can choose a subset if required as illustrated below.
 
 ```
-# By default BayesProt uses median normalisation. If you want to normalise just to a specific
+# By default deaMass uses median normalisation. If you want to normalise just to a specific
 # set of proteins, do this (here to all the rat proteins).
 norm_truth <- function(...) {
   norm_median(..., ref.proteins = levels(data$Protein)[grep("_RAT", levels(data$Protein))])
 }
 
-# run BayesProt.
-fit <- bayesprot(
+# run deaMass.
+fit <- deamass(
   data,
   data.design = data.design,
   norm.func = list(truth = norm_truth),
   dea.func = dea.func,
-  output = "Tutorial.bayesprot",
+  output = "Tutorial.deamass",
   control = new_control(nthread = 4)
 )
 ```
 
-Once run, results tables (in csv format) and diagnostic plots (PCA, exposures aka 'normalisation coefficients') are available in the 'output' subdirectory of the output directory specified above. Or you can use the R package functions to retrieve results and generate plots from the fit object created by the 'bayesprot' call:
+Once run, results tables (in csv format) and diagnostic plots (PCA, exposures aka 'normalisation coefficients') are available in the 'output' subdirectory of the output directory specified above. Or you can use the R package functions to retrieve results and generate plots from the fit object created by the 'deamass' call:
 
 ```
 # Output list of proteins analysed.
