@@ -16,7 +16,7 @@ process_model0 <- function(fit, i = 1) {
     # PROCESS OUTPUT
     message(paste0("[", Sys.time(), "] OUTPUT stage=eb"))
 
-    priors <- rbindlist(lapply(1:ctrl$assay.nbatch, function(batch) {
+    priors <- lapply(1:ctrl$assay.nbatch, function(batch) {
       message("[", paste0(Sys.time(), "]  computing empirical Bayes priors batch=", batch))
       priors <- list()
 
@@ -93,7 +93,7 @@ process_model0 <- function(fit, i = 1) {
       saveRDS(priors.out, file = file.path(fit, "model0", paste0("priors.", batch, ".rds")))
 
       priors
-    }))
+    })
 
     # Feature prior plots
     g <- plot_fits(priors$DT.feature.vars, priors$DT.feature,  by = "batchID")
