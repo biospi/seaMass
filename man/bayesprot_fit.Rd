@@ -2,8 +2,6 @@
 % Please edit documentation in R/fit.R
 \name{bayesprot_fit}
 \alias{bayesprot_fit}
-\alias{start_parallel}
-\alias{stop_parallel}
 \alias{del}
 \alias{control}
 \alias{design}
@@ -29,10 +27,6 @@
 \title{Interrogating the \code{bayesprot} fit object}
 \usage{
 bayesprot_fit(dir = "bayesprot", quiet = FALSE, force = FALSE)
-
-start_parallel(fit, nthread = control(fit)$nthread)
-
-stop_parallel()
 
 del(fit)
 
@@ -65,23 +59,26 @@ dist_mean_func(fit, key = 1)
 timings(fit, stage = "", as.data.table = F)
 
 feature_vars(fit, featureIDs = NULL, summary = TRUE, stage = "",
+  batches = 1:control(fit)$assay.nbatch,
   chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 
 peptide_vars(fit, peptideIDs = NULL, summary = TRUE, stage = "",
+  batches = 1:control(fit)$assay.nbatch,
   chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 
 assay_vars(fit, proteinIDs = NULL, summary = TRUE, stage = "",
+  batches = 1:control(fit)$assay.nbatch,
   chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 
 peptide_deviations(fit, peptideIDs = NULL, summary = TRUE,
-  stage = "", chains = 1:control(fit)$model.nchain,
-  as.data.table = FALSE)
+  stage = "", batches = 1:control(fit)$assay.nbatch,
+  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 
 protein_quants(fit, proteinIDs = NULL, summary = TRUE,
-  norm.func.key = as.integer(summary),
-  ref.assays.key = ifelse(is.null(norm.func.key), 1, norm.func.key),
-  stage = "", chains = 1:control(fit)$model.nchain,
-  as.data.table = FALSE)
+  norm.func.key = ifelse(as.integer(summary) == 0, 1,
+  as.integer(summary)), ref.assays.key = ifelse(is.null(norm.func.key),
+  1, norm.func.key), stage = "", batches = 1:control(fit)$assay.nbatch,
+  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 
 protein_de(fit, proteinIDs = NULL, key = 1, dist.mean.func.key = key,
   norm.func.key = dist.mean.func.key, ref.assays.key = norm.func.key,

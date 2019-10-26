@@ -40,9 +40,10 @@ data.design$Sample <- factor(c(
 #######################################
 
 # specify a list of one of more differential expression analysis functions. Bayesprot currently
-#  implements tests between conditions using the 'dea_MCMCglmm' function. By default
-#  these are t.tests but you can add covariates, random effects etc using the 'MCMCglmm::MCMCglmm'
-#  syntax
+#  implements tests between conditions using the 'dea_limma' and the 'dea_MCMCglmm' functions.
+# By default these are standard t.tests for limma and Welch's t.tests for MCMCglmm (limma does
+#  not support Welch's t.tests), but you can add covariates, and with MCMCglmm you can also add
+#  random effects using the 'MCMCglmm::MCMCglmm' syntax.
 dea.func <- list(t.tests = dea_limma)
 
 # 'dea_MCMCglmm' expects a column 'Condition' to have been specified in 'data.design'.
@@ -79,7 +80,7 @@ fit <- bayesprot(
   norm.func = list(truth = norm_truth),
   dea.func = dea.func,
   output = "Tutorial.bayesprot",
-  control = new_control(nthread = 4)
+  control = new_control(nthread = 8)
 )
 
 #######################################

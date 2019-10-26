@@ -97,7 +97,7 @@ plot_pca <- function(fit, data = protein_quants(fit, summary = F), data.summary 
 #' @return The sum of \code{x} and \code{y}.
 #' @import data.table
 #' @export
-plot_fits <- function(data, data.fits = NULL, ci = c(0.01, 0.99), by = NULL, xlab = "v", ylim = NULL, trans = identity, inv.trans = identity, show.input = T) {
+plot_fits <- function(data, data.fits = NULL, ci = c(0.05, 0.95), by = NULL, xlab = "v", ylim = NULL, trans = identity, inv.trans = identity, show.input = T) {
   DT <- as.data.table(data)
   DT.fits <- as.data.table(data.fits)
 

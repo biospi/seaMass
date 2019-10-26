@@ -4,7 +4,7 @@
 \alias{process_model}
 \title{process_model (internal)}
 \usage{
-process_model(fit, chain = 1)
+process_model(fit, i = 1)
 }
 \arguments{
 \item{fit}{bayesprot fit object.}

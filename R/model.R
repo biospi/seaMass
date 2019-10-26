@@ -2,25 +2,24 @@
 #'
 #' @param fit bayesprot fit object.
 #' @param chain Number of chain to process.
-#' @param priors The priors
+#' @param use.priors true or false
 #' @import doRNG
 #' @import foreach
 #' @export
-execute_model <- function(
-  fit,
-  chain,
-  priors = NULL
-) {
-  stage = ifelse(is.null(priors), "0", "")
-  control <- control(fit)
-  message(paste0("[", Sys.time(), "] MODEL stage=", ifelse(stage == "0", "eb", "full"), " chain=", chain, "/", control$model.nchain))
+execute_model <- function(fit, i, use.priors) {
+  stage = ifelse(use.priors, "", "0")
+  ctrl <- control(fit)
+  chain <- (i - 1) %% ctrl$model.nchain + 1
+  batch <- (i - 1) %/% ctrl$model.nchain + 1
+  message(paste0("[", Sys.time(), "] MODEL stage=", ifelse(stage == "0", "eb", "full"), " batch=", batch, "/", ctrl$assay.nbatch, " chain=", chain, "/", ctrl$model.nchain))
 
   # load metadata
   path.output = file.path(fit, paste0("model", stage))
   DT.design <- design(fit, as.data.table = T)
   DT.proteins <- proteins(fit, as.data.table = T)
-  if (stage == "0") DT.proteins <- DT.proteins[!is.na(from0)]
-  nitt <- control$model.nwarmup + (control$model.nsample * control$model.thin) / control$model.nchain
+  DT.index <- fst::read.fst(file.path(fit, "input", paste0("data", stage, ".", batch, ".index.fst")), as.data.table = T)
+  nitt <- ctrl$model.nwarmup + (ctrl$model.nsample * ctrl$model.thin) / ctrl$model.nchain
+  if (use.priors == T) priors <- readRDS(file.path(fit, "model0", paste0("priors.", batch, ".rds")))
 
   # create subdirs
   dir.create(file.path(path.output, paste0("protein.quants", stage)), showWarnings = F)
@@ -31,33 +30,20 @@ execute_model <- function(
   dir.create(file.path(path.output, paste0("summaries", stage)), showWarnings = F)
   dir.create(file.path(path.output, paste0("timings", stage)), showWarnings = F)
 
-  if (nrow(DT.proteins) > 0) {
-    message(paste0("[", Sys.time(), "]  modelling nprotein=", nrow(DT.proteins), " nitt=", nitt, "..."))
-    pb <- txtProgressBar(max = sum(DT.proteins$timing), style = 3)
-    progress <- function(n, tag) setTxtProgressBar(pb, getTxtProgressBar(pb) + DT.proteins$timing[tag])
+  if (nrow(DT.index) > 0) {
+    message(paste0("[", Sys.time(), "]  modelling nprotein=", nrow(DT.index), " nitt=", nitt, "..."))
 
-    rbindlistlist <- function(...) {
-      input <- list(...)
-      for (j in names(input[[1]])) input[[1]][[j]] <- rbindlist(lapply(1:length(input), function(i) input[[i]][[j]]))
-      input[[1]]
-    }
-
-    output <- foreach(
-      i = 1:nrow(DT.proteins),
-      .combine = rbindlistlist,
-      .multicombine = T,
-      .inorder = F,
-      .packages = "data.table",
-      .options.snow = list(progress = progress)
-    ) %dorng% {
+    # run model
+    DT.index <- merge(DT.index, DT.proteins[, .(ProteinID, timing)], by = "ProteinID")
+    DT.index[, rowID := .I]
+    inputs <- split(DT.index, by = "rowID", keep.by = F)
+    outputs <- rbindlists(parallel_lapply(inputs, function(input, fit, stage, batch, chain, use.priors) {
+      ctrl <- control(fit)
+      nitt <- ctrl$model.nwarmup + (ctrl$model.nsample * ctrl$model.thin) / ctrl$model.nchain
       #cat(capture.output(sort(sapply(ls(),function(x){object.size(get(x))}))), file = paste0(Sys.getpid(), ".out"), sep = "\n", append = T)
 
       # load data
-      if (stage == "0") {
-        DT <- fst::read.fst(file.path(fit, "input", "input0.fst"), as.data.table = T, from = DT.proteins[i, from0], to = DT.proteins[i, to0])
-      } else {
-        DT <- fst::read.fst(file.path(fit, "input", "input.fst"), as.data.table = T, from = DT.proteins[i, from], to = DT.proteins[i, to])
-      }
+      DT <- fst::read.fst(file.path(fit, "input", paste0("data", stage, ".", batch, ".fst")), as.data.table = T, from = input[, from], to = input[, to])
 
       # calculate how many real (non-imputed) peptides and features back each Assay and Sample
       DT.assay.n <- DT[, .(nFeature = sum(!is.na(RawCount))), by = .(AssayID, PeptideID)]
@@ -97,16 +83,16 @@ execute_model <- function(
         fixed <- as.formula(paste(ifelse(is.null(DT$Count1), "Count", "c(Count, Count1)"), "~ ", ifelse(nF == 1, "", "FeatureID-1 +"), " QuantID"))
 
         # feature rcov
-        if (nF == 1 || control$feature.model == "single") {
+        if (nF == 1 || ctrl$feature.model == "single") {
           if (nT == 1) {
             rcov <- as.formula("~FeatureID:AssayID")
           } else {
             rcov <- as.formula("~PeptideID:FeatureID:AssayID")
           }
-          if (is.null(priors) || is.null(priors$DT.feature)) {
+          if (use.priors == F) {
             prior.rcov <- list(V = 1, nu = 0.02)
           } else {
-             prior.rcov <- list(V = log(2) * priors$DT.feature[, v], nu = priors$DT.feature[, df])
+            prior.rcov <- list(V = log(2) * priors$DT.feature[, v], nu = priors$DT.feature[, df])
           }
         } else {
           if (nT == 1) {
@@ -114,7 +100,7 @@ execute_model <- function(
           } else {
             rcov <- as.formula("~idh(PeptideID:FeatureID):AssayID")
           }
-          if (is.null(priors) || is.null(priors$DT.feature)) {
+          if (use.priors == F) {
             prior.rcov <- list(V = diag(nF), nu = 0.02)
           } else {
             prior.rcov <- list(V = log(2) * priors$DT.feature[, v] * diag(nF), nu = priors$DT.feature[, df])
@@ -122,18 +108,18 @@ execute_model <- function(
         }
 
         # peptide random effect
-        if (is.null(control$peptide.model)) {
+        if (is.null(ctrl$peptide.model)) {
           random.peptide <- NULL
-        } else if (control$peptide.model == "single" || nT == 1) {
+        } else if (ctrl$peptide.model == "single" || nT == 1) {
           random.peptide <- "PeptideID:SampleID"
-          if (is.null(priors) || is.null(priors$DT.peptide)) {
+          if (use.priors == F) {
             prior.peptide <- list(PeptideID = list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2))
           } else {
             prior.peptide <- list(PeptideID = list(V = log(2) * priors$DT.peptide[, v], nu = priors$DT.peptide[, df]))
           }
         } else {
           random.peptide <- "idh(PeptideID):SampleID"
-          if (is.null(priors) || is.null(priors$DT.peptide)) {
+          if (use.priors == F) {
             prior.peptide <- list(PeptideID = list(V = diag(nT), nu = nT, alpha.mu = rep(0, nT), alpha.V = diag(25^2, nT)))
           } else {
             prior.peptide <- list(PeptideID = list(V = log(2) * priors$DT.peptide[, v] * diag(nT), nu = priors$DT.peptide[, df]))
@@ -141,11 +127,11 @@ execute_model <- function(
         }
 
         # assay random effect
-        if (is.null(control$assay.model)) {
+        if (is.null(ctrl$assay.model)) {
           random.assay <- NULL
-        } else if (control$assay.model == "single") {
+        } else if (ctrl$assay.model == "single") {
           random.assay <- "PeptideID"
-          if (is.null(priors) || is.null(priors$DT.assay)) {
+          if (use.priors == F) {
             prior.assay <- list(AssayID = list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2))
           } else {
             prior.assay <- list(AssayID = list(V = log(2) * priors$DT.assay[, v], nu = priors$DT.assay[, df]))
@@ -153,10 +139,10 @@ execute_model <- function(
         } else {
           for (l in levels(DT$AssayID)) DT[, paste0("AssayID", l) := ifelse(AssayID == l, 1, 0)]
           random.assay <- paste(paste0("idh(AssayID", levels(DT$AssayID), "):PeptideID"), collapse = "+")
-          if (is.null(priors) || is.null(priors$DT.assay)) {
-            prior.assay <- lapply(1:nlevels(DT$AssayID), function(i) list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2))
+          if (use.priors == F) {
+            prior.assay <- lapply(1:nlevels(DT$AssayID), function(k) list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2))
           } else {
-            prior.assay <- lapply(1:nlevels(DT$AssayID), function(i) list(V = log(2) * priors$DT.assay[i, v] , nu = priors$DT.assay[i, df]))
+            prior.assay <- lapply(1:nlevels(DT$AssayID), function(k) list(V = log(2) * priors$DT.assay[k, v] , nu = priors$DT.assay[k, df]))
           }
           names(prior.assay) <- paste0("AssayID", levels(DT$AssayID))
         }
@@ -177,7 +163,7 @@ execute_model <- function(
         }
 
         # family
-        if (control$error.model == "lognormal") {
+        if (ctrl$error.model == "lognormal") {
           DT$Count <- log(DT$Count)
           if(is.null(DT$Count1)) {
             family <- "gaussian"
@@ -197,11 +183,11 @@ execute_model <- function(
         output$DT.summaries <- as.character(Sys.time())
         output$DT.timings <- system.time(model <- (MCMCglmm::MCMCglmm(
           fixed, random, rcov, family, data = DT, prior = prior,
-          nitt = nitt, burnin = control$model.nwarmup, thin = control$model.thin, pr = T, verbose = F
+          nitt = nitt, burnin = ctrl$model.nwarmup, thin = ctrl$model.thin, pr = T, verbose = F
         )))
-        output$DT.timings <- data.table(ProteinID = DT[1, ProteinID], chainID = chain, as.data.table(t(as.matrix(output$DT.timings))))
+        output$DT.timings <- data.table(ProteinID = DT[1, ProteinID], batchID = batch, chainID = chain, as.data.table(t(as.matrix(output$DT.timings))))
         options(max.print = 99999)
-        output$DT.summaries <- data.table(ProteinID = DT[1, ProteinID], chainID = chain, Summary = paste(c(output$DT.summaries, capture.output(print(summary(model))), as.character(Sys.time())), collapse = "\n"))
+        output$DT.summaries <- data.table(ProteinID = DT[1, ProteinID], batchID = batch, chainID = chain, Summary = paste(c(output$DT.summaries, capture.output(print(summary(model))), as.character(Sys.time())), collapse = "\n"))
 
         if (length(colnames(model$Sol)[grep("^QuantID[0-9]+\\.[0-9]+$", colnames(model$Sol))]) != nlevels(DT$QuantID) - 1) {
           stop("Some contrasts were dropped unexpectedly")
@@ -217,33 +203,35 @@ execute_model <- function(
 
         # add zeros for baseline assays
         output$DT.protein.quants <- rbind(output$DT.protein.quants, output$DT.protein.quants[, .(AssayID = BaselineID, value = 0.0), by = .(ProteinID, BaselineID, mcmcID)])
+        output$DT.protein.quants[, batchID := batch]
         output$DT.protein.quants[, chainID := chain]
         output$DT.protein.quants[, value := value / log(2)]
 
         # merge with DT.assay.n
         output$DT.protein.quants <- merge(output$DT.protein.quants, DT.assay.n, by = "AssayID")
-        setcolorder(output$DT.protein.quants, c("ProteinID", "AssayID", "BaselineID", "nPeptide", "nFeature", "chainID", "mcmcID"))
+        setcolorder(output$DT.protein.quants, c("ProteinID", "AssayID", "BaselineID", "nPeptide", "nFeature", "batchID", "chainID", "mcmcID"))
 
         # extract peptide deviations
-        if (!is.null(control$assay.model) && control$assay.model == "independent") {
+        if (!is.null(ctrl$assay.model) && ctrl$assay.model == "independent") {
           output$DT.peptide.deviations <- as.data.table(model$Sol[, grep("^AssayID[0-9]+\\.PeptideID\\.[0-9]+$", colnames(model$Sol)), drop = F])
           output$DT.peptide.deviations[, mcmcID := 1:nrow(output$DT.peptide.deviations)]
           output$DT.peptide.deviations <- melt(output$DT.peptide.deviations, variable.name = "PeptideID", id.vars = "mcmcID")
           output$DT.peptide.deviations[, AssayID := as.integer(sub("^AssayID([0-9]+)\\.PeptideID\\.([0-9]+)$", "\\1", PeptideID))]
           output$DT.peptide.deviations[, PeptideID := as.integer(sub("^AssayID[0-9]+\\.PeptideID\\.([0-9]+)$", "\\1", PeptideID))]
           output$DT.peptide.deviations[, ProteinID := DT[1, ProteinID]]
+          output$DT.peptide.deviations[, batchID := batch]
           output$DT.peptide.deviations[, chainID := chain]
           output$DT.peptide.deviations[, value := value / log(2)]
 
           # merge with DT.n.real
           output$DT.peptide.deviations <- merge(output$DT.peptide.deviations, DT.peptide.n, by = c("PeptideID", "AssayID"))
-          setcolorder(output$DT.peptide.deviations, c("ProteinID", "AssayID", "nPeptide", "PeptideID", "nFeature", "chainID", "mcmcID"))
+          setcolorder(output$DT.peptide.deviations, c("ProteinID", "AssayID", "nPeptide", "PeptideID", "nFeature", "batchID", "chainID", "mcmcID"))
         }
 
         model$Sol <- NULL
 
         # EXTRACT FEATURE VARIANCES
-        if (control$feature.model == "single" || nF == 1) {
+        if (ctrl$feature.model == "single" || nF == 1) {
           if (nT == 1) {
             output$DT.feature.vars <- as.data.table(model$VCV[, "FeatureID:AssayID", drop = F])
           } else {
@@ -260,7 +248,7 @@ execute_model <- function(
         output$DT.feature.vars <- melt(output$DT.feature.vars, id.vars = "mcmcID")
 
         # peptideID
-        if (control$feature.model == "single") {
+        if (ctrl$feature.model == "single") {
           output$DT.feature.vars[, PeptideID := DT[1, ProteinID]]
         } else if (nT == 1) {
           output$DT.feature.vars[, PeptideID := as.integer(as.character(DT[1, PeptideID]))]
@@ -269,7 +257,7 @@ execute_model <- function(
         }
 
         # featureID
-        if (control$feature.model == "single") {
+        if (ctrl$feature.model == "single") {
           output$DT.feature.vars[, FeatureID := DT[1, ProteinID]]
         } else if (nF == 1) {
           output$DT.feature.vars[, FeatureID := as.integer(as.character(DT[1, FeatureID]))]
@@ -281,14 +269,15 @@ execute_model <- function(
 
         # rest
         output$DT.feature.vars[, ProteinID := DT[1, ProteinID]]
+        output$DT.feature.vars[, batchID := batch]
         output$DT.feature.vars[, chainID := chain]
         output$DT.feature.vars[, value := value / log(2)]
         output$DT.feature.vars[, variable := NULL]
-        setcolorder(output$DT.feature.vars, c("ProteinID", "PeptideID", "FeatureID", "chainID", "mcmcID"))
+        setcolorder(output$DT.feature.vars, c("ProteinID", "PeptideID", "FeatureID", "batchID", "chainID", "mcmcID"))
 
-        if (!is.null(control$peptide.model)) {
+        if (!is.null(ctrl$peptide.model)) {
           # EXTRACT PEPTIDE VARIANCES
-          if (control$peptide.model == "single" || nT == 1) {
+          if (ctrl$peptide.model == "single" || nT == 1) {
             output$DT.peptide.vars <- as.data.table(model$VCV[, "PeptideID:SampleID", drop = F])
           } else {
             output$DT.peptide.vars <- as.data.table(model$VCV[, grep("^PeptideID[0-9]+\\.SampleID$", colnames(model$VCV)), drop = F])
@@ -297,7 +286,7 @@ execute_model <- function(
           output$DT.peptide.vars <- melt(output$DT.peptide.vars, id.vars = "mcmcID")
 
           # peptideID
-          if (control$peptide.model == "single") {
+          if (ctrl$peptide.model == "single") {
             output$DT.peptide.vars[, PeptideID := DT[1, ProteinID]]
           } else if (nT == 1) {
             output$DT.peptide.vars[, PeptideID := as.integer(as.character(DT[1, PeptideID]))]
@@ -307,15 +296,16 @@ execute_model <- function(
 
           # rest
           output$DT.peptide.vars[, ProteinID := DT[1, ProteinID]]
+          output$DT.peptide.vars[, batchID := batch]
           output$DT.peptide.vars[, chainID := chain]
           output$DT.peptide.vars[, value := value / log(2)]
           output$DT.peptide.vars[, variable := NULL]
-          setcolorder(output$DT.peptide.vars, c("ProteinID", "PeptideID", "chainID", "mcmcID"))
+          setcolorder(output$DT.peptide.vars, c("ProteinID", "PeptideID", "batchID", "chainID", "mcmcID"))
         }
 
-        if (!is.null(control$assay.model)) {
+        if (!is.null(ctrl$assay.model)) {
           # EXTRACT ASSAY VARIANCES
-          if (control$assay.model == "single") {
+          if (ctrl$assay.model == "single") {
             output$DT.assay.vars <- as.data.table(model$VCV[, "PeptideID", drop = F])
           } else {
             output$DT.assay.vars <- as.data.table(model$VCV[, grep("^AssayID[0-9]+\\.PeptideID$", colnames(model$VCV)), drop = F])
@@ -324,7 +314,7 @@ execute_model <- function(
           output$DT.assay.vars <- melt(output$DT.assay.vars, id.vars = "mcmcID")
 
           # assayID
-          if (control$assay.model == "single") {
+          if (ctrl$assay.model == "single") {
             output$DT.assay.vars[, AssayID := 0]
           } else {
             output$DT.assay.vars[, AssayID := as.integer(sub("^AssayID([0-9]+)\\.PeptideID$", "\\1", variable))]
@@ -332,21 +322,22 @@ execute_model <- function(
 
           # rest
           output$DT.assay.vars[, ProteinID := DT[1, ProteinID]]
+          output$DT.assay.vars[, batchID := batch]
           output$DT.assay.vars[, chainID := chain]
           output$DT.assay.vars[, value := value / log(2)]
           output$DT.assay.vars[, variable := NULL]
-          setcolorder(output$DT.assay.vars, c("ProteinID", "AssayID", "chainID", "mcmcID"))
+          setcolorder(output$DT.assay.vars, c("ProteinID", "AssayID", "batchID", "chainID", "mcmcID"))
         }
 
         # if large enough write out protein quants now to conserve memory, otherwise don't to conserve disk space
         if (object.size(output$DT.protein.quants) > 2^18) {
-          filename <- file.path(paste0("model", stage), paste0("protein.quants", stage), paste0(chain, ".", DT.proteins[i, ProteinID], ".fst"))
+          filename <- file.path(paste0("model", stage), paste0("protein.quants", stage), paste0(batch, ".", chain, ".", input[, ProteinID], ".fst"))
           fst::write.fst(output$DT.protein.quants, file.path(fit, filename))
 
           if (chain == 1) {
             # construct index
             output$DT.protein.quants.index <- data.table(
-              ProteinID = DT.proteins[i, ProteinID],
+              ProteinID = input[, ProteinID],
               file = filename,
               from = 1,
               to = nrow(output$DT.protein.quants)
@@ -361,7 +352,7 @@ execute_model <- function(
         # if large enough write out peptide deviations now to conserve memory, otherwise don't to conserve disk space
         if (!is.null(output$DT.peptide.deviations)) {
           if (object.size(output$DT.peptide.deviations) > 2^18) {
-            filename <- file.path(paste0("model", stage), paste0("peptide.deviations", stage), paste0(chain, ".", DT.proteins[i, ProteinID], ".fst"))
+            filename <- file.path(paste0("model", stage), paste0("peptide.deviations", stage), paste0(batch, ".", chain, ".", input[, ProteinID], ".fst"))
             fst::write.fst(output$DT.peptide.deviations, file.path(fit, filename))
 
             if (chain == 1) {
@@ -385,7 +376,7 @@ execute_model <- function(
 
         # if large enough write out feature vars now to conserve memory, otherwise don't to conserve disk space
         if (object.size(output$DT.feature.vars) > 2^18) {
-          filename <- file.path(paste0("model", stage), paste0("feature.vars", stage), paste0(chain, ".", DT.proteins[i, ProteinID], ".fst"))
+          filename <- file.path(paste0("model", stage), paste0("feature.vars", stage), paste0(batch, ".", chain, ".", input[, ProteinID], ".fst"))
           fst::write.fst(output$DT.feature.vars, file.path(fit, filename))
 
           if (chain == 1) {
@@ -409,7 +400,7 @@ execute_model <- function(
         # if large enough write out peptide vars now to conserve memory, otherwise don't to conserve disk space
         if (!is.null(output$DT.peptide.vars)) {
           if (object.size(output$DT.peptide.vars) > 2^18) {
-            filename <- file.path(paste0("model", stage), paste0("peptide.vars", stage), paste0(chain, ".", DT.proteins[i, ProteinID], ".fst"))
+            filename <- file.path(paste0("model", stage), paste0("peptide.vars", stage), paste0(batch, ".", chain, ".", input[, ProteinID], ".fst"))
             fst::write.fst(output$DT.peptide.vars, file.path(fit, filename))
 
             if (chain == 1) {
@@ -434,7 +425,7 @@ execute_model <- function(
         # if large enough write out assay vars now to conserve memory, otherwise don't to conserve disk space
         if (!is.null(output$DT.assay.vars)) {
           if (object.size(output$DT.assay.vars) > 2^18) {
-            filename <- file.path(paste0("model", stage), paste0("assay.vars", stage), paste0(chain, ".", DT.proteins[i, ProteinID], ".fst"))
+            filename <- file.path(paste0("model", stage), paste0("assay.vars", stage), paste0(batch, ".", chain, ".", input[, ProteinID], ".fst"))
             fst::write.fst(output$DT.assay.vars, file.path(fit, filename))
 
             if (chain == 1) {
@@ -457,155 +448,153 @@ execute_model <- function(
         }
       }
 
-      output
-    }
-    setTxtProgressBar(pb, sum(DT.proteins$timing))
-    close(pb)
+      return(output)
+    }, nthread = ctrl$nthread, pred = DT.index[, timing]))
 
     # write out concatenation of smaller output
-    setorder(output$DT.summaries, ProteinID, chainID)
-    fst::write.fst(output$DT.summaries, file.path(path.output, file.path(paste0("summaries", stage), paste0(chain, ".fst"))))
-    output$DT.summaries <- NULL
+    setorder(outputs$DT.summaries, ProteinID, batchID, chainID)
+    fst::write.fst(outputs$DT.summaries, file.path(path.output, file.path(paste0("summaries", stage), paste0(batch, ".", chain, ".fst"))))
+    outputs$DT.summaries <- NULL
 
-    setorder(output$DT.timings, ProteinID, chainID)
-    fst::write.fst(output$DT.timings, file.path(path.output, file.path(paste0("timings", stage), paste0(chain, ".fst"))))
-    output$DT.timings <- NULL
+    setorder(outputs$DT.timings, ProteinID, batchID, chainID)
+    fst::write.fst(outputs$DT.timings, file.path(path.output, file.path(paste0("timings", stage), paste0(batch, ".", chain, ".fst"))))
+    outputs$DT.timings <- NULL
 
     # write out peptide deviations
-    if (!is.null(output$DT.peptide.deviations)) {
-      if (nrow(output$DT.peptide.deviations) > 0) {
-        setorder(output$DT.peptide.deviations, ProteinID, PeptideID, AssayID, chainID, mcmcID)
-        filename <- file.path(paste0("model", stage), paste0("peptide.deviations", stage), paste0(chain, ".fst"))
-        fst::write.fst(output$DT.peptide.deviations, file.path(fit, filename))
+    if (!is.null(outputs$DT.peptide.deviations)) {
+      if (nrow(outputs$DT.peptide.deviations) > 0) {
+        setorder(outputs$DT.peptide.deviations, ProteinID, PeptideID, AssayID, batchID, chainID, mcmcID)
+        filename <- file.path(paste0("model", stage), paste0("peptide.deviations", stage), paste0(batch, ".", chain, ".fst"))
+        fst::write.fst(outputs$DT.peptide.deviations, file.path(fit, filename))
 
         # finish index construction
         if (chain == 1) {
-          output$DT.peptide.deviations.2index <- output$DT.peptide.deviations[, .(
-            from = .I[!duplicated(output$DT.peptide.deviations, by = c("ProteinID", "PeptideID"))],
-            to = .I[!duplicated(output$DT.peptide.deviations, fromLast = T, by = c("ProteinID", "PeptideID"))]
+          outputs$DT.peptide.deviations.2index <- outputs$DT.peptide.deviations[, .(
+            from = .I[!duplicated(outputs$DT.peptide.deviations, by = c("ProteinID", "PeptideID"))],
+            to = .I[!duplicated(outputs$DT.peptide.deviations, fromLast = T, by = c("ProteinID", "PeptideID"))]
           )]
-          output$DT.peptide.deviations.index <- rbind(output$DT.peptide.deviations.index, cbind(
-            output$DT.peptide.deviations[output$DT.peptide.deviations.2index$from, .(ProteinID, PeptideID)],
+          outputs$DT.peptide.deviations.index <- rbind(outputs$DT.peptide.deviations.index, cbind(
+            outputs$DT.peptide.deviations[outputs$DT.peptide.deviations.2index$from, .(ProteinID, PeptideID)],
             data.table(file = filename),
-            output$DT.peptide.deviations.2index
+            outputs$DT.peptide.deviations.2index
           ))
         }
       }
 
       # write index
       if (chain == 1) {
-        setkey(output$DT.peptide.deviations.index, ProteinID, file, from, PeptideID)
-        fst::write.fst(output$DT.peptide.deviations.index, file.path(path.output, paste0("peptide.deviations", stage, ".index.fst")))
+        setkey(outputs$DT.peptide.deviations.index, ProteinID, file, from, PeptideID)
+        fst::write.fst(outputs$DT.peptide.deviations.index, file.path(path.output, paste0("peptide.deviations", stage, ".", batch, ".index.fst")))
       }
 
-      output$DT.peptide.deviations <- NULL
+      outputs$DT.peptide.deviations <- NULL
     }
 
     # write out feature vars
-    if (!is.null(output$DT.feature.vars)) {
-      if (nrow(output$DT.feature.vars) > 0) {
+    if (!is.null(outputs$DT.feature.vars)) {
+      if (nrow(outputs$DT.feature.vars) > 0) {
         # write out remaining feature vars
-        if(control$feature.model == "independent") {
-          setorder(output$DT.feature.vars, ProteinID, PeptideID, FeatureID, chainID, mcmcID)
+        if(ctrl$feature.model == "independent") {
+          setorder(outputs$DT.feature.vars, ProteinID, PeptideID, FeatureID, batchID, chainID, mcmcID)
         } else {
-          setorder(output$DT.feature.vars, ProteinID, chainID, mcmcID)
+          setorder(outputs$DT.feature.vars, ProteinID, batchID, chainID, mcmcID)
         }
-        filename <- file.path(paste0("model", stage), paste0("feature.vars", stage), paste0(chain, ".fst"))
-        fst::write.fst(output$DT.feature.vars, file.path(fit, filename))
+        filename <- file.path(paste0("model", stage), paste0("feature.vars", stage), paste0(batch, ".", chain, ".fst"))
+        fst::write.fst(outputs$DT.feature.vars, file.path(fit, filename))
 
         # finish index construction
         if (chain == 1) {
-          output$DT.feature.vars.2index <- output$DT.feature.vars[, .(
-            from = .I[!duplicated(output$DT.feature.vars, by = c("ProteinID", "PeptideID", "FeatureID"))],
-            to = .I[!duplicated(output$DT.feature.vars, fromLast = T, by = c("ProteinID", "PeptideID", "FeatureID"))]
+          outputs$DT.feature.vars.2index <- outputs$DT.feature.vars[, .(
+            from = .I[!duplicated(outputs$DT.feature.vars, by = c("ProteinID", "PeptideID", "FeatureID"))],
+            to = .I[!duplicated(outputs$DT.feature.vars, fromLast = T, by = c("ProteinID", "PeptideID", "FeatureID"))]
           )]
-          output$DT.feature.vars.index <- rbind(output$DT.feature.vars.index, cbind(
-            output$DT.feature.vars[output$DT.feature.vars.2index$from, .(ProteinID, PeptideID, FeatureID)],
+          outputs$DT.feature.vars.index <- rbind(outputs$DT.feature.vars.index, cbind(
+            outputs$DT.feature.vars[outputs$DT.feature.vars.2index$from, .(ProteinID, PeptideID, FeatureID)],
             data.table(file = filename),
-            output$DT.feature.vars.2index
+            outputs$DT.feature.vars.2index
           ))
         }
       }
 
       # write index
       if (chain == 1) {
-        setkey(output$DT.feature.vars.index, ProteinID, file, from, PeptideID, FeatureID)
-        fst::write.fst(output$DT.feature.vars.index, file.path(path.output, paste0("feature.vars", stage, ".index.fst")))
+        setkey(outputs$DT.feature.vars.index, ProteinID, file, from, PeptideID, FeatureID)
+        fst::write.fst(outputs$DT.feature.vars.index, file.path(path.output, paste0("feature.vars", stage, ".", batch, ".index.fst")))
       }
 
-      output$DT.feature.vars <- NULL
+      outputs$DT.feature.vars <- NULL
     }
 
-    if (!is.null(output$DT.peptide.vars)) {
+    if (!is.null(outputs$DT.peptide.vars)) {
       # write out remaining peptide vars
-      if (nrow(output$DT.peptide.vars) > 0) {
-        setorder(output$DT.peptide.vars, ProteinID, PeptideID, chainID, mcmcID)
-        filename <- file.path(paste0("model", stage), paste0("peptide.vars", stage), paste0(chain, ".fst"))
-        fst::write.fst(output$DT.peptide.vars, file.path(fit, filename))
+      if (nrow(outputs$DT.peptide.vars) > 0) {
+        setorder(outputs$DT.peptide.vars, ProteinID, PeptideID, batchID, chainID, mcmcID)
+        filename <- file.path(paste0("model", stage), paste0("peptide.vars", stage), paste0(batch, ".", chain, ".fst"))
+        fst::write.fst(outputs$DT.peptide.vars, file.path(fit, filename))
 
         # finish index construction
         if (chain == 1) {
-          output$DT.peptide.vars.2index <- output$DT.peptide.vars[, .(
-            from = .I[!duplicated(output$DT.peptide.vars, by = c("ProteinID", "PeptideID"))],
-            to = .I[!duplicated(output$DT.peptide.vars, fromLast = T, by = c("ProteinID", "PeptideID"))]
+          outputs$DT.peptide.vars.2index <- outputs$DT.peptide.vars[, .(
+            from = .I[!duplicated(outputs$DT.peptide.vars, by = c("ProteinID", "PeptideID"))],
+            to = .I[!duplicated(outputs$DT.peptide.vars, fromLast = T, by = c("ProteinID", "PeptideID"))]
           )]
-          output$DT.peptide.vars.index <- rbind(output$DT.peptide.vars.index, cbind(
-            output$DT.peptide.vars[output$DT.peptide.vars.2index$from, .(ProteinID, PeptideID)],
+          outputs$DT.peptide.vars.index <- rbind(outputs$DT.peptide.vars.index, cbind(
+            outputs$DT.peptide.vars[outputs$DT.peptide.vars.2index$from, .(ProteinID, PeptideID)],
             data.table(file = filename),
-            output$DT.peptide.vars.2index
+            outputs$DT.peptide.vars.2index
           ))
         }
       }
 
       # write index
       if (chain == 1) {
-        setkey(output$DT.peptide.vars.index, ProteinID, file, from, PeptideID)
-        fst::write.fst(output$DT.peptide.vars.index, file.path(path.output, paste0("peptide.vars", stage, ".index.fst")))
+        setkey(outputs$DT.peptide.vars.index, ProteinID, file, from, PeptideID)
+        fst::write.fst(outputs$DT.peptide.vars.index, file.path(path.output, paste0("peptide.vars", stage, ".", batch, ".index.fst")))
       }
 
-      output$DT.peptide.vars <- NULL
+      outputs$DT.peptide.vars <- NULL
     }
 
-    if (!is.null(output$DT.assay.vars)) {
+    if (!is.null(outputs$DT.assay.vars)) {
       # write out remaining assay vars
-      if (nrow(output$DT.assay.vars) > 0) {
-        setorder(output$DT.assay.vars, ProteinID, AssayID, chainID, mcmcID)
-        filename <- file.path(paste0("model", stage), paste0("assay.vars", stage), paste0(chain, ".fst"))
-        fst::write.fst(output$DT.assay.vars, file.path(fit, filename))
+      if (nrow(outputs$DT.assay.vars) > 0) {
+        setorder(outputs$DT.assay.vars, ProteinID, AssayID, batchID, chainID, mcmcID)
+        filename <- file.path(paste0("model", stage), paste0("assay.vars", stage), paste0(batch, ".", chain, ".fst"))
+        fst::write.fst(outputs$DT.assay.vars, file.path(fit, filename))
 
         # finish index construction
         if (chain == 1) {
-          output$DT.assay.vars.2index <- output$DT.assay.vars[, .(
-            from = .I[!duplicated(output$DT.assay.vars, by = c("ProteinID", "AssayID"))],
-            to = .I[!duplicated(output$DT.assay.vars, fromLast = T, by = c("ProteinID", "AssayID"))]
+          outputs$DT.assay.vars.2index <- outputs$DT.assay.vars[, .(
+            from = .I[!duplicated(outputs$DT.assay.vars, by = c("ProteinID", "AssayID"))],
+            to = .I[!duplicated(outputs$DT.assay.vars, fromLast = T, by = c("ProteinID", "AssayID"))]
           )]
-          output$DT.assay.vars.index <- rbind(output$DT.assay.vars.index, cbind(
-            output$DT.assay.vars[output$DT.assay.vars.2index$from, .(ProteinID, AssayID)],
+          outputs$DT.assay.vars.index <- rbind(outputs$DT.assay.vars.index, cbind(
+            outputs$DT.assay.vars[outputs$DT.assay.vars.2index$from, .(ProteinID, AssayID)],
             data.table(file = filename),
-            output$DT.assay.vars.2index
+            outputs$DT.assay.vars.2index
           ))
         }
       }
 
       # write index
       if (chain == 1) {
-        setkey(output$DT.assay.vars.index, ProteinID, file, from, AssayID)
-        fst::write.fst(output$DT.assay.vars.index, file.path(path.output, paste0("assay.vars", stage, ".index.fst")))
+        setkey(outputs$DT.assay.vars.index, ProteinID, file, from, AssayID)
+        fst::write.fst(outputs$DT.assay.vars.index, file.path(path.output, paste0("assay.vars", stage, ".", batch, ".index.fst")))
       }
 
-      output$DT.assay.vars <- NULL
+      outputs$DT.assay.vars <- NULL
     }
 
     # write out protein quants
-    if (!is.null(output$DT.protein.quants)) {
-      if (nrow(output$DT.protein.quants) > 0) {
-        setorder(output$DT.protein.quants, ProteinID, AssayID, chainID, mcmcID)
-        filename <- file.path(paste0("model", stage), paste0("protein.quants", stage), paste0(chain, ".fst"))
-        fst::write.fst(output$DT.protein.quants, file.path(fit, filename))
+    if (!is.null(outputs$DT.protein.quants)) {
+      if (nrow(outputs$DT.protein.quants) > 0) {
+        setorder(outputs$DT.protein.quants, ProteinID, AssayID, batchID, chainID, mcmcID)
+        filename <- file.path(paste0("model", stage), paste0("protein.quants", stage), paste0(batch, ".", chain, ".fst"))
+        fst::write.fst(outputs$DT.protein.quants, file.path(fit, filename))
 
         # finish index construction
         if (chain == 1) {
-          output$DT.protein.quants.index <- rbind(output$DT.protein.quants.index, output$DT.protein.quants[, .(
+          outputs$DT.protein.quants.index <- rbind(outputs$DT.protein.quants.index, outputs$DT.protein.quants[, .(
             ProteinID = unique(ProteinID),
             file = filename,
             from = .I[!duplicated(ProteinID)],
@@ -615,13 +604,13 @@ execute_model <- function(
       }
 
       if (chain == 1) {
-        setkey(output$DT.protein.quants.index, ProteinID, file, from)
-        fst::write.fst(output$DT.protein.quants.index, file.path(path.output, paste0("protein.quants", stage, ".index.fst")))
+        setkey(outputs$DT.protein.quants.index, ProteinID, file, from)
+        fst::write.fst(outputs$DT.protein.quants.index, file.path(path.output, paste0("protein.quants", stage, ".", batch, ".index.fst")))
       }
 
-      output$DT.protein.quants <- NULL
+      outputs$DT.protein.quants <- NULL
     }
   }
 
-  write.table(data.frame(), file.path(path.output, paste0(chain, ".finished")), col.names = F)
+  write.table(data.frame(), file.path(path.output, paste0(batch, ".", chain, ".finished")), col.names = F)
 }

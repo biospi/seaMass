@@ -42,6 +42,7 @@ fdr_ash <- function(
   else DTs <- list(DT)
 
   DT <- foreach(DT = iterators::iter(DTs), .final = rbindlist, .inorder = F, .packages = "data.table") %do% {
+    setDTthreads(1)
     # run ash, but allowing variable DF
     if (use.df) {
       lik_ts = list(

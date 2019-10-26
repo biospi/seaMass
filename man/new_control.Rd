@@ -4,9 +4,9 @@
 \alias{new_control}
 \title{Control parameters for the BayesProt Bayesian model}
 \usage{
-new_control(feature.model = "independent", feature.eb.min = 3,
-  peptide.model = NULL, peptide.eb.min = 3,
-  assay.model = "independent", assay.eb.min = 3,
+new_control(feature.model = "independent", feature.eb.min = 2,
+  peptide.model = NULL, peptide.eb.min = 2,
+  assay.model = "independent", assay.eb.min = 2,
   error.model = "poisson", missingness.model = "censored",
   missingness.threshold = 0, model.seed = 0, model.nchain = 4,
   model.nwarmup = 256, model.thin = 1, model.nsample = 1024,

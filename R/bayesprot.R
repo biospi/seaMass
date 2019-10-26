@@ -36,6 +36,8 @@ bayesprot <- function(
   output = "bayesprot",
   control = new_control()
 ) {
+  setDTthreads(control$nthread)
+
   # check for finished output and return that
   output <- path.expand(output)
   fit <- bayesprot_fit(output, T)
@@ -194,67 +196,88 @@ bayesprot <- function(
   if (control$missingness.model == "censored" | control$missingness.model == "zero") DT[is.na(Count), Count := 0.0]
   if (control$missingness.model == "censored" & all(DT$Count == DT$Count1)) DT[, Count1 := NULL]
 
-  # filter DT for Empirical Bayes model
-  DT0 <- unique(DT[, .(ProteinID, PeptideID, FeatureID)])
-  DT0[, nFeature := .N, by = .(ProteinID, PeptideID)]
-  DT0 <- DT0[nFeature >= control$feature.eb.min]
-  DT0[, nFeature := NULL]
-
-  DT0.peptides <- unique(DT0[, .(ProteinID, PeptideID)])
-  DT0.peptides[, nPeptide := .N, by = ProteinID]
-  DT0.peptides <- DT0.peptides[nPeptide >= control$peptide.eb.min]
-  DT0.peptides[, nPeptide := NULL]
-  DT0 <- merge(DT0, DT0.peptides, by = c("ProteinID", "PeptideID"))
-
-  DT0 <- merge(DT, DT0, by = c("ProteinID", "PeptideID", "FeatureID"))
-
-  DT0.assays <- unique(DT0[, .(ProteinID, SampleID)])
-  DT0.assays[, nSample := .N, by = ProteinID]
-  DT0.assays <- DT0.assays[nSample >= control$assay.eb.min]
-  DT0.assays[, nSample := NULL]
-  DT0 <- merge(DT0, DT0.assays, by = c("ProteinID", "SampleID"))
-
-  DT.proteins <- merge(DT.proteins, unique(DT0[, .(ProteinID, eb = T)]), by = "ProteinID", all.x = T)
-  DT.proteins[is.na(eb), eb := F]
-
-  DT.peptides <- merge(DT.peptides, unique(DT0[, .(PeptideID, eb = T)]), by = "PeptideID", all.x = T)
-  DT.peptides[is.na(eb), eb := F]
-
-  DT.features <- merge(DT.features, unique(DT0[, .(FeatureID, eb = T)]), by = "FeatureID", all.x = T)
-  DT.features[is.na(eb), eb := F]
-
-  # index in DT.proteins for fst random access
-  DT.proteins <- merge(DT.proteins, DT0[, .(ProteinID = unique(ProteinID), from0 = .I[!duplicated(ProteinID)], to0 = .I[rev(!duplicated(rev(ProteinID)))])], by = "ProteinID", all.x = T, sort = F)
-  DT.proteins <- merge(DT.proteins, DT[, .(ProteinID = unique(ProteinID), from = .I[!duplicated(ProteinID)], to = .I[rev(!duplicated(rev(ProteinID)))])], by = "ProteinID", all.x = T, sort = F)
-
-  # save data and metadata
+  # create directories
   dir.create(file.path(output, "input"))
   dir.create(file.path(output, "model0"))
   dir.create(file.path(output, "model"))
   dir.create(file.path(output, "output"))
   if (plots) dir.create(file.path(output, "plots"))
+
+  # create co-occurence matrix of which assays are present in each feature
+  mat.tmp <- merge(DT, DT, by = "FeatureID", allow.cartesian = T)
+  mat.tmp <- table(mat.tmp[, list(AssayID.x, AssayID.y)])
+  # matrix multiplication distributes assay relationships
+  mat.tmp <- mat.tmp %*% mat.tmp
+  # batch ID is first non-zero occurence for each assay
+  DT[, batchID := as.integer(colnames(mat.tmp)[apply(mat.tmp != 0, 2, which.max)][AssayID])]
+  rm(mat.tmp)
+
+  DT[, batchID := as.integer(factor(batchID, levels = sort(unique(batchID))))]
+  # split further by control$batch.n if necessary
+  #DT[, batchID2 := ceiling((as.integer(factor(AssayID)) / length(unique(AssayID))) * ceiling(length(unique(AssayID)) / control$assay.max.per.batch)), by = batchID]
+  #DT[, batchID := as.integer(interaction(batchID, batchID2, drop = T, sep = ":", lex.order = T))]
+  #DT[, batchID2 := NULL]
+
+  DTs <- split(DT, by = "batchID", drop = T, keep.by = F)
+  for (i in 1:length(DTs))
+  {
+    DT <- DTs[[i]]
+
+    # filter DT for Empirical Bayes model
+    DT0 <- unique(DT[, .(ProteinID, PeptideID, FeatureID)])
+    DT0[, nFeature := .N, by = .(ProteinID, PeptideID)]
+    DT0 <- DT0[nFeature >= control$feature.eb.min]
+    DT0[, nFeature := NULL]
+
+    DT0.peptides <- unique(DT0[, .(ProteinID, PeptideID)])
+    DT0.peptides[, nPeptide := .N, by = ProteinID]
+    DT0.peptides <- DT0.peptides[nPeptide >= control$peptide.eb.min]
+    DT0.peptides[, nPeptide := NULL]
+    DT0 <- merge(DT0, DT0.peptides, by = c("ProteinID", "PeptideID"))
+
+    DT0 <- merge(DT, DT0, by = c("ProteinID", "PeptideID", "FeatureID"))
+
+    DT0.assays <- unique(DT0[, .(ProteinID, SampleID)])
+    DT0.assays[, nSample := .N, by = ProteinID]
+    DT0.assays <- DT0.assays[nSample >= control$assay.eb.min]
+    DT0.assays[, nSample := NULL]
+    DT0 <- merge(DT0, DT0.assays, by = c("ProteinID", "SampleID"))
+
+    # index in DT.proteins for fst random access
+    filename <- file.path("input", paste0("data0.", names(DTs)[i]))
+    fst::write.fst(DT0, file.path(output, paste0(filename, ".fst")))
+    DT0.index <- DT0[, .(ProteinID = unique(ProteinID), file = paste0(filename, ".fst"), from = .I[!duplicated(ProteinID)], to = .I[rev(!duplicated(rev(ProteinID)))])]
+    fst::write.fst(DT0.index, file.path(output, paste0(filename, ".index.fst")))
+
+    filename <- file.path("input", paste0("data.", names(DTs)[i]))
+    fst::write.fst(DT, file.path(output, paste0(filename, ".fst")))
+    DT.index <- DT[, .(ProteinID = unique(ProteinID), file = paste0(filename, ".fst"), from = .I[!duplicated(ProteinID)], to = .I[rev(!duplicated(rev(ProteinID)))])]
+    fst::write.fst(DT.index, file.path(output, paste0(filename, ".index.fst")))
+  }
+  control$assay.nbatch <- length(DTs)
+  rm(DTs)
+
+  # save metadata
   saveRDS(control, file.path(output, "input", "control.rds"))
-  fst::write.fst(DT0, file.path(output, "input", "input0.fst"))
-  fst::write.fst(DT, file.path(output, "input", "input.fst"))
   fst::write.fst(DT.proteins, file.path(output, "input", "proteins.fst"))
   fst::write.fst(DT.peptides, file.path(output, "input", "peptides.fst"))
   fst::write.fst(DT.features, file.path(output, "input", "features.fst"))
   fst::write.fst(DT.design, file.path(output, "input", "design.fst"))
   fit <- normalizePath(output)
 
+  # number of parallel compute nodes that can be used
+  nnode <- control$assay.nbatch * control$model.nchain
   if (is.null(control$hpc)) {
+    # run empirical bayes model0
+    for (i in 1:nnode) process_model0(fit, i)
 
-    # run model0
-    sapply(1:control$model.nchain, function(chain) process_model0(fit, chain))
-
-    # run model
-    sapply(1:control$model.nchain, function(chain) process_model(fit, chain))
+    # run full model
+    for (i in 1:nnode) process_model(fit, i)
 
     if (plots) {
       # run plots
-      sapply(1:control$model.nchain, function(chain) process_plots(fit, chain))
+      for (i in 1:nnode) process_plots(fit, i)
     }
-
   } else {
     # submit to hpc directly here
     stop("not implemented yet")
@@ -294,11 +317,12 @@ bayesprot <- function(
 #' @export
 new_control <- function(
   feature.model = "independent",
-  feature.eb.min = 3,
+  feature.eb.min = 2,
   peptide.model = NULL,
-  peptide.eb.min = 3,
+  peptide.eb.min = 2,
   assay.model = "independent",
-  assay.eb.min = 3,
+  assay.eb.min = 2,
+  #assay.max.per.batch = 32,
   error.model = "poisson",
   missingness.model = "censored",
   missingness.threshold = 0,
