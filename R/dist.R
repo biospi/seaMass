@@ -21,7 +21,8 @@ rhat <- function(chainID, mcmcID, value, transform = FALSE) {
   if (length(unique(chainID)) > 1) {
     DT <- data.table::dcast(data.table(mcmcID = mcmcID, chainID = chainID, value = value), mcmcID ~ chainID, value.var = "value")
     DT[, mcmcID := NULL]
-    return(coda::gelman.diag(coda::as.mcmc.list(lapply(DT, coda::as.mcmc)), transform, autoburnin = F)$psrf[1])
+    rhat <- coda::gelman.diag(coda::as.mcmc.list(lapply(DT, coda::as.mcmc)), transform, autoburnin = F)$psrf[1]
+    return(ifelse(is.nan(rhat), NA_real_, rhat))
   } else {
     return(NA_real_)
   }
@@ -213,7 +214,6 @@ dist_sf_with_fixed_df1_fitdistrplus <- function(value, df1, plots = FALSE, ...) 
 
   return(list(v0 = est0$v, df0 = est0$df, v = est$v, df = est$df))
 }
-
 
 #' Our squeezeVar function - works for small DF unlike Limma squeezeVar, but slower
 #'

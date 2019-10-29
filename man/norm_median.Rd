@@ -4,7 +4,7 @@
 \alias{norm_median}
 \title{Median normalisation}
 \usage{
-norm_median(fit, data, ref.proteins = levels(proteins(fit)$Protein),
+norm_median(fit, data, ref.groups = levels(groups(fit)$Group),
   as.data.table = FALSE)
 }
 \description{

@@ -9,7 +9,7 @@ import_Progenesis(file = NULL, used = T, data = NULL)
 \arguments{
 \item{file}{Location of the \code{pep_ion_measurements.csv} file.}
 
-\item{used}{Include only features marked as used by Progenesis?}
+\item{used}{Include only measurements marked as used by Progenesis?}
 
 \item{data}{Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
 \link[data.table]{fread} default parameters.}

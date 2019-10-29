@@ -10,9 +10,9 @@ import_ProteomeDiscoverer(file = NULL, shared = F, used = T,
 \arguments{
 \item{file}{Location of the \code{PSMs.txt} file.}
 
-\item{shared}{Include shared peptides?}
+\item{shared}{Include shared components?}
 
-\item{used}{Include only features marked as used by ProteomeDiscoverer?}
+\item{used}{Include only measurements marked as used by ProteomeDiscoverer?}
 
 \item{data}{Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
 \link[data.table]{fread} default parameters.}

@@ -8,15 +8,15 @@ norm_median <- function(
   fit,
   data,
   #volumes = rep_len(1, nlevels(design(fit)$Assay)),
-  ref.proteins = levels(proteins(fit)$Protein),
+  ref.groups = levels(groups(fit)$Group),
   as.data.table = FALSE
 ) {
-  ref.proteinIDs <- proteins(fit, as.data.table = T)[Protein %in% ref.proteins, ProteinID]
+  ref.groupIDs <- groups(fit, as.data.table = T)[Group %in% ref.groups, GroupID]
 
   # calculate exposures
   DT <- as.data.table(data)
   DT.assay.exposures <- data[, .(
-    value = median(value[ProteinID %in% ref.proteinIDs])
+    value = median(value[GroupID %in% ref.groupIDs])
   ), by = .(AssayID, chainID, mcmcID)]
 
   # apply exposures
@@ -24,8 +24,8 @@ norm_median <- function(
   DT[, value := value - exposure]
 
   # reorder
-  setcolorder(DT, "ProteinID")
-  setorder(DT, ProteinID, AssayID, chainID, mcmcID)
+  setcolorder(DT, "GroupID")
+  setorder(DT, GroupID, AssayID, chainID, mcmcID)
 
   if (!as.data.table) setDF(DT)
   else DT[]

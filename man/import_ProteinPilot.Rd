@@ -5,18 +5,18 @@
 \title{Import SCIEX ProteinPilot data}
 \usage{
 import_ProteinPilot(file = NULL, shared = F, min.conf = "auto",
-  filter = c("discordant peptide type", "no iTRAQ", "weak signal"),
+  filter = c("discordant component type", "no iTRAQ", "weak signal"),
   data = NULL)
 }
 \arguments{
-\item{file}{Location of the \code{PeptideSummary.txt} file.}
+\item{file}{Location of the \code{ComponentSummary.txt} file.}
 
-\item{shared}{Include shared peptides?}
+\item{shared}{Include shared components?}
 
-\item{min.conf}{Features with peptide ID confidence less than \code{min.conf} (between 0 - 100) are filtered out. The default
+\item{min.conf}{Measurements with component ID confidence less than \code{min.conf} (between 0 - 100) are filtered out. The default
 \code{"auto"} uses the ProteinPilot default threshold.}
 
-\item{filter}{Other filters to use, which can include \code{"discordant peptide type"}, \code{"no iTRAQ" and
+\item{filter}{Other filters to use, which can include \code{"discordant component type"}, \code{"no iTRAQ" and
 \code{"weak signal"}}}
 
 \item{data}{Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
@@ -26,5 +26,5 @@ import_ProteinPilot(file = NULL, shared = F, min.conf = "auto",
 A \link{data.frame} for input into \link{bayesprot}.
 }
 \description{
-Reads in a SCIEX ProteinPilot \code{PeptideSummary.txt} file for processing with \link{bayesprot}.
+Reads in a SCIEX ProteinPilot \code{ComponentSummary.txt} file for processing with \link{bayesprot}.
 }
