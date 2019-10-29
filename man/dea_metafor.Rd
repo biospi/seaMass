@@ -4,7 +4,7 @@
 \alias{dea_metafor}
 \title{Mixed-effects univariate differential expression analysis with 'metafor'}
 \usage{
-dea_metafor(fit, data = protein_quants(fit), data.design = design(fit),
+dea_metafor(fit, data = group_quants(fit), data.design = design(fit),
   condition = "Condition", mods = as.formula(paste("~", condition)),
   random = ~Condition | Sample, struct = "DIAG", test = "t",
   control = list(), output = "metafor", save.intercept = FALSE,

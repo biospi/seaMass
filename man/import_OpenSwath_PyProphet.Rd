@@ -10,7 +10,7 @@ import_OpenSwath_PyProphet(files = NULL, shared = F,
 \arguments{
 \item{files}{One of more \code{_with_dscore} files to import and merge.}
 
-\item{m_score.cutoff}{Include only features with PyProphet m_score >= than this?}
+\item{m_score.cutoff}{Include only measurements with PyProphet m_score >= than this?}
 
 \item{data}{Advanced: Rather than specifying \code{files}, you can enter a \link{data.frame} preloaded with
 \link[data.table]{fread} default parameters.}

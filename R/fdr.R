@@ -6,15 +6,15 @@
 #' @export
 fdr_ash <- function(
   fit,
-  data = protein_de(fit),
+  data = group_de(fit),
   by.model = T,
   by.effect = T,
   as.data.table = FALSE,
   use.df = TRUE,
-  min.peptides = 1,
-  min.peptides.per.condition = 0,
-  min.features = 1,
-  min.features.per.condition = 0,
+  min.components = 1,
+  min.components.per.condition = 0,
+  min.measurements = 1,
+  min.measurements.per.condition = 0,
   min.test.samples = 4,
   min.test.samples.per.condition = 2,
   min.real.samples = 1,
@@ -27,10 +27,10 @@ fdr_ash <- function(
 
   DT <- as.data.table(data)
   DT[, use.FDR :=
-       (`1:nMaxPeptide` >= min.peptides | `2:nMaxPeptide` >= min.peptides) &
-       (`1:nMaxPeptide` >= min.peptides.per.condition & `2:nMaxPeptide` >= min.peptides.per.condition) &
-       (`1:nMaxFeature` >= min.features | `2:nMaxFeature` >= min.features) &
-       (`1:nMaxFeature` >= min.features.per.condition & `2:nMaxFeature` >= min.features.per.condition) &
+       (`1:nMaxComponent` >= min.components | `2:nMaxComponent` >= min.components) &
+       (`1:nMaxComponent` >= min.components.per.condition & `2:nMaxComponent` >= min.components.per.condition) &
+       (`1:nMaxMeasurement` >= min.measurements | `2:nMaxMeasurement` >= min.measurements) &
+       (`1:nMaxMeasurement` >= min.measurements.per.condition & `2:nMaxMeasurement` >= min.measurements.per.condition) &
        (`1:nTestSample` + `2:nTestSample` >= min.test.samples) &
        (`1:nTestSample` >= min.test.samples.per.condition & `2:nTestSample` >= min.test.samples.per.condition) &
        (`1:nRealSample` + `2:nTestSample` >= min.real.samples) &
@@ -65,8 +65,8 @@ fdr_ash <- function(
     if (length(rmcols) > 0) DT <- DT[, -rmcols, with = F]
     fit.fdr$result[, Model := DT[use.FDR == T, Model]]
     fit.fdr$result[, Effect := DT[use.FDR == T, Effect]]
-    fit.fdr$result[, ProteinID := DT[use.FDR == T, ProteinID]]
-    DT <- merge(DT, fit.fdr$result, all.x = T, by = c("Model", "Effect", "ProteinID"))
+    fit.fdr$result[, GroupID := DT[use.FDR == T, GroupID]]
+    DT <- merge(DT, fit.fdr$result, all.x = T, by = c("Model", "Effect", "GroupID"))
     DT[, use.FDR := NULL]
   }
 
@@ -89,14 +89,14 @@ fdr_ash <- function(
 #' @export
 fdr_BH <- function(
   fit,
-  data = protein_de(fit),
+  data = group_de(fit),
   by.model = T,
   by.effect = T,
   as.data.table = FALSE,
-  min.peptides = 1,
-  min.peptides.per.condition = 0,
-  min.features = 1,
-  min.features.per.condition = 0,
+  min.components = 1,
+  min.components.per.condition = 0,
+  min.measurements = 1,
+  min.measurements.per.condition = 0,
   min.test.samples = 4,
   min.test.samples.per.condition = 2,
   min.real.samples = 1,
@@ -110,10 +110,10 @@ fdr_BH <- function(
 
   DT <- as.data.table(data)
   DT[, use.FDR :=
-       (`1:nMaxPeptide` >= min.peptides | `2:nMaxPeptide` >= min.peptides) &
-       (`1:nMaxPeptide` >= min.peptides.per.condition & `2:nMaxPeptide` >= min.peptides.per.condition) &
-       (`1:nMaxFeature` >= min.features | `2:nMaxFeature` >= min.features) &
-       (`1:nMaxFeature` >= min.features.per.condition & `2:nMaxFeature` >= min.features.per.condition) &
+       (`1:nMaxComponent` >= min.components | `2:nMaxComponent` >= min.components) &
+       (`1:nMaxComponent` >= min.components.per.condition & `2:nMaxComponent` >= min.components.per.condition) &
+       (`1:nMaxMeasurement` >= min.measurements | `2:nMaxMeasurement` >= min.measurements) &
+       (`1:nMaxMeasurement` >= min.measurements.per.condition & `2:nMaxMeasurement` >= min.measurements.per.condition) &
        (`1:nTestSample` + `2:nTestSample` >= min.test.samples) &
        (`1:nTestSample` >= min.test.samples.per.condition & `2:nTestSample` >= min.test.samples.per.condition) &
        (`1:nRealSample` + `2:nTestSample` >= min.real.samples) &

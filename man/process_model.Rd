@@ -4,10 +4,10 @@
 \alias{process_model}
 \title{process_model (internal)}
 \usage{
-process_model(fit, i = 1)
+process_model(fit, block = 1, chain = 1)
 }
 \arguments{
-\item{fit}{bayesprot fit object.}
+\item{fit}{deamass fit object.}
 
 \item{chain}{Number of chain to process.}
 }

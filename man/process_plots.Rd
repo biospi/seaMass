@@ -7,7 +7,7 @@
 process_plots(fit, i)
 }
 \arguments{
-\item{fit}{bayesprot fit object.}
+\item{fit}{deamass fit object.}
 
 \item{i}{.}
 }

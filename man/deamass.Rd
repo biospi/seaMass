@@ -4,14 +4,14 @@
 \alias{deamass}
 \title{Fit the deaMass Bayesian quantification model}
 \usage{
-deamass(data, data.design = new_design(data), ref.assays = "ref",
+deamass(data, data.design = new_design(data), block.refs = "BlockRef",
   norm.func = list(median = norm_median), dea.func = NULL,
-  fdr.func = list(ash = fdr_ash), feature.vars = FALSE,
-  peptide.vars = FALSE, peptide.deviations = FALSE, plots = FALSE,
-  output = "deamass", control = new_control())
+  fdr.func = list(ash = fdr_ash), measurement.vars = FALSE,
+  component.vars = FALSE, component.deviations = FALSE,
+  plots = FALSE, output = "deaMass", control = new_control())
 }
 \arguments{
-\item{data}{A \link{data.frame} of input data as returned by \link{import_ProteinPilot} or \link{import_ProteomeDiscoverer}.}
+\item{data}{A \link{data.frame} of input data as returned by \link{import_GroupPilot} or \link{import_ProteomeDiscoverer}.}
 
 \item{data.design}{Optionally, a \link{data.frame} created by \link{design} and then customised, which specifies
 assay-level study design, including reference assays, assay info and any covariates for optional differential expression
@@ -31,8 +31,8 @@ and fully-blocked iTraq/TMT/SILAC designs.}
 \item{plot}{Generate all plots}
 }
 \value{
-A \code{deamass_fit} object that can be interrogated for various results with \code{protein_quants},
-  \code{peptide_deviations}, \code{peptide_stdevs}, \code{feature_stdevs}, \code{de_metafor} and \code{de_mice}. \code{del}
+A \code{deamass_fit} object that can be interrogated for various results with \code{group_quants},
+  \code{component_deviations}, \code{component_stdevs}, \code{measurement_stdevs}, \code{de_metafor} and \code{de_mice}. \code{del}
   deletes all associated files on disk.
 }
 \description{

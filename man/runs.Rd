@@ -10,11 +10,11 @@ runs(data)
 runs(data) <- value
 }
 \arguments{
-\item{data}{\link{data.frame} returned by \link{import_ProteinPilot} or \link{import_ProteomeDiscoverer}.}
+\item{data}{\link{data.frame} returned by an \code{import} routine.}
 
 \item{value}{Edited \link{data.frame} created by \code{runs}.}
 }
 \description{
-Get or set run information from a \link{data.frame} returned by \link{import_ProteinPilot} or \link{import_ProteomeDiscoverer}.
-Used to manually add run information to imported datasets
+Get or set run and batch information from a \link{data.frame} returned by an \code{import} routine.
+Used to manually add run and batch information to imported datasets.
 }

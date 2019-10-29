@@ -4,14 +4,14 @@
 \alias{execute_model}
 \title{execute_model (internal)}
 \usage{
-execute_model(fit, i, use.priors)
+execute_model(fit, block, chain, use.priors)
 }
 \arguments{
-\item{fit}{bayesprot fit object.}
-
-\item{use.priors}{true or false}
+\item{fit}{deamass fit object.}
 
 \item{chain}{Number of chain to process.}
+
+\item{use.priors}{true or false}
 }
 \description{
 execute_model (internal)

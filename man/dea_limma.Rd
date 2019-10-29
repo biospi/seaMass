@@ -4,7 +4,7 @@
 \alias{dea_limma}
 \title{Univariate differential expression analysis with 'limma::lmFit' linear model and 'limma::eBayes' moderation of standard errors}
 \usage{
-dea_limma(fit, data = protein_quants(fit), data.design = design(fit),
+dea_limma(fit, data = group_quants(fit), data.design = design(fit),
   condition = "Condition", output = "limma", save.intercept = FALSE,
   as.data.table = FALSE, ..., use.moderation = TRUE,
   use.precision = TRUE)

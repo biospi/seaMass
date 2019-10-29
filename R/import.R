@@ -1,16 +1,20 @@
 #' Imported dataset run information
 #'
-#' Get or set run information from a \link{data.frame} returned by \link{import_ProteinPilot} or \link{import_ProteomeDiscoverer}.
-#' Used to manually add run information to imported datasets
+#' Get or set run and batch information from a \link{data.frame} returned by an \code{import} routine.
+#' Used to manually add run and batch information to imported datasets.
 #'
-#' @param data \link{data.frame} returned by \link{import_ProteinPilot} or \link{import_ProteomeDiscoverer}.
+#' @param data \link{data.frame} returned by an \code{import} routine.
 #' @import data.table
 #' @export
 runs <- function(data) {
-  data <- setDT(data)[, .(Run = first(Run)), keyby = Injection]
-  data[, Run := as.character(Run)]
-  data[, Injection := as.character(Injection)]
-  setDF(data)
+  data.is.data.table <- is.data.table(data)
+  DT <- setDT(data)
+
+  data <- DT[, .(Run = first(Run)), keyby = Injection]
+  DT[, Run := as.character(Run)]
+  DT[, Injection := as.character(Injection)]
+
+  if (data.is.data.table) data <- setDF(DT)
   return(data)
 }
 
@@ -20,14 +24,17 @@ runs <- function(data) {
 #' @import data.table
 #' @export
 `runs<-` <- function(data, value) {
+  data.is.data.table <- is.data.table(data)
   DT <- setDT(data)
+
   DT[, Run := NULL]
   DT.runs <- as.data.table(value)
   DT.runs <- DT.runs[complete.cases(DT.runs)]
   if (!is.factor(DT.runs$Injection)) DT.runs[, Injection := factor(Injection)]
   if (!is.factor(DT.runs$Run)) DT.runs[, Run := factor(Run)]
   DT <- merge(DT, DT.runs, by = "Injection")
-  data <- setDF(DT)
+
+  if (data.is.data.table) data <- setDF(DT)
   return(data)
 }
 
@@ -42,27 +49,44 @@ runs <- function(data) {
 #' @import data.table
 #' @export
 new_design <- function(data) {
-  data.design <- setDT(data)[, .(Assay = paste(Run, Channel, sep = ",")), keyby = .(Run, Channel)]
-  data.design[, Assay := sub("^,", "", Assay)]
-  data.design[, Assay := sub(",$", "", Assay)]
-  data.design[, Sample := Assay]
-  data.design[, Condition := NA]
-  data.design[, ref := T]
-  setDF(data.design)
-  setDF(data)
-  return(data.design)
+  data.is.data.table <- is.data.table(data)
+  DT <- setDT(data)
+
+  DT.design <- DT[, .(Assay = paste(Run, Channel, sep = ",")), keyby = .(Run, Channel)]
+  DT.design[, Assay := sub("^,", "", Assay)]
+  DT.design[, Assay := sub(",$", "", Assay)]
+
+  # autodetect blocks
+  DT.batch <- merge(DT.design[, .(Run, Channel, Assay)], DT[, .(Run, Channel, Measurement)], by = c("Run", "Channel"))
+  DT.batch[, Run := NULL]
+  DT.batch[, Channel := NULL]
+  mat.tmp <- merge(DT.batch, DT.batch, by = "Measurement", allow.cartesian = T)
+  mat.tmp <- table(mat.tmp[, list(Assay.x, Assay.y)])
+  # matrix multiplication distributes assay relationships
+  mat.tmp <- mat.tmp %*% mat.tmp
+  # Block ID is recoded first non-zero occurence for each assay
+  DT.design[, BlockID := as.integer(factor(colnames(mat.tmp)[apply(mat.tmp != 0, 2, which.max)]))]
+  # default is all assays are reference assays for each block
+  DT.design[, BlockRef := T]
+
+  # DEA
+  DT.design[, Sample := Assay]
+  DT.design[, Condition := NA]
+
+  if (data.is.data.table) data <- setDF(DT)
+  return(setDF(DT.design))
 }
 
 
 #' Import SCIEX ProteinPilot data
 #'
-#' Reads in a SCIEX ProteinPilot \code{PeptideSummary.txt} file for processing with \link{bayesprot}.
+#' Reads in a SCIEX ProteinPilot \code{ComponentSummary.txt} file for processing with \link{bayesprot}.
 #'
-#' @param file Location of the \code{PeptideSummary.txt} file.
-#' @param shared Include shared peptides?
-#' @param min.conf Features with peptide ID confidence less than \code{min.conf} (between 0 - 100) are filtered out. The default
+#' @param file Location of the \code{ComponentSummary.txt} file.
+#' @param shared Include shared components?
+#' @param min.conf Measurements with component ID confidence less than \code{min.conf} (between 0 - 100) are filtered out. The default
 #'   \code{"auto"} uses the ProteinPilot default threshold.
-#' @param filter Other filters to use, which can include \code{"discordant peptide type"}, \code{"no iTRAQ" and
+#' @param filter Other filters to use, which can include \code{"discordant component type"}, \code{"no iTRAQ" and
 #'   \code{"weak signal"}}
 #' @param data Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
 #'   \link[data.table]{fread} default parameters.
@@ -74,9 +98,11 @@ import_ProteinPilot <- function(
   file = NULL,
   shared = F,
   min.conf = "auto",
-  filter = c("discordant peptide type", "no iTRAQ", "weak signal"),
+  filter = c("discordant component type", "no iTRAQ", "weak signal"),
   data = NULL
 ) {
+  suppressWarnings(suppressMessages(library(R.oo)))
+
   if (is.null(file)) {
     if (is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
     DT.raw <- setDT(data)
@@ -87,22 +113,22 @@ import_ProteinPilot <- function(
   # filtering
   if (min.conf == "auto") min.conf <- DT.raw[Annotation == "auto", min(Conf)]
   DT.raw <- DT.raw[Conf >= min.conf]
-  if ("discordant peptide type" %in% filter) DT.raw <- DT.raw[Annotation != "auto - discordant peptide type"]
+  if ("discordant component type" %in% filter) DT.raw <- DT.raw[Annotation != "auto - discordant component type"]
   if ("no iTRAQ" %in% filter) DT.raw <- DT.raw[Annotation != "auto - no iTRAQ"]
   if ("weak signal" %in% filter) DT.raw <- DT.raw[Annotation != "no quant - weak signal"]
   DT.raw <- DT.raw[!grepl("^RRRRR.*", DT.raw$Accessions),] # decoys
-  if(!("ProteinModifications" %in% colnames(DT.raw))) DT.raw[, ProteinModifications := ""]
+  if(!("GroupModifications" %in% colnames(DT.raw))) DT.raw[, GroupModifications := ""]
 
-  # deal with shared peptides
+  # deal with shared components
   if (!shared) DT.raw <- DT.raw[Annotation != "auto - shared MS/MS"]
 
   # create wide data table
   DT <- DT.raw[, .(
-    ProteinInfo = paste0("[", N, "] ", Names),
-    Protein = gsub(";", "", Accessions),
-    Peptide = gsub(" ", "", paste0(Sequence, ",", Modifications, ",", ProteinModifications, ",", Cleavages), fixed = T),
-    Feature = Spectrum,
-    Injection = as.integer(matrix(unlist(strsplit(as.character(DT.raw$Spectrum), ".", fixed = T)), ncol = 5, byrow = T)[, 1])
+    GroupInfo = paste0("[", N, "] ", Names),
+    Group = gsub(";", "", Accessions),
+    Component = gsub(" ", "", paste0(Sequence, ",", Modifications, ",", ProteinModifications, ",", Cleavages), fixed = T),
+    Measurement = Spectrum,
+    Run = as.integer(matrix(unlist(strsplit(as.character(DT.raw$Spectrum), ".", fixed = T)), ncol = 5, byrow = T)[, 1])
   )]
   if("Area 113" %in% colnames(DT.raw)) DT$Channel.113 <- DT.raw$`Area 113`
   if("Area 114" %in% colnames(DT.raw)) DT$Channel.114 <- DT.raw$`Area 114`
@@ -113,17 +139,17 @@ import_ProteinPilot <- function(
   if("Area 119" %in% colnames(DT.raw)) DT$Channel.119 <- DT.raw$`Area 119`
   if("Area 121" %in% colnames(DT.raw)) DT$Channel.121 <- DT.raw$`Area 121`
 
-  # group ambiguous PSMs so BayesProt treats them as a single peptide per protein
-  DT[, Peptide := paste(sort(as.character(Peptide)), collapse = " "), by = .(Protein, Feature)]
+  # group ambiguous PSMs so BayesProt treats them as a single component per group
+  DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement)]
   DT <- unique(DT)
 
   # melt
-  DT[, ProteinInfo := factor(ProteinInfo)]
-  DT[, Protein := factor(Protein)]
-  DT[, Peptide := factor(Peptide)]
-  DT[, Feature := factor(Feature)]
-  DT[, Injection := factor(Injection)]
-  DT[, Run := factor("")]
+  DT[, GroupInfo := factor(GroupInfo)]
+  DT[, Group := factor(Group)]
+  DT[, Component := factor(Component)]
+  DT[, Measurement := factor(Measurement)]
+  DT[, Run := factor(Run)]
+  DT[, Injection := factor(Run)]
   DT <- melt(DT, variable.name = "Channel", value.name = "Count", measure.vars = colnames(DT)[grep("^Channel\\.", colnames(DT))])
   levels(DT$Channel) <- sub("^Channel\\.", "", levels(DT$Channel))
 
@@ -137,8 +163,8 @@ import_ProteinPilot <- function(
 #' Reads in a Thermo ProteomeDiscoverer \code{PSMs.txt} file for processing with \link{bayesprot}.
 #'
 #' @param file Location of the \code{PSMs.txt} file.
-#' @param shared Include shared peptides?
-#' @param used Include only features marked as used by ProteomeDiscoverer?
+#' @param shared Include shared components?
+#' @param used Include only measurements marked as used by ProteomeDiscoverer?
 #' @param data Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
 #'   \link[data.table]{fread} default parameters.
 #' @return A \link{data.frame} for input into \link{bayesprot}.
@@ -150,6 +176,8 @@ import_ProteomeDiscoverer <- function(
   used = T,
   data = NULL
 ) {
+  suppressWarnings(suppressMessages(library(R.oo)))
+
   if (is.null(file)) {
     if (is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
     DT.raw <- setDT(data)
@@ -159,7 +187,7 @@ import_ProteomeDiscoverer <- function(
 
   # only use rows that ProteomeDiscoverer uses for quant
   if (!shared) DT.raw <- DT.raw[`Quan Info` == "Unique",]
-  if (!used) DT.raw <- DT.raw[`Peptide Quan Usage` == "Use",]
+  if (!used) DT.raw <- DT.raw[`Component Quan Usage` == "Use",]
 
   # merge fraction info
   #setnames(DT, "Spectrum File", "File")
@@ -171,18 +199,18 @@ import_ProteomeDiscoverer <- function(
   #  DT <- merge(DT, setDT(data.runs), by = "File")
   #}
 
-  # only retain the most confidenct and most intense spectrum for each feature (TODO: make option)
-  #DT[, Feature := factor(paste0(DT$Sequence, " : ", DT$Modifications, " : ", DT$Charge, "+ : ", DT$File))]
-  #setorder(DT, Feature, Confidence, -Intensity)
-  #DT <- unique(DT, by = "Feature")
+  # only retain the most confidenct and most intense spectrum for each measurement (TODO: make option)
+  #DT[, Measurement := factor(paste0(DT$Sequence, " : ", DT$Modifications, " : ", DT$Charge, "+ : ", DT$File))]
+  #setorder(DT, Measurement, Confidence, -Intensity)
+  #DT <- unique(DT, by = "Measurement")
 
   # create wide data table
   DT <- DT.raw[ , list(
-    ProteinInfo = `Protein Descriptions`,
-    Protein = `Master Protein Accessions`,
-    Peptide = gsub(" ", "", paste0(Sequence, ",", Modifications)),
-    Feature = paste0(`Spectrum File`, ",", `First Scan`),
-    Injection = `Spectrum File`
+    GroupInfo = `Protein Descriptions`,
+    Group = `Master Protein Accessions`,
+    Component = gsub(" ", "", paste0(Sequence, ",", Modifications)),
+    Measurement = paste0(`Spectrum File`, ",", `First Scan`),
+    Run = `Spectrum File`
   )]
   if ("Light" %in% colnames(DT.raw)) DT$Channel.Light <- DT.raw$Light
   if ("Medium" %in% colnames(DT.raw)) DT$Channel.Medium <- DT.raw$Medium
@@ -206,17 +234,17 @@ import_ProteomeDiscoverer <- function(
   if ("131C" %in% colnames(DT.raw)) DT$Channel.131C <- DT.raw$`131C`
   if ("131" %in% colnames(DT.raw)) DT$Channel.131 <- DT.raw$`131`
 
-  # group ambiguous PSMs so BayesProt treats them as a single peptide per protein
-  DT[, Peptide := paste(sort(as.character(Peptide)), collapse = " "), by = .(Protein, Feature)]
+  # group ambiguous PSMs so BayesProt treats them as a single component per group
+  DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement)]
   DT <- unique(DT)
 
   # melt label counts
-  DT[, ProteinInfo := factor(ProteinInfo)]
-  DT[, Protein := factor(Protein)]
-  DT[, Peptide := factor(Peptide)]
-  DT[, Feature := factor(Feature)]
-  DT[, Injection := factor(Injection)]
-  DT[, Run := factor("")]
+  DT[, GroupInfo := factor(GroupInfo)]
+  DT[, Group := factor(Group)]
+  DT[, Component := factor(Component)]
+  DT[, Measurement := factor(Measurement)]
+  DT[, Run := factor(Run)]
+  DT[, Injection := factor(Run)]
   DT <- melt(DT, variable.name = "Channel", value.name = "Count", measure.vars = colnames(DT)[grep("^Channel\\.", colnames(DT))])
   levels(DT$Channel) <- sub("^Channel\\.", "", levels(DT$Channel))
 
@@ -230,7 +258,7 @@ import_ProteomeDiscoverer <- function(
 #' Reads in a Waters Progenesis \code{pep_ion_measurements.csv} file for processing with \link{bayesprot}.
 #'
 #' @param file Location of the \code{pep_ion_measurements.csv} file.
-#' @param used Include only features marked as used by Progenesis?
+#' @param used Include only measurements marked as used by Progenesis?
 #' @param data Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
 #'   \link[data.table]{fread} default parameters.
 #' @return A \link{data.frame} for input into \link{bayesprot}.
@@ -242,6 +270,8 @@ import_Progenesis <- function(
   used = T,
   data = NULL
 ) {
+  suppressWarnings(suppressMessages(library(R.oo)))
+
   if (is.null(file)) {
     if (is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
     DT.raw <- setDT(data)
@@ -259,43 +289,44 @@ import_Progenesis <- function(
 
   # column names for different file types
   if ("Accession" %in% colnames(DT.raw)) {
-    colname.protein <- "Accession"
-    colname.proteininfo <- "Description"
+    colname.group <- "Accession"
+    colname.groupinfo <- "Description"
     colname.sequence <- "Sequence"
     colname.modifications <- "Modifications"
 
     # only use rows that Progenesis uses for quant
     if (used) DT.raw <- DT.raw[`Use in quantitation` == "True",]
   } else {
-    colname.protein <- colnames(DT.raw)[grep("Best peptide match Protein$", colnames(DT.raw))]
-    colname.proteininfo <- colnames(DT.raw)[grep("Best peptide match Description$", colnames(DT.raw))]
+    colname.group <- colnames(DT.raw)[grep("Best peptide match Group$", colnames(DT.raw))]
+    colname.groupinfo <- colnames(DT.raw)[grep("Best peptide match Description$", colnames(DT.raw))]
     colname.sequence <- colnames(DT.raw)[grep("Best peptide match Sequence$", colnames(DT.raw))]
     colname.modifications <- colnames(DT.raw)[grep("Best peptide match Variable modifications \\(\\[position\\] description\\)$", colnames(DT.raw))]
   }
 
   # remove decoys and strange missing Accession
-  DT.raw <- DT.raw[get(colname.protein) != "",]
-  DT.raw <- DT.raw[!grepl("^#DECOY#", get(colname.protein)),]
+  DT.raw <- DT.raw[get(colname.group) != "",]
+  DT.raw <- DT.raw[!grepl("^#DECOY#", get(colname.group)),]
 
   # create wide data table
   DT <- cbind(DT.raw[, .(
-    ProteinInfo = get(colname.proteininfo),
-    Protein = get(colname.protein),
-    Peptide = gsub(" ", "", paste0(get(colname.sequence), ",", get(colname.modifications))),
-    Feature = `#`
+    GroupInfo = get(colname.groupinfo),
+    Group = get(colname.group),
+    Component = gsub(" ", "", paste0(get(colname.sequence), ",", get(colname.modifications))),
+    Measurement = `#`
   )], DT.raw[, .SD, .SDcols = names(DT.raw) %like% "^Raw abundance "])
 
-  # group ambiguous PSMs so BayesProt treats them as a single peptide per protein
-  DT[, Peptide := paste(sort(as.character(Peptide)), collapse = " "), by = .(Protein, Feature)]
+  # group ambiguous PSMs so BayesProt treats them as a single component per group
+  DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement)]
   DT <- unique(DT)
 
   # melt
-  DT[, ProteinInfo := factor(ProteinInfo)]
-  DT[, Protein := factor(Protein)]
-  DT[, Peptide := factor(Peptide)]
-  DT[, Feature := factor(Feature)]
+  DT[, GroupInfo := factor(GroupInfo)]
+  DT[, Group := factor(Group)]
+  DT[, Component := factor(Component)]
+  DT[, Measurement := factor(Measurement)]
   DT <- melt(DT, variable.name = "Run", value.name = "Count", measure.vars = colnames(DT)[grep("^Raw abundance ", colnames(DT))])
   levels(DT$Run) <- sub("^Raw abundance ", "", levels(DT$Run))
+  DT[, Injection := Run]
   DT[, Count := as.numeric(Count)]
 
   setDF(DT)
@@ -308,7 +339,7 @@ import_Progenesis <- function(
 #' Reads in a set of \code{_with_dscore} datasets processed by OpenSWATH and PyProphet for processing with \link{bayesprot}.
 #'
 #' @param files One of more \code{_with_dscore} files to import and merge.
-#' @param m_score.cutoff Include only features with PyProphet m_score >= than this?
+#' @param m_score.cutoff Include only measurements with PyProphet m_score >= than this?
 #' @param data Advanced: Rather than specifying \code{files}, you can enter a \link{data.frame} preloaded with
 #'   \link[data.table]{fread} default parameters.
 #' @return A \link{data.frame} for input into \link{bayesprot}.
@@ -320,6 +351,8 @@ import_OpenSwath_PyProphet <- function(
   m_score.cutoff = 0.01,
   data = NULL
 ) {
+  suppressWarnings(suppressMessages(library(R.oo)))
+
   if (is.null(file) && is.null(data)) stop("One of 'data' or 'files' needs to be specified.")
   if (!is.null(data)) files <- data
 
@@ -336,10 +369,10 @@ import_OpenSwath_PyProphet <- function(
 
     # create long data table
     DT <- DT.raw[, .(
-      Protein = ProteinName,
-      Peptide = FullPeptideName,
-      Feature = gsub(";", ";bayesprot;", aggr_Fragment_Annotation),
-      Run = filename,
+      Group = ProteinName,
+      Component = FullPeptideName,
+      Measurement = gsub(";", ";bayesprot;", aggr_Fragment_Annotation),
+      Run = tools::file_path_sans_ext(basename(filename)),
       Count = gsub(";", ";bayesprot;", aggr_Peak_Area)
     )]
     DT <- DT[, lapply(.SD, function(x) unlist(tstrsplit(x, ";bayesprot;", fixed = T)))]
@@ -347,30 +380,31 @@ import_OpenSwath_PyProphet <- function(
     DT
   }))
 
-  # remove features that have more than one identification in any assay
-  DT[, N := .N, by = .(Feature, Run)]
+  # remove measurements that have more than one identification in any assay
+  DT[, N := .N, by = .(Measurement, Run)]
   DT <- DT[N == 1]
   DT[, N := NULL]
   assays <- unique(DT$Run)
 
   # create wide data table
-  DT <- dcast(DT, Protein + Peptide + Feature ~ Run, value.var = "Count")
+  DT <- dcast(DT, Group + Component + Measurement ~ Run, value.var = "Count")
 
   # remove shared
-  if (!shared) DT <- DT[grepl("^1/", DT$Protein)]
+  if (!shared) DT <- DT[grepl("^1/", DT$Group)]
 
-  # group ambiguous PSMs so BayesProt treats them as a single peptide per protein
-  DT[, Peptide := paste(sort(as.character(Peptide)), collapse = " "), by = .(Protein, Feature)]
+  # group ambiguous PSMs so BayesProt treats them as a single component per group
+  DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement)]
   DT <- unique(DT)
 
   # melt
-  DT[, ProteinInfo := factor(Protein)]
-  DT[, Protein := factor(sub("^1/", "", Protein))]
-  DT[, Peptide := factor(Peptide)]
-  DT[, Feature := factor(Feature)]
+  DT[, GroupInfo := factor(Group)]
+  DT[, Group := factor(sub("^1/", "", Group))]
+  DT[, Component := factor(Component)]
+  DT[, Measurement := factor(Measurement)]
   DT <- melt(DT, variable.name = "Run", value.name = "Count", measure.vars = assays)
+  DT[, Injection := Run]
   DT[, Channel := factor("")]
-  setcolorder(DT, c("Protein", "ProteinInfo", "Peptide", "Feature", "Run", "Channel"))
+  setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Injection", "Channel"))
 
   setDF(DT)
   return(DT)
@@ -382,7 +416,7 @@ import_OpenSwath_PyProphet <- function(
 #' Reads in a set of \code{_with_dscore} datasets processed by OpenSWATH and PyProphet for processing with \link{bayesprot}.
 #'
 #' @param files One of more \code{_with_dscore} files to import and merge.
-#' @param m_score.cutoff Include only features with PyProphet m_score >= than this?
+#' @param m_score.cutoff Include only measurements with PyProphet m_score >= than this?
 #' @param data Advanced: Rather than specifying \code{files}, you can enter a \link{data.frame} preloaded with
 #'   \link[data.table]{fread} default parameters.
 #' @return A \link{data.frame} for input into \link{bayesprot}.
@@ -390,11 +424,12 @@ import_OpenSwath_PyProphet <- function(
 #' @export
 import_MSstats <- function(data) {
   DT <- data.table(
-    Protein = factor(data$ProteinName),
-    ProteinInfo = "",
-    Peptide = factor(data$PeptideSequence),
-    Feature = factor(data$FragmentIon),
+    Group = factor(data$GroupName),
+    GroupInfo = "",
+    Component = factor(data$ComponentSequence),
+    Measurement = factor(data$FragmentIon),
     Run = factor(data$Run, levels = unique(data$Run)),
+    Injection = factor(data$Run, levels = unique(data$Run)),
     Channel = factor(data$IsotopeLabelType, levels = unique(data$IsotopeLabelType)),
     Count = as.numeric(data$Intensity)
   )

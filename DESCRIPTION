@@ -1,7 +1,7 @@
 Package: deamass
 Type: Package
 Title: Differential expression analysis for mass spectrometry proteomics and metabolomics
-Version: 1.0.0.0
+Version: 1.0-0.0
 Authors@R: as.person(c(
     "Andrew Dowsey <andrew.dowsey@bristol.ac.uk> [aut, cre]",
     "Alexander Phillips <a.m.phillips@liverpool.ac.uk> [ctb]",
@@ -14,10 +14,10 @@ LazyData: true
 Depends: R (>= 3.6.0)
 biocViews:
 Imports: 
-    ashr (>= 2.2-32),
-    data.table (>= 1.12.2),
-    doSNOW (>= 1.0.18),
+    ashr (>= 2.2-39),
+    data.table (>= 1.12.6),
     doRNG (>= 1.7.1),
+    doSNOW (>= 1.0.18),
     extraDistr (>= 1.8.11),
     FactoMineR (>= 1.42),
     fitdistrplus (>= 1.0-14),

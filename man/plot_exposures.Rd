@@ -4,7 +4,7 @@
 \alias{plot_exposures}
 \title{Add together two numbers.}
 \usage{
-plot_exposures(fit, data = protein_quants(fit, summary = F),
+plot_exposures(fit, data = group_quants(fit, summary = F),
   data.design = design(fit))
 }
 \arguments{

@@ -12,7 +12,7 @@ import_MSstats(data)
 
 \item{files}{One of more \code{_with_dscore} files to import and merge.}
 
-\item{m_score.cutoff}{Include only features with PyProphet m_score >= than this?}
+\item{m_score.cutoff}{Include only measurements with PyProphet m_score >= than this?}
 }
 \value{
 A \link{data.frame} for input into \link{bayesprot}.

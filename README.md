@@ -1,4 +1,4 @@
-# deaMass v1.0.0.0 (alpha1 - 26th October 2019)
+# deaMass v1.0-0.0 (alpha1 - 26th October 2019)
 Differential expression analysis for mass spectrometry proteomics and metabolomics using a mixed-effects model and uncertainty propagation, achieving sensitive protein and metabolite group-level quantification and differential expression analysis. Currently works with imported data from SCIEX ProteinPilot, Thermo ProteomeDiscoverer, Waters Progenesis and OpenSWATH/PyProphet across iTraq/TMT, SILAC, Label-free and SWATH data types.
 
 ## Current citation

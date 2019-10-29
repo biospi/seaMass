@@ -7,7 +7,7 @@
 
 #' Fit the deaMass Bayesian quantification model
 #'
-#' @param data A \link{data.frame} of input data as returned by \link{import_ProteinPilot} or \link{import_ProteomeDiscoverer}.
+#' @param data A \link{data.frame} of input data as returned by \link{import_GroupPilot} or \link{import_ProteomeDiscoverer}.
 #' @param data.design Optionally, a \link{data.frame} created by \link{design} and then customised, which specifies
 #'   assay-level study design, including reference assays, assay info and any covariates for optional differential expression
 #'   analysis. By default, all assays are set as reference channels, which is appropriate only for label-free studies
@@ -18,25 +18,26 @@
 #' @param plot Generate all plots
 #' @param output Folder on disk whether all intermediate and output data will be stored; default is \code{"deamass"}.
 #' @param control A control object created with \link{new_control} specifying control parameters for the model.
-#' @return A \code{deamass_fit} object that can be interrogated for various results with \code{protein_quants},
-#'   \code{peptide_deviations}, \code{peptide_stdevs}, \code{feature_stdevs}, \code{de_metafor} and \code{de_mice}. \code{del}
+#' @return A \code{deamass_fit} object that can be interrogated for various results with \code{group_quants},
+#'   \code{component_deviations}, \code{component_stdevs}, \code{measurement_stdevs}, \code{de_metafor} and \code{de_mice}. \code{del}
 #'   deletes all associated files on disk.
 #' @export
 deamass <- function(
   data,
   data.design = new_design(data),
-  ref.assays = "ref",
+  block.refs = "BlockRef",
   norm.func = list(median = norm_median),
   dea.func = NULL,
   fdr.func = list(ash = fdr_ash),
-  feature.vars = FALSE,
-  peptide.vars = FALSE,
-  peptide.deviations = FALSE,
+  measurement.vars = FALSE,
+  component.vars = FALSE,
+  component.deviations = FALSE,
   plots = FALSE,
-  output = "deamass",
+  output = "deaMass",
   control = new_control()
 ) {
-  setDTthreads(control$nthread)
+  data.table::setDTthreads(control$nthread)
+  fst::threads_fst(control$nthread)
 
   # check for finished output and return that
   output <- path.expand(output)
@@ -48,30 +49,25 @@ deamass <- function(
 
   # setup
   control$output <- basename(output)
-  control$feature.vars <- feature.vars
-  control$peptide.vars <- peptide.vars
-  control$peptide.deviations <- peptide.deviations
+  control$measurement.vars <- measurement.vars
+  control$component.vars <- component.vars
+  control$component.deviations <- component.deviations
   DT <- as.data.table(data)
   DT.design <- as.data.table(data.design)[!is.na(Assay)]
   if (!is.factor(DT.design$Assay)) DT.design[, Assay := factor(Assay, levels = unique(Assay))]
-  if (!is.factor(DT.design$Sample)) DT.design[, Sample := factor(Sample, levels = unique(Sample))]
 
-  # validate parameters
-  if (any(is.na(DT.design$Sample))) {
-    stop("all assays need to be assignd to samples in 'data.design'")
-  }
   if (control$model.nchain == 1) {
     message("WARNING: You are specifying only a single MCMC chain, convergence diagnostics will be unavailable. It is recommended to specify model.nchain=4 or more in 'control' for publishable results.")
   }
 
-  # tidy ref.assays
-  if (!is.list(ref.assays)) ref.assays <- list(ref.assays)
-  if (all(sapply(ref.assays, is.character) | sapply(ref.assays, is.null))) {
-    names(ref.assays) <- ifelse(sapply(ref.assays, is.null), "NULL", ref.assays)
+  # tidy block.refs
+  if (!is.list(block.refs)) block.refs <- list(block.refs)
+  if (all(sapply(block.refs, is.character) | sapply(block.refs, is.null))) {
+    names(block.refs) <- ifelse(sapply(block.refs, is.null), "NULL", block.refs)
   } else {
-    stop("'ref.assays' must be a function or NULL, or a list of functions and NULLs")
+    stop("'block.refs' must be a function or NULL, or a list of functions and NULLs")
   }
-  control$ref.assays <- ref.assays
+  control$block.refs <- block.refs
 
   # tidy norm
   if (!is.list(norm.func)) norm.func <- list(norm.func)
@@ -103,7 +99,7 @@ deamass <- function(
   }
   control$fdr.func <- fdr.func
 
-  message(paste0("[", Sys.time(), "] BAYESPROT started"))
+  message(paste0("[", Sys.time(), "] deaMass started"))
 
   # create output directory
   if (file.exists(output)) unlink(output, recursive = T)
@@ -117,174 +113,160 @@ deamass <- function(
   # missingness.threshold
   setnames(DT, "Count", "RawCount")
   DT[, Count := round(ifelse(RawCount <= control$missingness.threshold, NA, RawCount))]
-  # remove features with no non-NA measurements
-  DT[, notNA := sum(!is.na(Count)), by = .(Feature)]
+  # remove measurements with no non-NA measurements
+  DT[, notNA := sum(!is.na(Count)), by = .(Measurement)]
   DT <- DT[notNA > 0]
   DT[, notNA := NULL]
   # drop unused levels
   DT <- droplevels(DT)
 
-  # build Protein index
-  DT.proteins <- DT[, .(
-    ProteinInfo = ProteinInfo[1],
-    nPeptide = length(unique(as.character(Peptide))),
-    nFeature = length(unique(as.character(Feature))),
+  # build Group index
+  DT.groups <- DT[, .(
+    GroupInfo = GroupInfo[1],
+    nComponent = length(unique(as.character(Component))),
+    nMeasurement = length(unique(as.character(Measurement))),
     nMeasure = sum(!is.na(Count))
-  ), by = Protein]
+  ), by = Group]
 
-  # use pre-trained regression model to estimate how long each Protein will take to process in order to assign Proteins to batches
-  # Intercept, nPeptide, nFeature, nPeptide^2, nFeature^2, nPeptide*nFeature
+  # use pre-trained regression model to estimate how long each Group will take to process
+  # Intercept, nComponent, nMeasurement, nComponent^2, nMeasurement^2, nComponent*nMeasurement
   a <- c(5.338861e-01, 9.991205e-02, 2.871998e-01, 4.294391e-05, 6.903229e-04, 2.042114e-04)
-  DT.proteins[, timing := a[1] + a[2]*nPeptide + a[3]*nFeature + a[4]*nPeptide*nPeptide + a[5]*nFeature*nFeature + a[6]*nPeptide*nFeature]
-  setorder(DT.proteins, -timing)
-  DT.proteins[, ProteinID := 1:nrow(DT.proteins)]
-  DT.proteins[, Protein := factor(Protein, levels = unique(Protein))]
-  setcolorder(DT.proteins, c("ProteinID"))
+  DT.groups[, timing := a[1] + a[2]*nComponent + a[3]*nMeasurement + a[4]*nComponent*nComponent + a[5]*nMeasurement*nMeasurement + a[6]*nComponent*nMeasurement]
+  setorder(DT.groups, -timing)
+  DT.groups[, GroupID := 1:nrow(DT.groups)]
+  DT.groups[, Group := factor(Group, levels = unique(Group))]
+  setcolorder(DT.groups, c("GroupID"))
 
-  DT <- merge(DT, DT.proteins[, .(Protein, ProteinID)], by = "Protein", sort = F)
-  DT[, Protein := NULL]
-  DT[, ProteinInfo := NULL]
+  DT <- merge(DT, DT.groups[, .(Group, GroupID)], by = "Group", sort = F)
+  DT[, Group := NULL]
+  DT[, GroupInfo := NULL]
 
-  # build Peptide index
-  DT.peptides <- DT[, .(
-    nFeature = length(unique(as.character(Feature))),
+  # build Component index
+  DT.components <- DT[, .(
+    nMeasurement = length(unique(as.character(Measurement))),
     nMeasure = sum(!is.na(Count)),
-    TopProteinID = first(ProteinID)
-  ), by = Peptide]
-  setorder(DT.peptides, TopProteinID, -nFeature, -nMeasure, Peptide)
-  DT.peptides[, TopProteinID := NULL]
-  DT.peptides[, PeptideID := 1:nrow(DT.peptides)]
-  DT.peptides[, Peptide := factor(Peptide, levels = unique(Peptide))]
-  setcolorder(DT.peptides, "PeptideID")
+    TopGroupID = first(GroupID)
+  ), by = Component]
+  setorder(DT.components, TopGroupID, -nMeasurement, -nMeasure, Component)
+  DT.components[, TopGroupID := NULL]
+  DT.components[, ComponentID := 1:nrow(DT.components)]
+  DT.components[, Component := factor(Component, levels = unique(Component))]
+  setcolorder(DT.components, "ComponentID")
 
-  DT <- merge(DT, DT.peptides[, .(Peptide, PeptideID)], by = "Peptide", sort = F)
-  DT[, Peptide := NULL]
+  DT <- merge(DT, DT.components[, .(Component, ComponentID)], by = "Component", sort = F)
+  DT[, Component := NULL]
 
-  # build Feature index
-  DT.features <- DT[, .(
+  # build Measurement index
+  DT.measurements <- DT[, .(
     nMeasure = sum(!is.na(Count)),
-    TopPeptideID = min(PeptideID)
-  ), by = Feature]
-  setorder(DT.features, TopPeptideID, -nMeasure, Feature)
-  DT.features[, TopPeptideID := NULL]
-  DT.features[, FeatureID := 1:nrow(DT.features)]
-  DT.features[, Feature := factor(Feature, levels = unique(Feature))]
-  setcolorder(DT.features, "FeatureID")
+    TopComponentID = min(ComponentID)
+  ), by = Measurement]
+  setorder(DT.measurements, TopComponentID, -nMeasure, Measurement)
+  DT.measurements[, TopComponentID := NULL]
+  DT.measurements[, MeasurementID := 1:nrow(DT.measurements)]
+  DT.measurements[, Measurement := factor(Measurement, levels = unique(Measurement))]
+  setcolorder(DT.measurements, "MeasurementID")
 
-  DT <- merge(DT, DT.features[, .(Feature, FeatureID)], by = "Feature", sort = F)
-  DT[, Feature := NULL]
+  DT <- merge(DT, DT.measurements[, .(Measurement, MeasurementID)], by = "Measurement", sort = F)
+  DT[, Measurement := NULL]
 
   # build Assay index (design)
   DT.design <- merge(merge(DT, DT.design, by = "Assay")[, .(
-    nProtein = length(unique(ProteinID)),
-    nPeptide = length(unique(PeptideID)),
-    nFeature = length(unique(FeatureID)),
+    nGroup = length(unique(GroupID)),
+    nComponent = length(unique(ComponentID)),
+    nMeasurement = length(unique(MeasurementID)),
     nMeasure = sum(!is.na(Count))
   ), keyby = Assay], DT.design, keyby = Assay)
   DT.design[, AssayID := 1:nrow(DT.design)]
-  DT.design[, SampleID := 1:length(unique(Sample))]
-  setcolorder(DT.design, c("AssayID", "Assay", "Run", "Channel", "SampleID", "Sample"))
+  setcolorder(DT.design, c("AssayID", "Assay", "Run", "Channel"))
 
-  DT <- merge(DT, DT.design[, .(Assay, AssayID, SampleID)], by = "Assay", sort = F)
+  DT <- merge(DT, DT.design[, .(Assay, AssayID)], by = "Assay", sort = F)
   DT[, Assay := NULL]
-  setcolorder(DT, c("ProteinID", "PeptideID", "FeatureID", "AssayID", "SampleID", "RawCount"))
-  setorder(DT, ProteinID, PeptideID, FeatureID, AssayID, SampleID)
 
   # censoring model
-  if (control$missingness.model == "feature") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
-  if (control$missingness.model == "censored") DT[, Count1 := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = FeatureID]
+  if (control$missingness.model == "measurement") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = MeasurementID]
+  if (control$missingness.model == "censored") DT[, Count1 := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = MeasurementID]
   if (control$missingness.model == "censored" | control$missingness.model == "zero") DT[is.na(Count), Count := 0.0]
   if (control$missingness.model == "censored" & all(DT$Count == DT$Count1)) DT[, Count1 := NULL]
 
-  # create directories
-  dir.create(file.path(output, "input"))
-  dir.create(file.path(output, "model0"))
-  dir.create(file.path(output, "model"))
-  dir.create(file.path(output, "output"))
-  if (plots) dir.create(file.path(output, "plots"))
-
-  # create co-occurence matrix of which assays are present in each feature
-  mat.tmp <- merge(DT, DT, by = "FeatureID", allow.cartesian = T)
-  mat.tmp <- table(mat.tmp[, list(AssayID.x, AssayID.y)])
-  # matrix multiplication distributes assay relationships
-  mat.tmp <- mat.tmp %*% mat.tmp
-  # batch ID is first non-zero occurence for each assay
-  DT[, batchID := as.integer(colnames(mat.tmp)[apply(mat.tmp != 0, 2, which.max)][AssayID])]
-  rm(mat.tmp)
-
-  DT[, batchID := as.integer(factor(batchID, levels = sort(unique(batchID))))]
-  # split further by control$batch.n if necessary
-  #DT[, batchID2 := ceiling((as.integer(factor(AssayID)) / length(unique(AssayID))) * ceiling(length(unique(AssayID)) / control$assay.max.per.batch)), by = batchID]
-  #DT[, batchID := as.integer(interaction(batchID, batchID2, drop = T, sep = ":", lex.order = T))]
-  #DT[, batchID2 := NULL]
-
-  DTs <- split(DT, by = "batchID", drop = T, keep.by = F)
+  # blocks
+  DT <- merge(DT, DT.design[, .(AssayID, BlockID)])
+  setorder(DT, GroupID, ComponentID, MeasurementID, AssayID)
+  setcolorder(DT, c("GroupID", "ComponentID", "MeasurementID", "AssayID", "RawCount"))
+  DTs <- split(DT, by = "BlockID", drop = T, keep.by = F)
   for (i in 1:length(DTs))
   {
+    blockID <- names(DTs[i])
     DT <- DTs[[i]]
 
     # filter DT for Empirical Bayes model
-    DT0 <- unique(DT[, .(ProteinID, PeptideID, FeatureID)])
-    DT0[, nFeature := .N, by = .(ProteinID, PeptideID)]
-    DT0 <- DT0[nFeature >= control$feature.eb.min]
-    DT0[, nFeature := NULL]
+    DT0 <- unique(DT[, .(GroupID, ComponentID, MeasurementID)])
+    DT0[, nMeasurement := .N, by = .(GroupID, ComponentID)]
+    DT0 <- DT0[nMeasurement >= control$measurement.eb.min]
+    DT0[, nMeasurement := NULL]
 
-    DT0.peptides <- unique(DT0[, .(ProteinID, PeptideID)])
-    DT0.peptides[, nPeptide := .N, by = ProteinID]
-    DT0.peptides <- DT0.peptides[nPeptide >= control$peptide.eb.min]
-    DT0.peptides[, nPeptide := NULL]
-    DT0 <- merge(DT0, DT0.peptides, by = c("ProteinID", "PeptideID"))
+    DT0.components <- unique(DT0[, .(GroupID, ComponentID)])
+    DT0.components[, nComponent := .N, by = GroupID]
+    DT0.components <- DT0.components[nComponent >= control$component.eb.min]
+    DT0.components[, nComponent := NULL]
+    DT0 <- merge(DT0, DT0.components, by = c("GroupID", "ComponentID"))
 
-    DT0 <- merge(DT, DT0, by = c("ProteinID", "PeptideID", "FeatureID"))
+    DT0 <- merge(DT, DT0, by = c("GroupID", "ComponentID", "MeasurementID"))
 
-    DT0.assays <- unique(DT0[, .(ProteinID, SampleID)])
-    DT0.assays[, nSample := .N, by = ProteinID]
-    DT0.assays <- DT0.assays[nSample >= control$assay.eb.min]
-    DT0.assays[, nSample := NULL]
-    DT0 <- merge(DT0, DT0.assays, by = c("ProteinID", "SampleID"))
+    DT0.assays <- unique(DT0[, .(GroupID, AssayID)])
+    DT0.assays[, nAssay := .N, by = GroupID]
+    DT0.assays <- DT0.assays[nAssay >= control$assay.eb.min]
+    DT0.assays[, nAssay := NULL]
+    DT0 <- merge(DT0, DT0.assays, by = c("GroupID", "AssayID"))
 
-    # index in DT.proteins for fst random access
-    filename <- file.path("input", paste0("data0.", names(DTs)[i]))
+    # index in DT.groups for fst random access
+    dir.create(file.path(output, paste0("block.", blockID), "model0"), recursive = T)
+    filename <- file.path(paste0("block.", blockID), "input0")
     fst::write.fst(DT0, file.path(output, paste0(filename, ".fst")))
-    DT0.index <- DT0[, .(ProteinID = unique(ProteinID), file = paste0(filename, ".fst"), from = .I[!duplicated(ProteinID)], to = .I[rev(!duplicated(rev(ProteinID)))])]
+    DT0.index <- DT0[, .(GroupID = unique(GroupID), file = paste0(filename, ".fst"), from = .I[!duplicated(GroupID)], to = .I[rev(!duplicated(rev(GroupID)))])]
     fst::write.fst(DT0.index, file.path(output, paste0(filename, ".index.fst")))
 
-    filename <- file.path("input", paste0("data.", names(DTs)[i]))
+    dir.create(file.path(output, paste0("block.", blockID), "model"))
+    filename <- file.path(paste0("block.", blockID), "input")
     fst::write.fst(DT, file.path(output, paste0(filename, ".fst")))
-    DT.index <- DT[, .(ProteinID = unique(ProteinID), file = paste0(filename, ".fst"), from = .I[!duplicated(ProteinID)], to = .I[rev(!duplicated(rev(ProteinID)))])]
+    DT.index <- DT[, .(GroupID = unique(GroupID), file = paste0(filename, ".fst"), from = .I[!duplicated(GroupID)], to = .I[rev(!duplicated(rev(GroupID)))])]
     fst::write.fst(DT.index, file.path(output, paste0(filename, ".index.fst")))
   }
-  control$assay.nbatch <- length(DTs)
+  control$assay.nblock <- length(DTs)
   rm(DTs)
 
   # save metadata
-  saveRDS(control, file.path(output, "input", "control.rds"))
-  fst::write.fst(DT.proteins, file.path(output, "input", "proteins.fst"))
-  fst::write.fst(DT.peptides, file.path(output, "input", "peptides.fst"))
-  fst::write.fst(DT.features, file.path(output, "input", "features.fst"))
-  fst::write.fst(DT.design, file.path(output, "input", "design.fst"))
+  # create directories
+  dir.create(file.path(output, "meta"))
+  dir.create(file.path(output, "model0"))
+  dir.create(file.path(output, "model"))
+  if (plots) dir.create(file.path(output, "plots"))
+  saveRDS(control, file.path(output, "meta", "control.rds"))
+  fst::write.fst(DT.groups, file.path(output, "meta", "groups.fst"))
+  fst::write.fst(DT.components, file.path(output, "meta", "components.fst"))
+  fst::write.fst(DT.measurements, file.path(output, "meta", "measurements.fst"))
+  fst::write.fst(DT.design, file.path(output, "meta", "design.fst"))
   fit <- normalizePath(output)
+  dir.create(file.path(output, "output"))
 
   # number of parallel compute nodes that can be used
-  nnode <- control$assay.nbatch * control$model.nchain
+  nnode <- control$assay.nblock * control$model.nchain
   if (is.null(control$hpc)) {
     # run empirical bayes model0
-    for (i in 1:nnode) process_model0(fit, i)
+    for (block in 1:control$assay.nblock) for (chain in 1:control$model.nchain) process_model0(fit, block, chain)
 
     # run full model
-    for (i in 1:nnode) process_model(fit, i)
+    for (block in 1:control$assay.nblock) for (chain in 1:control$model.nchain) process_model(fit, block, chain)
 
-    if (plots) {
-      # run plots
-      for (i in 1:nnode) process_plots(fit, i)
-    }
+    # run plots if you want
+    if (plots) for (i in 1:control$assay.nblock * control$model.nchain) process_plots(fit, i)
   } else {
     # submit to hpc directly here
     stop("not implemented yet")
   }
 
   write.table(data.frame(), file.path(output, "deamass_fit"), col.names = F)
-  message(paste0("[", Sys.time(), "] BAYESPROT finished!"))
+  message(paste0("[", Sys.time(), "] deaMass finished!"))
 
   # return fit object
   class(fit) <- "deamass_fit"
@@ -294,18 +276,18 @@ deamass <- function(
 
 #' Control parameters for the deaMass Bayesian model
 #'
-#' @param feature.model Either \code{single} (single residual) or \code{independent} (per-feature independent residuals; default)
-#' @param feature.eb.min Minimum number of features per peptide to use for computing Empirical Bayes priors
-#' @param peptide.model Either \code{NULL} (no peptide model; default), \code{single} (single random effect) or \code{independent}
-#'   (per-peptide independent random effects)
-#' @param peptide.eb.min Minimum number of peptides per protein to use for computing Empirical Bayes priors
+#' @param measurement.model Either \code{single} (single residual) or \code{independent} (per-measurement independent residuals; default)
+#' @param measurement.eb.min Minimum number of measurements per component to use for computing Empirical Bayes priors
+#' @param component.model Either \code{NULL} (no component model; default), \code{single} (single random effect) or \code{independent}
+#'   (per-component independent random effects)
+#' @param component.eb.min Minimum number of components per group to use for computing Empirical Bayes priors
 #' @param assay.model Either \code{NULL} (no assay model), \code{single} (single random effect) or \code{independent}
 #'   (per-assay independent random effects; default)
-#' @param assay.eb.min Minimum number of assays per protein protein to use for computing Empirical Bayes priors
+#' @param assay.eb.min Minimum number of assays per group group to use for computing Empirical Bayes priors
 #' @param error.model Either \code{lognormal} or \code{poisson} (default)
-#' @param missingness.model Either \code{zero} (NAs set to 0), \code{feature} (NAs set to lowest quant of that feature) or
-#'   \code{censored} (NAs modelled as censored between 0 and lowest quant of that feature; default)
-#' @param missingness.threshold All feature quants equal to or below this are treated as missing (default = 0)
+#' @param missingness.model Either \code{zero} (NAs set to 0), \code{measurement} (NAs set to lowest quant of that measurement) or
+#'   \code{censored} (NAs modelled as censored between 0 and lowest quant of that measurement; default)
+#' @param missingness.threshold All measurement quants equal to or below this are treated as missing (default = 0)
 #' @param model.seed Random number seed
 #' @param model.nchain Number of MCMC chains to run
 #' @param model.nwarmup Number of MCMC warmup iterations to run for each chain
@@ -316,13 +298,12 @@ deamass <- function(
 #' @return \code{deamass_control} object to pass to \link{deamass}
 #' @export
 new_control <- function(
-  feature.model = "independent",
-  feature.eb.min = 2,
-  peptide.model = NULL,
-  peptide.eb.min = 2,
+  measurement.model = "independent",
+  measurement.eb.min = 2,
+  component.model = NULL,
+  component.eb.min = 2,
   assay.model = "independent",
   assay.eb.min = 2,
-  #assay.max.per.batch = 32,
   error.model = "poisson",
   missingness.model = "censored",
   missingness.threshold = 0,
@@ -341,17 +322,17 @@ new_control <- function(
   if (!is.null(hpc) && hpc != "pbs" && hpc != "sge" && hpc != "slurm" && hpc != "remote") {
     stop("'hpc' needs to be either 'pbs', 'sge', 'slurm', 'remote' or NULL (default)")
   }
-  if (!is.null(feature.model) && feature.model != "single" && feature.model != "independent") {
-    stop("'feature.model' needs to be either 'single' or 'independent' (default)")
+  if (!is.null(measurement.model) && measurement.model != "single" && measurement.model != "independent") {
+    stop("'measurement.model' needs to be either 'single' or 'independent' (default)")
   }
-  if (!is.null(peptide.model) && peptide.model != "single" && peptide.model != "independent") {
-    stop("'peptide.model' needs to be either NULL, 'single' or 'independent' (default)")
+  if (!is.null(component.model) && component.model != "single" && component.model != "independent") {
+    stop("'component.model' needs to be either NULL, 'single' or 'independent' (default)")
   }
   if (!is.null(assay.model) && assay.model != "single" && assay.model != "independent") {
     stop("'assay.model' needs to be either NULL, 'single' or 'independent' (default)")
   }
-  if (!is.null(missingness.model) && missingness.model != "feature" && missingness.model != "censored") {
-    stop("'missingness.model' needs to be either 'zero', 'feature' or 'censored' (default)")
+  if (!is.null(missingness.model) && missingness.model != "measurement" && missingness.model != "censored") {
+    stop("'missingness.model' needs to be either 'zero', 'measurement' or 'censored' (default)")
   }
 
   # create control object
@@ -365,7 +346,7 @@ new_control <- function(
     if(is.null(names(control$squeeze.var.func))) names(control$squeeze.var.func) <- 1:length(control$squeeze.var.func)
     names(control$squeeze.var.func) <- ifelse(names(control$squeeze.var.func) == "", 1:length(control$squeeze.var.func), names(control$squeeze.var.func))
   } else {
-    stop("'squeeze.var.func' must be a function or list of functions taking a deamass_fit object")
+    stop("'squeeze.var.func' must be a function or list of functions taking a 'deamass_fit' object")
   }
 
   # tidy dist.var.func
@@ -374,7 +355,7 @@ new_control <- function(
     if(is.null(names(control$dist.var.func))) names(control$dist.var.func) <- 1:length(control$dist.var.func)
     names(control$dist.var.func) <- ifelse(names(control$dist.var.func) == "", 1:length(control$dist.var.func), names(control$dist.var.func))
   } else {
-    stop("'dist.var.func' must be a function or list of functions taking a deamass_fit object")
+    stop("'dist.var.func' must be a function or list of functions taking a 'deamass_fit' object")
   }
 
   # tidy dist.mean.func
@@ -383,7 +364,7 @@ new_control <- function(
     if(is.null(names(control$dist.mean.func))) names(control$dist.mean.func) <- 1:length(control$dist.mean.func)
     names(control$dist.mean.func) <- ifelse(names(control$dist.mean.func) == "", 1:length(control$dist.mean.func), names(control$dist.mean.func))
   } else {
-    stop("'dist.mean.func' must be a function or list of functions taking a deamass_fit object")
+    stop("'dist.mean.func' must be a function or list of functions taking a 'deamass_fit' object")
   }
 
   return(control)

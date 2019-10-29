@@ -4,7 +4,7 @@
 \alias{dea_lme}
 \title{Mixed-effects univariate differential expression analysis with 'lme'}
 \usage{
-dea_lme(fit, data = protein_quants(fit), data.design = design(fit),
+dea_lme(fit, data = group_quants(fit), data.design = design(fit),
   condition = "Condition", fixed = as.formula(paste("~", condition)),
   random = ~1 | Sample, control = nlme::lmeControl(sigma = 1),
   output = "lme", save.intercept = FALSE, as.data.table = FALSE, ...)

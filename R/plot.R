@@ -4,28 +4,28 @@
 #' @return The sum of \code{x} and \code{y}.
 #' @import data.table
 #' @export
-plot_pca <- function(fit, data = protein_quants(fit, summary = F), data.summary = protein_quants(fit), data.design = design(fit)) {
-  DT.protein.quants <- as.data.table(data)
-  DT.protein.quants.summary <- as.data.table(data.summary)
+plot_pca <- function(fit, data = group_quants(fit, summary = F), data.summary = group_quants(fit), data.design = design(fit)) {
+  DT.group.quants <- as.data.table(data)
+  DT.group.quants.summary <- as.data.table(data.summary)
   DT.design <- as.data.table(data.design)
   if (is.null(DT.design$AssayID)) DT.design <- merge(DT.design, design(fit, as.data.table = T)[, .(Assay, AssayID)], by = "Assay")
 
   # remove assays with zero variance (pure reference samples)
-  DT.assays.pca <- DT.protein.quants.summary[, .(use = var(m) >= 0.0000001), by = AssayID]
-  DT.protein.quants <- merge(DT.protein.quants, DT.assays.pca, by = "AssayID")[use == T][, !"use"]
-  DT.protein.quants.summary <- merge(DT.protein.quants.summary, DT.assays.pca, by = "AssayID")[use == T][, !"use"]
+  DT.assays.pca <- DT.group.quants.summary[, .(use = var(m) >= 0.0000001), by = AssayID]
+  DT.group.quants <- merge(DT.group.quants, DT.assays.pca, by = "AssayID")[use == T][, !"use"]
+  DT.group.quants.summary <- merge(DT.group.quants.summary, DT.assays.pca, by = "AssayID")[use == T][, !"use"]
 
   # est
-  DT.pca.est <- data.table::dcast(DT.protein.quants.summary, ProteinID ~ AssayID, value.var = "m")
+  DT.pca.est <- data.table::dcast(DT.group.quants.summary, GroupID ~ AssayID, value.var = "m")
   DT.pca.est <- DT.pca.est[complete.cases(DT.pca.est)]
-  DT.pca.est <- data.table::dcast(melt(DT.pca.est, id.vars = "ProteinID"), variable ~ ProteinID, value.var = "value")
+  DT.pca.est <- data.table::dcast(melt(DT.pca.est, id.vars = "GroupID"), variable ~ GroupID, value.var = "value")
 
   # MCMC quants
-  DT.pca.mcmc <- rbindlist(lapply(split(DT.protein.quants, by = c("chainID", "mcmcID")), function(DT) {
+  DT.pca.mcmc <- rbindlist(lapply(split(DT.group.quants, by = c("chainID", "mcmcID")), function(DT) {
    DT[, AssayID := paste(AssayID, chainID, mcmcID, sep = ".")]
-   DT <- data.table::dcast(DT, ProteinID ~ AssayID, value.var = "value")
+   DT <- data.table::dcast(DT, GroupID ~ AssayID, value.var = "value")
    DT <- DT[complete.cases(DT)]
-   data.table::dcast(melt(DT, id.vars = "ProteinID"), variable ~ ProteinID, value.var = "value")
+   data.table::dcast(melt(DT, id.vars = "GroupID"), variable ~ GroupID, value.var = "value")
   }))
 
   # X
@@ -37,9 +37,9 @@ plot_pca <- function(fit, data = protein_quants(fit, summary = F), data.summary 
   DT.pca.est$variable <- NULL
 
   # SE and col.w
-  DT.pca.SE <- data.table::dcast(DT.protein.quants.summary, ProteinID ~ AssayID, value.var = "s")
+  DT.pca.SE <- data.table::dcast(DT.group.quants.summary, GroupID ~ AssayID, value.var = "s")
   DT.pca.SE <- DT.pca.SE[complete.cases(DT.pca.SE)]
-  DT.pca.SE$ProteinID <- NULL
+  DT.pca.SE$GroupID <- NULL
   row.w <- 1.0 / colMeans(DT.pca.SE^2)
   col.w <- 1.0 / rowMeans(DT.pca.SE^2)
 
@@ -156,7 +156,7 @@ plot_fits <- function(data, data.fits = NULL, ci = c(0.05, 0.95), by = NULL, xla
 #' @return The sum of \code{x} and \code{y}.
 #' @import data.table
 #' @export
-plot_exposures <- function(fit, data = protein_quants(fit, summary = F), data.design = design(fit)) {
+plot_exposures <- function(fit, data = group_quants(fit, summary = F), data.design = design(fit)) {
   DT <- as.data.table(data)
   DT.design <- as.data.table(data.design)
 
@@ -259,43 +259,43 @@ plot_volcano <- function(data, data.design, data.meta = NULL, data.truth = NULL,
   DT.design <- as.data.table(data.design)
   DT <- merge(DT, DT.design, by = "Assay")
 
-  # remove proteins where one condition has less than 2 datapoints
-  DT[, keep := sum(Condition == levels(Condition)[1]) >= 2 & sum(Condition == levels(Condition)[2]) >= 2, by = ProteinRef]
+  # remove groups where one condition has less than 2 datapoints
+  DT[, keep := sum(Condition == levels(Condition)[1]) >= 2 & sum(Condition == levels(Condition)[2]) >= 2, by = GroupRef]
   DT <- DT[keep == T]
   DT[, keep := NULL]
 
   # calcualte stats
   if (yaxis == "SD") {
-    DT.t <- DT[, .(mean = mean(value), var = var(value), n = .N), by = .(Condition, ProteinRef)]
-    DT.t <- DT.t[, .(x = mean[2] - mean[1], y = sqrt(var[1] / n[1] + var[2] / n[2])), by = ProteinRef]
+    DT.t <- DT[, .(mean = mean(value), var = var(value), n = .N), by = .(Condition, GroupRef)]
+    DT.t <- DT.t[, .(x = mean[2] - mean[1], y = sqrt(var[1] / n[1] + var[2] / n[2])), by = GroupRef]
     ylab <- "log2 Residual Standard Deviation"
   } else if (yaxis == "SE") {
-    DT.t <- DT[, .(mean = mean(value), var = var(value), n = .N), by = .(Condition, ProteinRef)]
-    DT.t <- DT.t[, .(x = mean[2] - mean[1], y = sqrt(((n[1] - 1) * var[1] + (n[2] - 1) * var[2]) / (n[1] + n[2] - 2))), by = ProteinRef]
+    DT.t <- DT[, .(mean = mean(value), var = var(value), n = .N), by = .(Condition, GroupRef)]
+    DT.t <- DT.t[, .(x = mean[2] - mean[1], y = sqrt(((n[1] - 1) * var[1] + (n[2] - 1) * var[2]) / (n[1] + n[2] - 2))), by = GroupRef]
     ylab <- "log2 Standard Error"
   } else if (yaxis == "t-test.p/FC") {
     DT.t <- DT[, .(
       x = mean(value[Condition == levels(Condition)[2]]) - mean(value[Condition == levels(Condition)[1]]),
       y = t.test(value[Condition == levels(Condition)[2]], value[Condition == levels(Condition)[1]], var.equal = T)$p.value
-    ), by = ProteinRef]
+    ), by = GroupRef]
     DT.t[, y := y * abs(x)]
     ylab <- "t-test p-value x log2 Fold Change"
   } else {
     DT.t <- DT[, .(
       x = mean(value[Condition == levels(Condition)[2]]) - mean(value[Condition == levels(Condition)[1]]),
       y = t.test(value[Condition == levels(Condition)[2]], value[Condition == levels(Condition)[1]], var.equal = T)$p.value
-    ), by = ProteinRef]
+    ), by = GroupRef]
     ylab <- "t-test p-value"
   }
 
   # add ground truth if available
   if (exists("data.truth") & !is.null(data.truth)) {
     DT.truth <- setDT(data.truth)
-    DT.t <- merge(DT.t, DT.truth, by = "ProteinRef")
-    setnames(DT.t, "Set", "Proteins")
-    DT.t[, median := median(x), by = Proteins]
+    DT.t <- merge(DT.t, DT.truth, by = "GroupRef")
+    setnames(DT.t, "Set", "Groups")
+    DT.t[, median := median(x), by = Groups]
   } else {
-    DT.t[, Proteins := factor("all")]
+    DT.t[, Groups := factor("all")]
     DT.t[, log2FC := NA_real_]
     DT.t[, median := NA_real_]
   }
@@ -330,9 +330,9 @@ plot_volcano <- function(data, data.design, data.meta = NULL, data.truth = NULL,
   # meta
   if (!is.null(data.meta)) {
     DT.meta <- setDT(data.meta)
-    DT.t <- merge(DT.t, DT.meta[, .(ProteinRef, Peptides = factor(ifelse(nPeptide > 1, ifelse(nPeptide > 2, "3+", "2"), "1")))], by = "ProteinRef")
+    DT.t <- merge(DT.t, DT.meta[, .(GroupRef, Components = factor(ifelse(nComponent > 1, ifelse(nComponent > 2, "3+", "2"), "1")))], by = "GroupRef")
   } else {
-    DT.t[, Peptides := factor("unknown")]
+    DT.t[, Components := factor("unknown")]
   }
 
   # x limits
@@ -369,14 +369,14 @@ plot_volcano <- function(data, data.design, data.meta = NULL, data.truth = NULL,
   }
 
   # split into sets larger and smaller than 10
-  DT.t[, n := .N, by = Proteins]
+  DT.t[, n := .N, by = Groups]
   DT.t0 <- DT.t[n < 10]
   DT.t <- DT.t[n >= 10]
-  DT.t.meta <- DT.t[, .(log2FC = log2FC, median = median), by = Proteins]
+  DT.t.meta <- DT.t[, .(log2FC = log2FC, median = median), by = Groups]
 
-  # density - output is weighted by number of proteins (note fudge because x is not positive data)
+  # density - output is weighted by number of groups (note fudge because x is not positive data)
   if (yaxis == "t-test.p" | yaxis == "t-test.p/fc") {
-    DT.t.dens <- DT.t[, .(Proteins, x = x + 100000, y = -y)] # hack because both dimensions need to be positive
+    DT.t.dens <- DT.t[, .(Groups, x = x + 100000, y = -y)] # hack because both dimensions need to be positive
     positive <- T
   } else {
     DT.t.dens <- DT.t
@@ -393,7 +393,7 @@ plot_volcano <- function(data, data.design, data.meta = NULL, data.truth = NULL,
       q99 = dens$cont["99%"] * .N,
       n = .N
     )
-  }, by = Proteins]
+  }, by = Groups]
 
   if (yaxis == "t-test.p" | yaxis == "t-test.p/fc") {
     DT.dens[, x := x - 100000] # hack because both dimensions need to be positive
@@ -410,7 +410,7 @@ plot_volcano <- function(data, data.design, data.meta = NULL, data.truth = NULL,
   g <- g + ggplot2::scale_shape_manual(values = c(4, 1, 16))
   g <- g + ggplot2::scale_size_manual(values = c(0.5, 0.7, 1))
   g <- g + ggplot2::geom_vline(xintercept = xorigin)
-  g <- g + ggplot2::geom_point(ggplot2::aes_string(colour = "Proteins", shape = "Peptides", size = "Peptides"), alpha = 0.5)
+  g <- g + ggplot2::geom_point(ggplot2::aes_string(colour = "Groups", shape = "Components", size = "Components"), alpha = 0.5)
 
   if (yaxis == "SE") {
     DT.t.contours <- CJ(t = c(-2^seq(0, 10), 2^seq(0, 10)), y = seq(ylim2[1], ylim2[2], length = 1024))
@@ -438,14 +438,14 @@ plot_volcano <- function(data, data.design, data.meta = NULL, data.truth = NULL,
     g <- g + ggplot2::geom_line(ggplot2::aes(group = p), DT.p.contours, colour = "grey")
   }
 
-  g <- g + ggplot2::geom_contour(ggplot2::aes(colour = Proteins, z = z), DT.dens, breaks = zbreaks, alpha = 0.5)
-  g <- g + ggplot2::geom_vline(ggplot2::aes(colour = Proteins, xintercept = log2FC), DT.t.meta[!is.na(log2FC)])
-  if (length(levels(DT.t.meta$Proteins)) > 1) {
-    g <- g + ggplot2::geom_vline(ggplot2::aes(colour = Proteins, xintercept = median), DT.t.meta[!is.na(median)], lty = "dashed")
+  g <- g + ggplot2::geom_contour(ggplot2::aes(colour = Groups, z = z), DT.dens, breaks = zbreaks, alpha = 0.5)
+  g <- g + ggplot2::geom_vline(ggplot2::aes(colour = Groups, xintercept = log2FC), DT.t.meta[!is.na(log2FC)])
+  if (length(levels(DT.t.meta$Groups)) > 1) {
+    g <- g + ggplot2::geom_vline(ggplot2::aes(colour = Groups, xintercept = median), DT.t.meta[!is.na(median)], lty = "dashed")
   }
 
   g <- g + ggplot2::geom_segment(ggplot2::aes(xend = log2FC, yend = y), data = DT.t0, size = 0.5)
-  g <- g + ggplot2::geom_point(ggplot2::aes(shape = Peptides), data = DT.t0, size = 1)
+  g <- g + ggplot2::geom_point(ggplot2::aes(shape = Components), data = DT.t0, size = 1)
   g <- g + ggplot2::geom_point(ggplot2::aes(x = log2FC), data = DT.t0, size = 4, shape = "|")
 
   g <- g + ggplot2::theme(legend.position = "top")
@@ -504,7 +504,7 @@ plot_pr <- function(data, ymax = NULL) {
   #g <- g + ggplot2::scale_y_continuous(trans = rev_sqrt_trans(), breaks = c(0.0, 0.01, 0.05, 0.1, 0.2, 0.5, pi, 1.0), labels = ylabels(), expand = c(0.001, 0.001))
   g <- g + ggplot2::scale_y_reverse(breaks = c(0.0, 0.01, 0.05, 0.1, 0.2), labels = ylabels(), expand = c(0.001, 0.001))
   g <- g + ggplot2::coord_cartesian(xlim = c(0, max(DTs.pr$TrueDiscoveries)), ylim = c(ymax, 0))
-  g <- g + ggplot2::xlab(paste0("True Discoveries [ Sensitivity x ", max(DTs.pr$TrueDiscoveries), " ] from ", max(DTs.pr$Discoveries), " total proteins"))
+  g <- g + ggplot2::xlab(paste0("True Discoveries [ Sensitivity x ", max(DTs.pr$TrueDiscoveries), " ] from ", max(DTs.pr$Discoveries), " total groups"))
   g <- g + ggplot2::ylab("Solid Line: False Discovery Proportion [ 1 - Precision ], Dashed Line: FDR")
   g <- g + ggplot2::scale_linetype_manual(values = rep("solid", length(levels(DTs.pr$Method))))
 
@@ -518,30 +518,30 @@ plot_pr <- function(data, ymax = NULL) {
 
 #' @import data.table
 #' @export
-plot_protein_quants <- function(fit, proteinID = NULL, log2FC.lim = NULL, data.design = design(fit), protein = NULL) {
-  if (is.null(proteinID) && is.null(protein)) stop("one of 'proteinID' or 'protein' is needed")
+plot_group_quants <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design = design(fit), group = NULL) {
+  if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
-  DT.protein.quants <- protein_quants(fit, proteinID, protein, summary = F, as.data.table = T)
-  DT.protein.quants <- merge(DT.protein.quants, design(fit, as.data.table = T)[, .(AssayID, Assay)], by = "AssayID")
-  DT.protein.quants.meta <- DT.protein.quants[, .(lower = quantile(value, 0.025), median = median(value), upper = quantile(value, 0.975)), by = Assay]
-  DT.protein.quants.meta <- merge(DT.protein.quants.meta, data.design, by = "Assay")
-  DT.protein.quants.meta[, SampleAssay := factor(paste0("[", Sample, "] ", Assay))]
-  DT.protein.quants <- merge(DT.protein.quants, DT.protein.quants.meta, by = "Assay")
-  DT.protein.quants <- DT.protein.quants[value >= lower & value <= upper]
-  setnames(DT.protein.quants.meta, "median", "value")
+  DT.group.quants <- group_quants(fit, groupID, group, summary = F, as.data.table = T)
+  DT.group.quants <- merge(DT.group.quants, design(fit, as.data.table = T)[, .(AssayID, Assay)], by = "AssayID")
+  DT.group.quants.meta <- DT.group.quants[, .(lower = quantile(value, 0.025), median = median(value), upper = quantile(value, 0.975)), by = Assay]
+  DT.group.quants.meta <- merge(DT.group.quants.meta, data.design, by = "Assay")
+  DT.group.quants.meta[, SampleAssay := factor(paste0("[", Sample, "] ", Assay))]
+  DT.group.quants <- merge(DT.group.quants, DT.group.quants.meta, by = "Assay")
+  DT.group.quants <- DT.group.quants[value >= lower & value <= upper]
+  setnames(DT.group.quants.meta, "median", "value")
 
   if (is.null(log2FC.lim))
   {
-    log2FC.lim <- max(max(-min(DT.protein.quants.meta$lower), max(DT.protein.quants.meta$upper)), 1)
+    log2FC.lim <- max(max(-min(DT.group.quants.meta$lower), max(DT.group.quants.meta$upper)), 1)
     log2FC.lim <- c(-log2FC.lim, log2FC.lim)
   }
 
-  g <- ggplot2::ggplot(DT.protein.quants.meta, ggplot2::aes(x = SampleAssay, y = value))
+  g <- ggplot2::ggplot(DT.group.quants.meta, ggplot2::aes(x = SampleAssay, y = value))
   g <- g + ggplot2::geom_hline(yintercept = 0, size = 1/2, colour = "darkgrey")
-  if (is.null(DT.protein.quants.meta$Condition)) {
-    g <- g + ggplot2::geom_violin(data = DT.protein.quants, scale = "width", width = 0.5)
+  if (is.null(DT.group.quants.meta$Condition)) {
+    g <- g + ggplot2::geom_violin(data = DT.group.quants, scale = "width", width = 0.5)
   } else {
-    g <- g + ggplot2::geom_violin(ggplot2::aes(fill = Condition), DT.protein.quants, scale = "width", width = 0.5)
+    g <- g + ggplot2::geom_violin(ggplot2::aes(fill = Condition), DT.group.quants, scale = "width", width = 0.5)
   }
   g <- g + ggplot2::geom_segment(ggplot2::aes(x = as.integer(SampleAssay) - 0.4, xend = as.integer(SampleAssay) + 0.4, yend = value),size = 1/2)
   g <- g + ggplot2::coord_cartesian(ylim = log2FC.lim)
@@ -551,7 +551,7 @@ plot_protein_quants <- function(fit, proteinID = NULL, log2FC.lim = NULL, data.d
   return(list(
     g = g,
     log2FC.lim = log2FC.lim,
-    width = 1.0 + 0.75 * nlevels(DT.protein.quants.meta$Assay),
+    width = 1.0 + 0.75 * nlevels(DT.group.quants.meta$Assay),
     height = 3
   ))
 }
@@ -559,31 +559,31 @@ plot_protein_quants <- function(fit, proteinID = NULL, log2FC.lim = NULL, data.d
 
 #' @import data.table
 #' @export
-plot_peptide_deviations <- function(fit, proteinID = NULL, log2FC.lim = NULL, data.design = design(fit), protein = NULL) {
-  if (is.null(proteinID) && is.null(protein)) stop("one of 'proteinID' or 'protein' is needed")
+plot_component_deviations <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design = design(fit), group = NULL) {
+  if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
-  DT.peptide.deviations <- peptide_deviations(fit, proteinID, protein, summary = F, as.data.table = T)
-  DT.peptide.deviations <- merge(DT.peptide.deviations, peptides(fit, as.data.table = T)[, .(PeptideID, Peptide)], by = "PeptideID")
-  DT.peptide.deviations <- merge(DT.peptide.deviations, design(fit, as.data.table = T)[, .(SampleID, Sample)], by = "SampleID")
-  DT.peptide.deviations.meta <- DT.peptide.deviations[, .(lower = quantile(value, 0.025), median = median(value), upper = quantile(value, 0.975)), by = .(Peptide, Sample)]
-  DT.peptide.deviations.meta <- merge(DT.peptide.deviations.meta, data.design, by = c("Sample"))
-  DT.peptide.deviations <- merge(DT.peptide.deviations, DT.peptide.deviations.meta, by = c("Peptide", "Sample"))
-  DT.peptide.deviations <- DT.peptide.deviations[value >= lower & value <= upper]
-  setnames(DT.peptide.deviations.meta, "median", "value")
+  DT.component.deviations <- component_deviations(fit, groupID, group, summary = F, as.data.table = T)
+  DT.component.deviations <- merge(DT.component.deviations, components(fit, as.data.table = T)[, .(ComponentID, Component)], by = "ComponentID")
+  DT.component.deviations <- merge(DT.component.deviations, design(fit, as.data.table = T)[, .(SampleID, Sample)], by = "SampleID")
+  DT.component.deviations.meta <- DT.component.deviations[, .(lower = quantile(value, 0.025), median = median(value), upper = quantile(value, 0.975)), by = .(Component, Sample)]
+  DT.component.deviations.meta <- merge(DT.component.deviations.meta, data.design, by = c("Sample"))
+  DT.component.deviations <- merge(DT.component.deviations, DT.component.deviations.meta, by = c("Component", "Sample"))
+  DT.component.deviations <- DT.component.deviations[value >= lower & value <= upper]
+  setnames(DT.component.deviations.meta, "median", "value")
 
   if (is.null(log2FC.lim))
   {
-    log2FC.lim <- max(max(-min(DT.peptide.deviations.meta$lower), max(DT.peptide.deviations.meta$upper)), 1)
+    log2FC.lim <- max(max(-min(DT.component.deviations.meta$lower), max(DT.component.deviations.meta$upper)), 1)
     log2FC.lim <- c(-log2FC.lim, log2FC.lim)
   }
 
-  g <- ggplot2::ggplot(DT.peptide.deviations.meta, ggplot2::aes(x = Sample, y = value))
-  g <- g + ggplot2::facet_wrap(~ Peptide, ncol = 1)
+  g <- ggplot2::ggplot(DT.component.deviations.meta, ggplot2::aes(x = Sample, y = value))
+  g <- g + ggplot2::facet_wrap(~ Component, ncol = 1)
   g <- g + ggplot2::geom_hline(yintercept = 0, size = 1/2, colour = "darkgrey")
-  if (is.null(DT.peptide.deviations.meta$Condition)) {
-    g <- g + ggplot2::geom_violin(data = DT.peptide.deviations, scale = "width", width = 0.5)
+  if (is.null(DT.component.deviations.meta$Condition)) {
+    g <- g + ggplot2::geom_violin(data = DT.component.deviations, scale = "width", width = 0.5)
   } else {
-    g <- g + ggplot2::geom_violin(ggplot2::aes(fill = Condition), DT.peptide.deviations, scale = "width", width = 0.5)
+    g <- g + ggplot2::geom_violin(ggplot2::aes(fill = Condition), DT.component.deviations, scale = "width", width = 0.5)
   }
   g <- g + ggplot2::geom_segment(ggplot2::aes(x = as.integer(Sample) - 0.4, xend = as.integer(Sample) + 0.4, yend = value),size = 1/2)
   g <- g + ggplot2::coord_cartesian(ylim = log2FC.lim)
@@ -592,38 +592,38 @@ plot_peptide_deviations <- function(fit, proteinID = NULL, log2FC.lim = NULL, da
   return(list(
     g = g,
     log2FC.lim = log2FC.lim,
-    width = 1.0 + 0.75 * nlevels(DT.peptide.deviations.meta$Sample),
-    height = 0.5 + 1.5 * nlevels(DT.peptide.deviations.meta$Peptide)
+    width = 1.0 + 0.75 * nlevels(DT.component.deviations.meta$Sample),
+    height = 0.5 + 1.5 * nlevels(DT.component.deviations.meta$Component)
   ))
 }
 
 
 #' @import data.table
 #' @export
-plot_peptide_stdevs <- function(fit, proteinID = NULL, log2SD.lim = NULL, data.design = design(fit), protein = NULL) {
-  if (is.null(proteinID) && is.null(protein)) stop("one of 'proteinID' or 'protein' is needed")
+plot_component_stdevs <- function(fit, groupID = NULL, log2SD.lim = NULL, data.design = design(fit), group = NULL) {
+  if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
-  DT.peptide.stdevs <- peptide_stdevs(fit, proteinID, protein, summary = F, as.data.table = T)
-  DT.peptide.stdevs.meta <- DT.peptide.stdevs[, .(lower = quantile(value, 0.025), median = median(value), upper = quantile(value, 0.975)), by = PeptideID]
-  DT.peptide.stdevs <- merge(DT.peptide.stdevs, DT.peptide.stdevs.meta, by = "PeptideID")
-  DT.peptide.stdevs <- DT.peptide.stdevs[value >= lower & value <= upper]
-  setnames(DT.peptide.stdevs.meta, "median", "value")
+  DT.component.stdevs <- component_stdevs(fit, groupID, group, summary = F, as.data.table = T)
+  DT.component.stdevs.meta <- DT.component.stdevs[, .(lower = quantile(value, 0.025), median = median(value), upper = quantile(value, 0.975)), by = ComponentID]
+  DT.component.stdevs <- merge(DT.component.stdevs, DT.component.stdevs.meta, by = "ComponentID")
+  DT.component.stdevs <- DT.component.stdevs[value >= lower & value <= upper]
+  setnames(DT.component.stdevs.meta, "median", "value")
 
-  DT.peptide.stdevs[, all := factor("all")]
-  DT.peptide.stdevs.meta[, all := factor("all")]
+  DT.component.stdevs[, all := factor("all")]
+  DT.component.stdevs.meta[, all := factor("all")]
 
   if (is.null(log2SD.lim))
   {
-    log2SD.lim <- max(max(DT.peptide.stdevs.meta$upper), 1)
+    log2SD.lim <- max(max(DT.component.stdevs.meta$upper), 1)
   }
 
-  g <- ggplot2::ggplot(DT.peptide.stdevs.meta, ggplot2::aes(x = all, y = value, colour = PeptideID))
-  g <- g + ggplot2::facet_wrap(~ PeptideID, ncol = 1)
-  g <- g + stat_logydensity(data = DT.peptide.stdevs)
+  g <- ggplot2::ggplot(DT.component.stdevs.meta, ggplot2::aes(x = all, y = value, colour = ComponentID))
+  g <- g + ggplot2::facet_wrap(~ ComponentID, ncol = 1)
+  g <- g + stat_logydensity(data = DT.component.stdevs)
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept = value), size = 1/2)
   g <- g + ggplot2::ylab(expression('Log'[2]*' Standard Deviation'))
   g <- g + ggplot2::scale_y_continuous(expand = c(0,0))
-  g <- g + ggplot2::xlab("PeptideID")
+  g <- g + ggplot2::xlab("ComponentID")
   g <- g + ggplot2::coord_flip(ylim = c(0, log2SD.lim))
   g <- g + ggplot2::theme(legend.position = "hidden", axis.text.y = ggplot2::element_blank(), axis.ticks.y = ggplot2::element_blank())
 
@@ -631,39 +631,39 @@ plot_peptide_stdevs <- function(fit, proteinID = NULL, log2SD.lim = NULL, data.d
     g = g,
     log2SD.lim = log2SD.lim,
     width = 2.5,
-    height = 0.5 + 1.5 * nlevels(DT.peptide.stdevs.meta$PeptideID)
+    height = 0.5 + 1.5 * nlevels(DT.component.stdevs.meta$ComponentID)
   ))
 }
 
 
 #' @import data.table
 #' @export
-plot_feature_stdevs <- function(fit, proteinID = NULL, log2SD.lim = NULL, data.design = design(fit), protein = NULL) {
-  if (is.null(proteinID) && is.null(protein)) stop("one of 'proteinID' or 'protein' is needed")
+plot_measurement_stdevs <- function(fit, groupID = NULL, log2SD.lim = NULL, data.design = design(fit), group = NULL) {
+  if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
-  DT.feature.stdevs <- feature_stdevs(fit, proteinID, protein, summary = F, as.data.table = T)
-  setorder(DT.feature.stdevs, PeptideID, FeatureID)
-  DT.feature.stdevs[, PeptideIDFeatureID := factor(paste0("[", PeptideID, "] ", FeatureID), levels = unique(paste0("[", PeptideID, "] ", FeatureID)))]
-  DT.feature.stdevs.meta <- DT.feature.stdevs[, .(lower = quantile(value, 0.025), median = median(value), upper = quantile(value, 0.975)), by = PeptideIDFeatureID]
-  DT.feature.stdevs <- merge(DT.feature.stdevs, DT.feature.stdevs.meta, by = "PeptideIDFeatureID")
-  DT.feature.stdevs <- DT.feature.stdevs[value >= lower & value <= upper]
-  setnames(DT.feature.stdevs.meta, "median", "value")
+  DT.measurement.stdevs <- measurement_stdevs(fit, groupID, group, summary = F, as.data.table = T)
+  setorder(DT.measurement.stdevs, ComponentID, MeasurementID)
+  DT.measurement.stdevs[, ComponentIDMeasurementID := factor(paste0("[", ComponentID, "] ", MeasurementID), levels = unique(paste0("[", ComponentID, "] ", MeasurementID)))]
+  DT.measurement.stdevs.meta <- DT.measurement.stdevs[, .(lower = quantile(value, 0.025), median = median(value), upper = quantile(value, 0.975)), by = ComponentIDMeasurementID]
+  DT.measurement.stdevs <- merge(DT.measurement.stdevs, DT.measurement.stdevs.meta, by = "ComponentIDMeasurementID")
+  DT.measurement.stdevs <- DT.measurement.stdevs[value >= lower & value <= upper]
+  setnames(DT.measurement.stdevs.meta, "median", "value")
 
-  DT.feature.stdevs[, all := factor("all")]
-  DT.feature.stdevs.meta[, all := factor("all")]
+  DT.measurement.stdevs[, all := factor("all")]
+  DT.measurement.stdevs.meta[, all := factor("all")]
 
   if (is.null(log2SD.lim))
   {
-    log2SD.lim <- max(max(DT.feature.stdevs.meta$upper), 1)
+    log2SD.lim <- max(max(DT.measurement.stdevs.meta$upper), 1)
   }
 
-  g <- ggplot2::ggplot(DT.feature.stdevs.meta, ggplot2::aes(x = all, y = value, colour = PeptideID))
-  g <- g + ggplot2::facet_wrap(~ PeptideIDFeatureID, ncol = 1)
-  g <- g + stat_logydensity(data = DT.feature.stdevs)
+  g <- ggplot2::ggplot(DT.measurement.stdevs.meta, ggplot2::aes(x = all, y = value, colour = ComponentID))
+  g <- g + ggplot2::facet_wrap(~ ComponentIDMeasurementID, ncol = 1)
+  g <- g + stat_logydensity(data = DT.measurement.stdevs)
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept = value), size = 1/2)
   g <- g + ggplot2::ylab(expression('Log'[2]*' Standard Deviation'))
   g <- g + ggplot2::scale_y_continuous(expand = c(0, 0))
-  g <- g + ggplot2::xlab("[PeptideID] FeatureID")
+  g <- g + ggplot2::xlab("[ComponentID] MeasurementID")
   g <- g + ggplot2::coord_flip(ylim = c(0, log2SD.lim))
   g <- g + ggplot2::theme(legend.position = "hidden", axis.text.y = ggplot2::element_blank(), axis.ticks.y = ggplot2::element_blank())
 
@@ -671,33 +671,33 @@ plot_feature_stdevs <- function(fit, proteinID = NULL, log2SD.lim = NULL, data.d
     g = g,
     log2SD.lim = log2SD.lim,
     width = 2.5,
-    height = 0.5 + 1.5 * nlevels(DT.feature.stdevs.meta$PeptideIDFeatureID)
+    height = 0.5 + 1.5 * nlevels(DT.measurement.stdevs.meta$ComponentIDMeasurementID)
   ))
 }
 
 
 #' @import data.table
 #' @export
-plot_raw_quants <- function(fit, proteinID = NULL, log2FC.lim = NULL, data.design = design(fit), protein = NULL) {
-  if (is.null(proteinID) && is.null(protein)) stop("one of 'proteinID' or 'protein' is needed")
+plot_raw_quants <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design = design(fit), group = NULL) {
+  if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
-  DT.proteins <- proteins(fit, as.data.table = T)
-  if (is.null(proteinID)) {
-    proteinID <- DT.proteins[Protein == protein, ProteinID]
+  DT.groups <- groups(fit, as.data.table = T)
+  if (is.null(groupID)) {
+    groupID <- DT.groups[Group == group, GroupID]
   }
 
-  DT <- fst::read.fst(file.path(fit, "input", "input.fst"), as.data.table = T, from = DT.proteins[ProteinID == proteinID, from], to = DT.proteins[ProteinID == proteinID, to])
+  DT <- fst::read.fst(file.path(fit, "input", "input.fst"), as.data.table = T, from = DT.groups[GroupID == groupID, from], to = DT.groups[GroupID == groupID, to])
   conf.int <- lapply(round(DT$Count), function(x) poisson.test(x)$conf.int)
   DT[, lower := sapply(conf.int, function(x) x[1])]
   DT[, upper := sapply(conf.int, function(x) x[2])]
-  DT <- merge(DT, peptides(fit, as.data.table = T)[, .(PeptideID, Peptide)], by = "PeptideID")
-  DT <- merge(DT, features(fit, as.data.table = T)[, .(FeatureID, Feature)], by = "FeatureID")
+  DT <- merge(DT, components(fit, as.data.table = T)[, .(ComponentID, Component)], by = "ComponentID")
+  DT <- merge(DT, measurements(fit, as.data.table = T)[, .(MeasurementID, Measurement)], by = "MeasurementID")
   DT <- merge(DT, design(fit, as.data.table = T)[, .(AssayID, Assay)], by = "AssayID")
   DT <- merge(DT, data.design, by = "Assay")
   DT[, SampleAssay := factor(paste0("[", Sample, "] ", Assay))]
   DT <- droplevels(DT)
-  setorder(DT, PeptideID, FeatureID)
-  DT[, PeptideFeature := factor(paste0("[", Peptide, "] ", Feature), levels = unique(paste0("[", Peptide, "] ", Feature)))]
+  setorder(DT, ComponentID, MeasurementID)
+  DT[, ComponentMeasurement := factor(paste0("[", Component, "] ", Measurement), levels = unique(paste0("[", Component, "] ", Measurement)))]
 
   if (is.null(log2FC.lim))
   {
@@ -706,7 +706,7 @@ plot_raw_quants <- function(fit, proteinID = NULL, log2FC.lim = NULL, data.desig
   }
 
   g <- ggplot2::ggplot(DT, ggplot2::aes(x = SampleAssay, y = Count))
-  g <- g + ggplot2::facet_wrap(~ PeptideFeature, ncol = 1)
+  g <- g + ggplot2::facet_wrap(~ ComponentMeasurement, ncol = 1)
   if (is.null(DT$Condition)) {
     g <- g + ggplot2::geom_point()
     g <- g + ggplot2::geom_errorbar(ggplot2::aes(ymin = lower, ymax = upper), width = 0.8)
@@ -722,7 +722,7 @@ plot_raw_quants <- function(fit, proteinID = NULL, log2FC.lim = NULL, data.desig
     g = g,
     log2FC.lim = log2FC.lim,
     width = 1.0 + 0.75 * nlevels(DT$Assay),
-    height = 0.5 + 1.5 * nlevels(DT$PeptideFeature)
+    height = 0.5 + 1.5 * nlevels(DT$ComponentMeasurement)
   ))
 }
 
@@ -730,33 +730,33 @@ plot_raw_quants <- function(fit, proteinID = NULL, log2FC.lim = NULL, data.desig
 #' @import data.table
 #' @import ggplot2
 #' @export
-plot_peptides <- function(fit, proteinID = NULL, log2FC.lim = NULL, data.design = design(fit), protein = NULL) {
-  if (is.null(proteinID) && is.null(protein)) stop("one of 'proteinID' or 'protein' is needed")
+plot_components <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design = design(fit), group = NULL) {
+  if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
-  DT.proteins <- proteins(fit, as.data.table = T)
-  if (is.null(proteinID)) {
-    proteinID <- DT.proteins[Protein == protein, ProteinID]
+  DT.groups <- groups(fit, as.data.table = T)
+  if (is.null(groupID)) {
+    groupID <- DT.groups[Group == group, GroupID]
   }
 
-  g.proteinID.title <- grid::textGrob(paste("ProteinID:", proteinID))
-  g.protein.title <- grid::textGrob(DT.proteins[ProteinID == proteinID, Protein])
+  g.groupID.title <- grid::textGrob(paste("GroupID:", groupID))
+  g.group.title <- grid::textGrob(DT.groups[GroupID == groupID, Group])
 
-  plt.protein.quants <- plot_protein_quants(fit, proteinID, log2FC.lim, data.design, protein)
-  g.legend <- ggplot2::ggplot_gtable(ggplot2::ggplot_build(plt.protein.quants$g))
+  plt.group.quants <- plot_group_quants(fit, groupID, log2FC.lim, data.design, group)
+  g.legend <- ggplot2::ggplot_gtable(ggplot2::ggplot_build(plt.group.quants$g))
   g.legend <- g.legend$grobs[[which(sapply(g.legend$grobs, function(x) x$name) == "guide-box")]]
-  plt.protein.quants$g <- plt.protein.quants$g + ggplot2::theme(legend.position = "hidden", plot.title = ggplot2::element_text(hjust = 0.5))
+  plt.group.quants$g <- plt.group.quants$g + ggplot2::theme(legend.position = "hidden", plot.title = ggplot2::element_text(hjust = 0.5))
 
-  plt.peptide.stdevs <- plot_peptide_stdevs(fit, proteinID, max(plt.protein.quants$log2FC.lim), data.design, protein)
+  plt.component.stdevs <- plot_component_stdevs(fit, groupID, max(plt.group.quants$log2FC.lim), data.design, group)
 
-  plt.peptide.deviations <- plot_peptide_deviations(fit, proteinID, plt.protein.quants$log2FC.lim, data.design, protein)
-  plt.peptide.deviations$g <- plt.peptide.deviations$g + ggplot2::theme(legend.position = "hidden")
+  plt.component.deviations <- plot_component_deviations(fit, groupID, plt.group.quants$log2FC.lim, data.design, group)
+  plt.component.deviations$g <- plt.component.deviations$g + ggplot2::theme(legend.position = "hidden")
 
-  widths <- c(plt.peptide.stdevs$width, plt.protein.quants$width)
-  heights <- c(0.5, plt.protein.quants$height, plt.peptide.stdevs$height)
+  widths <- c(plt.component.stdevs$width, plt.group.quants$width)
+  heights <- c(0.5, plt.group.quants$height, plt.component.stdevs$height)
   g <- gridExtra::grid.arrange(ncol = 2, widths = widths, heights = heights,
-                               g.proteinID.title,    g.protein.title,
-                               g.legend,             plt.protein.quants$g,
-                               plt.peptide.stdevs$g, plt.peptide.deviations$g)
+                               g.groupID.title,    g.group.title,
+                               g.legend,             plt.group.quants$g,
+                               plt.component.stdevs$g, plt.component.deviations$g)
   return(list(
     g = g,
     width = sum(widths),
@@ -768,34 +768,34 @@ plot_peptides <- function(fit, proteinID = NULL, log2FC.lim = NULL, data.design 
 #' @import data.table
 #' @import ggplot2
 #' @export
-plot_features <- function(fit, proteinID = NULL, log2FC.lim = NULL, data.design = design(fit), protein = NULL) {
-  if (is.null(proteinID) && is.null(protein)) stop("one of 'proteinID' or 'protein' is needed")
+plot_measurements <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design = design(fit), group = NULL) {
+  if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
-  DT.proteins <- proteins(fit, as.data.table = T)
-  if (is.null(proteinID)) {
-    proteinID <- DT.proteins[Protein == protein, ProteinID]
-  } else if (is.numeric(proteinID)) {
-    proteinID <- DT.proteins[as.numeric(ProteinID) == proteinID, ProteinID]
+  DT.groups <- groups(fit, as.data.table = T)
+  if (is.null(groupID)) {
+    groupID <- DT.groups[Group == group, GroupID]
+  } else if (is.numeric(groupID)) {
+    groupID <- DT.groups[as.numeric(GroupID) == groupID, GroupID]
   }
-  g.proteinID.title <- grid::textGrob(paste("ProteinID:", proteinID))
-  g.protein.title <- grid::textGrob(DT.proteins[ProteinID == proteinID, Protein])
+  g.groupID.title <- grid::textGrob(paste("GroupID:", groupID))
+  g.group.title <- grid::textGrob(DT.groups[GroupID == groupID, Group])
 
-  plt.protein.quants <- plot_protein_quants(fit, proteinID, log2FC.lim, data.design, protein)
-  g.legend <- ggplot2::ggplot_gtable(ggplot2::ggplot_build(plt.protein.quants$g))
+  plt.group.quants <- plot_group_quants(fit, groupID, log2FC.lim, data.design, group)
+  g.legend <- ggplot2::ggplot_gtable(ggplot2::ggplot_build(plt.group.quants$g))
   g.legend <- g.legend$grobs[[which(sapply(g.legend$grobs, function(x) x$name) == "guide-box")]]
-  plt.protein.quants$g <- plt.protein.quants$g + ggplot2::theme(legend.position = "hidden", plot.title = ggplot2::element_text(hjust = 0.5))
+  plt.group.quants$g <- plt.group.quants$g + ggplot2::theme(legend.position = "hidden", plot.title = ggplot2::element_text(hjust = 0.5))
 
-  plt.feature.stdevs <- plot_feature_stdevs(fit, proteinID, max(plt.protein.quants$log2FC.lim), data.design, protein)
+  plt.measurement.stdevs <- plot_measurement_stdevs(fit, groupID, max(plt.group.quants$log2FC.lim), data.design, group)
 
-  plt.raw.quants <- plot_raw_quants(fit, proteinID, NULL, data.design, protein)
+  plt.raw.quants <- plot_raw_quants(fit, groupID, NULL, data.design, group)
   plt.raw.quants$g <- plt.raw.quants$g + ggplot2::theme(legend.position = "hidden")
 
-  widths <- c(plt.feature.stdevs$width, plt.protein.quants$width)
-  heights <- c(0.5, plt.protein.quants$height, plt.raw.quants$height)
+  widths <- c(plt.measurement.stdevs$width, plt.group.quants$width)
+  heights <- c(0.5, plt.group.quants$height, plt.raw.quants$height)
   g <- gridExtra::grid.arrange(ncol = 2, widths = widths, heights = heights,
-                               g.proteinID.title,    g.protein.title,
-                               g.legend,             plt.protein.quants$g,
-                               plt.feature.stdevs$g, plt.raw.quants$g)
+                               g.groupID.title,    g.group.title,
+                               g.legend,             plt.group.quants$g,
+                               plt.measurement.stdevs$g, plt.raw.quants$g)
   return(list(
     g = g,
     width = sum(widths),
