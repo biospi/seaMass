@@ -116,7 +116,7 @@ For differential expression analysis, a Bayesian version of median normalisation
 ```
 # custom normalisation function
 norm_truth <- function(...) {
-  norm_median(..., ref.proteins = levels(data$Protein)[grep("_RAT", levels(data$Protein))])
+  norm_median(..., ref.groups = levels(data$Group)[grep("_RAT", levels(data$Group))])
 }
 ```
 
