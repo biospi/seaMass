@@ -1,11 +1,11 @@
 .onAttach <- function(libname, pkgname) {
-  packageStartupMessage(paste0("deaMass v", packageVersion("deamass"), "  |  © 2015-2019  BIOSP", utf8::utf8_encode("\U0001f441"), "  Laboratory"))
+  packageStartupMessage(paste0("seamassdelta v", packageVersion("seamassdelta"), "  |  © 2015-2019  BIOSP", utf8::utf8_encode("\U0001f441"), "  Laboratory"))
   packageStartupMessage("This program comes with ABSOLUTELY NO WARRANTY.")
   packageStartupMessage("This is free software, and you are welcome to redistribute it under certain conditions.")
 }
 
 
-#' Fit the deaMass Bayesian quantification model
+#' Fit the seamassdelta Bayesian quantification model
 #'
 #' @param data A \link{data.frame} of input data as returned by \link{import_GroupPilot} or \link{import_ProteomeDiscoverer}.
 #' @param data.design Optionally, a \link{data.frame} created by \link{design} and then customised, which specifies
@@ -16,13 +16,13 @@
 #' @param dea.func A differential expression analysis function or list of functions to run, or NULL (default: NULL)
 #' @param fdr.func A false discovery rate (FDR) correction function or list of functions to run, or NULL (default: ash FDR correction)
 #' @param plot Generate all plots
-#' @param output Folder on disk whether all intermediate and output data will be stored; default is \code{"deamass"}.
+#' @param output Folder on disk whether all intermediate and output data will be stored; default is \code{"seamassdelta"}.
 #' @param control A control object created with \link{new_control} specifying control parameters for the model.
-#' @return A \code{deamass_fit} object that can be interrogated for various results with \code{group_quants},
+#' @return A \code{seamassdelta_fit} object that can be interrogated for various results with \code{group_quants},
 #'   \code{component_deviations}, \code{component_stdevs}, \code{measurement_stdevs}, \code{de_metafor} and \code{de_mice}. \code{del}
 #'   deletes all associated files on disk.
 #' @export
-deamass <- function(
+seamassdelta <- function(
   data,
   data.design = new_design(data),
   block.refs = "BlockRef",
@@ -33,7 +33,7 @@ deamass <- function(
   component.vars = FALSE,
   component.deviations = FALSE,
   plots = FALSE,
-  output = "deaMass",
+  output = "seamassdelta",
   control = new_control()
 ) {
   data.table::setDTthreads(control$nthread)
@@ -41,9 +41,9 @@ deamass <- function(
 
   # check for finished output and return that
   output <- path.expand(output)
-  fit <- deamass_fit(output, T)
+  fit <- seamassdelta_fit(output, T)
   if (!is.null(fit)) {
-    message("returning completed deaMass fit object - if this wasn't your intention, supply a different 'output' directory or delete it with 'deamass::del'")
+    message("returning completed seamassdelta fit object - if this wasn't your intention, supply a different 'output' directory or delete it with 'seamassdelta::del'")
     return(fit)
   }
 
@@ -99,7 +99,7 @@ deamass <- function(
   }
   control$fdr.func <- fdr.func
 
-  message(paste0("[", Sys.time(), "] deaMass started"))
+  message(paste0("[", Sys.time(), "] seamassdelta started"))
 
   # create output directory
   if (file.exists(output)) unlink(output, recursive = T)
@@ -265,16 +265,16 @@ deamass <- function(
     stop("not implemented yet")
   }
 
-  write.table(data.frame(), file.path(output, "deamass_fit"), col.names = F)
-  message(paste0("[", Sys.time(), "] deaMass finished!"))
+  write.table(data.frame(), file.path(output, "seamassdelta_fit"), col.names = F)
+  message(paste0("[", Sys.time(), "] seamassdelta finished!"))
 
   # return fit object
-  class(fit) <- "deamass_fit"
+  class(fit) <- "seamassdelta_fit"
   return(fit)
 }
 
 
-#' Control parameters for the deaMass Bayesian model
+#' Control parameters for the seamassdelta Bayesian model
 #'
 #' @param measurement.model Either \code{single} (single residual) or \code{independent} (per-measurement independent residuals; default)
 #' @param measurement.eb.min Minimum number of measurements per component to use for computing Empirical Bayes priors
@@ -295,7 +295,7 @@ deamass <- function(
 #' @param model.nsample Total number of MCMC samples to deliver downstream
 #' @param hpc Either \code{NULL} (execute locally), \code{pbs}, \code{sge} or \code{slurm} (submit to HPC cluster) [TODO]
 #' @param nthread Number of CPU threads to employ
-#' @return \code{deamass_control} object to pass to \link{deamass}
+#' @return \code{seamassdelta_control} object to pass to \link{seamassdelta}
 #' @export
 new_control <- function(
   measurement.model = "independent",
@@ -337,8 +337,8 @@ new_control <- function(
 
   # create control object
   control <- as.list(environment())
-  control$version <- packageVersion("deamass")
-  class(control) <- "deamass_control"
+  control$version <- packageVersion("seamassdelta")
+  class(control) <- "seamassdelta_control"
 
   # tidy squeeze.var.func
   if (!is.list(control$squeeze.var.func)) control$squeeze.var.func <- list(control$squeeze.var.func)
@@ -346,7 +346,7 @@ new_control <- function(
     if(is.null(names(control$squeeze.var.func))) names(control$squeeze.var.func) <- 1:length(control$squeeze.var.func)
     names(control$squeeze.var.func) <- ifelse(names(control$squeeze.var.func) == "", 1:length(control$squeeze.var.func), names(control$squeeze.var.func))
   } else {
-    stop("'squeeze.var.func' must be a function or list of functions taking a 'deamass_fit' object")
+    stop("'squeeze.var.func' must be a function or list of functions taking a 'seamassdelta_fit' object")
   }
 
   # tidy dist.var.func
@@ -355,7 +355,7 @@ new_control <- function(
     if(is.null(names(control$dist.var.func))) names(control$dist.var.func) <- 1:length(control$dist.var.func)
     names(control$dist.var.func) <- ifelse(names(control$dist.var.func) == "", 1:length(control$dist.var.func), names(control$dist.var.func))
   } else {
-    stop("'dist.var.func' must be a function or list of functions taking a 'deamass_fit' object")
+    stop("'dist.var.func' must be a function or list of functions taking a 'seamassdelta_fit' object")
   }
 
   # tidy dist.mean.func
@@ -364,7 +364,7 @@ new_control <- function(
     if(is.null(names(control$dist.mean.func))) names(control$dist.mean.func) <- 1:length(control$dist.mean.func)
     names(control$dist.mean.func) <- ifelse(names(control$dist.mean.func) == "", 1:length(control$dist.mean.func), names(control$dist.mean.func))
   } else {
-    stop("'dist.mean.func' must be a function or list of functions taking a 'deamass_fit' object")
+    stop("'dist.mean.func' must be a function or list of functions taking a 'seamassdelta_fit' object")
   }
 
   return(control)

@@ -1,4 +1,4 @@
-# deaMass v1.0-0.0 (alpha1 - 29th October 2019)
+# seaMass-delta v1.0-0.0 (alpha1 - 30th October 2019)
 Differential expression analysis for mass spectrometry proteomics and metabolomics using a mixed-effects model and uncertainty propagation, achieving sensitive protein and metabolite group-level quantification and differential expression analysis. Currently works with imported data from SCIEX ProteinPilot, Thermo ProteomeDiscoverer, Waters Progenesis and OpenSWATH/PyProphet across iTraq/TMT, SILAC, Label-free and SWATH data types.
 
 ## Current citation
@@ -6,7 +6,7 @@ Xu et al, Nature Communications Biology 2019, 2:43, [https://doi.org/10.1038/s42
 
 ## Requirements
 
-deaMass is an R package that works on Windows, MacOS and Linux. Small studies (n=4 vs n=4) will take about one to two hours to process with default control parameters. Large studies (e.g. 100 samples) could take overnight or longer. Memory requirements are dependent on the amount of data in the largest block of assays. Typically 8-32Gb of memory is required. To reduce memory usage at the expense of speed, reduce the number of CPU threads via the 'nthread' parameter of the deaMass 'control' object (see tutorial below).
+seaMass-delta is an R package that works on Windows, MacOS and Linux. Small studies (n=4 vs n=4) will take about one to two hours to process with default control parameters. Large studies (e.g. 100 samples) could take overnight or longer. Memory requirements are dependent on the amount of data in the largest block of assays. Typically 8-32Gb of memory is required. To reduce memory usage at the expense of speed, reduce the number of CPU threads via the 'nthread' parameter of the seaMass-delta 'control' object (see tutorial below).
 
 ## Installation
 
@@ -16,31 +16,31 @@ Please install the R package directly from our Github repository. To do this you
 install.packages("devtools")
 ```
 
-Then to install deaMass, or upgrade to the latest version, simply run:
+Then to install seaMass-delta, or upgrade to the latest version, simply run:
 
 ```
-devtools::install_github("biospi/deamass", dependencies = TRUE)
+devtools::install_github("biospi/seamassdelta", dependencies = TRUE)
 ```
 
-To upgrade to the latest version of deaMass, simply run the second line again.
+To upgrade to the latest version of seaMass-delta, simply run the second line again.
 
 ## Usage
 
-Firstly, you need to use an 'import' function to convert from an upstream tool format to deaMass's standardised 'data.frame' format. Then you can assign injections to runs if you've used fractionation, and specify a study design if you'd like to do differential expression analysis. Finally, you use the 'deamass' function to fit the model and generate the results.
+Firstly, you need to use an 'import' function to convert from an upstream tool format to seaMass-delta's standardised 'data.frame' format. Then you can assign injections to runs if you've used fractionation, and specify a study design if you'd like to do differential expression analysis. Finally, you use the 'seaMass-delta' function to fit the model and generate the results.
 
 ### Tutorial
 
 Load the included ProteinPilot iTraq dataset (note this is a small subset of proteins from our spike-in study and as such is not useful for anything else than this tutorial).
 
 ```
-library(deamass)
+library(seamassdelta)
 
 # Import tutorial iTraq dataset.
-file <- system.file(file.path("demo", "Tutorial_PeptideSummary.txt.bz2"), package = "deamass")
+file <- system.file(file.path("demo", "Tutorial_PeptideSummary.txt.bz2"), package = "seaMass-delta")
 data <- import_ProteinPilot(file)
 ```
 
-Unfortunately the input file does not contain information for linking fractions to runs, so deaMass allows you to update the imported data with this information. If your study does not employ fractionation, you can skip this section.
+Unfortunately the input file does not contain information for linking fractions to runs, so seaMass-delta allows you to update the imported data with this information. If your study does not employ fractionation, you can skip this section.
 
 ```
 # Get skeleton injection-run table from imported data.
@@ -75,7 +75,7 @@ data.design$Sample <- factor(c(
 ))
 ```
 
-If you have a large amount of assays, you may group them into blocks so that deaMass will be robust to batch effects or measurement drift etc. This will also help memory consumption, as blocks are processed by deaMass independently. If you are processing iTraq or TMT data, each run will be treated as a seperate block by default, which deaMass will autodetect. To compare across blocks correctly, you need to normalise them via reference assays. Here we can specify specific reference assays e.g. pooled reference samples, of if the study design has been blocked appropriately, we can just use all relevant assays:
+If you have a large amount of assays, you may group them into blocks so that seaMass-delta will be robust to batch effects or measurement drift etc. This will also help memory consumption, as blocks are processed by seaMass-delta independently. If you are processing iTraq or TMT data, each run will be treated as a seperate block by default, which seaMass-delta will autodetect. To compare across blocks correctly, you need to normalise them via reference assays. Here we can specify specific reference assays e.g. pooled reference samples, of if the study design has been blocked appropriately, we can just use all relevant assays:
 
 ```
 # Define reference assays for each block
@@ -85,7 +85,7 @@ data.design$BlockRef <- c(
 )
 ```
 
-Optionally, you can do differential expression analysis (or any mixed-effects model supported by the 'MCMCglmm' package). You can run a 'dea_' function post-hoc using the 'fit' object returned by 'deamass', or you can supply one or more 'dea_' functions to run during the 'deamass' call. The 'dea' functions will perform the model seperately for each pair of conditions specified by a 'Condition' column in your experiment design:
+Optionally, you can do differential expression analysis (or any mixed-effects model supported by the 'MCMCglmm' package). You can run a 'dea_' function post-hoc using the 'fit' object returned by 'seaMass-delta', or you can supply one or more 'dea_' functions to run during the 'seaMass-delta' call. The 'dea' functions will perform the model seperately for each pair of conditions specified by a 'Condition' column in your experiment design:
 
 ```
 # specify a list of one of more differential expression analysis functions.
@@ -99,7 +99,7 @@ data.design$Condition <- factor(c(
 ))
 ```
 
-If you have multiple channels per run (e.g. iTraq, TMT, SILAC) you need to specify the reference assay(s) for each run so that quants can be linked between runs. deaMass does not need specific reference samples (e.g. pooled samples) to have been run as long as you have a blocked design with the same proportion of samples in each treatment group in each run. For example, below we have designated 4 A and 4 B samples as reference channels for Run 1, and 2 A and 2 B samples as reference channels for Run 2.
+If you have multiple channels per run (e.g. iTraq, TMT, SILAC) you need to specify the reference assay(s) for each run so that quants can be linked between runs. seaMass-delta does not need specific reference samples (e.g. pooled samples) to have been run as long as you have a blocked design with the same proportion of samples in each treatment group in each run. For example, below we have designated 4 A and 4 B samples as reference channels for Run 1, and 2 A and 2 B samples as reference channels for Run 2.
 
 ```
 # iTraq/TMT/SILAC only: Since we have more than one iTraq run we need to normalise across them.
@@ -120,21 +120,21 @@ norm_truth <- function(...) {
 }
 ```
 
-Finally, run the model. Intermediate and results data is stored in the directory specified by the deaMass 'output' parameter, and any internal control parameters (such as the number of CPU threads to use) can be specified through a 'control' object'. 
+Finally, run the model. Intermediate and results data is stored in the directory specified by the seaMass-delta 'output' parameter, and any internal control parameters (such as the number of CPU threads to use) can be specified through a 'control' object'. 
 
 ```
-# run deaMass
-fit <- deamass(
+# run seaMass-delta
+fit <- seaMass-delta(
   data,
   data.design = data.design,
   norm.func = norm_truth,
   dea.func = dea.func,
-  output = "Tutorial.deamass",
+  output = "Tutorial.seaMass-delta",
   control = new_control(nthread = 4)
 )
 ```
 
-Once run, results tables (in csv format) and diagnostic plots are available in the 'output' subdirectory of the output directory specified above. Or you can use the R package functions to retrieve results and generate plots from the fit object created by the 'deamass' call:
+Once run, results tables (in csv format) and diagnostic plots are available in the 'output' subdirectory of the output directory specified above. Or you can use the R package functions to retrieve results and generate plots from the fit object created by the 'seaMass-delta' call:
 
 ```
 # Output list of protein groups analysed.

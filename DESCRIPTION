@@ -1,4 +1,4 @@
-Package: deamass
+Package: seamassdelta
 Type: Package
 Title: Differential expression analysis for mass spectrometry proteomics and metabolomics
 Version: 1.0-0.0
