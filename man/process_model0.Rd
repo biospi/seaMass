@@ -7,7 +7,7 @@
 process_model0(fit, block = 1, chain = 1)
 }
 \arguments{
-\item{fit}{deamass fit object.}
+\item{fit}{seamassdelta fit object.}
 
 \item{i}{.}
 }

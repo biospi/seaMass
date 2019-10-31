@@ -22,7 +22,7 @@ Then to install seaMass-delta, or upgrade to the latest version, simply run:
 devtools::install_github("biospi/seamassdelta", dependencies = TRUE)
 ```
 
-To upgrade to the latest version of seaMass-delta, simply run the second line again.
+To upgrade to the latest version of seaMass-delta, simply run this line again.
 
 ## Usage
 
@@ -105,7 +105,7 @@ If you have multiple channels per run (e.g. iTraq, TMT, SILAC) you need to speci
 # iTraq/TMT/SILAC only: Since we have more than one iTraq run we need to normalise across them.
 #  Here we can specify specific reference assays e.g. pooled reference samples, of if the study
 #  design has been blocked appropriately, we can just use all relevant assays:
-data.design$ref <- factor(c(
+data.design$BlockRef <- factor(c(
   F, F, F, F, T, T, T, T,
   F, F, F, F, T, T, T, T)
 )

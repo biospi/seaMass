@@ -7,7 +7,7 @@
 process_plots(fit, i)
 }
 \arguments{
-\item{fit}{deamass fit object.}
+\item{fit}{seamassdelta fit object.}
 
 \item{i}{.}
 }

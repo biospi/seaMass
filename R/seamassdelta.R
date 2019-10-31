@@ -190,6 +190,8 @@ seamassdelta <- function(
   if (control$missingness.model == "censored" & all(DT$Count == DT$Count1)) DT[, Count1 := NULL]
 
   # blocks
+  if (!is.factor(DT.design$Block)) DT.design[, BlockID := factor(Block)]
+  DT.design[, BlockID := as.integer(Block)]
   DT <- merge(DT, DT.design[, .(AssayID, BlockID)])
   setorder(DT, GroupID, ComponentID, MeasurementID, AssayID)
   setcolorder(DT, c("GroupID", "ComponentID", "MeasurementID", "AssayID", "RawCount"))

@@ -64,8 +64,8 @@ new_design <- function(data) {
   mat.tmp <- table(mat.tmp[, list(Assay.x, Assay.y)])
   # matrix multiplication distributes assay relationships
   mat.tmp <- mat.tmp %*% mat.tmp
-  # Block ID is recoded first non-zero occurence for each assay
-  DT.design[, BlockID := as.integer(factor(colnames(mat.tmp)[apply(mat.tmp != 0, 2, which.max)]))]
+  # Block is recoded first non-zero occurence for each assay
+  DT.design[, Block := as.integer(factor(colnames(mat.tmp)[apply(mat.tmp != 0, 2, which.max)]))]
   # default is all assays are reference assays for each block
   DT.design[, BlockRef := T]
 
