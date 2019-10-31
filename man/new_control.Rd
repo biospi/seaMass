@@ -10,7 +10,8 @@ new_control(measurement.model = "independent", measurement.eb.min = 2,
   error.model = "poisson", missingness.model = "censored",
   missingness.threshold = 0, model.seed = 0, model.nchain = 4,
   model.nwarmup = 256, model.thin = 1, model.nsample = 1024,
-  squeeze.var.func = squeeze_var, dist.var.func = dist_invchisq_mcmc,
+  squeeze.var.func = function(...) squeeze_var(..., use.deconvolution =
+  FALSE), dist.var.func = dist_invchisq_mcmc,
   dist.mean.func = dist_lst_mcmc,
   nthread = parallel::detectCores()\%/\%2, hpc = NULL)
 }

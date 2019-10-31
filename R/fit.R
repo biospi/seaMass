@@ -80,17 +80,17 @@ read_mcmc <- function(
 }
 
 
-#' Interrogating the \code{deamass} fit object
+#' Interrogating the \code{seamassdelta} fit object
 #'
-#' Get information from a \link{deamass} fit.
+#' Get information from a \link{seamassdelta} fit.
 #'
-#' @param dir directory containing the \link{deamass} fit to read
+#' @param dir directory containing the \link{seamassdelta} fit to read
 #' @import data.table
 #' @export
-deamass_fit <- function(dir = "deamass", quiet = FALSE, force = FALSE) {
-  if(force || file.exists(file.path(dir, "deamass_fit"))) {
+seamassdelta_fit <- function(dir = "seamassdelta", quiet = FALSE, force = FALSE) {
+  if(force || file.exists(file.path(dir, "seamassdelta_fit"))) {
     fit <- path.expand(dir)
-    class(fit) <- "deamass_fit"
+    class(fit) <- "seamassdelta_fit"
     return(fit)
   } else {
     if (quiet) {
@@ -102,14 +102,14 @@ deamass_fit <- function(dir = "deamass", quiet = FALSE, force = FALSE) {
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @export
 del <- function(fit) {
   unlink(fit, recursive = T)
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @import data.table
 #' @export
 control <- function(fit) {
@@ -121,8 +121,8 @@ control <- function(fit) {
 }
 
 
-#' @rdname deamass_fit
-#' @param fit \code{deamass_fit} object created by \code{deamass}.
+#' @rdname seamassdelta_fit
+#' @param fit \code{seamassdelta_fit} object created by \code{seamassdelta}.
 #' @import data.table
 #' @export
 design <- function(fit, as.data.table = F) {
@@ -134,7 +134,7 @@ design <- function(fit, as.data.table = F) {
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @import data.table
 #' @export
 measurements <- function(fit, as.data.table = FALSE) {
@@ -146,7 +146,7 @@ measurements <- function(fit, as.data.table = FALSE) {
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @import data.table
 #' @export
 components <- function(fit, as.data.table = FALSE) {
@@ -158,7 +158,7 @@ components <- function(fit, as.data.table = FALSE) {
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @import data.table
 #' @export
 groups <- function(fit, as.data.table = FALSE) {
@@ -170,7 +170,7 @@ groups <- function(fit, as.data.table = FALSE) {
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @import data.table
 #' @export
 block_refs <- function(fit, key = 1) {
@@ -178,7 +178,7 @@ block_refs <- function(fit, key = 1) {
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @import data.table
 #' @export
 norm_func <- function(fit, key = 1) {
@@ -186,7 +186,7 @@ norm_func <- function(fit, key = 1) {
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @import data.table
 #' @export
 dea_func <- function(fit, key = 1) {
@@ -194,7 +194,7 @@ dea_func <- function(fit, key = 1) {
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @import data.table
 #' @export
 fdr_func <- function(fit, key = 1) {
@@ -202,7 +202,7 @@ fdr_func <- function(fit, key = 1) {
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @import data.table
 #' @export
 squeeze_var_func <- function(fit, key = 1) {
@@ -210,7 +210,7 @@ squeeze_var_func <- function(fit, key = 1) {
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @import data.table
 #' @export
 dist_var_func <- function(fit, key = 1) {
@@ -218,7 +218,7 @@ dist_var_func <- function(fit, key = 1) {
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @import data.table
 #' @export
 dist_mean_func <- function(fit, key = 1) {
@@ -226,11 +226,11 @@ dist_mean_func <- function(fit, key = 1) {
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @import data.table
-#' @export summary.deamass_fit
+#' @export summary.seamassdelta_fit
 #' @export
-summary.deamass_fit <- function(
+summary.seamassdelta_fit <- function(
   fit,
   groupID,
   stage = ""
@@ -244,7 +244,7 @@ summary.deamass_fit <- function(
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @import data.table
 #' @export
 timings <- function(
@@ -262,7 +262,7 @@ timings <- function(
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @import doRNG
 #' @import data.table
 #' @export
@@ -291,7 +291,7 @@ measurement_vars <- function(
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @import doRNG
 #' @import data.table
 #' @export
@@ -320,7 +320,7 @@ component_vars <- function(
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @import doRNG
 #' @import data.table
 #' @export
@@ -349,7 +349,7 @@ assay_vars <- function(
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @import doRNG
 #' @import data.table
 #' @export
@@ -378,7 +378,7 @@ component_deviations <- function(
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @import doRNG
 #' @import data.table
 #' @export
@@ -401,7 +401,7 @@ group_quants <- function(
     if (!is.null(process.func$value)) {
       block.refs <- process.func$value
       process.func$value <- function(DT) {
-        DT <- merge(DT, deamass::design(fit, as.data.table = T)[, .(AssayID, ref = get(block.refs))], by = "AssayID")
+        DT <- merge(DT, seamassdelta::design(fit, as.data.table = T)[, .(AssayID, ref = get(block.refs))], by = "AssayID")
         DT[, value := value - mean(value[ref == T]), by = .(GroupID, BaselineID, BlockID, chainID, mcmcID)]
         DT[, ref := NULL]
         return(DT[!is.nan(value)])
@@ -480,7 +480,7 @@ group_quants <- function(
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @import data.table
 #' @export
 group_de <- function(
@@ -510,7 +510,7 @@ group_de <- function(
 }
 
 
-#' @rdname deamass_fit
+#' @rdname seamassdelta_fit
 #' @import data.table
 #' @export
 group_fdr <- function(

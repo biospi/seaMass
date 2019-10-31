@@ -1,6 +1,6 @@
 #' process_model0 (internal)
 #'
-#' @param fit deamass fit object.
+#' @param fit seamassdelta fit object.
 #' @param i .
 #' @import data.table
 #' @import foreach
@@ -117,7 +117,7 @@ process_model0 <- function(fit, block = 1, chain = 1) {
 
 #' process_model (internal)
 #'
-#' @param fit deamass fit object.
+#' @param fit seamassdelta fit object.
 #' @param chain Number of chain to process.
 #' @import data.table
 #' @import foreach
@@ -262,7 +262,7 @@ process_model <- function(fit, block = 1, chain = 1) {
           DT.fdr <- merge(DT.groups[, .(GroupID, Group, GroupInfo, nComponent, nMeasurement, nMeasure)], DTs.fdr[[i]], by = "GroupID")
           setorder(DT.fdr, qvalue)
           fwrite(DT.fdr[, !c("Model", "Effect")], file.path(fit, "output", paste0("group_log2DE_", dea_func(fit, k)$key, "_", names(DTs.fdr)[i], ".csv")))
-          g <- deamass::plot_fdr(DT.fdr, 1.0)
+          g <- seamassdelta::plot_fdr(DT.fdr, 1.0)
           ggplot2::ggsave(file.path(fit, "output", paste0("group_log2DE_fdr_", dea_func(fit, k)$key, "_", names(DTs.fdr)[i], ".pdf")), g, width = 8, height = 8)
         }
       }
@@ -273,7 +273,7 @@ process_model <- function(fit, block = 1, chain = 1) {
 
 #' process_plots (internal)
 #'
-#' @param fit deamass fit object.
+#' @param fit seamassdelta fit object.
 #' @param i .
 #' @import data.table
 #' @import doRNG
@@ -295,7 +295,7 @@ process_plots <- function(fit, i) {
 
   # start cluster and reproducible seed
   pb <- txtProgressBar(max = length(pids), style = 3)
-  dfll <- foreach(pid = pids, .packages = c("deamass", "data.table", "ggplot2"), .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dorng% {
+  dfll <- foreach(pid = pids, .packages = c("seamassdelta", "data.table", "ggplot2"), .options.snow = list(progress = function(n) setTxtProgressBar(pb, n))) %dorng% {
     plt.measurements <- plot_measurements(fit, groupID = pid)
     ggplot2::ggsave(file.path(fit, "plots", "measurements", paste0(pid, ".pdf")), plt.measurements$g, width = plt.measurements$width, height = plt.measurements$height, limitsize = F)
 

@@ -36,7 +36,7 @@ Load the included ProteinPilot iTraq dataset (note this is a small subset of pro
 library(seamassdelta)
 
 # Import tutorial iTraq dataset.
-file <- system.file(file.path("demo", "Tutorial_PeptideSummary.txt.bz2"), package = "seaMass-delta")
+file <- system.file(file.path("demo", "Tutorial_PeptideSummary.txt.bz2"), package = "seamassdelta")
 data <- import_ProteinPilot(file)
 ```
 
@@ -124,12 +124,12 @@ Finally, run the model. Intermediate and results data is stored in the directory
 
 ```
 # run seaMass-delta
-fit <- seaMass-delta(
+fit <- seamassdelta(
   data,
   data.design = data.design,
   norm.func = norm_truth,
   dea.func = dea.func,
-  output = "Tutorial.seaMass-delta",
+  output = "Tutorial.seamassdelta",
   control = new_control(nthread = 4)
 )
 ```

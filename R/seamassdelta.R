@@ -99,7 +99,7 @@ seamassdelta <- function(
   }
   control$fdr.func <- fdr.func
 
-  message(paste0("[", Sys.time(), "] seamassdelta started"))
+  message(paste0("[", Sys.time(), "] seaMass-delta started"))
 
   # create output directory
   if (file.exists(output)) unlink(output, recursive = T)
@@ -266,7 +266,7 @@ seamassdelta <- function(
   }
 
   write.table(data.frame(), file.path(output, "seamassdelta_fit"), col.names = F)
-  message(paste0("[", Sys.time(), "] seamassdelta finished!"))
+  message(paste0("[", Sys.time(), "] seaMass-delta finished!"))
 
   # return fit object
   class(fit) <- "seamassdelta_fit"
@@ -312,7 +312,7 @@ new_control <- function(
   model.nwarmup = 256,
   model.thin = 1,
   model.nsample = 1024,
-  squeeze.var.func = squeeze_var,
+  squeeze.var.func = function(...) squeeze_var(..., use.deconvolution = FALSE),
   dist.var.func = dist_invchisq_mcmc,
   dist.mean.func = dist_lst_mcmc,
   nthread = parallel::detectCores() %/% 2,
