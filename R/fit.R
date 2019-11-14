@@ -28,6 +28,7 @@ read_mcmc <- function(
       DT.index[, file := file.path(paste0("block.", block), paste0("model", stage), file)]
       DT.index
     }))
+    DT.index <- DT.index[complete.cases(DT.index)]
     if (nrow(DT.index) == 0) return(NULL)
     setorder(DT.index, file, from)
 
@@ -62,7 +63,11 @@ read_mcmc <- function(
       if (!is.null(process.func$value)) DT <- process.func$value(DT)
 
       # optional summarise
-      if (!is.null(summary.func$value)) DT <- DT[, summary.func$value(chainID, mcmcID, value), by = summaryIDs]
+      if (!is.null(summary.func$value)) {
+        # average samples if assay run in multiple blocks
+        if (length(unique(DT$BlockID)) > 1) DT <- DT[, .(value = mean(value)), by = c(summaryIDs, "chainID", "mcmcID")]
+        DT <- DT[, summary.func$value(chainID, mcmcID, value), by = summaryIDs]
+      }
 
       setcolorder(DT, summaryIDs)
       return(DT)
@@ -431,7 +436,7 @@ group_quants <- function(
     block.refs <- block_refs(fit, block.refs.key)
     folder <- paste0("group.quants", stage, ".", block.refs$index, ".", norm.func$index)
 
-    if (!file.exists(file.path(fit, "block.1", paste0("model", stage), folder))) {
+    if (!file.exists(file.path(fit, paste0("block.", control(fit)$assay.nblock), paste0("model", stage), folder, paste0(control(fit)$model.nchain, ".fst")))) {
 
       for (block in 1:control(fit)$assay.nblock) {
         dir.create(file.path(fit, paste0("block.", block), paste0("model", stage), folder), showWarnings = F)
@@ -439,7 +444,7 @@ group_quants <- function(
         for (chain in 1:control(fit)$model.nchain) {
           DT.group.quants <- group_quants(fit, block.refs.key = block.refs.key, norm.func.key = NULL, block = block, chain = chain, summary = F, as.data.table = T)
           DT.group.quants <- norm.func$value(fit, DT.group.quants, as.data.table = T)
-          fst::write.fst(DT.group.quants, file.path(fit, paste0("block.", block), paste0("model", stage), folder, paste0(chain, ".fst")))
+          if (nrow(DT.group.quants) > 0) fst::write.fst(DT.group.quants, file.path(fit, paste0("block.", block), paste0("model", stage), folder, paste0(chain, ".fst")))
 
           if (chain == 1) {
             # write index
@@ -452,7 +457,7 @@ group_quants <- function(
               data.table(file = file.path(folder, paste0("1.fst"))),
               DT.group.quants.index
             )
-            fst::write.fst(DT.group.quants.index, file.path(fit, paste0("block.", block), paste0("model", stage), paste0("group.quants", stage, ".", block.refs$index, ".", norm.func$index, ".index.fst")))
+            if (nrow(DT.group.quants.index) > 0) fst::write.fst(DT.group.quants.index, file.path(fit, paste0("block.", block), paste0("model", stage), paste0("group.quants", stage, ".", block.refs$index, ".", norm.func$index, ".index.fst")))
           }
         }
       }

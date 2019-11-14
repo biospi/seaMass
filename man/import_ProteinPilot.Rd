@@ -23,8 +23,8 @@ import_ProteinPilot(file = NULL, shared = F, min.conf = "auto",
 \link[data.table]{fread} default parameters.}
 }
 \value{
-A \link{data.frame} for input into \link{bayesprot}.
+A \link{data.frame} for input into \link{seamassdelta}.
 }
 \description{
-Reads in a SCIEX ProteinPilot \code{ComponentSummary.txt} file for processing with \link{bayesprot}.
+Reads in a SCIEX ProteinPilot \code{ComponentSummary.txt} file for processing with \link{seamassdelta}.
 }

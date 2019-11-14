@@ -10,7 +10,7 @@ new_design(data)
 \item{data}{\link{data.frame} returned by \link{import_ProteinPilot} or \link{import_ProteomeDiscoverer}.}
 }
 \value{
-\link{data.frame} that can be edited and passed as parameter \code{data.design} of \link{bayesprot}.
+\link{data.frame} that can be edited and passed as parameter \code{data.design} of \link{seamassdelta}.
 }
 \description{
 Returns a skeleton \link{data.frame} for customising the study design of a dataset imported with  \link{import_ProteinPilot} or

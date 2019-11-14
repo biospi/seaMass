@@ -156,6 +156,34 @@ plot_fits <- function(data, data.fits = NULL, ci = c(0.05, 0.95), by = NULL, xla
 #' @return The sum of \code{x} and \code{y}.
 #' @import data.table
 #' @export
+plot_priors <- function(data.fits = NULL, ci = c(0.05, 0.95), by = NULL, xlab = "v", ylim = NULL, trans = identity, inv.trans = identity, show.input = T) {
+  DT.fits <- as.data.table(data.fits)
+  xlim <- c(0, max(2 * DT.fits$v))
+  DT.fits <- DT.fits[, .(v, df, z = seq(trans(xlim[1]), trans(xlim[2]), length.out = 10001)), by = by]
+  DT.fits[, x := inv.trans(z)]
+  DT.fits[, y := extraDistr::dinvchisq(x, df, v) * c(diff(x) / diff(z), NA)]
+
+
+  g <- ggplot2::ggplot(DT.fits, ggplot2::aes(x = trans(x)))
+  g <- g + ggplot2::geom_hline(yintercept = 0, color = "darkgrey")
+
+  g <- g + ggplot2::geom_line(ggplot2::aes(x = z, y = y), DT.fits, colour = "red")
+  g <- g + ggplot2::geom_vline(ggplot2::aes(xintercept = trans(v)), DT.fits, colour = "red")
+
+  g <- g + ggplot2::scale_x_continuous(expand = c(0, 0), limits = trans(xlim))
+  g <- g + ggplot2::xlab(xlab)
+  if (!is.null(ylim)) g <- g + ggplot2::scale_y_continuous(limits = c(0, ylim))
+  if (!is.null(by)) g <- g + ggplot2::facet_wrap(as.formula(paste("~", by)), ncol = 1, scales = "free_y")
+  return(g)
+}
+
+
+#' Add together two numbers.
+#'
+#' @param datafile A number.
+#' @return The sum of \code{x} and \code{y}.
+#' @import data.table
+#' @export
 plot_exposures <- function(fit, data = group_quants(fit, summary = F), data.design = design(fit)) {
   DT <- as.data.table(data)
   DT.design <- as.data.table(data.design)

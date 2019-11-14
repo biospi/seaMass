@@ -56,14 +56,19 @@ execute_model <- function(fit, block, chain, use.priors) {
       DT[, AssayID := factor(AssayID)]
 
       # create co-occurence matrix of which assays are present in each measurement
+      # unnecessary if experimented is blocked correctly and uses censored model
       DT[, BaselineID := AssayID]
-      mat.tmp <- merge(DT, DT, by = "MeasurementID", allow.cartesian = T)
-      mat.tmp <- table(mat.tmp[, list(AssayID.x, AssayID.y)])
+      block <- DT[, .(AssayID, MeasurementID, Count)]
+      block <- block[complete.cases(block)]
+      block[, Count := 1]
+      block <- dcast(block, MeasurementID ~ AssayID, sum, value.var = "Count")
+      block[, MeasurementID := NULL]
+      block <- as.matrix(block)
       # matrix multiplication distributes assay relationships
-      mat.tmp <- mat.tmp %*% mat.tmp
+      block <- t(block) %*% block
       # baseline is first non-zero occurence for each assay
-      DT[, BaselineID := as.integer(colnames(mat.tmp)[apply(mat.tmp != 0, 2, which.max)][AssayID])]
-      rm(mat.tmp)
+      DT[, BaselineID := as.integer(colnames(block)[apply(block != 0, 2, which.max)][AssayID])]
+      rm(block)
       DT[, QuantID := as.character(interaction(DT$AssayID, DT$BaselineID, lex.order = T, drop = T))]
       # and now merge where the assayID and the baselineID are the same, as these effects are not identifiable
       DT[AssayID == BaselineID, QuantID := "."]

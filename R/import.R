@@ -1,7 +1,7 @@
 #' Imported dataset run information
 #'
-#' Get or set run and batch information from a \link{data.frame} returned by an \code{import} routine.
-#' Used to manually add run and batch information to imported datasets.
+#' Get or set run and block information from a \link{data.frame} returned by an \code{import} routine.
+#' Used to manually add run and block information to imported datasets.
 #'
 #' @param data \link{data.frame} returned by an \code{import} routine.
 #' @import data.table
@@ -45,7 +45,7 @@ runs <- function(data) {
 #' \link{import_ProteomeDiscoverer}.
 #'
 #' @param data \link{data.frame} returned by \link{import_ProteinPilot} or \link{import_ProteomeDiscoverer}.
-#' @return \link{data.frame} that can be edited and passed as parameter \code{data.design} of \link{bayesprot}.
+#' @return \link{data.frame} that can be edited and passed as parameter \code{data.design} of \link{seamassdelta}.
 #' @import data.table
 #' @export
 new_design <- function(data) {
@@ -57,15 +57,17 @@ new_design <- function(data) {
   DT.design[, Assay := sub(",$", "", Assay)]
 
   # autodetect blocks
-  DT.batch <- merge(DT.design[, .(Run, Channel, Assay)], DT[, .(Run, Channel, Measurement)], by = c("Run", "Channel"))
-  DT.batch[, Run := NULL]
-  DT.batch[, Channel := NULL]
-  mat.tmp <- merge(DT.batch, DT.batch, by = "Measurement", allow.cartesian = T)
-  mat.tmp <- table(mat.tmp[, list(Assay.x, Assay.y)])
+  block <- merge(DT.design[, .(Run, Channel, Assay)], DT[, .(Run, Channel, Measurement)], by = c("Run", "Channel"))
+  block[, Run := NULL]
+  block[, Channel := NULL]
+  block[, N := 1]
+  block <- dcast(block, Measurement ~ Assay, sum, value.var = "N")
+  block[, Measurement := NULL]
+  block <- as.matrix(block)
   # matrix multiplication distributes assay relationships
-  mat.tmp <- mat.tmp %*% mat.tmp
+  block <- t(block) %*% block
   # Block is recoded first non-zero occurence for each assay
-  DT.design[, Block := as.integer(factor(colnames(mat.tmp)[apply(mat.tmp != 0, 2, which.max)]))]
+  DT.design[, Block := as.integer(factor(colnames(block)[apply(block != 0, 2, which.max)]))]
   # default is all assays are reference assays for each block
   DT.design[, BlockRef := T]
 
@@ -80,7 +82,7 @@ new_design <- function(data) {
 
 #' Import SCIEX ProteinPilot data
 #'
-#' Reads in a SCIEX ProteinPilot \code{ComponentSummary.txt} file for processing with \link{bayesprot}.
+#' Reads in a SCIEX ProteinPilot \code{ComponentSummary.txt} file for processing with \link{seamassdelta}.
 #'
 #' @param file Location of the \code{ComponentSummary.txt} file.
 #' @param shared Include shared components?
@@ -90,7 +92,7 @@ new_design <- function(data) {
 #'   \code{"weak signal"}}
 #' @param data Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
 #'   \link[data.table]{fread} default parameters.
-#' @return A \link{data.frame} for input into \link{bayesprot}.
+#' @return A \link{data.frame} for input into \link{seamassdelta}.
 #' @import data.table
 #' @export
 
@@ -128,7 +130,7 @@ import_ProteinPilot <- function(
     Group = gsub(";", "", Accessions),
     Component = gsub(" ", "", paste0(Sequence, ",", Modifications, ",", ProteinModifications, ",", Cleavages), fixed = T),
     Measurement = Spectrum,
-    Run = as.integer(matrix(unlist(strsplit(as.character(DT.raw$Spectrum), ".", fixed = T)), ncol = 5, byrow = T)[, 1])
+    Injection = as.integer(matrix(unlist(strsplit(as.character(DT.raw$Spectrum), ".", fixed = T)), ncol = 5, byrow = T)[, 1])
   )]
   if("Area 113" %in% colnames(DT.raw)) DT$Channel.113 <- DT.raw$`Area 113`
   if("Area 114" %in% colnames(DT.raw)) DT$Channel.114 <- DT.raw$`Area 114`
@@ -139,7 +141,7 @@ import_ProteinPilot <- function(
   if("Area 119" %in% colnames(DT.raw)) DT$Channel.119 <- DT.raw$`Area 119`
   if("Area 121" %in% colnames(DT.raw)) DT$Channel.121 <- DT.raw$`Area 121`
 
-  # group ambiguous PSMs so BayesProt treats them as a single component per group
+  # group ambiguous PSMs so seaMass-Delta treats them as a single component per group
   DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement)]
   DT <- unique(DT)
 
@@ -148,8 +150,8 @@ import_ProteinPilot <- function(
   DT[, Group := factor(Group)]
   DT[, Component := factor(Component)]
   DT[, Measurement := factor(Measurement)]
-  DT[, Run := factor(Run)]
-  DT[, Injection := factor(Run)]
+  DT[, Run := factor("")]
+  DT[, Injection := factor(Injection)]
   DT <- melt(DT, variable.name = "Channel", value.name = "Count", measure.vars = colnames(DT)[grep("^Channel\\.", colnames(DT))])
   levels(DT$Channel) <- sub("^Channel\\.", "", levels(DT$Channel))
 
@@ -160,14 +162,14 @@ import_ProteinPilot <- function(
 
 #' Import Thermo ProteomeDiscoverer data
 #'
-#' Reads in a Thermo ProteomeDiscoverer \code{PSMs.txt} file for processing with \link{bayesprot}.
+#' Reads in a Thermo ProteomeDiscoverer \code{PSMs.txt} file for processing with \link{seamassdelta}.
 #'
 #' @param file Location of the \code{PSMs.txt} file.
 #' @param shared Include shared components?
 #' @param used Include only measurements marked as used by ProteomeDiscoverer?
 #' @param data Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
 #'   \link[data.table]{fread} default parameters.
-#' @return A \link{data.frame} for input into \link{bayesprot}.
+#' @return A \link{data.frame} for input into \link{seamassdelta}.
 #' @import data.table
 #' @export
 import_ProteomeDiscoverer <- function(
@@ -210,7 +212,7 @@ import_ProteomeDiscoverer <- function(
     Group = `Master Protein Accessions`,
     Component = gsub(" ", "", paste0(Sequence, ",", Modifications)),
     Measurement = paste0(`Spectrum File`, ",", `First Scan`),
-    Run = `Spectrum File`
+    Injection = `Spectrum File`
   )]
   if ("Light" %in% colnames(DT.raw)) DT$Channel.Light <- DT.raw$Light
   if ("Medium" %in% colnames(DT.raw)) DT$Channel.Medium <- DT.raw$Medium
@@ -234,7 +236,7 @@ import_ProteomeDiscoverer <- function(
   if ("131C" %in% colnames(DT.raw)) DT$Channel.131C <- DT.raw$`131C`
   if ("131" %in% colnames(DT.raw)) DT$Channel.131 <- DT.raw$`131`
 
-  # group ambiguous PSMs so BayesProt treats them as a single component per group
+  # group ambiguous PSMs so seaMass-Delta treats them as a single component per group
   DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement)]
   DT <- unique(DT)
 
@@ -243,8 +245,8 @@ import_ProteomeDiscoverer <- function(
   DT[, Group := factor(Group)]
   DT[, Component := factor(Component)]
   DT[, Measurement := factor(Measurement)]
-  DT[, Run := factor(Run)]
-  DT[, Injection := factor(Run)]
+  DT[, Injection := factor(Injection)]
+  DT[, Run := factor("")]
   DT <- melt(DT, variable.name = "Channel", value.name = "Count", measure.vars = colnames(DT)[grep("^Channel\\.", colnames(DT))])
   levels(DT$Channel) <- sub("^Channel\\.", "", levels(DT$Channel))
 
@@ -255,13 +257,13 @@ import_ProteomeDiscoverer <- function(
 
 #' Import Waters Progenesis data
 #'
-#' Reads in a Waters Progenesis \code{pep_ion_measurements.csv} file for processing with \link{bayesprot}.
+#' Reads in a Waters Progenesis \code{pep_ion_measurements.csv} file for processing with \link{seamassdelta}.
 #'
 #' @param file Location of the \code{pep_ion_measurements.csv} file.
 #' @param used Include only measurements marked as used by Progenesis?
 #' @param data Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
 #'   \link[data.table]{fread} default parameters.
-#' @return A \link{data.frame} for input into \link{bayesprot}.
+#' @return A \link{data.frame} for input into \link{seamassdelta}.
 #' @import data.table
 #' @export
 
@@ -315,7 +317,7 @@ import_Progenesis <- function(
     Measurement = `#`
   )], DT.raw[, .SD, .SDcols = names(DT.raw) %like% "^Raw abundance "])
 
-  # group ambiguous PSMs so BayesProt treats them as a single component per group
+  # group ambiguous PSMs so seaMass-Delta treats them as a single component per group
   DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement)]
   DT <- unique(DT)
 
@@ -334,33 +336,34 @@ import_Progenesis <- function(
 }
 
 
-#' Import OpenSWATH - PyProphet data
+#' Import OpenSWATH data
 #'
-#' Reads in a set of \code{_with_dscore} datasets processed by OpenSWATH and PyProphet for processing with \link{bayesprot}.
+#' Reads in the output of an OpenSWATH -> PyProphet -> TRIC pipeline for processing with \link{seamassdelta}.
 #'
-#' @param files One of more \code{_with_dscore} files to import and merge.
+#' @param files A \code{csv} file to import.
 #' @param m_score.cutoff Include only measurements with PyProphet m_score >= than this?
-#' @param data Advanced: Rather than specifying \code{files}, you can enter a \link{data.frame} preloaded with
+#' @param data Advanced: Rather than specifying a \code{file}, you can enter a \link{data.frame} preloaded with
 #'   \link[data.table]{fread} default parameters.
-#' @return A \link{data.frame} for input into \link{bayesprot}.
+#' @return A \link{data.frame} for input into \link{seamassdelta}.
 #' @import data.table
 #' @export
-import_OpenSwath_PyProphet <- function(
-  files = NULL,
-  shared = F,
-  m_score.cutoff = 0.01,
+import_OpenSwath <- function(
+  file = NULL,
+  shared = FALSE,
+  m_score.cutoff = 0.05,
+  #missing.cutoff = 0.5,
   data = NULL
 ) {
   suppressWarnings(suppressMessages(library(R.oo)))
 
-  if (is.null(file) && is.null(data)) stop("One of 'data' or 'files' needs to be specified.")
-  if (!is.null(data)) files <- data
+  if (is.null(file) && is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
+  if (!is.null(data)) file <- data
 
-  DT <- rbindlist(lapply(files, function(file) {
-    if (is.data.frame(file)) {
+  DT <- rbindlist(lapply(file, function(f) {
+    if (is.data.frame(f)) {
       DT.raw <- as.data.file(data)
     } else {
-      DT.raw <- fread(file = file, showProgress = T)
+      DT.raw <- fread(file = f, showProgress = T)
     }
 
     # remove decoys and > m_score.cutoff
@@ -372,7 +375,7 @@ import_OpenSwath_PyProphet <- function(
       Group = ProteinName,
       Component = FullPeptideName,
       Measurement = gsub(";", ";bayesprot;", aggr_Fragment_Annotation),
-      Run = tools::file_path_sans_ext(basename(filename)),
+      Run = paste(run_id, tools::file_path_sans_ext(basename(filename)), sep = ";"),
       Count = gsub(";", ";bayesprot;", aggr_Peak_Area)
     )]
     DT <- DT[, lapply(.SD, function(x) unlist(tstrsplit(x, ";bayesprot;", fixed = T)))]
@@ -389,10 +392,13 @@ import_OpenSwath_PyProphet <- function(
   # create wide data table
   DT <- dcast(DT, Group + Component + Measurement ~ Run, value.var = "Count")
 
+  # remove transitions that are present is less than missing.cutoff assays
+  #DT <- DT[rowSums(is.na(DT)) < missing.cutoff * length(assays)]
+
   # remove shared
   if (!shared) DT <- DT[grepl("^1/", DT$Group)]
 
-  # group ambiguous PSMs so BayesProt treats them as a single component per group
+  # group ambiguous transitions so seaMass-Delta treats them as a single component per group ## UNNECCESARY?
   DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement)]
   DT <- unique(DT)
 
@@ -413,20 +419,18 @@ import_OpenSwath_PyProphet <- function(
 
 #' Import data outputed by an MSstats import routine
 #'
-#' Reads in a set of \code{_with_dscore} datasets processed by OpenSWATH and PyProphet for processing with \link{bayesprot}.
+#' Reads in a set of \code{_with_dscore} datasets processed by OpenSWATH and PyProphet for processing with \link{seamassdelta}.
 #'
-#' @param files One of more \code{_with_dscore} files to import and merge.
-#' @param m_score.cutoff Include only measurements with PyProphet m_score >= than this?
-#' @param data Advanced: Rather than specifying \code{files}, you can enter a \link{data.frame} preloaded with
+#' @param data MSstats output
 #'   \link[data.table]{fread} default parameters.
-#' @return A \link{data.frame} for input into \link{bayesprot}.
+#' @return A \link{data.frame} for input into \link{seamassdelta}.
 #' @import data.table
 #' @export
 import_MSstats <- function(data) {
   DT <- data.table(
-    Group = factor(data$GroupName),
+    Group = factor(data$ProteinName),
     GroupInfo = "",
-    Component = factor(data$ComponentSequence),
+    Component = factor(data$PeptideSequence),
     Measurement = factor(data$FragmentIon),
     Run = factor(data$Run, levels = unique(data$Run)),
     Injection = factor(data$Run, levels = unique(data$Run)),

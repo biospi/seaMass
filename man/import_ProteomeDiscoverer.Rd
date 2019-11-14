@@ -18,8 +18,8 @@ import_ProteomeDiscoverer(file = NULL, shared = F, used = T,
 \link[data.table]{fread} default parameters.}
 }
 \value{
-A \link{data.frame} for input into \link{bayesprot}.
+A \link{data.frame} for input into \link{seamassdelta}.
 }
 \description{
-Reads in a Thermo ProteomeDiscoverer \code{PSMs.txt} file for processing with \link{bayesprot}.
+Reads in a Thermo ProteomeDiscoverer \code{PSMs.txt} file for processing with \link{seamassdelta}.
 }

@@ -208,12 +208,12 @@ dea_lme <- function(
         output.contrast$DT.input <- droplevels(output.contrast$DT.input)
         setcolorder(output.contrast$DT.input, c("AssayID", "Assay", "Run", "Channel", "Sample", "m", "s"))
 
-        #if (nrow(output.contrast$DT.input) > 0) {
-        #  # metafor will moan if SE is 0
-        #  output.contrast$DT.input[, s := ifelse(s < 0.001, 0.001, s)]
-        #  # metafor will moan if the ratio between largest and smallest sampling variance is >= 1e7
-        #  output.contrast$DT.input[, s := ifelse(s^2 / min(s^2) >= 1e7, sqrt(min(s^2) * (1e7 - 1)), s)]
-        #}
+        if (nrow(output.contrast$DT.input) > 0) {
+          # lme will moan if SE is 0
+          output.contrast$DT.input[, s := ifelse(s < 0.001, 0.001, s)]
+          # metafor will moan if the ratio between largest and smallest sampling variance is >= 1e7
+          #output.contrast$DT.input[, s := ifelse(s^2 / min(s^2) >= 1e7, sqrt(min(s^2) * (1e7 - 1)), s)]
+        }
 
         # fit
         if (length(unique(output.contrast$DT.input[get(condition) == cts[1, j], Sample])) >= 2 &&

@@ -1,5 +1,5 @@
 .onAttach <- function(libname, pkgname) {
-  packageStartupMessage(paste0("seamassdelta v", packageVersion("seamassdelta"), "  |  © 2015-2019  BIOSP", utf8::utf8_encode("\U0001f441"), "  Laboratory"))
+  packageStartupMessage(paste0("seaMass-delta v", packageVersion("seamassdelta"), "  |  © 2019  BIOSP", utf8::utf8_encode("\U0001f441"), "  Laboratory"))
   packageStartupMessage("This program comes with ABSOLUTELY NO WARRANTY.")
   packageStartupMessage("This is free software, and you are welcome to redistribute it under certain conditions.")
 }
@@ -43,7 +43,7 @@ seamassdelta <- function(
   output <- path.expand(output)
   fit <- seamassdelta_fit(output, T)
   if (!is.null(fit)) {
-    message("returning completed seamassdelta fit object - if this wasn't your intention, supply a different 'output' directory or delete it with 'seamassdelta::del'")
+    message("returning completed seaMass-delta fit object - if this wasn't your intention, supply a different 'output' directory or delete it with 'seamassdelta::del'")
     return(fit)
   }
 
@@ -117,15 +117,13 @@ seamassdelta <- function(
   DT[, notNA := sum(!is.na(Count)), by = .(Measurement)]
   DT <- DT[notNA > 0]
   DT[, notNA := NULL]
-  # drop unused levels
-  DT <- droplevels(DT)
 
   # build Group index
   DT.groups <- DT[, .(
     GroupInfo = GroupInfo[1],
     nComponent = length(unique(as.character(Component))),
     nMeasurement = length(unique(as.character(Measurement))),
-    nMeasure = sum(!is.na(Count))
+    nDatapoint = sum(!is.na(Count))
   ), by = Group]
 
   # use pre-trained regression model to estimate how long each Group will take to process
@@ -144,10 +142,10 @@ seamassdelta <- function(
   # build Component index
   DT.components <- DT[, .(
     nMeasurement = length(unique(as.character(Measurement))),
-    nMeasure = sum(!is.na(Count)),
+    nDatapoint = sum(!is.na(Count)),
     TopGroupID = first(GroupID)
   ), by = Component]
-  setorder(DT.components, TopGroupID, -nMeasurement, -nMeasure, Component)
+  setorder(DT.components, TopGroupID, -nMeasurement, -nDatapoint, Component)
   DT.components[, TopGroupID := NULL]
   DT.components[, ComponentID := 1:nrow(DT.components)]
   DT.components[, Component := factor(Component, levels = unique(Component))]
@@ -158,10 +156,10 @@ seamassdelta <- function(
 
   # build Measurement index
   DT.measurements <- DT[, .(
-    nMeasure = sum(!is.na(Count)),
+    nDatapoint = sum(!is.na(Count)),
     TopComponentID = min(ComponentID)
   ), by = Measurement]
-  setorder(DT.measurements, TopComponentID, -nMeasure, Measurement)
+  setorder(DT.measurements, TopComponentID, -nDatapoint, Measurement)
   DT.measurements[, TopComponentID := NULL]
   DT.measurements[, MeasurementID := 1:nrow(DT.measurements)]
   DT.measurements[, Measurement := factor(Measurement, levels = unique(Measurement))]
@@ -175,7 +173,7 @@ seamassdelta <- function(
     nGroup = length(unique(GroupID)),
     nComponent = length(unique(ComponentID)),
     nMeasurement = length(unique(MeasurementID)),
-    nMeasure = sum(!is.na(Count))
+    nDatapoint = sum(!is.na(Count))
   ), keyby = Assay], DT.design, keyby = Assay)
   DT.design[, AssayID := 1:nrow(DT.design)]
   setcolorder(DT.design, c("AssayID", "Assay", "Run", "Channel"))
@@ -190,16 +188,19 @@ seamassdelta <- function(
   if (control$missingness.model == "censored" & all(DT$Count == DT$Count1)) DT[, Count1 := NULL]
 
   # blocks
-  if (!is.factor(DT.design$Block)) DT.design[, BlockID := factor(Block)]
+  if (!is.factor(DT.design$Block)) DT.design[, Block := factor(Block)]
   DT.design[, BlockID := as.integer(Block)]
   DT <- merge(DT, DT.design[, .(AssayID, BlockID)])
-  setorder(DT, GroupID, ComponentID, MeasurementID, AssayID)
-  setcolorder(DT, c("GroupID", "ComponentID", "MeasurementID", "AssayID", "RawCount"))
   DTs <- split(DT, by = "BlockID", drop = T, keep.by = F)
-  for (i in 1:length(DTs))
+  # we will include all assays with 'NA' block into all blocks
+  DT.na <- DTs$`NA`
+  DTs$`NA` <- NULL
+  for (blockID in names(DTs))
   {
-    blockID <- names(DTs[i])
-    DT <- DTs[[i]]
+    DT <- DTs[[blockID]]
+    if (!is.null(DT.na)) DT <- rbind(DT, DT.na)
+    setorder(DT, GroupID, ComponentID, MeasurementID, AssayID)
+    setcolorder(DT, c("GroupID", "ComponentID", "MeasurementID", "AssayID", "RawCount"))
 
     # filter DT for Empirical Bayes model
     DT0 <- unique(DT[, .(GroupID, ComponentID, MeasurementID)])
@@ -276,7 +277,7 @@ seamassdelta <- function(
 }
 
 
-#' Control parameters for the seamassdelta Bayesian model
+#' Control parameters for the seaMass-delta Bayesian model
 #'
 #' @param measurement.model Either \code{single} (single residual) or \code{independent} (per-measurement independent residuals; default)
 #' @param measurement.eb.min Minimum number of measurements per component to use for computing Empirical Bayes priors
@@ -301,11 +302,11 @@ seamassdelta <- function(
 #' @export
 new_control <- function(
   measurement.model = "independent",
-  measurement.eb.min = 2,
+  measurement.eb.min = 3,
   component.model = NULL,
-  component.eb.min = 2,
+  component.eb.min = 6,
   assay.model = "independent",
-  assay.eb.min = 2,
+  assay.eb.min = 3,
   error.model = "poisson",
   missingness.model = "censored",
   missingness.threshold = 0,

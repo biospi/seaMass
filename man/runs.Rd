@@ -15,6 +15,6 @@ runs(data) <- value
 \item{value}{Edited \link{data.frame} created by \code{runs}.}
 }
 \description{
-Get or set run and batch information from a \link{data.frame} returned by an \code{import} routine.
-Used to manually add run and batch information to imported datasets.
+Get or set run and block information from a \link{data.frame} returned by an \code{import} routine.
+Used to manually add run and block information to imported datasets.
 }

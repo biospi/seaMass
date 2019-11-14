@@ -2,11 +2,11 @@
 % Please edit documentation in R/seamassdelta.R
 \name{new_control}
 \alias{new_control}
-\title{Control parameters for the seamassdelta Bayesian model}
+\title{Control parameters for the seaMass-delta Bayesian model}
 \usage{
-new_control(measurement.model = "independent", measurement.eb.min = 2,
-  component.model = NULL, component.eb.min = 2,
-  assay.model = "independent", assay.eb.min = 2,
+new_control(measurement.model = "independent", measurement.eb.min = 3,
+  component.model = NULL, component.eb.min = 6,
+  assay.model = "independent", assay.eb.min = 3,
   error.model = "poisson", missingness.model = "censored",
   missingness.threshold = 0, model.seed = 0, model.nchain = 4,
   model.nwarmup = 256, model.thin = 1, model.nsample = 1024,
@@ -55,5 +55,5 @@ new_control(measurement.model = "independent", measurement.eb.min = 2,
 \code{seamassdelta_control} object to pass to \link{seamassdelta}
 }
 \description{
-Control parameters for the seamassdelta Bayesian model
+Control parameters for the seaMass-delta Bayesian model
 }
