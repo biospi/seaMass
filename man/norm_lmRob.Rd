@@ -4,8 +4,12 @@
 \alias{norm_lmRob}
 \title{lmRob normalisation}
 \usage{
-norm_lmRob(fit, data, ref.groups = levels(groups(fit)$Group),
-  as.data.table = FALSE)
+norm_lmRob(
+  fit,
+  data,
+  ref.groups = levels(groups(fit)$Group),
+  as.data.table = FALSE
+)
 }
 \description{
 blah

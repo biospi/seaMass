@@ -4,8 +4,12 @@
 \alias{norm_robust_median}
 \title{Robust Median normalisation}
 \usage{
-norm_robust_median(fit, data, ref.groups = levels(groups(fit)$Group),
-  as.data.table = FALSE)
+norm_robust_median(
+  fit,
+  data,
+  ref.groups = levels(groups(fit)$Group),
+  as.data.table = FALSE
+)
 }
 \description{
 blah

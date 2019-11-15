@@ -4,9 +4,17 @@
 \alias{plot_fits}
 \title{Add together two numbers.}
 \usage{
-plot_fits(data, data.fits = NULL, ci = c(0.05, 0.95), by = NULL,
-  xlab = "v", ylim = NULL, trans = identity, inv.trans = identity,
-  show.input = T)
+plot_fits(
+  data,
+  data.fits = NULL,
+  ci = c(0.05, 0.95),
+  by = NULL,
+  xlab = "v",
+  ylim = NULL,
+  trans = identity,
+  inv.trans = identity,
+  show.input = T
+)
 }
 \arguments{
 \item{datafile}{A number.}

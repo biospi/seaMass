@@ -4,12 +4,20 @@
 \alias{seamassdelta}
 \title{Fit the seamassdelta Bayesian quantification model}
 \usage{
-seamassdelta(data, data.design = new_design(data),
-  block.refs = "BlockRef", norm.func = list(median = norm_median),
-  dea.func = NULL, fdr.func = list(ash = fdr_ash),
-  measurement.vars = FALSE, component.vars = FALSE,
-  component.deviations = FALSE, plots = FALSE,
-  output = "seamassdelta", control = new_control())
+seamassdelta(
+  data,
+  data.design = new_design(data),
+  block.refs = "BlockRef",
+  norm.func = list(median = norm_median),
+  dea.func = NULL,
+  fdr.func = list(ash = fdr_ash),
+  measurement.vars = FALSE,
+  component.vars = FALSE,
+  component.deviations = FALSE,
+  plots = FALSE,
+  output = "seamassdelta",
+  control = new_control()
+)
 }
 \arguments{
 \item{data}{A \link{data.frame} of input data as returned by \link{import_GroupPilot} or \link{import_ProteomeDiscoverer}.}

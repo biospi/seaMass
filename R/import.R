@@ -10,12 +10,12 @@ runs <- function(data) {
   data.is.data.table <- is.data.table(data)
   DT <- setDT(data)
 
-  data <- DT[, .(Run = first(Run)), keyby = Injection]
+  DT <- DT[, .(Run = first(Run)), keyby = Injection]
   DT[, Run := as.character(Run)]
   DT[, Injection := as.character(Injection)]
 
-  if (data.is.data.table) data <- setDF(DT)
-  return(data)
+  if (data.is.data.table) setDF(data)
+  return(setDF(DT))
 }
 
 
@@ -34,8 +34,8 @@ runs <- function(data) {
   if (!is.factor(DT.runs$Run)) DT.runs[, Run := factor(Run)]
   DT <- merge(DT, DT.runs, by = "Injection")
 
-  if (data.is.data.table) data <- setDF(DT)
-  return(data)
+  if (data.is.data.table) setDF(data)
+  return(setDF(DT))
 }
 
 
@@ -75,7 +75,7 @@ new_design <- function(data) {
   DT.design[, Sample := Assay]
   DT.design[, Condition := NA]
 
-  if (data.is.data.table) data <- setDF(DT)
+  if (data.is.data.table) setDF(data)
   return(setDF(DT.design))
 }
 

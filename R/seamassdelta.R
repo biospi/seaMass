@@ -302,9 +302,9 @@ seamassdelta <- function(
 #' @export
 new_control <- function(
   measurement.model = "independent",
-  measurement.eb.min = 3,
+  measurement.eb.min = 2,
   component.model = NULL,
-  component.eb.min = 6,
+  component.eb.min = 3,
   assay.model = "independent",
   assay.eb.min = 3,
   error.model = "poisson",

@@ -4,9 +4,13 @@
 \alias{import_ProteinPilot}
 \title{Import SCIEX ProteinPilot data}
 \usage{
-import_ProteinPilot(file = NULL, shared = F, min.conf = "auto",
+import_ProteinPilot(
+  file = NULL,
+  shared = F,
+  min.conf = "auto",
   filter = c("discordant component type", "no iTRAQ", "weak signal"),
-  data = NULL)
+  data = NULL
+)
 }
 \arguments{
 \item{file}{Location of the \code{ComponentSummary.txt} file.}

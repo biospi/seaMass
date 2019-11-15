@@ -4,10 +4,18 @@
 \alias{dea_limma}
 \title{Univariate differential expression analysis with 'limma::lmFit' linear model and 'limma::eBayes' moderation of standard errors}
 \usage{
-dea_limma(fit, data = group_quants(fit), data.design = design(fit),
-  condition = "Condition", output = "limma", save.intercept = FALSE,
-  as.data.table = FALSE, ..., use.moderation = TRUE,
-  use.precision = TRUE)
+dea_limma(
+  fit,
+  data = group_quants(fit),
+  data.design = design(fit),
+  condition = "Condition",
+  output = "limma",
+  save.intercept = FALSE,
+  as.data.table = FALSE,
+  ...,
+  use.moderation = TRUE,
+  use.precision = TRUE
+)
 }
 \description{
 The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.

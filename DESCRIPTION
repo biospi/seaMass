@@ -32,4 +32,4 @@ Imports:
     MCMCglmm (>= 2.29),
     R.utils (>= 2.9.0),
     utf8 (>= 1.1.4)
-RoxygenNote: 6.1.1
+RoxygenNote: 7.0.0
