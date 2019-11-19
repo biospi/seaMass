@@ -18,6 +18,7 @@
 #' @param plot Generate all plots
 #' @param output Folder on disk whether all intermediate and output data will be stored; default is \code{"seamassdelta"}.
 #' @param control A control object created with \link{new_control} specifying control parameters for the model.
+#' @param hpc.schedule A hpc object created with \link{new_hpcschedule} specifying hpc parameters for the type of HPC system seamassdelta will be deployed on.
 #' @return A \code{seamassdelta_fit} object that can be interrogated for various results with \code{group_quants},
 #'   \code{component_deviations}, \code{component_stdevs}, \code{measurement_stdevs}, \code{de_metafor} and \code{de_mice}. \code{del}
 #'   deletes all associated files on disk.
@@ -34,7 +35,9 @@ seamassdelta <- function(
   component.deviations = FALSE,
   plots = FALSE,
   output = "seamassdelta",
-  control = new_control()
+  control = new_control(),
+  hpc.schedule = new_hpcschedule()
+
 ) {
   data.table::setDTthreads(control$nthread)
   fst::threads_fst(control$nthread)
@@ -265,6 +268,32 @@ seamassdelta <- function(
     if (plots) for (i in 1:control$assay.nblock * control$model.nchain) process_plots(fit, i)
   } else {
     # submit to hpc directly here
+    tmp.dir <- tempfile("bayesprot.")
+    dir.create(tmp.dir, showWarnings = FALSE)
+
+    clusterHPC <- new(control$hpc, block = control$assay.nblock, nchain = control$model.nchain, fit = fit, path = tmp.dir, email = hpc.schedule$email, cpuNum = hpc.schedule$cpuNum, node = hpc.schedule$node, taskPerNode = hpc.schedule$taskPerNode, mem = hpc.schedule$mem, que = hpc.schedule$que)
+
+    # Model0
+    model0(clusterHPC)
+    # Model:
+    model(clusterHPC)
+    # Plots:
+    plots(clusterHPC)
+    # Submit Script
+    submit(clusterHPC)
+
+    # create zip file
+    wd <- getwd()
+    setwd(tmp.dir)
+    zip(file.path(wd, paste0(control$output, "_submit.zip")), ".", flags="-r9Xq")
+    setwd(wd)
+
+    # clean up
+    unlink(tmp.dir, recursive = T)
+
+    message(paste0("[", Sys.time(), "] HPC submission zip saved as ", file.path(wd, paste0(control$output, ".zip"))))
+
+    # submit to hpc directly here
     stop("not implemented yet")
   }
 
@@ -371,4 +400,28 @@ new_control <- function(
   }
 
   return(control)
+}
+
+#' HPC parameters for executing seamassdelta Bayesian model on HPC clusters
+#' Each stage of seamasdelta is split into seperate tasks, currently each task only needs 1 node.
+#' @param cpuNum Number of CPUs to use per job submission. .i.e. equivilent to the number of threads per task.
+#' @param que Name of the que on the HPC to submit the jobs to. Different ques are tailered and have different requirements.
+#' @param mem Amount of memory needed for each task.
+#' @param node Number of nodes to use per task.
+#' @param taskPerNode Number of Nodes to use per task.
+#' @param path Output path is used to overide fit directory
+#' @param email email address to use for notigation of completed jobs on HPC system
+#' @return hpc.schedule object to pass to \link{seamassdelta}
+#' @export
+new_hpcschedule <- function(
+    cpuNum = 14,
+    que = "cpu",
+    mem = '6g',
+    node = 1,
+    taskPerNode = 1,
+    path = '.',
+    email = "UserName@email.com"
+) {
+  hpc.schedule <- as.list(environment())
+  return(hpc.schedule)
 }
