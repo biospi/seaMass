@@ -4,7 +4,8 @@
 \alias{import_ProteomeDiscoverer}
 \title{Import Thermo ProteomeDiscoverer data}
 \usage{
-import_ProteomeDiscoverer(file = NULL, shared = F, used = T, data = NULL)
+import_ProteomeDiscoverer(file = NULL, shared = F, used = T,
+  data = NULL)
 }
 \arguments{
 \item{file}{Location of the \code{PSMs.txt} file.}

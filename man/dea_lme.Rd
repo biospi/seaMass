@@ -4,19 +4,10 @@
 \alias{dea_lme}
 \title{Mixed-effects univariate differential expression analysis with 'lme'}
 \usage{
-dea_lme(
-  fit,
-  data = group_quants(fit),
-  data.design = design(fit),
-  condition = "Condition",
-  fixed = as.formula(paste("~", condition)),
-  random = ~1 | Sample,
-  control = nlme::lmeControl(sigma = 1),
-  output = "lme",
-  save.intercept = FALSE,
-  as.data.table = FALSE,
-  ...
-)
+dea_lme(fit, data = group_quants(fit), data.design = design(fit),
+  condition = "Condition", fixed = as.formula(paste("~", condition)),
+  random = ~1 | Sample, control = nlme::lmeControl(sigma = 1),
+  output = "lme", save.intercept = FALSE, as.data.table = FALSE, ...)
 }
 \description{
 The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.

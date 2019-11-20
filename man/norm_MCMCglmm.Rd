@@ -4,12 +4,8 @@
 \alias{norm_MCMCglmm}
 \title{MCMCglmm normalisation}
 \usage{
-norm_MCMCglmm(
-  fit,
-  data,
-  ref.groups = levels(groups(fit)$Group),
-  as.data.table = FALSE
-)
+norm_MCMCglmm(fit, data, ref.groups = levels(groups(fit)$Group),
+  as.data.table = FALSE)
 }
 \description{
 blah

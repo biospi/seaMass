@@ -4,27 +4,16 @@
 \alias{new_control}
 \title{Control parameters for the seaMass-delta Bayesian model}
 \usage{
-new_control(
-  measurement.model = "independent",
-  measurement.eb.min = 2,
-  component.model = NULL,
-  component.eb.min = 3,
-  assay.model = "independent",
-  assay.eb.min = 3,
-  error.model = "poisson",
-  missingness.model = "censored",
-  missingness.threshold = 0,
-  model.seed = 0,
-  model.nchain = 4,
-  model.nwarmup = 256,
-  model.thin = 1,
-  model.nsample = 1024,
-  squeeze.var.func = function(...) squeeze_var(..., use.deconvolution = FALSE),
-  dist.var.func = dist_invchisq_mcmc,
+new_control(measurement.model = "independent", measurement.eb.min = 2,
+  component.model = NULL, component.eb.min = 3,
+  assay.model = "independent", assay.eb.min = 3,
+  error.model = "poisson", missingness.model = "censored",
+  missingness.threshold = 0, model.seed = 0, model.nchain = 4,
+  model.nwarmup = 256, model.thin = 1, model.nsample = 1024,
+  squeeze.var.func = function(...) squeeze_var(..., use.deconvolution =
+  FALSE), dist.var.func = dist_invchisq_mcmc,
   dist.mean.func = dist_lst_mcmc,
-  nthread = parallel::detectCores()\%/\%2,
-  hpc = NULL
-)
+  nthread = parallel::detectCores()\%/\%2, hpc = NULL)
 }
 \arguments{
 \item{measurement.model}{Either \code{single} (single residual) or \code{independent} (per-measurement independent residuals; default)}

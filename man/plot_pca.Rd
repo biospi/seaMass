@@ -4,12 +4,8 @@
 \alias{plot_pca}
 \title{Add together two numbers.}
 \usage{
-plot_pca(
-  fit,
-  data = group_quants(fit, summary = F),
-  data.summary = group_quants(fit),
-  data.design = design(fit)
-)
+plot_pca(fit, data = group_quants(fit, summary = F),
+  data.summary = group_quants(fit), data.design = design(fit))
 }
 \arguments{
 \item{datafile}{A number.}

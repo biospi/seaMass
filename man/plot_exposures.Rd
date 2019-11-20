@@ -4,11 +4,8 @@
 \alias{plot_exposures}
 \title{Add together two numbers.}
 \usage{
-plot_exposures(
-  fit,
-  data = group_quants(fit, summary = F),
-  data.design = design(fit)
-)
+plot_exposures(fit, data = group_quants(fit, summary = F),
+  data.design = design(fit))
 }
 \arguments{
 \item{datafile}{A number.}

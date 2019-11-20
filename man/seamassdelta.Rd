@@ -4,20 +4,13 @@
 \alias{seamassdelta}
 \title{Fit the seamassdelta Bayesian quantification model}
 \usage{
-seamassdelta(
-  data,
-  data.design = new_design(data),
-  block.refs = "BlockRef",
-  norm.func = list(median = norm_median),
-  dea.func = NULL,
-  fdr.func = list(ash = fdr_ash),
-  measurement.vars = FALSE,
-  component.vars = FALSE,
-  component.deviations = FALSE,
-  plots = FALSE,
-  output = "seamassdelta",
-  control = new_control()
-)
+seamassdelta(data, data.design = new_design(data),
+  block.refs = "BlockRef", norm.func = list(median = norm_median),
+  dea.func = NULL, fdr.func = list(ash = fdr_ash),
+  measurement.vars = FALSE, component.vars = FALSE,
+  component.deviations = FALSE, plots = FALSE,
+  output = "seamassdelta", control = new_control(),
+  hpc.schedule = new_hpcschedule())
 }
 \arguments{
 \item{data}{A \link{data.frame} of input data as returned by \link{import_GroupPilot} or \link{import_ProteomeDiscoverer}.}
@@ -36,6 +29,8 @@ and fully-blocked iTraq/TMT/SILAC designs.}
 \item{output}{Folder on disk whether all intermediate and output data will be stored; default is \code{"seamassdelta"}.}
 
 \item{control}{A control object created with \link{new_control} specifying control parameters for the model.}
+
+\item{hpc.schedule}{A hpc object created with \link{new_hpcschedule} specifying hpc parameters for the type of HPC system seamassdelta will be deployed on.}
 
 \item{plot}{Generate all plots}
 }

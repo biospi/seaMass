@@ -271,7 +271,14 @@ seamassdelta <- function(
     tmp.dir <- tempfile("bayesprot.")
     dir.create(tmp.dir, showWarnings = FALSE)
 
-    clusterHPC <- new(control$hpc, block = control$assay.nblock, nchain = control$model.nchain, fit = fit, path = tmp.dir, email = hpc.schedule$email, cpuNum = hpc.schedule$cpuNum, node = hpc.schedule$node, taskPerNode = hpc.schedule$taskPerNode, mem = hpc.schedule$mem, que = hpc.schedule$que)
+    if (is.null(hpc.schedule$taskCPU))
+    {
+      cpu <- control$nthread
+    } else {
+      cpu <- hpc.schedule$taskCPU
+    }
+
+    clusterHPC <- new(control$hpc, block = control$assay.nblock, nchain = control$model.nchain, fit = fit, path = tmp.dir, email = hpc.schedule$email, cpuNum = cpu, node = hpc.schedule$node, taskPerNode = hpc.schedule$taskPerNode, mem = hpc.schedule$mem, que = hpc.schedule$que)
 
     # Model0
     model0(clusterHPC)
@@ -292,9 +299,6 @@ seamassdelta <- function(
     unlink(tmp.dir, recursive = T)
 
     message(paste0("[", Sys.time(), "] HPC submission zip saved as ", file.path(wd, paste0(control$output, ".zip"))))
-
-    # submit to hpc directly here
-    stop("not implemented yet")
   }
 
   write.table(data.frame(), file.path(output, "seamassdelta_fit"), col.names = F)
@@ -402,9 +406,11 @@ new_control <- function(
   return(control)
 }
 
+
 #' HPC parameters for executing seamassdelta Bayesian model on HPC clusters
+#'
 #' Each stage of seamasdelta is split into seperate tasks, currently each task only needs 1 node.
-#' @param cpuNum Number of CPUs to use per job submission. .i.e. equivilent to the number of threads per task.
+#' @param taskCPU Number of CPUs to use per job submission. .i.e. equivilent to the number of threads per task.
 #' @param que Name of the que on the HPC to submit the jobs to. Different ques are tailered and have different requirements.
 #' @param mem Amount of memory needed for each task.
 #' @param node Number of nodes to use per task.
@@ -414,7 +420,7 @@ new_control <- function(
 #' @return hpc.schedule object to pass to \link{seamassdelta}
 #' @export
 new_hpcschedule <- function(
-    cpuNum = 14,
+    taskCPU = NULL,
     que = "cpu",
     mem = '6g',
     node = 1,
@@ -423,5 +429,7 @@ new_hpcschedule <- function(
     email = "UserName@email.com"
 ) {
   hpc.schedule <- as.list(environment())
+  hpc.schedule$version <- packageVersion("seamassdelta")
+  class(hpc.schedule) <- "seamassdelta_hpc"
   return(hpc.schedule)
 }

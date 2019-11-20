@@ -4,21 +4,11 @@
 \alias{dea_metafor}
 \title{Mixed-effects univariate differential expression analysis with 'metafor'}
 \usage{
-dea_metafor(
-  fit,
-  data = group_quants(fit),
-  data.design = design(fit),
-  condition = "Condition",
-  mods = as.formula(paste("~", condition)),
-  random = ~Condition | Sample,
-  struct = "DIAG",
-  test = "t",
-  control = list(),
-  output = "metafor",
-  save.intercept = FALSE,
-  as.data.table = FALSE,
-  ...
-)
+dea_metafor(fit, data = group_quants(fit), data.design = design(fit),
+  condition = "Condition", mods = as.formula(paste("~", condition)),
+  random = ~Condition | Sample, struct = "DIAG", test = "t",
+  control = list(), output = "metafor", save.intercept = FALSE,
+  as.data.table = FALSE, ...)
 }
 \description{
 The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a Welch's t-test model. See 'rma.uni' manpage for limitations of this approach.

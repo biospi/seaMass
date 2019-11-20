@@ -4,24 +4,12 @@
 \alias{fdr_ash}
 \title{False Discovery Rate correction with ash}
 \usage{
-fdr_ash(
-  fit,
-  data = group_de(fit),
-  by.model = T,
-  by.effect = T,
-  as.data.table = FALSE,
-  use.df = TRUE,
-  min.components = 1,
-  min.components.per.condition = 0,
-  min.measurements = 1,
-  min.measurements.per.condition = 0,
-  min.test.samples = 4,
-  min.test.samples.per.condition = 2,
-  min.real.samples = 1,
-  min.real.samples.per.condition = 0,
-  mixcompdist = "halfuniform",
-  ...
-)
+fdr_ash(fit, data = group_de(fit), by.model = T, by.effect = T,
+  as.data.table = FALSE, use.df = TRUE, min.components = 1,
+  min.components.per.condition = 0, min.measurements = 1,
+  min.measurements.per.condition = 0, min.test.samples = 4,
+  min.test.samples.per.condition = 2, min.real.samples = 1,
+  min.real.samples.per.condition = 0, mixcompdist = "halfuniform", ...)
 }
 \description{
 False Discovery Rate correction with ash

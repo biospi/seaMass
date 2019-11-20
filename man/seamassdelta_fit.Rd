@@ -58,78 +58,36 @@ dist_mean_func(fit, key = 1)
 
 timings(fit, stage = "", as.data.table = F)
 
-measurement_vars(
-  fit,
-  measurementIDs = NULL,
-  summary = TRUE,
-  stage = "",
+measurement_vars(fit, measurementIDs = NULL, summary = TRUE,
+  stage = "", blocks = 1:control(fit)$assay.nblock,
+  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
+
+component_vars(fit, componentIDs = NULL, summary = TRUE, stage = "",
   blocks = 1:control(fit)$assay.nblock,
-  chains = 1:control(fit)$model.nchain,
-  as.data.table = FALSE
-)
+  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 
-component_vars(
-  fit,
-  componentIDs = NULL,
-  summary = TRUE,
-  stage = "",
+assay_vars(fit, groupIDs = NULL, summary = TRUE, stage = "",
   blocks = 1:control(fit)$assay.nblock,
-  chains = 1:control(fit)$model.nchain,
-  as.data.table = FALSE
-)
+  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 
-assay_vars(
-  fit,
-  groupIDs = NULL,
-  summary = TRUE,
-  stage = "",
-  blocks = 1:control(fit)$assay.nblock,
-  chains = 1:control(fit)$model.nchain,
-  as.data.table = FALSE
-)
+component_deviations(fit, componentIDs = NULL, summary = TRUE,
+  stage = "", blocks = 1:control(fit)$assay.nblock,
+  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 
-component_deviations(
-  fit,
-  componentIDs = NULL,
-  summary = TRUE,
-  stage = "",
-  blocks = 1:control(fit)$assay.nblock,
-  chains = 1:control(fit)$model.nchain,
-  as.data.table = FALSE
-)
+group_quants(fit, groupIDs = NULL, summary = TRUE,
+  norm.func.key = ifelse(as.integer(summary) == 0, 1,
+  as.integer(summary)), block.refs.key = ifelse(is.null(norm.func.key),
+  1, norm.func.key), stage = "", blocks = 1:control(fit)$assay.nblock,
+  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 
-group_quants(
-  fit,
-  groupIDs = NULL,
-  summary = TRUE,
-  norm.func.key = ifelse(as.integer(summary) == 0, 1, as.integer(summary)),
-  block.refs.key = ifelse(is.null(norm.func.key), 1, norm.func.key),
-  stage = "",
-  blocks = 1:control(fit)$assay.nblock,
-  chains = 1:control(fit)$model.nchain,
-  as.data.table = FALSE
-)
+group_de(fit, groupIDs = NULL, key = 1, dist.mean.func.key = key,
+  norm.func.key = dist.mean.func.key, block.refs.key = norm.func.key,
+  as.data.table = FALSE)
 
-group_de(
-  fit,
-  groupIDs = NULL,
-  key = 1,
-  dist.mean.func.key = key,
-  norm.func.key = dist.mean.func.key,
-  block.refs.key = norm.func.key,
-  as.data.table = FALSE
-)
-
-group_fdr(
-  fit,
-  groupIDs = NULL,
-  key = 1,
-  dea.func.key = key,
+group_fdr(fit, groupIDs = NULL, key = 1, dea.func.key = key,
   dist.mean.func.key = dea.func.key,
-  norm.func.key = dist.mean.func.key,
-  block.refs.key = norm.func.key,
-  as.data.table = FALSE
-)
+  norm.func.key = dist.mean.func.key, block.refs.key = norm.func.key,
+  as.data.table = FALSE)
 }
 \arguments{
 \item{dir}{directory containing the \link{seamassdelta} fit to read}
