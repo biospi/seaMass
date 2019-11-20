@@ -425,7 +425,7 @@ new_hpcschedule <- function(
     mem = '6G',
     node = 1,
     taskPerNode = 1,
-    path = '.',
+    path = NULL,
     email = "UserName@email.com"
 ) {
   hpc.schedule <- as.list(environment())

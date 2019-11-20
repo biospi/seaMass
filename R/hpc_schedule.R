@@ -102,7 +102,7 @@ setMethod("model0", signature(object = "slurm"), function(object)
   {
 
     # Create Rscript for SLURM submit.
-    sink(file.path(object@path,"model0_hpc.r"))
+    sink(file.path(object@path,"model0_hpc.R"))
     cat("library(seamassdelta)\n")
     cat("process_model0(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
     sink()
@@ -112,8 +112,9 @@ setMethod("model0", signature(object = "slurm"), function(object)
 
     cat("#!/bin/bash\n\n")
 
-    cat("#SBATCH --workdir=model0/results\n")
-    cat("#SBATCH --output=../slurm-%A_%a.out\n")
+    #cat(sprintf("#SBATCH --workdir=%s\n",object@fit))
+    cat("#SBATCH --workdir=.")
+    cat("#SBATCH --output=slurm-%A_%a.out\n")
     cat("#SBATCH --requeue\n")
     cat("#SBATCH --mail-type=FAIL\n\n")
 
@@ -152,7 +153,7 @@ setMethod("model0", signature(object = "slurm"), function(object)
 setMethod("model", signature(object = "slurm"), function(object)
   {
     # Create Rscript for SLURM submit.
-    sink(file.path(object@path,"model_hpc.r"))
+    sink(file.path(object@path,"model_hpc.R"))
     cat("library(seamassdelta)\n")
     cat("process_model(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
     sink()
@@ -161,8 +162,9 @@ setMethod("model", signature(object = "slurm"), function(object)
     sink(file.path(object@path,"model.slurm"))
     cat("#!/bin/bash\n\n")
 
-    cat("#SBATCH --workdir=model/results\n")
-    cat("#SBATCH --output=../slurm-%A_%a.out\n")
+    #cat(sprintf("#SBATCH --workdir=%s\n",object@fit))
+    cat("#SBATCH --workdir=.")
+    cat("#SBATCH --output=slurm-%A_%a.out\n")
     cat("#SBATCH --requeue\n")
     cat("#SBATCH --mail-type=FAIL\n\n")
 
@@ -201,7 +203,7 @@ setMethod("model", signature(object = "slurm"), function(object)
 setMethod("plots", signature(object = "slurm"), function(object)
   {
     # Create Rscript for SLURM submit.
-    sink(file.path(object@path,"plots_hpc.r"))
+    sink(file.path(object@path,"plots_hpc.R"))
     cat("library(seamassdelta)\n")
     cat("process_plots(commandArgs(T)[1], as.integer(commandArgs(T)[2]))\n")
     sink()
@@ -209,8 +211,9 @@ setMethod("plots", signature(object = "slurm"), function(object)
     sink(file.path(object@path,"plots.slurm"))
     cat("#!/bin/bash\n\n")
 
-    cat("#SBATCH --workdir=plots/results\n")
-    cat("#SBATCH --output=../slurm-%A_%a.out\n")
+    #cat(sprintf("#SBATCH --workdir=%s\n",object@fit))
+    cat("#SBATCH --workdir=.")
+    cat("#SBATCH --output=slurm-%A_%a.out\n")
     cat("#SBATCH --requeue\n")
     cat("#SBATCH --mail-type=FAIL\n\n")
 
