@@ -422,7 +422,7 @@ new_control <- function(
 new_hpcschedule <- function(
     taskCPU = NULL,
     que = "cpu",
-    mem = '6g',
+    mem = '6G',
     node = 1,
     taskPerNode = 1,
     path = '.',

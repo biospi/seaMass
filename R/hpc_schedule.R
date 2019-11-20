@@ -141,7 +141,7 @@ setMethod("model0", signature(object = "slurm"), function(object)
     cat("taskNumber=$(( taskNumber / ${#chain_val[@]} ))\n")
     cat("block=${block_val[$(( taskNumber % ${#block_val[@]} ))]}\n\n")
 
-    cat(sprintf("srun Rscript --vanilla ../../model0_hpc.R %s $block $chain \n",object@fit))
+    cat(sprintf("srun Rscript --vanilla model0_hpc.R %s $block $chain \n",object@fit))
 
     sink()
 
@@ -190,7 +190,7 @@ setMethod("model", signature(object = "slurm"), function(object)
     cat("taskNumber=$(( taskNumber / ${#chain_val[@]} ))\n")
     cat("block=${block_val[$(( taskNumber % ${#block_val[@]} ))]}\n\n")
 
-    cat(sprintf("srun Rscript --vanilla ../../model_hpc.R %s $block $chain \n",object@fit))
+    cat(sprintf("srun Rscript --vanilla model_hpc.R %s $block $chain \n",object@fit))
     sink()
 
     #system(paste("chmod u+x",file.path(object@path,"model.slurm")))
@@ -228,7 +228,7 @@ setMethod("plots", signature(object = "slurm"), function(object)
     }
 
     cat(sprintf("#SBATCH --array=1-%d\n",object@block))
-    cat(sprintf("srun Rscript ../../plots_hpc.R %s $SLURM_ARRAY_TASK_ID\n\n",object@fit))
+    cat(sprintf("srun Rscript plots_hpc.R %s $SLURM_ARRAY_TASK_ID\n\n",object@fit))
     sink()
 
     #system(paste("chmod u+x",file.path(object@path,"plots.slurm")))
