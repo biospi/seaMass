@@ -112,10 +112,11 @@ setMethod("model0", signature(object = "slurm"), function(object)
 
     cat("#!/bin/bash\n\n")
 
+    #cat("#SBATCH --export=ALL\n")
     #cat(sprintf("#SBATCH --workdir=%s\n",object@fit))
-    cat("#SBATCH --workdir=.")
+    cat("#SBATCH --workdir=.\n")
     cat("#SBATCH --output=slurm-%A_%a.out\n")
-    cat("#SBATCH --requeue\n")
+    #cat("#SBATCH --requeue\n")
     cat("#SBATCH --mail-type=FAIL\n\n")
 
     cat(sprintf("#SBATCH --nodes=%d\n",object@node))
@@ -142,7 +143,7 @@ setMethod("model0", signature(object = "slurm"), function(object)
     cat("taskNumber=$(( taskNumber / ${#chain_val[@]} ))\n")
     cat("block=${block_val[$(( taskNumber % ${#block_val[@]} ))]}\n\n")
 
-    cat(sprintf("srun Rscript --vanilla model0_hpc.R %s $block $chain \n",object@fit))
+    cat(sprintf("srun Rscript model0_hpc.R %s $block $chain \n",object@fit))
 
     sink()
 
@@ -162,10 +163,11 @@ setMethod("model", signature(object = "slurm"), function(object)
     sink(file.path(object@path,"model.slurm"))
     cat("#!/bin/bash\n\n")
 
+    #cat("#SBATCH --export=ALL\n")
     #cat(sprintf("#SBATCH --workdir=%s\n",object@fit))
-    cat("#SBATCH --workdir=.")
+    cat("#SBATCH --workdir=.\n")
     cat("#SBATCH --output=slurm-%A_%a.out\n")
-    cat("#SBATCH --requeue\n")
+    #cat("#SBATCH --requeue\n")
     cat("#SBATCH --mail-type=FAIL\n\n")
 
     cat(sprintf("#SBATCH --nodes=%d\n",object@node))
@@ -192,7 +194,7 @@ setMethod("model", signature(object = "slurm"), function(object)
     cat("taskNumber=$(( taskNumber / ${#chain_val[@]} ))\n")
     cat("block=${block_val[$(( taskNumber % ${#block_val[@]} ))]}\n\n")
 
-    cat(sprintf("srun Rscript --vanilla model_hpc.R %s $block $chain \n",object@fit))
+    cat(sprintf("srun Rscript model_hpc.R %s $block $chain \n",object@fit))
     sink()
 
     #system(paste("chmod u+x",file.path(object@path,"model.slurm")))
@@ -211,10 +213,11 @@ setMethod("plots", signature(object = "slurm"), function(object)
     sink(file.path(object@path,"plots.slurm"))
     cat("#!/bin/bash\n\n")
 
+    #cat("#SBATCH --export=ALL\n")
     #cat(sprintf("#SBATCH --workdir=%s\n",object@fit))
-    cat("#SBATCH --workdir=.")
+    cat("#SBATCH --workdir=.\n")
     cat("#SBATCH --output=slurm-%A_%a.out\n")
-    cat("#SBATCH --requeue\n")
+    #cat("#SBATCH --requeue\n")
     cat("#SBATCH --mail-type=FAIL\n\n")
 
     cat(sprintf("#SBATCH --nodes=%d\n",object@node))
