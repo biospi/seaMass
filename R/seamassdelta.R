@@ -278,7 +278,7 @@ seamassdelta <- function(
       cpu <- hpc.schedule$taskCPU
     }
 
-    clusterHPC <- new(control$hpc, block = control$assay.nblock, nchain = control$model.nchain, fit = fit, path = tmp.dir, email = hpc.schedule$email, cpuNum = cpu, node = hpc.schedule$node, taskPerNode = hpc.schedule$taskPerNode, mem = hpc.schedule$mem, que = hpc.schedule$que)
+    clusterHPC <- new(control$hpc, block = control$assay.nblock, nchain = control$model.nchain, fit = fit, path = tmp.dir, email = hpc.schedule$email, cpuNum = cpu, node = hpc.schedule$node, taskPerNode = hpc.schedule$taskPerNode, mem = hpc.schedule$mem, que = hpc.schedule$que, rdatafile = paste0(control$output,".RData") )
 
     # Model0
     model0(clusterHPC)
@@ -292,6 +292,7 @@ seamassdelta <- function(
     # create zip file
     wd <- getwd()
     setwd(tmp.dir)
+		save(norm.func, dea.func, fdr.func, file = paste0(control$output,".RData"))
     zip(file.path(wd, paste0(control$output, "_submit.zip")), ".", flags="-r9Xq")
     setwd(wd)
 

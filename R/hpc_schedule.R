@@ -9,14 +9,16 @@ setClass("ScheduleHPC",
     nchain = "numeric",
     fit = "character",
     path = "character",
-    email = "character"
+    email = "character",
+    rdatafile = "character"
   ),
   prototype(
     block = 2,
     nchain = 4,
     fit = ".",
     path = ".",
-    email = "UserName@email.com"
+    email = "UserName@email.com",
+    rdatafile = "rdata.RData"
   )
 )
 
@@ -156,6 +158,7 @@ setMethod("model", signature(object = "slurm"), function(object)
     # Create Rscript for SLURM submit.
     sink(file.path(object@path,"model_hpc.R"))
     cat("library(seamassdelta)\n")
+		cat(sprintf("load(\"%s\")\n",object@rdatafile))
     cat("process_model(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
     sink()
 
