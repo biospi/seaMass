@@ -114,9 +114,10 @@ data.design$BlockRef <- factor(c(
 For differential expression analysis, a Bayesian version of median normalisation will be used. By default all proteins are considered in the normalisation, but you can choose a subset if required as illustrated below (here to all the rat proteins):
 
 ```
-# custom normalisation function
-norm_truth <- function(...) {
-  norm_median(..., ref.groups = levels(data$Group)[grep("_RAT", levels(data$Group))])
+# returns a custom normalisation function
+norm_truth <- function() {
+  ref.groups <- levels(data$Group)[grep("_RAT", levels(data$Group))]
+  return(function(...) norm_median(..., ref.groups = ref.groups))
 }
 ```
 
@@ -127,7 +128,7 @@ Finally, run the model. Intermediate and results data is stored in the directory
 fit <- seamassdelta(
   data,
   data.design = data.design,
-  norm.func = norm_truth,
+  norm.func = norm_truth(),
   dea.func = dea.func,
   output = "Tutorial.seamassdelta",
   control = new_control(nthread = 4)

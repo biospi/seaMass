@@ -15,7 +15,8 @@ runs <- function(data) {
   DT[, Injection := as.character(Injection)]
 
   if (data.is.data.table) setDF(data)
-  return(setDF(DT))
+  setDF(DT)
+  return(DT[])
 }
 
 
@@ -35,7 +36,8 @@ runs <- function(data) {
   DT <- merge(DT, DT.runs, by = "Injection")
 
   if (data.is.data.table) setDF(data)
-  return(setDF(DT))
+  setDF(DT)
+  return(DT[])
 }
 
 
@@ -76,7 +78,8 @@ new_design <- function(data) {
   DT.design[, Condition := NA]
 
   if (data.is.data.table) setDF(data)
-  return(setDF(DT.design))
+  setDF(DT.design)
+  return(DT.design[])
 }
 
 
@@ -156,7 +159,7 @@ import_ProteinPilot <- function(
   levels(DT$Channel) <- sub("^Channel\\.", "", levels(DT$Channel))
 
   setDF(DT)
-  return(DT)
+  return(DT[])
 }
 
 
@@ -251,7 +254,7 @@ import_ProteomeDiscoverer <- function(
   levels(DT$Channel) <- sub("^Channel\\.", "", levels(DT$Channel))
 
   setDF(DT)
-  return(DT)
+  return(DT[])
 }
 
 
@@ -332,7 +335,7 @@ import_Progenesis <- function(
   DT[, Count := as.numeric(Count)]
 
   setDF(DT)
-  return(DT)
+  return(DT[])
 }
 
 
@@ -413,7 +416,7 @@ import_OpenSwath <- function(
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Injection", "Channel"))
 
   setDF(DT)
-  return(DT)
+  return(DT[])
 }
 
 
@@ -439,5 +442,5 @@ import_MSstats <- function(data) {
   )
 
   setDF(DT)
-  return(DT)
+  return(DT[])
 }

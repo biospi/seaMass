@@ -26,15 +26,16 @@ fdr_ash <- function(
   if (min.test.samples.per.condition < 2) stop("sorry, 'min.test.samples.per.condition' needs to be at least 2")
 
   DT <- as.data.table(data)
+
   DT[, use.FDR :=
-       (`1:nMaxComponent` >= min.components | `2:nMaxComponent` >= min.components) &
-       (`1:nMaxComponent` >= min.components.per.condition & `2:nMaxComponent` >= min.components.per.condition) &
-       (`1:nMaxMeasurement` >= min.measurements | `2:nMaxMeasurement` >= min.measurements) &
-       (`1:nMaxMeasurement` >= min.measurements.per.condition & `2:nMaxMeasurement` >= min.measurements.per.condition) &
-       (`1:nTestSample` + `2:nTestSample` >= min.test.samples) &
-       (`1:nTestSample` >= min.test.samples.per.condition & `2:nTestSample` >= min.test.samples.per.condition) &
-       (`1:nRealSample` + `2:nTestSample` >= min.real.samples) &
-       (`1:nRealSample` >= min.real.samples.per.condition & `2:nTestSample` >= min.real.samples.per.condition)]
+    (`1:nMaxComponent` >= min.components | `2:nMaxComponent` >= min.components) &
+    (`1:nMaxComponent` >= min.components.per.condition & `2:nMaxComponent` >= min.components.per.condition) &
+    (`1:nMaxMeasurement` >= min.measurements | `2:nMaxMeasurement` >= min.measurements) &
+    (`1:nMaxMeasurement` >= min.measurements.per.condition & `2:nMaxMeasurement` >= min.measurements.per.condition) &
+    (`1:nTestSample` + `2:nTestSample` >= min.test.samples) &
+    (`1:nTestSample` >= min.test.samples.per.condition & `2:nTestSample` >= min.test.samples.per.condition) &
+    (`1:nRealSample` + `2:nTestSample` >= min.real.samples) &
+    (`1:nRealSample` >= min.real.samples.per.condition & `2:nTestSample` >= min.real.samples.per.condition)]
 
   if (by.model && by.effect) DTs <- split(DT, by = c("Model", "Effect"), drop = T)
   else if (by.model) DTs <- split(DT, by = "Model", drop = T)
@@ -109,15 +110,16 @@ fdr_BH <- function(
   if (min.test.samples.per.condition < 2) stop("sorry, 'min.test.samples.per.condition' needs to be at least 2")
 
   DT <- as.data.table(data)
+
   DT[, use.FDR :=
-       (`1:nMaxComponent` >= min.components | `2:nMaxComponent` >= min.components) &
-       (`1:nMaxComponent` >= min.components.per.condition & `2:nMaxComponent` >= min.components.per.condition) &
-       (`1:nMaxMeasurement` >= min.measurements | `2:nMaxMeasurement` >= min.measurements) &
-       (`1:nMaxMeasurement` >= min.measurements.per.condition & `2:nMaxMeasurement` >= min.measurements.per.condition) &
-       (`1:nTestSample` + `2:nTestSample` >= min.test.samples) &
-       (`1:nTestSample` >= min.test.samples.per.condition & `2:nTestSample` >= min.test.samples.per.condition) &
-       (`1:nRealSample` + `2:nTestSample` >= min.real.samples) &
-       (`1:nRealSample` >= min.real.samples.per.condition & `2:nTestSample` >= min.real.samples.per.condition)]
+    (`1:nMaxComponent` >= min.components | `2:nMaxComponent` >= min.components) &
+    (`1:nMaxComponent` >= min.components.per.condition & `2:nMaxComponent` >= min.components.per.condition) &
+    (`1:nMaxMeasurement` >= min.measurements | `2:nMaxMeasurement` >= min.measurements) &
+    (`1:nMaxMeasurement` >= min.measurements.per.condition & `2:nMaxMeasurement` >= min.measurements.per.condition) &
+    (`1:nTestSample` + `2:nTestSample` >= min.test.samples) &
+    (`1:nTestSample` >= min.test.samples.per.condition & `2:nTestSample` >= min.test.samples.per.condition) &
+    (`1:nRealSample` + `2:nTestSample` >= min.real.samples) &
+    (`1:nRealSample` >= min.real.samples.per.condition & `2:nTestSample` >= min.real.samples.per.condition)]
 
   # perform FDR
   if (by.model && by.effect) byby <- c("Model", "Effect")
