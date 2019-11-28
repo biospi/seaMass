@@ -14,7 +14,7 @@ runs <- function(data) {
   DT[, Run := as.character(Run)]
   DT[, Injection := as.character(Injection)]
 
-  if (data.is.data.table) setDF(data)
+  if (!data.is.data.table) setDF(data)
   setDF(DT)
   return(DT[])
 }
@@ -35,7 +35,7 @@ runs <- function(data) {
   if (!is.factor(DT.runs$Run)) DT.runs[, Run := factor(Run)]
   DT <- merge(DT, DT.runs, by = "Injection")
 
-  if (data.is.data.table) setDF(data)
+  if (!data.is.data.table) setDF(data)
   setDF(DT)
   return(DT[])
 }
@@ -52,32 +52,38 @@ runs <- function(data) {
 #' @export
 new_design <- function(data) {
   data.is.data.table <- is.data.table(data)
-  DT <- setDT(data)
+  setDT(data)
 
-  DT.design <- DT[, .(Assay = paste(Run, Channel, sep = ",")), keyby = .(Run, Channel)]
+  DT.design <- data[, .(Assay = paste(Run, Channel, sep = ",")), keyby = .(Run, Channel)]
   DT.design[, Assay := sub("^,", "", Assay)]
   DT.design[, Assay := sub(",$", "", Assay)]
 
   # autodetect blocks
-  block <- merge(DT.design[, .(Run, Channel, Assay)], DT[, .(Run, Channel, Measurement)], by = c("Run", "Channel"))
-  block[, Run := NULL]
-  block[, Channel := NULL]
-  block[, N := 1]
-  block <- dcast(block, Measurement ~ Assay, sum, value.var = "N")
-  block[, Measurement := NULL]
-  block <- as.matrix(block)
+  Block. <- merge(DT.design[, .(Run, Channel, Assay)], data[, .(Run, Channel, Measurement)], by = c("Run", "Channel"))
+  Block.[, Run := NULL]
+  Block.[, Channel := NULL]
+  Block.[, N := 1]
+  Block. <- dcast(Block., Measurement ~ Assay, sum, value.var = "N")
+  Block.[, Measurement := NULL]
+  Block. <- as.matrix(Block.)
   # matrix multiplication distributes assay relationships
-  block <- t(block) %*% block
-  # Block is recoded first non-zero occurence for each assay
-  DT.design[, Block := as.integer(factor(colnames(block)[apply(block != 0, 2, which.max)]))]
-  # default is all assays are reference assays for each block
-  DT.design[, BlockRef := T]
+  Block. <- t(Block.) %*% Block.
+  # Block. is recoded first non-zero occurence for each assay
+  Block. <- colnames(Block.)[apply(Block. != 0, 2, which.max)]
+  Block. <- factor(as.integer(factor(Block., levels = unique(Block.))))
+  if (nlevels(Block.) == 1) {
+    DT.design[, paste("Block", levels(Block.), sep = ".")] <- as.logical(as.integer(Block.))
+  } else if (nlevels(Block.) > 1) {
+    Block. <- data.table(model.matrix(~ Block. - 1))
+    DT.design <- cbind(DT.design, mapply(Block., FUN = as.logical))
+  }
 
-  # DEA
+  # For seaMass-Δ (optional)
+  DT.design[, Reference := T]
   DT.design[, Sample := Assay]
-  DT.design[, Condition := NA]
+  DT.design[, Condition := factor("default")]
 
-  if (data.is.data.table) setDF(data)
+  if (!data.is.data.table) setDF(data)
   setDF(DT.design)
   return(DT.design[])
 }

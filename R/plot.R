@@ -102,8 +102,6 @@ plot_fits <- function(data, data.fits = NULL, ci = c(0.05, 0.95), by = NULL, xla
   DT.fits <- as.data.table(data.fits)
 
   xlim <- c(
-    #ifelse(is.infinite(trans(0)), min(quantile(DT$v, probs = ci[1]), ci[2] * DT.fits$v), 0),
-    #max(quantile(DT$v, probs = ci[2]), (1 + ci[1]) * DT.fits$v0, (1 + ci[1]) * DT.fits$v)
     min(ifelse(is.infinite(trans(0)), quantile(DT$v, probs = ci[1]), 0), quantile(DT$v, probs = ci[1])),
     quantile(DT$v, probs = ci[2])
   )
@@ -163,8 +161,8 @@ plot_priors <- function(data.fits = NULL, ci = c(0.05, 0.95), by = NULL, xlab = 
   DT.fits[, x := inv.trans(z)]
   DT.fits[, y := extraDistr::dinvchisq(x, df, v) * c(diff(x) / diff(z), NA)]
 
-
   g <- ggplot2::ggplot(DT.fits, ggplot2::aes(x = trans(x)))
+  g <- g + ggplot2::theme(axis.title.y = ggplot2::element_blank(), axis.text.y = ggplot2::element_blank(), axis.ticks.y= ggplot2::element_blank())
   g <- g + ggplot2::geom_hline(yintercept = 0, color = "darkgrey")
 
   g <- g + ggplot2::geom_line(ggplot2::aes(x = z, y = y), DT.fits, colour = "red")
@@ -174,6 +172,7 @@ plot_priors <- function(data.fits = NULL, ci = c(0.05, 0.95), by = NULL, xlab = 
   g <- g + ggplot2::xlab(xlab)
   if (!is.null(ylim)) g <- g + ggplot2::scale_y_continuous(limits = c(0, ylim))
   if (!is.null(by)) g <- g + ggplot2::facet_wrap(as.formula(paste("~", by)), ncol = 1, scales = "free_y")
+
   return(g)
 }
 

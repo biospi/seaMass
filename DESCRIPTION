@@ -1,13 +1,13 @@
-Package: seamassdelta
+Package: seaMass
 Type: Package
-Title: Differential expression analysis for mass spectrometry proteomics and metabolomics
-Version: 1.0.0.2
+Title: Statistical modelling for mass spectrometry omics
+Version: 1.0.0.3
 Authors@R: as.person(c(
     "Andrew Dowsey <andrew.dowsey@bristol.ac.uk> [aut, cre]",
     "Alexander Phillips <a.m.phillips@liverpool.ac.uk> [ctb]",
     "Ranjeet Bhamber <ranjeet.bhamber@bristol.ac.uk> [ctb]"
   ))
-Description: Differential expression analysis for mass spectrometry proteomics and metabolomics.
+Description: Statistical modelling for mass spectrometry omics
 License: GPL-3
 Encoding: UTF-8
 LazyData: true

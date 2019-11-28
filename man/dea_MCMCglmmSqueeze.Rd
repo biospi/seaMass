@@ -13,7 +13,7 @@ dea_MCMCglmmSqueeze(
   random = NULL,
   residual.welch = TRUE,
   save.intercept = FALSE,
-  output = "MCMCglmm",
+  output = "MCMCglmmSqueeze",
   as.data.table = FALSE,
   use.moderation = FALSE,
   use.precision = TRUE,
@@ -21,10 +21,10 @@ dea_MCMCglmmSqueeze(
   dist.var.func = dist_invchisq_mcmc,
   squeeze.var.func = squeeze_var,
   model.seed = control(fit)$model.seed,
-  model.nchain = control(fit)$model.nchain,
-  model.nwarmup = control(fit)$model.nwarmup,
-  model.thin = control(fit)$model.thin,
-  model.nsample = control(fit)$model.nsample
+  model.nchain = 4,
+  model.nwarmup = 1000,
+  model.thin = 1,
+  model.nsample = 10000
 )
 }
 \description{

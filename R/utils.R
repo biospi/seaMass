@@ -31,7 +31,7 @@ parallel_lapply <- function(
   func,
   nthread = 0,
   pred = rep(1, length(inputs)),
-  .packages = "seamassdelta"
+  .packages = "seaMass"
 ) {
   # retreive function arguments from the parent environment
   func.args <- sapply(names(formals(func)), function(arg) as.name(arg), simplify = F, USE.NAMES = T)
