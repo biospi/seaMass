@@ -1,7 +1,7 @@
 # seaMass
 The seaMass suite of tools for quantification and differential expression analysis in mass spectrometry proteomics. The current status of the individual tools is:
 
-- **seaMass-α**: Still in development, this will provide sensitive feature extraction directly from raw mass spectrometry data. Please see [[Liao et al. IEEE ISBI, 2014]](https://doi.org/10.1109/ISBI.2014.6868123) and [[Zhang et al., Proteomics, 2015]](https://doi.org/10.1002/pmic.201400428) for technical details. The C++ codebase resides at (https://github.com/biospi/seaMass-alpha) and when ready will have an R interface through this package.
+- **seaMass-α**: Still in development, this will provide sensitive feature extraction directly from raw mass spectrometry data. Please see [[Liao et al. IEEE ISBI, 2014]](https://doi.org/10.1109/ISBI.2014.6868123) and [[Zhang et al., Proteomics, 2015]](https://doi.org/10.1002/pmic.201400428) for technical details. The C++ codebase resides at [https://github.com/biospi/seaMass-alpha] and when ready will have an R interface through this package.
 
 - **seaMass-Σ**: A Bayesian protein group-level quantification technique univerally supporting label-free, SILAC, iTraq/TMT and DIA data. Currently we support proteomics input from Waters Progenesis (label-free), SCIEX ProteinPilot (iTraQ), Thermo ProteomeDiscoverer (SILAC/TMT) and OpenSWATH (SWATH). Other packages supported on request (MaxQuant coming soon). The model provides automatic quality control by downweighting problematic samples and peptides/features, can scale to massive study sizes, and propagates quantification uncertainty downstream to the differential expression analysis stage. 
 
@@ -17,7 +17,7 @@ seaMass is an R package that works on Windows, MacOS and Linux. Small studies (n
 
 ## Installation
 
-Please install the R package directly from our Github repository. To do this you first need to install the 'devtools' package: 
+Please install the R package directly from our Github repository. To do this you first need to install the *devtools* package: 
 
 ```
 install.packages("devtools")
