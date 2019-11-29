@@ -13,7 +13,7 @@ https://doi.org/10.1016/j.molmet.2019.08.003).
 
 ## Requirements
 
-seaMass is an R package that works on Windows, MacOS and Linux. Small studies (n=4 vs n=4) will take about one to two hours to process with default control parameters. Large studies (e.g. 100 samples) could take overnight or longer. Memory requirements are dependent on the amount of data in the largest block of assays (Each iTraq/TMT run is a separate block, whereas in label-free/SILAC/DIA the blocks are user-preference). Typically 16-32Gb of memory is required. To reduce memory usage at the expense of speed, reduce the number of CPU threads via the 'nthread' parameter of the seaMass 'control' object (see tutorial below).
+seaMass is an R package that works on Windows, MacOS and Linux. Small studies (n=4 vs n=4) will take about one to two hours to process with default control parameters. Large studies (e.g. 100 samples) could take overnight or longer. Memory requirements are dependent on the amount of data in the largest block of assays (Each iTraq/TMT run is a separate block, whereas in label-free/SILAC/DIA the blocks are user-preference). Typically 16-32Gb of memory is required. To reduce memory usage at the expense of speed, reduce the number of CPU threads via the 'nthread' parameter of the seaMass 'control' objects (see tutorial below).
 
 ## Installation
 
@@ -30,3 +30,65 @@ devtools::install_github("biospi/seaMass", dependencies = TRUE)
 ```
 
 To upgrade to the latest version of seaMass, simply run this line again.
+
+## seaMass-Σ
+
+Firstly, you need to use an *import* function to convert from an upstream tool format to seaMass' standardised *data.frame* format. Then you can assign injections to runs if you've used fractionation, and specify a block structure to your assays if this is a large study (TMT/iTraq studies are blocked automatically). Finally, you use the *seaMass-sigma* function to fit the model and generate unnormalised group-level quants.
+
+### Tutorial
+
+Load the included ProteinPilot iTraq dataset (note this is a small subset of proteins from our spike-in study and as such is not useful for anything else than this tutorial).
+
+```
+library(seaMass)
+
+# Import tutorial iTraq dataset.
+file <- system.file(file.path("demo", "Tutorial_PeptideSummary.txt.bz2"), package = "seamassdelta")
+data <- import_ProteinPilot(file)
+```
+
+Unfortunately the input file does not contain information for linking fractions to runs, so seaMass allows you to update the imported data with this information. If your study does not employ fractionation, you can skip this section.
+
+```
+# Get skeleton injection-run table from imported data.
+data.runs <- runs(data)
+
+# Indicate which injection refers to which run; use 'NA' to indicate injections to ignore.
+data.runs$Run[1:26] <- NA
+data.runs$Run[27:52] <- "1"
+data.runs$Run[53:78] <- "2"
+
+# Update the imported data with the run information and remove any ignored injections.
+runs(data) <- data.runs
+```
+
+If you have a large amount of assays, you may group them into blocks so that seaMass will be robust to batch effects or measurement drift etc. This will also help memory consumption, as blocks are processed by seaMass independently. If you are processing iTraq or TMT data, each run will be treated as a seperate block by default, which seaMass-Σ will autodetect. To compare across blocks correctly, you need to normalise them via reference assays. Here we can specify specific reference assays e.g. pooled reference samples, of if the study design has been blocked appropriately, we can just use all relevant assays:
+
+```
+# Get skeleton design matrix
+data.design <- new_design(data)
+
+# You can rename assays, or remove them from the analysis with 'NA'.
+data.design$Assay <- factor(c(
+  NA, NA, NA, NA, "1.1", "1.2", "1.3", "1.4",
+  NA, NA, NA, NA, "2.1", "2.2", "2.3", "2.4"
+))
+
+# Define reference assays for each block
+data.design$Reference <- c(
+  F, F, F, F, T, T, T, T,
+  F, F, F, F, T, T, T, T
+)
+```
+
+Finally, run the model. Specifying TRUE for summaries will generate csv reports in the directory specified by the *seaMass-sigma* *name* parameter, and any internal control parameters (such as the number of CPU threads to use) can be specified through a *sigma_control* object. 
+
+```
+# run seaMass-Σ
+fit <- seaMass_sigma(
+  data,
+  summaries = TRUE,
+  name = "Tutorial",
+  control = new_sigma_control(nthread = 4)
+)
+```
