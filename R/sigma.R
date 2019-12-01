@@ -1,15 +1,17 @@
-#' Fit the seaMass-Σ Bayesian quantification model
+#' seaMass-Σ
 #'
-#' @param data A \link{data.frame} of input data as returned by \link{import_GroupPilot} or \link{import_ProteomeDiscoverer}.
+#' Fit the seaMass-Σ Bayesian group-level quantification model.
+#'
+#' @param data A \link{data.frame} of input data as returned by \link{import_ProteinPilot}, \link{import_ProteinPilot},
+#'   \link{import_ProteomeDiscovery}, \link{import_Progenesis} or \link{import_OpenSWATH}.
 #' @param data.design Optionally, a \link{data.frame} created by \link{new_design} and then customised, which specifies
 #'   assay names and block design.
-#' @param summaries Generate all summaries
-#' @param plots Generate all plots
-#' @param name Name of folder on disk where all intermediate and output data will be stored; default is \code{"fit"}.
+#' @param summaries Generate all summaries.
+#' @param plots Generate all plots.
+#' @param name Name of folder prefix on disk where all intermediate and output data will be stored; default is \code{"fit"}.
 #' @param control A control object created with \link{new_sigma_control} specifying control parameters for the model.
-#' @return A \code{sigma_fit} object that can be interrogated for various results with \code{group_quants},
-#'   \code{component_deviations}, \code{assay_deviations}, \code{component_stdevs}, \code{measurement_stdevs} and \code{assay_stdevs}.
-#'   \code{del} deletes all associated files on disk.
+#' @return A \code{seaMass_sigma_fits} object, which is a list of \code{seaMass_sigma_fit} objects that can be interrogated
+#'   for various metadata and results.
 #' @import data.table
 #' @export
 seaMass_sigma <- function(
@@ -17,34 +19,32 @@ seaMass_sigma <- function(
   data.design = new_design(data),
   summaries = FALSE,
   plots = FALSE,
-  name = "output",
+  name = "fit",
   control = new_sigma_control()
 ) {
-  ### PREPARE
-  data.table::setDTthreads(control$nthread)
-  fst::threads_fst(control$nthread)
-
-  data.is.data.table <- is.data.table(data)
-  DT.all <- setDT(data)
-  DT.design.all <- as.data.table(data.design)[!is.na(Assay)]
-
   # check for finished output and return that
-  fits <- sigma_fits(name, T)
+  fits <- open_sigma_fits(name, T)
   if (!is.null(fits)) {
-    message(paste0("returning list of completed seaMass-", utf8::utf8_encode("\U000003A3"), " fit objects - if this wasn't your intention, supply a different 'output' directory or delete it with 'seaMass::del'"))
+    message("returning list of completed seaMass-Σ fit objects - if this wasn't your intention, supply a different 'output' directory or delete it with 'seaMass::del'")
     return(fits)
   }
 
-  message(paste0("[", Sys.time(), "] seaMass-", utf8::utf8_encode("\U000003A3"), " started."))
+  ### INIT
+  message(paste0("[", Sys.time(), "] seaMass-Σ started."))
+  data.table::setDTthreads(control$nthread)
+  fst::threads_fst(control$nthread)
+  data.is.data.table <- is.data.table(data)
+  DT.all <- setDT(data)
+  DT.design.all <- as.data.table(data.design)[!is.na(Assay)]
+  if (!is.factor(DT.design.all$Assay)) DT.design.all[, Assay := factor(Assay, levels = unique(Assay))]
 
-  # Process each block independently
+  # process each block independently
   block.cols <- colnames(DT.design.all)[grep("^Block\\.(.*)$", colnames(DT.design.all))]
   blocks <- sub("^Block\\.(.*)$", "\\1", block.cols)
   fits <- vector("list", length(block.cols))
   for(i in 1:length(fits)) {
     # extract input data for this block
-    DT.design <- DT.design.all[get(block.cols[i]) == T, .(Run, Channel, Assay)]
-    DT <- merge(DT.all, DT.design, by = c("Run", "Channel"))
+    DT <- merge(DT.all, DT.design.all[get(block.cols[i]) == T, .(Run, Channel, Assay)], by = c("Run", "Channel"))
     if (!is.null(DT$Injection)) DT[, Injection := NULL]
     DT[, Run := NULL]
     DT[, Channel := NULL]
@@ -107,13 +107,14 @@ seaMass_sigma <- function(
     DT[, Measurement := NULL]
 
     # build Assay index (design)
-    DT.design <- merge(merge(DT, DT.design, by = "Assay")[, .(
+    DT.design <- merge(merge(DT, DT.design.all, by = "Assay")[, .(
       nGroup = length(unique(GroupID)),
       nComponent = length(unique(ComponentID)),
       nMeasurement = length(unique(MeasurementID)),
       nDatapoint = sum(!is.na(Count))
-    ), keyby = Assay], DT.design, keyby = Assay)
+    ), keyby = Assay], DT.design.all, keyby = Assay)
     DT.design[, AssayID := 1:nrow(DT.design)]
+    DT.design <- droplevels(DT.design)
     setcolorder(DT.design, c("AssayID", "Assay", "Run", "Channel"))
 
     DT <- merge(DT, DT.design[, .(Assay, AssayID)], by = "Assay", sort = F)
@@ -153,39 +154,40 @@ seaMass_sigma <- function(
     DT0 <- DT0[GroupID <= DT0[which.max(DT0[as.integer(factor(DT0$ComponentID)) <= control$component.eb.max, ComponentID]), GroupID]]
 
     # create output directory
-    output <- paste(name, blocks[i], "seaMass_sigma_fit", sep = ".")
-    if (file.exists(output)) unlink(output, recursive = T)
-    dir.create(output)
-    fits[i] <- normalizePath(output)
-    class(fits[i]) <- "seaMass_sigma_fit"
+    fits[[i]] <- normalizePath(paste(name, blocks[i], "seaMass-sigma", sep = "."))
+    class(fits[[i]]) <- "seaMass_sigma_fit"
+    if (file.exists(fits[[i]])) unlink(fits[[i]], recursive = T)
+    dir.create(fits[[i]])
 
     # save data with random access indices
-    dir.create(file.path(output, "model0"))
-    fst::write.fst(DT0, file.path(output, "model0", "data.fst"))
+    dir.create(file.path(fits[[i]], "model0"))
+    fst::write.fst(DT0, file.path(fits[[i]], "model0", "data.fst"))
     DT0.index <- DT0[, .(GroupID = unique(GroupID), file = "data.fst", from = .I[!duplicated(GroupID)], to = .I[rev(!duplicated(rev(GroupID)))])]
-    fst::write.fst(DT0.index, file.path(output, "model0", "data.index.fst"))
+    fst::write.fst(DT0.index, file.path(fits[[i]], "model0", "data.index.fst"))
 
-    dir.create(file.path(output, "model1"))
-    fst::write.fst(DT, file.path(output, "model1", "data.fst"))
+    dir.create(file.path(fits[[i]], "model1"))
+    fst::write.fst(DT, file.path(fits[[i]], "model1", "data.fst"))
     DT.index <- DT[, .(GroupID = unique(GroupID), file = "data.fst", from = .I[!duplicated(GroupID)], to = .I[rev(!duplicated(rev(GroupID)))])]
-    fst::write.fst(DT.index, file.path(output, "model1", "data.index.fst"))
+    fst::write.fst(DT.index, file.path(fits[[i]], "model1", "data.index.fst"))
 
     # save metadata
-    dir.create(file.path(output, "meta"))
+    dir.create(file.path(fits[[i]], "meta"))
 
     control$summaries <- summaries
     control$plots <- plots
     control$name <- name
-    saveRDS(control, file.path(output, "meta", "control.rds"))
+    control$version <- packageVersion("seaMass")
+    saveRDS(control, file.path(fits[[i]], "meta", "control.rds"))
 
-    fst::write.fst(DT.groups, file.path(output, "meta", "groups.fst"))
-    fst::write.fst(DT.components, file.path(output, "meta", "components.fst"))
-    fst::write.fst(DT.measurements, file.path(output, "meta", "measurements.fst"))
-    fst::write.fst(DT.design, file.path(output, "meta", "design.fst"))
+    fst::write.fst(DT.groups, file.path(fits[[i]], "meta", "groups.fst"))
+    fst::write.fst(DT.components, file.path(fits[[i]], "meta", "components.fst"))
+    fst::write.fst(DT.measurements, file.path(fits[[i]], "meta", "measurements.fst"))
+    fst::write.fst(DT.design, file.path(fits[[i]], "meta", "design.fst"))
 
-    dir.create(file.path(output, "results"))
+    dir.create(file.path(fits[[i]], "output"))
   }
   names(fits) <- blocks
+  class(fits) <- "seaMass_sigma_fits"
 
   ### RUN
   # number of parallel compute nodes that can be used
@@ -213,12 +215,13 @@ seaMass_sigma <- function(
   message(paste0("[", Sys.time(), "] seaMass-", utf8::utf8_encode("\U000003A3"), " finished!"))
 
   # return fit object
-  class(fits) <- "seaMass_sigma_fits"
   return(fits)
 }
 
 
-#' Control parameters for the seaMass-delta Bayesian model
+#' Control parameters for seaMass-Σ
+#'
+#' Define advanced control parameters for the seaMass-Σ Bayesian model.
 #'
 #' @param measurement.model Either \code{single} (single residual) or \code{independent} (per-measurement independent residuals; default)
 #' @param measurement.eb.min Minimum number of measurements per component to use for computing Empirical Bayes priors
@@ -239,12 +242,12 @@ seaMass_sigma <- function(
 #' @param model.nsample Total number of MCMC samples to deliver downstream
 #' @param hpc Either \code{NULL} (execute locally), \code{pbs}, \code{sge} or \code{slurm} (submit to HPC cluster) [TODO]
 #' @param nthread Number of CPU threads to employ
-#' @return \code{seaMass_sigma_control} object to pass to \link{sigma}
+#' @return \code{seaMass_sigma_control} object to pass to the \code{control} parameters of \link{seaMass_sigma}
 #' @export
 new_sigma_control <- function(
   measurement.model = "independent",
   measurement.eb.min = 2,
-  component.model = NULL,
+  component.model = "independent",
   component.eb.min = 3,
   component.eb.max = 1024,
   assay.model = "independent",
@@ -282,7 +285,6 @@ new_sigma_control <- function(
 
   # create control object
   control <- as.list(environment())
-  control$version <- packageVersion("seaMass")
   class(control) <- "seaMass_sigma_control"
 
   return(control)

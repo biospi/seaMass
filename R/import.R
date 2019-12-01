@@ -43,11 +43,11 @@ runs <- function(data) {
 
 #' Specify study design for imported dataset
 #'
-#' Returns a skeleton \link{data.frame} for customising the study design of a dataset imported with  \link{import_ProteinPilot} or
-#' \link{import_ProteomeDiscoverer}.
+#' Returns a skeleton \link{data.frame} for customising the study design of an imported dataset.
 #'
-#' @param data \link{data.frame} returned by \link{import_ProteinPilot} or \link{import_ProteomeDiscoverer}.
-#' @return \link{data.frame} that can be edited and passed as parameter \code{data.design} of \link{seamassdelta}.
+#' @param data \link{data.frame} returned by  \link{import_ProteinPilot}, \link{import_ProteinPilot},
+#' \link{import_ProteomeDiscovery}, \link{import_Progenesis} or \link{import_OpenSWATH}.
+#' @return \link{data.frame} that can be edited and passed as parameter \code{data.design} of \link{seaMass_sigma}.
 #' @import data.table
 #' @export
 new_design <- function(data) {
@@ -79,7 +79,7 @@ new_design <- function(data) {
   }
 
   # For seaMass-Δ (optional)
-  DT.design[, Reference := T]
+  DT.design[, RefWeight := 1]
   DT.design[, Sample := Assay]
   DT.design[, Condition := factor("default")]
 
@@ -91,7 +91,7 @@ new_design <- function(data) {
 
 #' Import SCIEX ProteinPilot data
 #'
-#' Reads in a SCIEX ProteinPilot \code{ComponentSummary.txt} file for processing with \link{seamassdelta}.
+#' Reads in a SCIEX ProteinPilot \code{ComponentSummary.txt} file for processing with \link{seaMass_sigma}.
 #'
 #' @param file Location of the \code{ComponentSummary.txt} file.
 #' @param shared Include shared components?
@@ -101,7 +101,7 @@ new_design <- function(data) {
 #'   \code{"weak signal"}}
 #' @param data Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
 #'   \link[data.table]{fread} default parameters.
-#' @return A \link{data.frame} for input into \link{seamassdelta}.
+#' @return A \link{data.frame} for input into \link{seaMass_sigma}.
 #' @import data.table
 #' @export
 
@@ -171,14 +171,14 @@ import_ProteinPilot <- function(
 
 #' Import Thermo ProteomeDiscoverer data
 #'
-#' Reads in a Thermo ProteomeDiscoverer \code{PSMs.txt} file for processing with \link{seamassdelta}.
+#' Reads in a Thermo ProteomeDiscoverer \code{PSMs.txt} file for processing with \link{seaMass_sigma}.
 #'
 #' @param file Location of the \code{PSMs.txt} file.
 #' @param shared Include shared components?
 #' @param used Include only measurements marked as used by ProteomeDiscoverer?
 #' @param data Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
 #'   \link[data.table]{fread} default parameters.
-#' @return A \link{data.frame} for input into \link{seamassdelta}.
+#' @return A \link{data.frame} for input into \link{seaMass_sigma}.
 #' @import data.table
 #' @export
 import_ProteomeDiscoverer <- function(
@@ -266,13 +266,13 @@ import_ProteomeDiscoverer <- function(
 
 #' Import Waters Progenesis data
 #'
-#' Reads in a Waters Progenesis \code{pep_ion_measurements.csv} file for processing with \link{seamassdelta}.
+#' Reads in a Waters Progenesis \code{pep_ion_measurements.csv} file for processing with \link{seaMass_sigma}.
 #'
 #' @param file Location of the \code{pep_ion_measurements.csv} file.
 #' @param used Include only measurements marked as used by Progenesis?
 #' @param data Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
 #'   \link[data.table]{fread} default parameters.
-#' @return A \link{data.frame} for input into \link{seamassdelta}.
+#' @return A \link{data.frame} for input into \link{seaMass_sigma}.
 #' @import data.table
 #' @export
 
@@ -347,16 +347,16 @@ import_Progenesis <- function(
 
 #' Import OpenSWATH data
 #'
-#' Reads in the output of an OpenSWATH -> PyProphet -> TRIC pipeline for processing with \link{seamassdelta}.
+#' Reads in the output of an OpenSWATH -> PyProphet -> TRIC pipeline for processing with \link{seaMass_sigma}.
 #'
 #' @param files A \code{csv} file to import.
 #' @param m_score.cutoff Include only measurements with PyProphet m_score >= than this?
 #' @param data Advanced: Rather than specifying a \code{file}, you can enter a \link{data.frame} preloaded with
 #'   \link[data.table]{fread} default parameters.
-#' @return A \link{data.frame} for input into \link{seamassdelta}.
+#' @return A \link{data.frame} for input into \link{seaMass_sigma}.
 #' @import data.table
 #' @export
-import_OpenSwath <- function(
+import_OpenSWATH <- function(
   file = NULL,
   shared = FALSE,
   m_score.cutoff = 0.05,
@@ -428,11 +428,11 @@ import_OpenSwath <- function(
 
 #' Import data outputed by an MSstats import routine
 #'
-#' Reads in a set of \code{_with_dscore} datasets processed by OpenSWATH and PyProphet for processing with \link{seamassdelta}.
+#' Reads in a set of \code{_with_dscore} datasets processed by OpenSWATH and PyProphet for processing with \link{seaMass_sigma}.
 #'
 #' @param data MSstats output
 #'   \link[data.table]{fread} default parameters.
-#' @return A \link{data.frame} for input into \link{seamassdelta}.
+#' @return A \link{data.frame} for input into \link{seaMass_sigma}.
 #' @import data.table
 #' @export
 import_MSstats <- function(data) {

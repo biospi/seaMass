@@ -4,10 +4,10 @@
 \alias{sigma_model}
 \title{sigma_model (internal)}
 \usage{
-sigma_model(fit, prefix, chain = 1)
+sigma_model(fit, dir, chain = 1)
 }
 \arguments{
-\item{fit}{seamassdelta fit object.}
+\item{fit}{seaMass_fit object.}
 
 \item{chain}{Number of chain to process.}
 
