@@ -407,7 +407,11 @@ group_quants <- function(
       block.refs <- process.func$value
       process.func$value <- function(DT) {
         DT <- merge(DT, seamassdelta::design(fit, as.data.table = T)[, .(AssayID, ref = get(block.refs))], by = "AssayID")
-        DT[, value := value - mean(value[ref == T]), by = .(GroupID, BaselineID, BlockID, chainID, mcmcID)]
+        centre <- function(x) {
+          x <- mean(x)
+          x <- ifelse(is.na(x), 0, x)
+        }
+        DT[, value := value - centre(value[ref == T]), by = .(GroupID, BaselineID, BlockID, chainID, mcmcID)]
         DT[, ref := NULL]
         return(DT[!is.nan(value)])
       }
@@ -503,7 +507,7 @@ group_de <- function(
     DT <- fst::read.fst(filename, as.data.table = as.data.table)
   } else {
     DT.group.quants <- group_quants(fit, norm.func.key = norm.func.key, block.refs.key = block.refs.key, summary = dist.mean.func.key, as.data.table = T)
-    DT <- dea_func(fit, key)$value(fit, DT.group.quants, output = output, as.data.table = T)
+    DT <- dea_func(fit, key)$value(fit, DT.group.quants, as.data.table = T)
     fst::write.fst(DT, filename)
   }
 

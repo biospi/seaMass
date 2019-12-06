@@ -1,6 +1,6 @@
 #' execute_model (internal)
 #'
-#' @param fit deamass fit object.
+#' @param fit seamassdelta fit object.
 #' @param chain Number of chain to process.
 #' @param use.priors true or false
 #' @import doRNG
@@ -58,17 +58,17 @@ execute_model <- function(fit, block, chain, use.priors) {
       # create co-occurence matrix of which assays are present in each measurement
       # unnecessary if experimented is blocked correctly and uses censored model
       DT[, BaselineID := AssayID]
-      block <- DT[, .(AssayID, MeasurementID, Count)]
-      block <- block[complete.cases(block)]
-      block[, Count := 1]
-      block <- dcast(block, MeasurementID ~ AssayID, sum, value.var = "Count")
-      block[, MeasurementID := NULL]
-      block <- as.matrix(block)
+      tmp <- DT[, .(AssayID, MeasurementID, Count)]
+      tmp <- tmp[complete.cases(tmp)]
+      tmp[, Count := 1]
+      tmp <- dcast(tmp, MeasurementID ~ AssayID, sum, value.var = "Count")
+      tmp[, MeasurementID := NULL]
+      tmp <- as.matrix(tmp)
       # matrix multiplication distributes assay relationships
-      block <- t(block) %*% block
+      tmp <- t(tmp) %*% tmp
       # baseline is first non-zero occurence for each assay
-      DT[, BaselineID := as.integer(colnames(block)[apply(block != 0, 2, which.max)][AssayID])]
-      rm(block)
+      DT[, BaselineID := as.integer(colnames(tmp)[apply(tmp != 0, 2, which.max)][AssayID])]
+      rm(tmp)
       DT[, QuantID := as.character(interaction(DT$AssayID, DT$BaselineID, lex.order = T, drop = T))]
       # and now merge where the assayID and the baselineID are the same, as these effects are not identifiable
       DT[AssayID == BaselineID, QuantID := "."]
@@ -144,9 +144,9 @@ execute_model <- function(fit, block, chain, use.priors) {
           if (use.priors == F) {
             prior.assay <- lapply(1:nlevels(DT$AssayID), function(k) list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2))
           } else {
+            #prior.assay <- lapply(1:nlevels(DT$AssayID), function(k) list(V = log(2) * priors$DT.assay[k, v] , nu = priors$DT.assay[k, df]))
             prior.assay <- lapply(1:nlevels(DT$AssayID), function(k) list(V = log(2) * priors$DT.assay[k, v] , nu = priors$DT.assay[k, df]))
           }
-          names(prior.assay) <- paste0("AssayID", levels(DT$AssayID))
         }
 
         # merge prior
@@ -183,10 +183,10 @@ execute_model <- function(fit, block, chain, use.priors) {
 
         # run model
         output$DT.summaries <- as.character(Sys.time())
-        output$DT.timings <- system.time(model <- (MCMCglmm::MCMCglmm(
+        output$DT.timings <- system.time(model <- MCMCglmm::MCMCglmm(
           fixed, random, rcov, family, data = DT, prior = prior,
           nitt = nitt, burnin = ctrl$model.nwarmup, thin = ctrl$model.thin, pr = T, verbose = F
-        )))
+        ))
         output$DT.timings <- data.table(GroupID = DT[1, GroupID], BlockID = block, chainID = chain, as.data.table(t(as.matrix(output$DT.timings))))
         options(max.print = 99999)
         output$DT.summaries <- data.table(GroupID = DT[1, GroupID], BlockID = block, chainID = chain, Summary = paste(c(output$DT.summaries, capture.output(print(summary(model))), as.character(Sys.time())), collapse = "\n"))

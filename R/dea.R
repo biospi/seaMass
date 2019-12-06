@@ -475,7 +475,7 @@ dea_metafor <- function(
 #' @import data.table
 #' @import doRNG
 #' @export
-dea_MCMCglmm <- function(
+dea_MCMCglmmSqueeze <- function(
   fit,
   data = group_quants(fit),
   data.design = design(fit),
@@ -484,7 +484,7 @@ dea_MCMCglmm <- function(
   random = NULL,
   residual.welch = TRUE,
   save.intercept = FALSE,
-  output = "MCMCglmm",
+  output = "MCMCglmmSqueeze",
   as.data.table = FALSE,
   use.moderation = FALSE,
   use.precision = TRUE,
@@ -492,10 +492,10 @@ dea_MCMCglmm <- function(
   dist.var.func = dist_invchisq_mcmc,
   squeeze.var.func = squeeze_var,
   model.seed = control(fit)$model.seed,
-  model.nchain = control(fit)$model.nchain,
-  model.nwarmup  = control(fit)$model.nwarmup,
-  model.thin = control(fit)$model.thin,
-  model.nsample = control(fit)$model.nsample
+  model.nchain = 4,
+  model.nwarmup  = 1000,
+  model.thin = 1,
+  model.nsample = 10000
 ) {
   if (use.moderation) message("WARNING: 'use.moderation = TRUE' has not been validated")
   if (!use.precision) message("WARNING: With 'use.precision = FALSE' this function does not use BayesProt quant precision estimates and hence should only be used for comparative purposes with the other 'dea' methods.")
@@ -526,7 +526,6 @@ dea_MCMCglmm <- function(
     # hack for foreach to 'see' objects in the calling environment
     for(n in ls(parent.env(environment()), all.names = T)) if (!exists(n, environment(), inherits = F)) assign(n, get(n, parent.env(environment())), environment())
 
-    set.seed(control$model.seed + chain)
     out <- foreach(DT.chunk = iterators::iter(DTs), .final = rbindlist_of_lists, .inorder = F, .packages = "data.table", .options.snow = list(progress = function(n) setTxtProgressBar(pb, (step-1)*length(DTs) + n))) %dorng% {
       setDTthreads(1)
       # process chunk
@@ -556,7 +555,7 @@ dea_MCMCglmm <- function(
               for (l in levels(output.contrast$DT.input$Condition)) output.contrast$DT.input[, paste0("Condition", l) := ifelse(Condition == l, 1, 0)]
               rcov <- as.formula(paste("~", paste(paste0("idh(Condition", levels(output.contrast$DT.input$Condition), "):units"), collapse = "+")))
               if (is.null(DT.priors)) {
-                prior <- list(R = lapply(1:nlevels(output.contrast$DT.input$Condition), function(i) list(V = 1, nu = 0.002)))
+                prior <- list(R = lapply(1:nlevels(output.contrast$DT.input$Condition), function(i) list(V = 1, nu = 2e-4)))
               } else {
                 prior <- list(R = split(DT.priors[Model == paste0(cts[1, j], "_v_", cts[2, j]), .(Effect, v, df)], by = "Effect", keep.by = F))
                 for (i in 1:length(prior$R)) prior$R[[i]] <- list(V = prior$R[[i]]$v, nu = prior$R[[i]]$df)
@@ -564,12 +563,13 @@ dea_MCMCglmm <- function(
             } else {
               rcov <- ~ units
               if (is.null(DT.priors)) {
-                prior <- list(R = list(V = 1, nu = 0.02))
+                prior <- list(R = list(V = 1, nu = 2e-4))
               } else {
                 prior <- list(R = list(V = DT.priors$v, nu = DT.priors$df))
               }
             }
 
+            set.seed(model.seed + chain)
             output.contrast$fit <- MCMCglmm::MCMCglmm(
               fixed = fixed,
               random = random,
@@ -798,4 +798,175 @@ dea_MCMCglmm <- function(
 }
 
 
+#' Mixed-effects univariate differential expression analysis with 'MCMCglmm'
+#'
+#' The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.
+#'
+#' @import data.table
+#' @import doRNG
+#' @export
+dea_MCMCglmm <- function(
+  fit,
+  data = group_quants(fit),
+  data.design = design(fit),
+  fixed = ~ Condition,
+  random = NULL,
+  rcov = ~ idh(Condition):Sample,
+  prior = list(R = list(V = diag(nlevels(factor(data.design$Condition))), nu = 2e-4)),
+  em.func = function(...) emmeans::emmeans(..., pairwise ~ Condition),
+  output = NULL,
+  as.data.table = FALSE,
+  use.precision = TRUE,
+  dist.mean.func = dist_lst_mcmc,
+  model.seed = control(fit)$model.seed,
+  model.nchain = 4,
+  model.nwarmup  = 1024,
+  model.thin = 1,
+  model.nsample = 1024
+) {
+  if (!use.precision) message("WARNING: With 'use.precision = FALSE' this function does not use BayesProt quant precision estimates and hence should only be used for comparative purposes with the other 'dea' methods.")
 
+  # process parameters
+  fixed <- as.formula(sub("^.*~", "m ~", deparse(fixed)))
+  nitt <- model.nwarmup + (model.nsample * model.thin) / model.nchain
+
+  # tidy em.func
+  if (!is.list(em.func)) em.func <- list(em.func)
+  if (all(sapply(em.func, is.function))) {
+    if(is.null(names(em.func))) names(em.func) <- 1:length(em.func)
+    names(em.func) <- ifelse(names(em.func) == "", 1:length(em.func), names(em.func))
+  } else {
+    stop("'em.func' must be a function or list of functions taking a '...' parameter and specialising the 'emmeans::emmeans' function.")
+  }
+
+  # prepare design
+  data.design.is.data.table <- is.data.table(data.design)
+  DT.design <- setDT(data.design)
+  DT.design <- DT.design[!is.na(Condition)]
+  if (is.null(DT.design$AssayID)) DT.design <- merge(DT.design, design(fit, as.data.table = T)[, .(Assay, AssayID)])
+  if (!is.null(DT.design$nComponent)) DT.design[, nComponent := NULL]
+  if (!is.null(DT.design$nMeasurement)) DT.design[, nMeasurement := NULL]
+
+  # prepare input
+  data.is.data.table <- is.data.table(data)
+  inputs <- batch_split(setDT(data), "GroupID", 1)
+
+  # loop over all groups
+  DT.de <- rbindlist(parallel_lapply(inputs, function(input, DT.design, use.precision, fixed, random, rcov, prior, nitt, model.seed, model.nchain, model.nwarmup, model.thin, em.func, fit, output, dist.mean.func) {
+    batch <- lapply(split(input, by = "GroupID", drop = T), function(DT) {
+      groupID <- DT[1, GroupID]
+
+      lapply(1:model.nchain, function(chain) {
+        model <- list()
+
+        # have to keep all.y assays in even if NA otherwise MCMCglmm will get confused over its priors
+        DT <- droplevels(merge(DT, DT.design, all.y = T, by = "AssayID"))
+
+        if (any(!is.na(DT$m))) try({
+          if (use.precision) {
+            mev = ifelse(is.na(DT$s), 0, DT$s^2)
+          } else {
+            mev = NULL
+          }
+
+          # run MCMCglmm
+          set.seed(model.seed + chain)
+          model$MCMCglmm <- MCMCglmm::MCMCglmm(
+            fixed = fixed,
+            random = random,
+            rcov = rcov,
+            mev = mev,
+            data = DT,
+            prior = prior,
+            nitt = nitt,
+            burnin = model.nwarmup,
+            thin = model.thin,
+            singular.ok = T,
+            verbose = F
+          )
+
+          # run em.funcs
+          model$emmGrid <- lapply(1:length(em.func), function(i) em.func[[i]](model$MCMCglmm, data = DT))
+          names(model$emmGrid) <- names(em.func)
+
+          # extract from emmGrid
+          model$DT.de <- rbindlist(lapply(1:length(model$emmGrid), function(i) {
+            DT.emmeans <- as.data.table(emmeans::as.mcmc.emmGrid(model$emmGrid[[i]]$emmeans))
+            DT.emmeans[, mcmcID := .I]
+            DT.emmeans <- melt(DT.emmeans, id.vars = "mcmcID", variable.name = "Model")
+            DT.emmeans[, Effect := sub("^(.*) .*$", "\\1", Model)]
+            DT.emmeans[, Level := sub("^.* (.*)$", "\\1", Model)]
+            DT.emmeans[, Level0 := NA]
+
+            # just supply contrasts until the refactor
+            #if (!is.null(model$emmGrid[[i]]$contrasts)) {
+              DT.contrasts <- as.data.table(emmeans::as.mcmc.emmGrid(model$emmGrid[[i]]$contrasts))
+              DT.contrasts[, mcmcID := .I]
+              DT.contrasts <- melt(DT.contrasts, id.vars = "mcmcID", variable.name = "Model")
+              DT.contrasts[, Effect := DT.emmeans[1, Effect]]
+              DT.contrasts[, Level := sub("^contrast (.*) - .*$", "\\1", Model)]
+              DT.contrasts[, Level0 := sub("^contrast .* - (.*)$", "\\1", Model)]
+              #DT.emmeans <- rbind(DT.emmeans, DT.contrasts)
+              DT.emmeans <- DT.contrasts
+            #}
+
+            # add metadata
+            DT.meta <- unique(rbind(DT.emmeans[, .(Effect, Level)], DT.emmeans[, .(Effect, Level = Level0)]))[!is.na(Level)]
+            DT.meta[, a := max(0, DT[get(Effect) == Level, nComponent], na.rm = T)]
+            DT.meta[, b := max(0, DT[get(Effect) == Level, nMeasurement], na.rm = T)]
+            DT.meta[, c := length(DT[Condition == "A" & !is.na(m), Sample])]
+            DT.meta[, d := length(DT[Condition == "A" & !is.na(m) & nComponent > 0, Sample])]
+
+            DT.emmeans <- merge(DT.meta, DT.emmeans, all.y = T, by = c("Effect", "Level"))
+            setnames(DT.emmeans, c("a", "b", "c", "d"), c("1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample"))
+            DT.emmeans[, Level := NULL]
+            setnames(DT.meta, "Level", "Level0")
+            DT.emmeans <- merge(DT.meta, DT.emmeans, all.y = T, by = c("Effect", "Level0"))
+            setnames(DT.emmeans, c("a", "b", "c", "d"), c("2:nMaxComponent", "2:nMaxMeasurement", "2:nTestSample", "2:nRealSample"))
+            DT.emmeans[, Level0 := NULL]
+
+            DT.emmeans[, Effect := factor(Effect, levels = unique(Effect))]
+            setcolorder(DT.emmeans, c("Effect", "Model"))
+            return(DT.emmeans)
+          }))
+          model$DT.de[, GroupID := groupID]
+          model$DT.de[, chainID := chain]
+          setcolorder(model$DT.de, c("Model", "Effect", "GroupID", "chainID", "mcmcID"))
+
+          return(model)
+        })
+
+        return(NULL)
+      })
+    })
+
+    # save
+    if (!is.null(output)) saveRDS(batch, file.path(fit, "model", "group.de", paste0(output, ".", input[1, GroupID], ".rds")))
+
+    # summarise (just the contrasts for now)
+    DT.de <- rbindlist(lapply(1:length(batch), function(i) {
+      DT.group <- rbindlist(lapply(1:model.nchain, function(chain) {
+        if (!is.null(batch[[i]][[chain]]$DT.de)) {
+          return(droplevels(batch[[i]][[chain]]$DT.de))
+        } else {
+          return(NULL)
+        }
+      }))
+
+      if (nrow(DT.group) > 0) {
+        return(DT.group[, dist.mean.func(chainID, mcmcID, value), by = .(Model, Effect, GroupID,
+          `1:nMaxComponent`, `1:nMaxMeasurement`, `1:nTestSample`, `1:nRealSample`,
+          `2:nMaxComponent`, `2:nMaxMeasurement`, `2:nTestSample`, `2:nRealSample`)])
+      } else {
+        return(NULL)
+      }
+    }))
+
+    return(DT.de)
+  }, nthread = control(fit)$nthread))
+
+  if (!data.is.data.table) setDF(data)
+  if (!data.design.is.data.table) setDF(data.design)
+  if (!as.data.table) setDF(DT.de)
+  return(DT.de)
+}
