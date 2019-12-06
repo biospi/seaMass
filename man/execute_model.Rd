@@ -7,7 +7,7 @@
 execute_model(fit, block, chain, use.priors)
 }
 \arguments{
-\item{fit}{deamass fit object.}
+\item{fit}{seamassdelta fit object.}
 
 \item{chain}{Number of chain to process.}
 

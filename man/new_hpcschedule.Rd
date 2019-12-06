@@ -4,8 +4,8 @@
 \alias{new_hpcschedule}
 \title{HPC parameters for executing seamassdelta Bayesian model on HPC clusters}
 \usage{
-new_hpcschedule(taskCPU = NULL, que = "cpu", mem = "6g", node = 1,
-  taskPerNode = 1, path = ".", email = "UserName@email.com")
+new_hpcschedule(taskCPU = NULL, que = "cpu", mem = "6G", node = 1,
+  taskPerNode = 1, path = NULL, email = "UserName@email.com")
 }
 \arguments{
 \item{taskCPU}{Number of CPUs to use per job submission. .i.e. equivilent to the number of threads per task.}
