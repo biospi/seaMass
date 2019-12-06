@@ -414,17 +414,17 @@ setMethod("submit", signature(object = "pbs"), function(object)
 
     cat("# job chain\n")
     cat("MODEL0=$(qsub model0.pbs)\n")
-    cat("OUTPUT0=$(qsub -W depend=afterokarray:$MODEL0 output0.pbs)\n")
+    cat("MODEL=$(qsub -W depend=afterokarray:$MODEL0 model.pbs)\n")
     cat("EXITCODE=$?\n\n")
 
     cat("# clean up\n")
     cat("if [[ $EXITCODE != 0 ]]; then\n")
-    cat("  qdel $MODEL0 $OUTPUT0\n")
+    cat("  qdel $MODEL0 $MODEL\n")
     cat("  echo Failed to submit jobs!\n")
     cat("else\n")
     cat("  echo Submitted jobs! To cancel execute $DIR/cancel.sh\n")
     cat("  echo '#!/bin/bash' > $DIR/cancel.sh\n")
-    cat("  echo qdel $MODEL0 $OUTPUT0 >> $DIR/cancel.sh\n")
+    cat("  echo qdel $MODEL0 $MODEL >> $DIR/cancel.sh\n")
     cat("  chmod u+x $DIR/cancel.sh\n")
     cat("fi\n\n")
 
@@ -440,17 +440,17 @@ setMethod("submit", signature(object = "pbs"), function(object)
 
     cat("# job chain\n")
     cat("MODEL=$(qsub model.pbs)\n")
-    cat("OUTPUT=$(qsub -W depend=afterokarray:$MODEL output.pbs)\n")
+    cat("PLOTS=$(qsub -W depend=afterokarray:$MODEL plots.pbs)\n")
     cat("EXITCODE=$?\n\n")
 
     cat("# clean up\n")
     cat("if [[ $EXITCODE != 0 ]]; then\n")
-    cat("  qdel $MODEL $OUTPUT\n")
+    cat("  qdel $MODEL $PLOTS\n")
     cat("  echo Failed to submit jobs!\n")
     cat("else\n")
     cat("  echo Submitted jobs! To cancel execute $DIR/cancel.sh\n")
     cat("  echo '#!/bin/bash' > $DIR/cancel.sh\n")
-    cat("  echo qdel $MODEL $OUTPUT >> $DIR/cancel.sh\n")
+    cat("  echo qdel $MODEL $PLOTS >> $DIR/cancel.sh\n")
     cat("  chmod u+x $DIR/cancel.sh\n")
     cat("fi\n\n")
 
@@ -459,22 +459,179 @@ setMethod("submit", signature(object = "pbs"), function(object)
     sink()
 
 
-    sink(file.path(object@path,"_pbs3.sh"))
+#    sink(file.path(object@path,"_pbs3.sh"))
+#    cat("#!/bin/bash\n")
+#    cat("DIR=\"$( cd \"$( dirname \"${BASH_SOURCE[0]}\" )\" && pwd )\"\n")
+#    cat("pushd $DIR > /dev/null\n\n")
+#
+#    cat("PLOTS=$(qsub plots.pbs)\n")
+#    cat("EXITCODE=$?\n\n")
+#
+#    cat("# clean up\n")
+#    cat("if [[ $EXITCODE != 0 ]]; then\n")
+#    cat("  qdel $PLOTS \n")
+#    cat("  echo Failed to submit jobs!\n")
+#    cat("else\n")
+#    cat("  echo Submitted jobs! To cancel execute $DIR/cancel.sh\n")
+#    cat("  echo '#!/bin/bash' > $DIR/cancel.sh\n")
+#    cat("  echo qdel $PLOTS >> $DIR/cancel.sh\n")
+#    cat("  chmod u+x $DIR/cancel.sh\n")
+#    cat("fi\n\n")
+#
+#    cat("popd > /dev/null\n")
+#    cat("exit $EXITCODE\n")
+#    sink()
+#
+    system(paste("chmod u+x",file.path(object@path,"pbs.sh")))
+    system(paste("chmod u+x",file.path(object@path,"_pbs2.sh")))
+    system(paste("chmod u+x",file.path(object@path,"_pbs3.sh")))
+  }
+)
+
+###########################
+### sge HPC Automation ####
+###########################
+
+setMethod("model0", signature(object = "sge"), function(object)
+  {
+    # Create Rscript for SLURM submit.
+    sink(file.path(object@path,"model0_hpc.r"))
+    cat("library(seamassdelta)\n")
+    cat("process_model0(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
+    sink()
+
+    sink(file.path(object@path,"model0.sge"))
+    cat("#!/bin/bash\n\n")
+
+    cat("#$ -o model0\n")
+    cat("#$ -j oe\n")
+    cat("#$ -r y\n\n")
+
+    cat(sprintf("#$ -l nodes=%d:ppn=%d\n",object@node,object@cpuNum))
+    cat(sprintf("#$ -l mem=%s\n\n",object@mem))
+
+    cat(sprintf("#$ -q %s\n",object@que))
+    cat(sprintf("#$ -l walltime=%s\n\n",object@wallTime))
+
+    cat("#$ -N bp.model0\n")
+    if (object@email != "UserName@email.com"){
+      cat(sprintf("#$ -M %s\n\n",object@email))
+    }
+
+    cat(sprintf("#$ -t 1-%d\n",object@nchain))
+    cat("cd $PBS_O_WORKDIR/model0/results\n")
+    cat("Rscript --vanilla ../../model0_hpc.R $PBS_ARRAYID\n\n")
+
+    cat("EXITCODE=$?\n")
+    cat("qstat -f $PBS_JOBID\n")
+    cat("exit $EXITCODE\n\n")
+    sink()
+
+    #system(paste("chmod u+x",file.path(object@path,"model0.sge")))
+  }
+)
+
+setMethod("model", signature(object = "sge"), function(object)
+  {
+    # Create Rscript for SLURM submit.
+    sink(file.path(object@path,"model_hpc.r"))
+    cat("library(seamassdelta)\n")
+    cat("process_model(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
+    sink()
+
+    sink(file.path(object@path,"model.sge"))
+    cat("#!/bin/bash\n\n")
+
+    cat("#$ -o model\n")
+    cat("#$ -j oe\n")
+    cat("#$ -r y\n\n")
+
+    cat(sprintf("#$ -l nodes=%d:ppn=%d\n",object@node,object@cpuNum))
+    cat(sprintf("#$ -l mem=%s\n\n",object@mem))
+
+    cat(sprintf("#$ -q %s\n",object@que))
+    cat(sprintf("#$ -l walltime=%s\n\n",object@wallTime))
+
+    cat("#$ -N bp.model\n")
+    if (object@email != "UserName@email.com"){
+      cat(sprintf("#$ -M %s\n\n",object@email))
+    }
+
+    cat(sprintf("#$ -t 1-%d\n",object@nchain))
+    cat("cd $PBS_O_WORKDIR/model/results\n")
+    cat("Rscript --vanilla ../../model_hpc.R $PBS_ARRAYID\n\n")
+
+    cat("EXITCODE=$?\n")
+    cat("qstat -f $PBS_JOBID\n")
+    cat("exit $EXITCODE\n\n")
+    sink()
+
+    #system(paste("chmod u+x",file.path(object@path,"model.sge")))
+  }
+)
+
+
+setMethod("plots", signature(object = "sge"), function(object)
+  {
+    # Create Rscript for SLURM submit.
+    sink(file.path(object@path,"plots_hpc.r"))
+    cat("library(seamassdelta)\n")
+    cat("process_plots(commandArgs(T)[1], as.integer(commandArgs(T)[2]))\n")
+    sink()
+
+    sink(file.path(object@path,"plots.sge"))
+    cat("#!/bin/bash\n\n")
+
+    cat("#$ -o plots\n")
+    cat("#$ -j oe\n")
+    cat("#$ -r y\n\n")
+
+    cat(sprintf("#$ -l nodes=%d:ppn=%d\n",object@node,object@cpuNum))
+    cat(sprintf("#$ -l mem=%s\n\n",object@mem))
+
+    cat(sprintf("#$ -q %s\n",object@que))
+    cat(sprintf("#$ -l walltime=%s\n\n",object@wallTime))
+
+    cat("#$ -N bp.plots\n")
+    if (object@email != "UserName@email.com"){
+      cat(sprintf("#$ -M %s\n\n",object@email))
+    }
+
+    cat(sprintf("#$ -t 1-%d\n",object@nchain))
+    cat("cd $PBS_O_WORKDIR/plots/results\n")
+    cat("Rscript ../../plots.R $PBS_ARRAYID\n\n")
+
+    cat("EXITCODE=$?\n")
+    cat("qstat -f $PBS_JOBID\n")
+    cat("exit $EXITCODE\n\n")
+    sink()
+
+    #system(paste("chmod u+x",file.path(object@path,"plots.sge")))
+  }
+)
+
+
+setMethod("submit", signature(object = "sge"), function(object)
+  {
+    sink(file.path(object@path,"sge.sh"))
     cat("#!/bin/bash\n")
     cat("DIR=\"$( cd \"$( dirname \"${BASH_SOURCE[0]}\" )\" && pwd )\"\n")
     cat("pushd $DIR > /dev/null\n\n")
 
-    cat("PLOTS=$(qsub plots.pbs)\n")
+    cat("# job chain\n")
+    cat("MODEL0=$(qsub model0.sge)\n")
+    cat("MODEL=$(qsub -W depend=afterokarray:$MODEL0 model.sge)\n")
+    cat("PLOTS=$(qsub -W depend=afterokarray:$MODEL plots.sge)\n")
     cat("EXITCODE=$?\n\n")
 
     cat("# clean up\n")
     cat("if [[ $EXITCODE != 0 ]]; then\n")
-    cat("  qdel $PLOTS \n")
+    cat("  qdel $MODEL0 $MODEL $PLOTS\n")
     cat("  echo Failed to submit jobs!\n")
     cat("else\n")
     cat("  echo Submitted jobs! To cancel execute $DIR/cancel.sh\n")
     cat("  echo '#!/bin/bash' > $DIR/cancel.sh\n")
-    cat("  echo qdel $PLOTS >> $DIR/cancel.sh\n")
+    cat("  echo qdel $MODEL0 $MODEL $PLOTS >> $DIR/cancel.sh\n")
     cat("  chmod u+x $DIR/cancel.sh\n")
     cat("fi\n\n")
 
@@ -482,8 +639,6 @@ setMethod("submit", signature(object = "pbs"), function(object)
     cat("exit $EXITCODE\n")
     sink()
 
-    system(paste("chmod u+x",file.path(object@path,"pbs.sh")))
-    system(paste("chmod u+x",file.path(object@path,"_pbs2.sh")))
-    system(paste("chmod u+x",file.path(object@path,"_pbs3.sh")))
+    system(paste("chmod u+x",file.path(object@path,"sge.sh")))
   }
 )
