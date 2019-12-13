@@ -86,11 +86,8 @@ execute_model <- function(fit, block, chain, use.priors) {
 
         # measurement rcov
         if (nM == 1 || ctrl$measurement.model == "single") {
-          if (nC == 1) {
-            rcov <- as.formula("~MeasurementID:AssayID")
-          } else {
-            rcov <- as.formula("~ComponentID:MeasurementID:AssayID")
-          }
+          rcov <- as.formula("~units")
+
           if (use.priors == F) {
             prior.rcov <- list(V = 1, nu = 0.02)
           } else {
@@ -98,9 +95,9 @@ execute_model <- function(fit, block, chain, use.priors) {
           }
         } else {
           if (nC == 1) {
-            rcov <- as.formula("~idh(MeasurementID):AssayID")
+            rcov <- as.formula("~idh(MeasurementID):units")
           } else {
-            rcov <- as.formula("~idh(ComponentID:MeasurementID):AssayID")
+            rcov <- as.formula("~idh(ComponentID:MeasurementID):units")
           }
           if (use.priors == F) {
             prior.rcov <- list(V = diag(nM), nu = 0.02)
@@ -234,16 +231,12 @@ execute_model <- function(fit, block, chain, use.priors) {
 
         # EXTRACT FEATURE VARIANCES
         if (ctrl$measurement.model == "single" || nM == 1) {
-          if (nC == 1) {
-            output$DT.measurement.vars <- as.data.table(model$VCV[, "MeasurementID:AssayID", drop = F])
-          } else {
-            output$DT.measurement.vars <- as.data.table(model$VCV[, "ComponentID:MeasurementID:AssayID", drop = F])
-          }
+          output$DT.measurement.vars <- as.data.table(model$VCV[, "units", drop = F])
         } else {
           if (nC == 1) {
-            output$DT.measurement.vars <- as.data.table(model$VCV[, grep("^MeasurementID[0-9]+\\.AssayID$", colnames(model$VCV)), drop = F])
+            output$DT.measurement.vars <- as.data.table(model$VCV[, grep("^MeasurementID[0-9]+\\.units$", colnames(model$VCV)), drop = F])
           } else {
-            output$DT.measurement.vars <- as.data.table(model$VCV[, grep("^ComponentID[0-9]+:MeasurementID[0-9]+\\.AssayID$", colnames(model$VCV)), drop = F])
+            output$DT.measurement.vars <- as.data.table(model$VCV[, grep("^ComponentID[0-9]+:MeasurementID[0-9]+\\.units$", colnames(model$VCV)), drop = F])
           }
         }
         output$DT.measurement.vars[, mcmcID := 1:nrow(output$DT.measurement.vars)]
@@ -255,7 +248,7 @@ execute_model <- function(fit, block, chain, use.priors) {
         } else if (nC == 1) {
           output$DT.measurement.vars[, ComponentID := as.integer(as.character(DT[1, ComponentID]))]
         } else {
-          output$DT.measurement.vars[, ComponentID := as.integer(sub("^ComponentID([0-9]+):MeasurementID[0-9]+\\.AssayID$", "\\1", variable))]
+          output$DT.measurement.vars[, ComponentID := as.integer(sub("^ComponentID([0-9]+):MeasurementID[0-9]+\\.units$", "\\1", variable))]
         }
 
         # measurementID
@@ -264,9 +257,9 @@ execute_model <- function(fit, block, chain, use.priors) {
         } else if (nM == 1) {
           output$DT.measurement.vars[, MeasurementID := as.integer(as.character(DT[1, MeasurementID]))]
         } else if (nC == 1) {
-          output$DT.measurement.vars[, MeasurementID := as.integer(sub("^MeasurementID([0-9]+)\\.AssayID$", "\\1", variable))]
+          output$DT.measurement.vars[, MeasurementID := as.integer(sub("^MeasurementID([0-9]+)\\.units$", "\\1", variable))]
         } else {
-          output$DT.measurement.vars[, MeasurementID := as.integer(sub("^ComponentID[0-9]+:MeasurementID([0-9]+)\\.AssayID$", "\\1", variable))]
+          output$DT.measurement.vars[, MeasurementID := as.integer(sub("^ComponentID[0-9]+:MeasurementID([0-9]+)\\.units$", "\\1", variable))]
         }
 
         # rest
