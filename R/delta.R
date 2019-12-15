@@ -16,6 +16,7 @@
 seaMass_delta <- function(
   fits,
   data.design = design(fits),
+  ref.groups = levels(groups(fit)$Group),
   summaries = FALSE,
   plots = FALSE,
   name = sub("^(.*)\\..*\\.seaMass-sigma", "\\1", basename(fits[[1]])),
@@ -103,6 +104,26 @@ seaMass_delta <- function(
     # write index
     if (chain == 1) fst::write.fst(DT.group.quants[, .(file = "input/1.fst", from = first(.I), to = last(.I)), by = GroupID], file.path(fit, "input.index.fst"))
   }
+
+  # normalise quants using reference groups
+  ref.groupIDs <-
+  for (chain in 1:control$input.nchain) {
+    DT.group.quants <- unnormalised_group_quants(fit, chain = chain, summary.func = NULL, as.data.table = T)
+    # calculate exposures
+    DT <- as.data.table(data)
+    DT.assay.exposures <- DT.group.quants[, .(
+    value = median(value[GroupID %in% ref.groupIDs])
+  ), by = .(AssayID, chainID, mcmcID)]
+  }
+
+  # apply exposures
+  DT <- merge(DT, DT.assay.exposures[, .(AssayID, chainID, mcmcID, exposure = value)], by = c("AssayID", "chainID", "mcmcID"))
+  DT[, value := value - exposure]
+
+  # reorder
+  setcolorder(DT, "GroupID")
+  setorder(DT, GroupID, AssayID, chainID, mcmcID)
+
 
   #   # save data with random access indices
   #   dir.create(file.path(fit, "model0"))

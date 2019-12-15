@@ -12,8 +12,8 @@ sigma_model <- function(fit, dir, chain = 1) {
   message(paste0("[", Sys.time(), "] ", toupper(dir), " block=", sub("^.*\\.(.*)\\.seaMass-sigma$", "\\1", fit), " chain=", chain, "/", ctrl$model.nchain))
 
   # load metadata
-  DT.design <- design(fit, as.data.table = T)
-  DT.groups <- groups(fit, as.data.table = T)
+  DT.design <- fst::read.fst(file.path(fit, "meta", "design.fst"), as.data.table = T)
+  DT.groups <- fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = T)
   DT.index <- fst::read.fst(file.path(fit, dir, "data.index.fst"), as.data.table = T)
   nitt <- ctrl$model.nwarmup + (ctrl$model.nsample * ctrl$model.thin) / ctrl$model.nchain
   if (file.exists(file.path(fit, dir, "priors.fst"))) {

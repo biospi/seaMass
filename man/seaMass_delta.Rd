@@ -13,6 +13,7 @@
 seaMass_delta(
   fits,
   data.design = design(fits),
+  ref.groups = levels(groups(fit)$Group),
   summaries = FALSE,
   plots = FALSE,
   name = sub("^(.*)\\\\..*\\\\.seaMass-sigma", "\\\\1", basename(fits[[1]])),

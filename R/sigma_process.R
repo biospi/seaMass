@@ -36,23 +36,23 @@ sigma_process0 <- function(fit, chain) {
         DT[, chainID := i]
         return(DT)
       }))
-      inputs <- split(inputs, by = c("AssayID", "chainID"))
+      inputs <- split(inputs, by = c("Assay", "chainID"))
 
       message(paste0("[", Sys.time(), "]   modelling assay quality..."))
       set.seed(ctrl$model.seed)
       DT.assay.prior <- rbindlist(parallel_lapply(inputs, function(input, ctrl) {
-        input[, ComponentID := factor(ComponentID)]
+        input[, Component := factor(Component)]
 
         # our Bayesian model
         model <- MCMCglmm::MCMCglmm(
           value ~ 1,
-          random = ~ ComponentID,
-          rcov = ~ idh(ComponentID):units,
+          random = ~ Component,
+          rcov = ~ idh(Component):units,
           data = input,
           prior = list(
             B = list(mu = 0, V = 1e-20),
             G = list(list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2)),
-            R = list(V = diag(nlevels(input$ComponentID)), nu = 2e-4)
+            R = list(V = diag(nlevels(input$Component)), nu = 2e-4)
           ),
           burnin = ctrl$model.nwarmup,
           nitt = ctrl$model.nwarmup + (ctrl$model.nsample * ctrl$model.thin) / ctrl$model.nchain,
@@ -60,11 +60,11 @@ sigma_process0 <- function(fit, chain) {
           verbose = F
         )
 
-        return(data.table(AssayID = input[1, AssayID], chainID = input[1, chainID], mcmcID = 1:nrow(model$VCV), value = model$VCV[, "ComponentID"]))
+        return(data.table(Assay = input[1, Assay], chainID = input[1, chainID], mcmcID = 1:nrow(model$VCV), value = model$VCV[, "Component"]))
       }, nthread = ctrl$nthread))
 
-      DT.assay.prior <- DT.assay.prior[, dist_invchisq_mcmc(chainID, mcmcID, value), by = AssayID]
-      DT.assay.prior <- merge(DT.assay.prior, design(fit, as.data.table = T)[, .(Assay, AssayID)], by = "AssayID")
+      DT.assay.prior <- DT.assay.prior[, dist_invchisq_mcmc(chainID, mcmcID, value), by = Assay]
+      DT.assay.prior <- merge(DT.assay.prior, fst::read.fst(file.path(fit, "meta", "design.fst"), as.data.table = T)[, .(AssayID, Assay)], by = "Assay")
       DT.assay.prior[, Effect := paste("Assay", Assay)]
       DT.assay.prior[, Assay := NULL]
       DT.priors <- rbind(DT.priors, DT.assay.prior, use.names = T, fill = T)
@@ -99,15 +99,16 @@ sigma_process1 <- function(fit, chain) {
     message(paste0("[", Sys.time(), "] OUTPUT1 block=", sub("^.*\\.(.*)\\.seaMass-sigma$", "\\1", fit)))
 
     # load parameters
-    DT.design <- design(fit, as.data.table = T)
-    DT.groups <- groups(fit, as.data.table = T)
-    DT.components <- components(fit, as.data.table = T)
-    DT.measurements <- measurements(fit, as.data.table = T)
+    DT.design <- fst::read.fst(file.path(fit, "meta", "design.fst"), as.data.table = T)
+    DT.groups <- fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = T)
+    DT.components <- fst::read.fst(file.path(fit, "meta", "components.fst"), as.data.table = T)
+    DT.measurements <- fst::read.fst(file.path(fit, "meta", "measurements.fst"), as.data.table = T)
 
     # timings
     DT.timings <- timings(fit, as.data.table = T)
     DT.timings <- data.table::dcast(DT.timings, GroupID ~ chainID, value.var = "elapsed")
-    DT.timings <- merge(DT.groups[, .(GroupID, nComponent, nMeasurement, nDatapoint, pred = timing)], DT.timings, by = "GroupID")
+    DT.timings <- merge(DT.groups[, .(GroupID, Group, nComponent, nMeasurement, nDatapoint, pred = timing)], DT.timings, by = "GroupID")
+    DT.timings[, GroupID := NULL]
     fwrite(DT.timings, file.path(fit, "output", "group_timings.csv"))
     rm(DT.timings)
 
@@ -117,8 +118,11 @@ sigma_process1 <- function(fit, chain) {
       message("[", paste0(Sys.time(), "]  summarising measurement variances..."))
       set.seed(ctrl$model.seed)
       DT.measurement.vars <- measurement_vars(fit, as.data.table = T)
-      if (ctrl$measurement.model == "independent") DT.measurement.vars <- merge(DT.measurements, DT.measurement.vars, by = "MeasurementID")
-      setcolorder(DT.measurement.vars, c("GroupID", "ComponentID"))
+      if (ctrl$measurement.model == "independent") {
+        DT.measurement.vars <- merge(DT.measurements, DT.measurement.vars, by = "Measurement")
+        DT.measurement.vars[, MeasurementID := NULL]
+      }
+      setcolorder(DT.measurement.vars, c("Group", "Component"))
       fwrite(DT.measurement.vars, file.path(fit, "output", "measurement_log2_variances.csv"))
       rm(DT.measurement.vars)
 
@@ -127,8 +131,11 @@ sigma_process1 <- function(fit, chain) {
         message("[", paste0(Sys.time(), "]  summarising component variances..."))
         set.seed(ctrl$model.seed)
         DT.component.vars <- component_vars(fit, as.data.table = T)
-        if (ctrl$component.model == "independent") DT.component.vars <- merge(DT.components, DT.component.vars, by = "ComponentID")
-        setcolorder(DT.component.vars, "GroupID")
+        if (ctrl$component.model == "independent") {
+          DT.component.vars <- merge(DT.components, DT.component.vars, by = "Component")
+          DT.component.vars[, ComponentID := NULL]
+        }
+        setcolorder(DT.component.vars, "Group")
         fwrite(DT.component.vars, file.path(fit, "output", "component_log2_variances.csv"))
         rm(DT.component.vars)
       }
@@ -138,15 +145,21 @@ sigma_process1 <- function(fit, chain) {
         message("[", paste0(Sys.time(), "]  summarising component deviations..."))
         set.seed(ctrl$model.seed)
         DT.component.deviations <- component_deviations(fit, as.data.table = T)
-        DT.component.deviations <- merge(DT.design[, .(AssayID, Assay)], DT.component.deviations, by = "AssayID")
+        DT.component.deviations <- merge(DT.component.deviations, DT.groups[, .(GroupID, Group)], by = "Group")
+        DT.component.deviations <- merge(DT.component.deviations, DT.components[, .(ComponentID, Component)], by = "Component")
         DT.component.deviations[, GroupIDComponentID := paste(GroupID, ComponentID, sep = "_")]
+        DT.component.deviations[, GroupID := NULL]
+        DT.component.deviations[, ComponentID := NULL]
         setcolorder(DT.component.deviations, "GroupIDComponentID")
         DT.component.deviations <- dcast(DT.component.deviations, GroupIDComponentID ~ Assay, drop = F, value.var = colnames(DT.component.deviations)[6:ncol(DT.component.deviations)])
         DT.component.deviations[, GroupID := as.integer(sub("^([0-9]+)_[0-9]+$", "\\1", GroupIDComponentID))]
         DT.component.deviations[, ComponentID := as.integer(sub("^[0-9]+_([0-9]+)$", "\\1", GroupIDComponentID))]
         DT.component.deviations[, GroupIDComponentID := NULL]
         DT.component.deviations <- merge(DT.components[, .(ComponentID, Component, nMeasurement, nDatapoint)], DT.component.deviations, by = "ComponentID")
-        setcolorder(DT.component.deviations, "GroupID")
+        DT.component.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.component.deviations, by = "GroupID")
+        setcolorder(DT.component.deviations, c("GroupID", "ComponentID"))
+        DT.component.deviations[, ComponentID := NULL]
+        DT.component.deviations[, GroupID := NULL]
         fwrite(DT.component.deviations, file.path(fit, "output", "component_log2_deviations.csv"))
         rm(DT.component.deviations)
       }
@@ -156,15 +169,21 @@ sigma_process1 <- function(fit, chain) {
         message("[", paste0(Sys.time(), "]  summarising assay deviations..."))
         set.seed(ctrl$model.seed)
         DT.assay.deviations <- assay_deviations(fit, as.data.table = T)
-        DT.assay.deviations <- merge(DT.design[, .(AssayID, Assay)], DT.assay.deviations, by = "AssayID")
+        DT.assay.deviations <- merge(DT.assay.deviations, DT.groups[, .(GroupID, Group)], by = "Group")
+        DT.assay.deviations <- merge(DT.assay.deviations, DT.components[, .(ComponentID, Component)], by = "Component")
         DT.assay.deviations[, GroupIDComponentID := paste(GroupID, ComponentID, sep = "_")]
+        DT.assay.deviations[, GroupID := NULL]
+        DT.assay.deviations[, ComponentID := NULL]
         setcolorder(DT.assay.deviations, "GroupIDComponentID")
         DT.assay.deviations <- dcast(DT.assay.deviations, GroupIDComponentID ~ Assay, drop = F, value.var = colnames(DT.assay.deviations)[6:ncol(DT.assay.deviations)])
         DT.assay.deviations[, GroupID := as.integer(sub("^([0-9]+)_[0-9]+$", "\\1", GroupIDComponentID))]
         DT.assay.deviations[, ComponentID := as.integer(sub("^[0-9]+_([0-9]+)$", "\\1", GroupIDComponentID))]
         DT.assay.deviations[, GroupIDComponentID := NULL]
         DT.assay.deviations <- merge(DT.components[, .(ComponentID, Component, nMeasurement, nDatapoint)], DT.assay.deviations, by = "ComponentID")
-        setcolorder(DT.assay.deviations, "GroupID")
+        DT.assay.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.assay.deviations, by = "GroupID")
+        setcolorder(DT.assay.deviations, c("GroupID", "ComponentID"))
+        DT.assay.deviations[, ComponentID := NULL]
+        DT.assay.deviations[, GroupID := NULL]
         fwrite(DT.assay.deviations, file.path(fit, "output", "assay_log2_deviations.csv"))
         rm(DT.assay.deviations)
       }
@@ -173,9 +192,8 @@ sigma_process1 <- function(fit, chain) {
       message("[", paste0(Sys.time(), "]  summarising unnormalised group quants..."))
       set.seed(ctrl$model.seed)
       DT.group.quants <- unnormalised_group_quants(fit, as.data.table = T)
-      DT.group.quants <- merge(DT.design[, .(AssayID, Assay)], DT.group.quants, by = "AssayID")
-      DT.group.quants <- dcast(DT.group.quants, GroupID ~ Assay, drop = F, value.var = colnames(DT.group.quants)[5:ncol(DT.group.quants)])
-      DT.group.quants <- merge(DT.groups[, .(GroupID, Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants, by = "GroupID")
+      DT.group.quants <- dcast(DT.group.quants, Group ~ Assay, drop = F, value.var = colnames(DT.group.quants)[5:ncol(DT.group.quants)])
+      DT.group.quants <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants, by = "Group")
       fwrite(DT.group.quants, file.path(fit, "output", "group_log2_unnormalised_quants.csv"))
       rm(DT.group.quants)
     }

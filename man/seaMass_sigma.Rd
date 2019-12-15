@@ -45,13 +45,13 @@ open_sigma_fits(dirs, quiet = FALSE, force = FALSE)
 
 \method{groups}{seaMass_sigma_fit}(fit, as.data.table = FALSE)
 
-\method{summary}{seaMass_sigma_fit}(fit, groupID, dir = "model1")
+\method{summary}{seaMass_sigma_fit}(fit, group, dir = "model1")
 
 \method{timings}{seaMass_sigma_fit}(fit, dir = "model1", as.data.table = F)
 
 \method{measurement_vars}{seaMass_sigma_fit}(
   fit,
-  measurementIDs = NULL,
+  measurements = NULL,
   summary.func = dist_invchisq_mcmc,
   dir = "model1",
   chains = 1:control(fit)$model.nchain,
@@ -60,7 +60,7 @@ open_sigma_fits(dirs, quiet = FALSE, force = FALSE)
 
 \method{component_vars}{seaMass_sigma_fit}(
   fit,
-  componentIDs = NULL,
+  components = NULL,
   summary.func = dist_invchisq_mcmc,
   dir = "model1",
   chains = 1:control(fit)$model.nchain,
@@ -69,7 +69,7 @@ open_sigma_fits(dirs, quiet = FALSE, force = FALSE)
 
 \method{assay_vars}{seaMass_sigma_fit}(
   fit,
-  groupIDs = NULL,
+  groups = NULL,
   summary.func = dist_invchisq_mcmc,
   dir = "model1",
   chains = 1:control(fit)$model.nchain,
@@ -78,7 +78,7 @@ open_sigma_fits(dirs, quiet = FALSE, force = FALSE)
 
 \method{component_deviations}{seaMass_sigma_fit}(
   fit,
-  componentIDs = NULL,
+  components = NULL,
   summary.func = dist_lst_mcmc,
   dir = "model1",
   chains = 1:control(fit)$model.nchain,
@@ -87,7 +87,7 @@ open_sigma_fits(dirs, quiet = FALSE, force = FALSE)
 
 \method{assay_deviations}{seaMass_sigma_fit}(
   fit,
-  componentIDs = NULL,
+  components = NULL,
   summary.func = dist_lst_mcmc,
   dir = "model1",
   chains = 1:control(fit)$model.nchain,
@@ -96,7 +96,7 @@ open_sigma_fits(dirs, quiet = FALSE, force = FALSE)
 
 \method{unnormalised_group_quants}{seaMass_sigma_fit}(
   fit,
-  groupIDs = NULL,
+  groups = NULL,
   summary.func = dist_lst_mcmc,
   dir = "model1",
   chains = 1:control(fit)$model.nchain,
