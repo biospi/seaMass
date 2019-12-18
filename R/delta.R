@@ -35,7 +35,7 @@ seaMass_delta <- function(
   fst::threads_fst(control$nthread)
 
   # create fit and output directories
-  fit <- normalizePath(paste(name, "seaMass-delta", sep = "."))
+  fit <- paste(name, "seaMass-delta", sep = ".")
   if (file.exists(fit)) unlink(fit, recursive = T)
   dir.create(fit)
   dir.create(file.path(fit, "meta"))
@@ -44,6 +44,7 @@ seaMass_delta <- function(
   dir.create(file.path(fit, "dea"))
   dir.create(file.path(fit, "fdr"))
   dir.create(file.path(fit, "output"))
+  fit <- normalizePath(fit)
 
   # check and save control
   control$input.nchain <- unique(sapply(fits, function(fit) control(fit)$model.nchain))
@@ -65,11 +66,9 @@ seaMass_delta <- function(
   if (!is.null(DT.design$nMeasurement)) DT.design[, nMeasurement := NULL]
   if (!is.null(DT.design$nDatapoint)) DT.design[, nDatapoint := NULL]
   if (!is.null(DT.design$Block)) DT.design[, Block := NULL]
-  if (!is.null(DT.design$AssayID)) DT.design[, AssayID := NULL]
   DT.design <- unique(merge(DT.design, DT.design.fits, by = "Assay"))
   DT.design[, Assay := factor(Assay)]
-  DT.design[, AssayID := as.integer(Assay)]
-  setcolorder(DT.design, c("Assay", "AssayID"))
+  setcolorder(DT.design, "Assay")
   fst::write.fst(DT.design, file.path(fit, "meta", "design.fst"))
 
   # merged groups
@@ -83,46 +82,43 @@ seaMass_delta <- function(
     DT.group.quants <- rbindlist(lapply(fits, function(fit) {
       message(paste0("[", Sys.time(), "]  block=", sub("^.*\\.(.*)\\.seaMass-sigma$", "\\1", fit), "..."))
       DT <- unnormalised_group_quants(fit, summary.func = NULL, chain = chain, as.data.table = T)
-      DT <- merge(DT, design(fit, as.data.table = T)[, .(AssayID, Assay)], by = "AssayID")
       DT <- merge(DT, DT.design[, .(Assay, RefWeight)], by = "Assay")
       DT[, value := value - {
         x <- weighted.mean(value, RefWeight)
         ifelse(is.na(x), 0, x)
-      }, by = .(GroupID, BaselineID, chainID, mcmcID)]
+      }, by = .(Group, Baseline, chainID, mcmcID)]
       return(DT[!is.nan(value)])
     }))
-    # recode AssayID
-    DT.group.quants[, AssayID := as.integer(Assay)]
     # average MCMC samples if assay was used in multiple blocks
-    DT.group.quants <- DT.group.quants[, .(value = mean(value), nComponent = max(nComponent), nMeasurement = max(nMeasurement)), by = .(AssayID, GroupID, chainID, mcmcID)]
+    DT.group.quants <- DT.group.quants[, .(value = mean(value), nComponent = max(nComponent), nMeasurement = max(nMeasurement)), by = .(Assay, Group, chainID, mcmcID)]
 
     # write
-    setcolorder(DT.group.quants, c("GroupID", "AssayID", "nComponent", "nMeasurement"))
-    setorder(DT.group.quants, GroupID, AssayID, chainID, mcmcID)
+    setcolorder(DT.group.quants, c("Group", "Assay", "nComponent", "nMeasurement"))
+    setorder(DT.group.quants, Group, Assay, chainID, mcmcID)
     fst::write.fst(DT.group.quants, file.path(fit, "input", paste(chain, "fst", sep = ".")))
 
     # write index
-    if (chain == 1) fst::write.fst(DT.group.quants[, .(file = "input/1.fst", from = first(.I), to = last(.I)), by = GroupID], file.path(fit, "input.index.fst"))
+    if (chain == 1) fst::write.fst(DT.group.quants[, .(file = "input/1.fst", from = first(.I), to = last(.I)), by = Group], file.path(fit, "input.index.fst"))
   }
 
   # normalise quants using reference groups
-  ref.groupIDs <-
-  for (chain in 1:control$input.nchain) {
-    DT.group.quants <- unnormalised_group_quants(fit, chain = chain, summary.func = NULL, as.data.table = T)
-    # calculate exposures
-    DT <- as.data.table(data)
-    DT.assay.exposures <- DT.group.quants[, .(
-    value = median(value[GroupID %in% ref.groupIDs])
-  ), by = .(AssayID, chainID, mcmcID)]
-  }
+  #ref.groupIDs <-
+  #for (chain in 1:control$input.nchain) {
+  #  DT.group.quants <- unnormalised_group_quants(fit, chain = chain, summary.func = NULL, as.data.table = T)
+  #  # calculate exposures
+  #  DT <- as.data.table(data)
+  #  DT.assay.exposures <- DT.group.quants[, .(
+  #  value = median(value[GroupID %in% ref.groupIDs])
+  #), by = .(AssayID, chainID, mcmcID)]
+  #}
 
   # apply exposures
-  DT <- merge(DT, DT.assay.exposures[, .(AssayID, chainID, mcmcID, exposure = value)], by = c("AssayID", "chainID", "mcmcID"))
-  DT[, value := value - exposure]
+  #DT <- merge(DT, DT.assay.exposures[, .(AssayID, chainID, mcmcID, exposure = value)], by = c("AssayID", "chainID", "mcmcID"))
+  #DT[, value := value - exposure]
 
   # reorder
-  setcolorder(DT, "GroupID")
-  setorder(DT, GroupID, AssayID, chainID, mcmcID)
+  #setcolorder(DT, "GroupID")
+  #setorder(DT, GroupID, AssayID, chainID, mcmcID)
 
 
   #   # save data with random access indices

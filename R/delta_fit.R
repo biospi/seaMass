@@ -59,17 +59,34 @@ groups.seaMass_delta_fit <- function(fit, as.data.table = FALSE) {
 #' @describeIn seaMass_delta Returns the input unnormalised group quantifications from an open \code{seaMass_delta_fit} object as a \code{data.frame}.
 #' @import data.table
 #' @export
-unnormalised_group_quants.seaMass_delta_fit <- function(fit, groupIDs = NULL, summary.func = dist_lst_mcmc, chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
-  return(read_mcmc(
+unnormalised_group_quants.seaMass_delta_fit <- function(fit, groups = NULL, summary.func = dist_lst_mcmc, chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
+  DT.groups <- fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = T)
+  if (is.null(groups)) {
+    itemIDs <- NULL
+  } else {
+    itemIDs <- DT.groups[Group %in% groups, GroupID]
+  }
+
+  DT <- read_mcmc(
     fit,
     "input",
     "GroupID",
     "GroupID",
     c("GroupID", "AssayID", "nComponent", "nMeasurement"),
-    groupIDs,
+    itemIDs,
     ".",
     chains,
-    summary.func,
-    as.data.table
-  ))
+    summary.func
+  )
+
+  DT <- merge(DT, DT.groups[, .(GroupID, Group)], by = "GroupID")
+  DT[, GroupID := NULL]
+  DT <- merge(DT, fst::read.fst(file.path(fit, "meta", "design.fst"), as.data.table = T)[, .(AssayID, Assay)], by = "AssayID")
+  DT[, AssayID := NULL]
+  setcolorder(DT, c("Group", "Assay"))
+  setorder(DT, Group, Assay)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
 }

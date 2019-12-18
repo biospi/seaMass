@@ -32,7 +32,7 @@ open_delta_fit(dir, quiet = FALSE, force = FALSE)
 
 \method{unnormalised_group_quants}{seaMass_delta_fit}(
   fit,
-  groupIDs = NULL,
+  groups = NULL,
   summary.func = dist_lst_mcmc,
   chains = 1:control(fit)$model.nchain,
   as.data.table = FALSE
