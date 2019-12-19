@@ -36,7 +36,7 @@ control.seaMass_delta_fit <- function(fit) {
 #' @import data.table
 #' @export
 design.seaMass_delta_fit <- function(fit, as.data.table = F) {
-  DT <- fst::read.fst(file.path(fit, "meta", "design.fst"), as.data.table = as.data.table)
+  DT <- fst::read.fst(file.path(fit, "meta", "design.fst"), as.data.table = T)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -48,7 +48,7 @@ design.seaMass_delta_fit <- function(fit, as.data.table = F) {
 #' @import data.table
 #' @export
 groups.seaMass_delta_fit <- function(fit, as.data.table = FALSE) {
-  DT <- fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = as.data.table)
+  DT <- fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = T)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -60,33 +60,57 @@ groups.seaMass_delta_fit <- function(fit, as.data.table = FALSE) {
 #' @import data.table
 #' @export
 unnormalised_group_quants.seaMass_delta_fit <- function(fit, groups = NULL, summary.func = dist_lst_mcmc, chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
-  DT.groups <- fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = T)
-  if (is.null(groups)) {
-    itemIDs <- NULL
-  } else {
-    itemIDs <- DT.groups[Group %in% groups, GroupID]
-  }
+  if (is.null(groups)) groups <- groups(fit)$Group
 
   DT <- read_mcmc(
     fit,
     "input",
-    "GroupID",
-    "GroupID",
-    c("GroupID", "AssayID", "nComponent", "nMeasurement"),
-    itemIDs,
+    "Group",
+    "Group",
+    c("Group", "Assay", "nComponent", "nMeasurement"),
+    groups,
     ".",
     chains,
     summary.func
   )
 
-  DT <- merge(DT, DT.groups[, .(GroupID, Group)], by = "GroupID")
-  DT[, GroupID := NULL]
-  DT <- merge(DT, fst::read.fst(file.path(fit, "meta", "design.fst"), as.data.table = T)[, .(AssayID, Assay)], by = "AssayID")
-  DT[, AssayID := NULL]
-  setcolorder(DT, c("Group", "Assay"))
-  setorder(DT, Group, Assay)
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+}
+
+
+#' @export
+normalised_group_quants <- function(x, ...) {
+  return(UseMethod("normalised_group_quants", x))
+}
+
+
+#' @describeIn seaMass_delta Returns the normalised group quantifications from an open \code{seaMass_delta_fit} object as a \code{data.frame}.
+#' @import data.table
+#' @export
+normalised_group_quants.seaMass_delta_fit <- function(fit, groups = NULL, summary.func = dist_lst_mcmc, chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
+  if (!dir.exists(file.path(fit, "norm"))) {
+    DT <- unnormalised_group_quants(fit, groups, summary.func, chains, as.data.table = T)
+    DT[, exposure := 0]
+  } else {
+    if (is.null(groups)) groups <- groups(fit)$Group
+
+    DT <- read_mcmc(
+      fit,
+      "norm",
+      "Group",
+      "Group",
+      c("Group", "Assay", "nComponent", "nMeasurement"),
+      groups,
+      ".",
+      chains,
+      summary.func
+    )
+  }
 
   if (!as.data.table) setDF(DT)
   else DT[]
   return(DT)
 }
+

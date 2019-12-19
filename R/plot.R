@@ -183,22 +183,24 @@ plot_priors <- function(data.fits = NULL, ci = c(0.05, 0.95), by = NULL, xlab = 
 #' @return The sum of \code{x} and \code{y}.
 #' @import data.table
 #' @export
-plot_exposures <- function(fit, data = group_quants(fit, summary = F), data.design = design(fit)) {
+plot_assay_exposures <- function(fit, data = normalised_group_quants(fit, summary.func = NULL)) {
   DT <- as.data.table(data)
   DT.design <- as.data.table(data.design)
 
-  DT.assay.exposures <- DT[, head(.SD, 1), by = .(AssayID, chainID, mcmcID)][, .(AssayID, chainID, mcmcID, value = exposure)]
+  DT.assay.exposures <- DT[, head(.SD, 1), by = .(Assay, chainID, mcmcID)][, .(Assay, chainID, mcmcID, value = exposure)]
+  # add minute amount of noise so that stdev > 0
+  DT.assay.exposures[, value := rnorm(.N, value, 1e-10)]
 
   assay.exposures.meta <- function(x) {
     m = median(x)
     data.table(median = m, fc = paste0("  ", ifelse(m < 0, format(-2^-m, digits = 3), format(2^m, digits = 3)), "fc"))
   }
-  DT.assay.exposures.meta <- merge(setDT(data.design)[, .(AssayID, Assay)], DT.assay.exposures[, as.list(assay.exposures.meta(value)), by = AssayID], by = "AssayID")
+  DT.assay.exposures.meta <- DT.assay.exposures[, as.list(assay.exposures.meta(value)), by = Assay]
 
   assay.exposures.density <- function(x) {
     as.data.table(density(x, n = 4096)[c("x","y")])
   }
-  DT.assay.exposures.density <- merge(DT.design[, .(AssayID, Assay)], DT.assay.exposures[, as.list(assay.exposures.density(value)), by = AssayID], by = "AssayID")
+  DT.assay.exposures.density <- DT.assay.exposures[, as.list(assay.exposures.density(value)), by = Assay]
 
   x.max <- max(0.5, max(abs(DT.assay.exposures.density$x)))
   g <- ggplot2::ggplot(DT.assay.exposures.density, ggplot2::aes(x = x, y = y))

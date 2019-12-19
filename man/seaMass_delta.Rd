@@ -8,6 +8,7 @@
 \alias{design.seaMass_delta_fit}
 \alias{groups.seaMass_delta_fit}
 \alias{unnormalised_group_quants.seaMass_delta_fit}
+\alias{normalised_group_quants.seaMass_delta_fit}
 \title{seaMass-Δ}
 \usage{
 seaMass_delta(
@@ -31,6 +32,14 @@ open_delta_fit(dir, quiet = FALSE, force = FALSE)
 \method{groups}{seaMass_delta_fit}(fit, as.data.table = FALSE)
 
 \method{unnormalised_group_quants}{seaMass_delta_fit}(
+  fit,
+  groups = NULL,
+  summary.func = dist_lst_mcmc,
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+)
+
+\method{normalised_group_quants}{seaMass_delta_fit}(
   fit,
   groups = NULL,
   summary.func = dist_lst_mcmc,
@@ -70,5 +79,7 @@ quants output by seaMass-Σ
 \item \code{groups}: Returns the group metadata from an open \code{seaMass_delta_fit} object as a \code{data.frame}.
 
 \item \code{unnormalised_group_quants}: Returns the input unnormalised group quantifications from an open \code{seaMass_delta_fit} object as a \code{data.frame}.
+
+\item \code{normalised_group_quants}: Returns the normalised group quantifications from an open \code{seaMass_delta_fit} object as a \code{data.frame}.
 }}
 

@@ -81,14 +81,29 @@ data.design$Reference <- c(
 )
 ```
 
-Finally, run the model. Specifying TRUE for summaries will generate csv reports in the directory specified by the *seaMass-sigma* *name* parameter, and any internal control parameters (such as the number of CPU threads to use) can be specified through a *sigma_control* object. 
+Next, run the seaMass-Σ model. Specifying TRUE for summaries will generate csv reports in the directory specified by the *seaMass-sigma* *name* parameter, and any internal control parameters (such as the number of CPU threads to use) can be specified through a *sigma_control* object. 
 
 ```
 # run seaMass-Σ
-fit <- seaMass_sigma(
+fits <- seaMass_sigma(
   data,
+  data.design,
   summaries = TRUE,
   name = "Tutorial",
   control = new_sigma_control(nthread = 4)
 )
 ```
+
+seaMass-Σ computes unnormalised protein group quants (together with peptide deviations from the protein group quants, and peptide/feature variances) for each block. To allow comparisons to be made across blocks (standardisation), and optionally normalisation and/or false discovery rate controlled differential expression analysis, run seaMass-Δ on the *seaMass_sigma_fits* object returned by seaMass-Σ. Internal control parameters can be specified through a *delta_control* object. 
+
+```
+# run seaMass-Δ
+fit <- seaMass_delta(
+  fits,
+  data.design,
+  summaries = TRUE,
+  control = new_delta_control(nthread = 4)
+)
+```
+
+**TODO:** Differential expression analysis with seaMass-Δ. 

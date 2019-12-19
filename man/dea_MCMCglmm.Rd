@@ -21,7 +21,8 @@ dea_MCMCglmm(
   model.nchain = 4,
   model.nwarmup = 1024,
   model.thin = 1,
-  model.nsample = 1024
+  model.nsample = 1024,
+  ...
 )
 }
 \description{

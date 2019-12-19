@@ -822,7 +822,8 @@ dea_MCMCglmm <- function(
   model.nchain = 4,
   model.nwarmup  = 1024,
   model.thin = 1,
-  model.nsample = 1024
+  model.nsample = 1024,
+  ...
 ) {
   if (!use.precision) message("WARNING: With 'use.precision = FALSE' this function does not use BayesProt quant precision estimates and hence should only be used for comparative purposes with the other 'dea' methods.")
 

@@ -5,16 +5,26 @@
 \title{Control parameters for seaMass-Δ}
 \usage{
 new_delta_control(
+  norm.model = "median",
+  dea.model = "MCMCglmm",
+  fdr.model = "ash",
   model.seed = 0,
   model.nchain = 4,
   model.nwarmup = 256,
   model.thin = 1,
   model.nsample = 1024,
+  norm.groups = NULL,
   nthread = parallel::detectCores()\%/\%2,
-  hpc = NULL
+  ...
 )
 }
 \arguments{
+\item{norm.model}{Either 'median' normalisation or NULL (none)}
+
+\item{dea.model}{Either 'MCMCglmm' differential expression analysis or NULL (none)}
+
+\item{fdr.model}{Either 'ash' false discovery rate control or NULL (none)}
+
 \item{model.seed}{Random number seed}
 
 \item{model.nchain}{Number of MCMC chains to run}

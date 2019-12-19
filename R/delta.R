@@ -33,6 +33,7 @@ seaMass_delta <- function(
   message(paste0("[", Sys.time(), "] seaMass-", utf8::utf8_encode("\U00000394"), " started."))
   data.table::setDTthreads(control$nthread)
   fst::threads_fst(control$nthread)
+  set.seed(control$model.seed)
 
   # create fit and output directories
   fit <- paste(name, "seaMass-delta", sep = ".")
@@ -40,11 +41,9 @@ seaMass_delta <- function(
   dir.create(fit)
   dir.create(file.path(fit, "meta"))
   dir.create(file.path(fit, "input"))
-  dir.create(file.path(fit, "norm"))
-  dir.create(file.path(fit, "dea"))
-  dir.create(file.path(fit, "fdr"))
   dir.create(file.path(fit, "output"))
   fit <- normalizePath(fit)
+  class(fit) <- "seaMass_delta_fit"
 
   # check and save control
   control$input.nchain <- unique(sapply(fits, function(fit) control(fit)$model.nchain))
@@ -58,30 +57,32 @@ seaMass_delta <- function(
   saveRDS(control, file.path(fit, "meta", "control.rds"))
 
   # merged design
-  DT.design.fits <- design(fits, as.data.table = T)
-  DT.design.fits <- DT.design.fits[, .(nGroup = min(nGroup), nComponent = min(nComponent), nMeasurement = min(nMeasurement), nDatapoint = min(nDatapoint)), by = Assay]
-  DT.design <- as.data.table(data.design)[!is.na(Assay)]
+  DT.design <- unique(as.data.table(data.design)[!is.na(Assay)], by = "Assay")
   if (!is.null(DT.design$nGroup)) DT.design[, nGroup := NULL]
   if (!is.null(DT.design$nComponent)) DT.design[, nComponent := NULL]
   if (!is.null(DT.design$nMeasurement)) DT.design[, nMeasurement := NULL]
   if (!is.null(DT.design$nDatapoint)) DT.design[, nDatapoint := NULL]
   if (!is.null(DT.design$Block)) DT.design[, Block := NULL]
-  DT.design <- unique(merge(DT.design, DT.design.fits, by = "Assay"))
-  DT.design[, Assay := factor(Assay)]
-  setcolorder(DT.design, "Assay")
+  DT.design <- merge(
+    DT.design,
+    design(fits, as.data.table = T)[, .(nGroup = max(nGroup), nComponent = max(nComponent), nMeasurement = max(nMeasurement), nDatapoint = max(nDatapoint)), by = Assay],
+    by = "Assay"
+  )
+  if (!is.factor(DT.design$Assay)) DT.design[, Assay := factor(Assay, levels = unique(Assay))]
   fst::write.fst(DT.design, file.path(fit, "meta", "design.fst"))
 
   # merged groups
   DT.groups <- rbindlist(lapply(fits, function(fit) groups(fit, as.data.table = T)))
-  DT.groups <- DT.groups[, .(GroupInfo = first(GroupInfo), nComponent = min(nComponent), nMeasurement = min(nMeasurement), nDataPoint = min(nDatapoint)), by = Group]
+  DT.groups <- DT.groups[, .(GroupInfo = first(GroupInfo), nComponent = sum(nComponent), nMeasurement = sum(nMeasurement), nDatapoint = sum(nDatapoint)), by = Group]
+  setorder(DT.groups, -nComponent, -nMeasurement, -nDatapoint, Group)
+  DT.groups[, Group := factor(Group, levels = unique(Group))]
   fst::write.fst(DT.groups, file.path(fit, "meta", "groups.fst"))
 
   # standardise quants using reference weights
-  for (chain in 1:control$input.nchain) {
-    message(paste0("[", Sys.time(), "] STANDARDISE BLOCKS chain=", chain, "/", control$input.nchain))
-    DT.group.quants <- rbindlist(lapply(fits, function(fit) {
-      message(paste0("[", Sys.time(), "]  block=", sub("^.*\\.(.*)\\.seaMass-sigma$", "\\1", fit), "..."))
-      DT <- unnormalised_group_quants(fit, summary.func = NULL, chain = chain, as.data.table = T)
+  message(paste0("[", Sys.time(), "]  standardising blocks..."))
+  parallel_lapply(as.list(1:control$input.nchain), function(input, fit, fits, DT.design, DT.groups) {
+    DT.group.quants <- rbindlist(lapply(fits, function(ft) {
+      DT <- unnormalised_group_quants(ft, summary.func = NULL, chain = input, as.data.table = T)
       DT <- merge(DT, DT.design[, .(Assay, RefWeight)], by = "Assay")
       DT[, value := value - {
         x <- weighted.mean(value, RefWeight)
@@ -89,93 +90,42 @@ seaMass_delta <- function(
       }, by = .(Group, Baseline, chainID, mcmcID)]
       return(DT[!is.nan(value)])
     }))
+
     # average MCMC samples if assay was used in multiple blocks
     DT.group.quants <- DT.group.quants[, .(value = mean(value), nComponent = max(nComponent), nMeasurement = max(nMeasurement)), by = .(Assay, Group, chainID, mcmcID)]
 
     # write
     setcolorder(DT.group.quants, c("Group", "Assay", "nComponent", "nMeasurement"))
     setorder(DT.group.quants, Group, Assay, chainID, mcmcID)
-    fst::write.fst(DT.group.quants, file.path(fit, "input", paste(chain, "fst", sep = ".")))
+    fst::write.fst(DT.group.quants, file.path(fit, "input", paste(input, "fst", sep = ".")))
+    if (input == 1) fst::write.fst(DT.group.quants[, .(file = "input/1.fst", from = first(.I), to = last(.I)), by = Group], file.path(fit, "input.index.fst"))
+    return(NULL)
+  }, nthread = control(fit)$nthread)
 
-    # write index
-    if (chain == 1) fst::write.fst(DT.group.quants[, .(file = "input/1.fst", from = first(.I), to = last(.I)), by = Group], file.path(fit, "input.index.fst"))
+  # normalise quants by norm.groups
+  if (!is.null(control$norm.model)) {
+    dir.create(file.path(fit, "norm"))
+    if (control$norm.model == "median") norm_median(fit, control$norm.groups)
   }
 
-  # normalise quants using reference groups
-  #ref.groupIDs <-
-  #for (chain in 1:control$input.nchain) {
-  #  DT.group.quants <- unnormalised_group_quants(fit, chain = chain, summary.func = NULL, as.data.table = T)
-  #  # calculate exposures
-  #  DT <- as.data.table(data)
-  #  DT.assay.exposures <- DT.group.quants[, .(
-  #  value = median(value[GroupID %in% ref.groupIDs])
-  #), by = .(AssayID, chainID, mcmcID)]
-  #}
+  # plot assay exposures
+  g <- plot_assay_exposures(fit)
+  ggplot2::ggsave(file.path(fit, "output", "assay_exposures.pdf"), width = 4, height = 0.5 + 1 * nlevels(DT.design$Assay), limitsize = F)
 
-  # apply exposures
-  #DT <- merge(DT, DT.assay.exposures[, .(AssayID, chainID, mcmcID, exposure = value)], by = c("AssayID", "chainID", "mcmcID"))
-  #DT[, value := value - exposure]
-
-  # reorder
-  #setcolorder(DT, "GroupID")
-  #setorder(DT, GroupID, AssayID, chainID, mcmcID)
-
-
-  #   # save data with random access indices
-  #   dir.create(file.path(fit, "model0"))
-  #   fst::write.fst(DT0, file.path(fit, "model0", "data.fst"))
-  #   DT0.index <- DT0[, .(GroupID = unique(GroupID), file = "data.fst", from = .I[!duplicated(GroupID)], to = .I[rev(!duplicated(rev(GroupID)))])]
-  #   fst::write.fst(DT0.index, file.path(fit, "model0", "data.index.fst"))
-  #
-  #   dir.create(file.path(fit, "model1"))
-  #   fst::write.fst(DT, file.path(fit, "model1", "data.fst"))
-  #   DT.index <- DT[, .(GroupID = unique(GroupID), file = "data.fst", from = .I[!duplicated(GroupID)], to = .I[rev(!duplicated(rev(GroupID)))])]
-  #   fst::write.fst(DT.index, file.path(fit, "model1", "data.index.fst"))
-  #
-  #   # save metadata
-  #   dir.create(file.path(fit, "meta"))
-  #
-  #   control$summaries <- summaries
-  #   control$plots <- plots
-  #   control$name <- name
-  #   saveRDS(control, file.path(fit, "meta", "control.rds"))
-  #
-  #   fst::write.fst(DT.groups, file.path(fit, "meta", "groups.fst"))
-  #   fst::write.fst(DT.components, file.path(fit, "meta", "components.fst"))
-  #   fst::write.fst(DT.measurements, file.path(fit, "meta", "measurements.fst"))
-  #   fst::write.fst(DT.design, file.path(fit, "meta", "design.fst"))
-  #
-  #   dir.create(file.path(fit, "results"))
-  # }
-  # names(fits) <- blocks
-  #
-  # ### RUN
-  # # number of parallel compute nodes that can be used
-  # nnode <- length(block.cols) * control$model.nchain
-  # if (is.null(control$hpc)) {
-  #   for (fit in fits) {
-  #     # run empirical bayes model0
-  #     for (chain in 1:control$model.nchain) sigma_process0(fit, chain)
-  #
-  #     # run full model1
-  #     for (chain in 1:control$model.nchain) sigma_process1(fit, chain)
-  #
-  #     # run plots if you want
-  #     if (plots) for (chain in 1:control$model.nchain) sigma_plots(fit, chain)
-  #
-  #     write.table(data.frame(), file.path(fit, ".complete"), col.names = F)
-  #   }
-  # } else {
-  #   # submit to hpc directly here
-  #   stop("not implemented yet")
-  # }
-  #
-  # ### TIDY UP
-  # if (!data.is.data.table) setDF(data)
-  # message(paste0("[", Sys.time(), "] seaMass-", utf8::utf8_encode("\U000003A3"), " finished!"))
+  if (summaries) {
+    # group quants
+    message("[", paste0(Sys.time(), "]  summarising normalised group quants..."))
+    set.seed(control$model.seed)
+    DT.group.quants <- normalised_group_quants(fit, as.data.table = T)
+    DT.group.quants <- dcast(DT.group.quants, Group ~ Assay, drop = F, value.var = colnames(DT.group.quants)[5:ncol(DT.group.quants)])
+    DT.group.quants <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants, by = "Group")
+    fwrite(DT.group.quants, file.path(fit, "output", "group_log2_normalised_quants.csv"))
+    rm(DT.group.quants)
+  }
 
   # return fit object
-  class(fit) <- "seaMass_delta_fit"
+  write.table(data.frame(), file.path(fit, ".complete"), col.names = F)
+  message(paste0("[", Sys.time(), "] seaMass-", utf8::utf8_encode("\U00000394"), " finished!"))
   return(fit)
 }
 
@@ -184,6 +134,9 @@ seaMass_delta <- function(
 #'
 #' Define advanced control parameters for the seaMass-Σ Bayesian model.
 #'
+#' @param norm.model Either 'median' normalisation or NULL (none)
+#' @param dea.model Either 'MCMCglmm' differential expression analysis or NULL (none)
+#' @param fdr.model Either 'ash' false discovery rate control or NULL (none)
 #' @param model.seed Random number seed
 #' @param model.nchain Number of MCMC chains to run
 #' @param model.nwarmup Number of MCMC warmup iterations to run for each chain
@@ -194,20 +147,21 @@ seaMass_delta <- function(
 #' @return \code{seaMass_sigma_control} object to pass to \link{sigma}
 #' @export
 new_delta_control <- function(
+  norm.model = "median",
+  dea.model = "MCMCglmm",
+  fdr.model = "ash",
   model.seed = 0,
   model.nchain = 4,
   model.nwarmup = 256,
   model.thin = 1,
   model.nsample = 1024,
+  norm.groups = NULL,
   nthread = parallel::detectCores() %/% 2,
-  hpc = NULL
+  ...
 ) {
   # validate parameters
-  if (!is.null(hpc) && hpc != "pbs" && hpc != "sge" && hpc != "slurm" && hpc != "remote") {
-    stop("'hpc' needs to be either 'pbs', 'sge', 'slurm', 'remote' or NULL (default)")
-  }
   if (model.nchain == 1) {
-    message("WARNING: You are specifying only a single MCMC chain, convergence diagnostics will be unavailable. It is recommended to specify model.nchain=4 or more in 'control' for publishable results.")
+    message("WARNNING: You are specifying only a single MCMC chain, convergence diagnostics will be unavailable. It is recommended to specify model.nchain=4 or more in 'control' for publishable results.")
   }
 
   # create control object
