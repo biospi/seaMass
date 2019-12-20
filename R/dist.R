@@ -37,7 +37,7 @@ dist_normal <- function(value, plots = FALSE, ...) {
 
   if (est$s > 1e-16) {
     tryCatch({
-      ft <- fitdistrplus::fitdist(value, "norm", start = list(mean = est$m, sd = est$s), ...)
+      ft <- fitdistrplus::fitdist(as.vector(value), "norm", start = list(mean = est$m, sd = est$s), ...)
       if (plots) plot(ft)
       est <- list(m = ft$estimate[["mean"]], s = ft$estimate[["sd"]], df = Inf)
     }, error = function(e) {
@@ -93,7 +93,7 @@ dist_lst <- function(value, plots = FALSE, ...) {
     }
 
     tryCatch({
-      ft <- fitdistrplus::fitdist(value, "_bayesprot_lst", start = list(log_df = 0, mu = est$m, log_sigma = log(est$s)), ...)
+      ft <- fitdistrplus::fitdist(as.vector(value), "_bayesprot_lst", start = list(log_df = 0, mu = est$m, log_sigma = log(est$s)), ...)
       if (plots == T) plot(ft)
       est <- list(m = ft$estimate[["mu"]], s = exp(ft$estimate[["log_sigma"]]), df = exp(ft$estimate[["log_df"]]))
     }, error = function(e) {
@@ -146,7 +146,7 @@ dist_invchisq <- function(value, plots = FALSE, ...) {
     }
 
     tryCatch({
-      ft <- fitdistrplus::fitdist(value, "_bayesprot_invchisq", start = list(log_df = log(est$df), log_v = log(est$v)), ...)
+      ft <- fitdistrplus::fitdist(as.vector(value), "_bayesprot_invchisq", start = list(log_df = log(est$df), log_v = log(est$v)), ...)
       if (plots == T) plot(ft)
       est <- list(v = exp(ft$estimate[["log_v"]]), df = exp(ft$estimate[["log_df"]]))
     }, error = function(e) {
@@ -204,7 +204,7 @@ dist_sf_with_fixed_df1_fitdistrplus <- function(value, df1, plots = FALSE, ...) 
   }
 
   tryCatch({
-    ft <- fitdistrplus::fitdist(log2(value), "_bayesprot_scaled_f", start = list(log_df2 = log(est0$df), log_scale = log(est0$v)), ...)
+    ft <- fitdistrplus::fitdist(log2(as.vector(value)), "_bayesprot_scaled_f", start = list(log_df2 = log(est0$df), log_scale = log(est0$v)), ...)
     if (plots == T) plot(ft)
     est <- list(v = exp(ft$estimate[["log_scale"]]), df = exp(ft$estimate[["log_df2"]]))
   }, error = function(e) {

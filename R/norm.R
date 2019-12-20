@@ -4,32 +4,21 @@
 #'
 #' @import data.table
 #' @export
-norm_median <- function(
-  fit,
-  data,
-  #volumes = rep_len(1, nlevels(design(fit)$Assay)),
-  ref.groups = levels(groups(fit)$Group),
-  as.data.table = FALSE
-) {
-  ref.groupIDs <- groups(fit, as.data.table = T)[Group %in% ref.groups, GroupID]
+norm_median <- function(fit, norm.groups = NULL)
+{
+  message(paste0("[", Sys.time(), "]  median normalisation..."))
 
-  # calculate exposures
-  DT <- as.data.table(data)
-  DT.assay.exposures <- DT[, .(
-    value = median(value[GroupID %in% ref.groupIDs])
-  ), by = .(AssayID, chainID, mcmcID)]
+  if (is.null(norm.groups)) norm.groups <- groups(fit)$Group
+  parallel_lapply(as.list(1:control(fit)$input.nchain), function(input, fit, norm.groups) {
+    DT.group.quants <- unnormalised_group_quants(fit, summary.func = NULL, chain = input, as.data.table = T)
+    DT.group.quants[, exposure := median(value[Group %in% norm.groups]), by = .(Assay, chainID, mcmcID)]
+    DT.group.quants[, value := value - exposure]
 
-  # apply exposures
-  DT <- merge(DT, DT.assay.exposures[, .(AssayID, chainID, mcmcID, exposure = value)], by = c("AssayID", "chainID", "mcmcID"))
-  DT[, value := value - exposure]
-
-  # reorder
-  setcolorder(DT, "GroupID")
-  setorder(DT, GroupID, AssayID, chainID, mcmcID)
-
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
+    # write
+    fst::write.fst(DT.group.quants, file.path(fit, "norm", paste(input, "fst", sep = ".")))
+    if (input == 1) fst::write.fst(DT.group.quants[, .(file = "norm/1.fst", from = first(.I), to = last(.I)), by = Group], file.path(fit, "norm.index.fst"))
+    return(NULL)
+  }, nthread = control(fit)$nthread)
 }
 
 

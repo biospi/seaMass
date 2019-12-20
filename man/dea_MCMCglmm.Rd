@@ -11,7 +11,7 @@ dea_MCMCglmm(fit, data = group_quants(fit), data.design = design(fit),
   Condition), output = NULL, as.data.table = FALSE,
   use.precision = TRUE, dist.mean.func = dist_lst_mcmc,
   model.seed = control(fit)$model.seed, model.nchain = 4,
-  model.nwarmup = 1024, model.thin = 1, model.nsample = 1024)
+  model.nwarmup = 1024, model.thin = 1, model.nsample = 1024, ...)
 }
 \description{
 The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.

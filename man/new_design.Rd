@@ -7,12 +7,12 @@
 new_design(data)
 }
 \arguments{
-\item{data}{\link{data.frame} returned by \link{import_ProteinPilot} or \link{import_ProteomeDiscoverer}.}
+\item{data}{\link{data.frame} returned by  \link{import_ProteinPilot}, \link{import_ProteinPilot},
+\link{import_ProteomeDiscovery}, \link{import_Progenesis} or \link{import_OpenSWATH}.}
 }
 \value{
-\link{data.frame} that can be edited and passed as parameter \code{data.design} of \link{seamassdelta}.
+\link{data.frame} that can be edited and passed as parameter \code{data.design} of \link{seaMass_sigma}.
 }
 \description{
-Returns a skeleton \link{data.frame} for customising the study design of a dataset imported with  \link{import_ProteinPilot} or
-\link{import_ProteomeDiscoverer}.
+Returns a skeleton \link{data.frame} for customising the study design of an imported dataset.
 }

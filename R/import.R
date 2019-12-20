@@ -14,7 +14,7 @@ runs <- function(data) {
   DT[, Run := as.character(Run)]
   DT[, Injection := as.character(Injection)]
 
-  if (data.is.data.table) setDF(data)
+  if (!data.is.data.table) setDF(data)
   setDF(DT)
   return(DT[])
 }
@@ -35,7 +35,7 @@ runs <- function(data) {
   if (!is.factor(DT.runs$Run)) DT.runs[, Run := factor(Run)]
   DT <- merge(DT, DT.runs, by = "Injection")
 
-  if (data.is.data.table) setDF(data)
+  if (!data.is.data.table) setDF(data)
   setDF(DT)
   return(DT[])
 }
@@ -43,41 +43,47 @@ runs <- function(data) {
 
 #' Specify study design for imported dataset
 #'
-#' Returns a skeleton \link{data.frame} for customising the study design of a dataset imported with  \link{import_ProteinPilot} or
-#' \link{import_ProteomeDiscoverer}.
+#' Returns a skeleton \link{data.frame} for customising the study design of an imported dataset.
 #'
-#' @param data \link{data.frame} returned by \link{import_ProteinPilot} or \link{import_ProteomeDiscoverer}.
-#' @return \link{data.frame} that can be edited and passed as parameter \code{data.design} of \link{seamassdelta}.
+#' @param data \link{data.frame} returned by  \link{import_ProteinPilot}, \link{import_ProteinPilot},
+#' \link{import_ProteomeDiscovery}, \link{import_Progenesis} or \link{import_OpenSWATH}.
+#' @return \link{data.frame} that can be edited and passed as parameter \code{data.design} of \link{seaMass_sigma}.
 #' @import data.table
 #' @export
 new_design <- function(data) {
   data.is.data.table <- is.data.table(data)
-  DT <- setDT(data)
+  setDT(data)
 
-  DT.design <- DT[, .(Assay = paste(Run, Channel, sep = ",")), keyby = .(Run, Channel)]
+  DT.design <- data[, .(Assay = paste(Run, Channel, sep = ",")), keyby = .(Run, Channel)]
   DT.design[, Assay := sub("^,", "", Assay)]
   DT.design[, Assay := sub(",$", "", Assay)]
 
   # autodetect blocks
-  block <- merge(DT.design[, .(Run, Channel, Assay)], DT[, .(Run, Channel, Measurement)], by = c("Run", "Channel"))
-  block[, Run := NULL]
-  block[, Channel := NULL]
-  block[, N := 1]
-  block <- dcast(block, Measurement ~ Assay, sum, value.var = "N")
-  block[, Measurement := NULL]
-  block <- as.matrix(block)
+  Block. <- merge(DT.design[, .(Run, Channel, Assay)], data[, .(Run, Channel, Measurement)], by = c("Run", "Channel"))
+  Block.[, Run := NULL]
+  Block.[, Channel := NULL]
+  Block.[, N := 1]
+  Block. <- dcast(Block., Measurement ~ Assay, sum, value.var = "N")
+  Block.[, Measurement := NULL]
+  Block. <- as.matrix(Block.)
   # matrix multiplication distributes assay relationships
-  block <- t(block) %*% block
-  # Block is recoded first non-zero occurence for each assay
-  DT.design[, Block := as.integer(factor(colnames(block)[apply(block != 0, 2, which.max)]))]
-  # default is all assays are reference assays for each block
-  DT.design[, BlockRef := T]
+  Block. <- t(Block.) %*% Block.
+  # Block. is recoded first non-zero occurence for each assay
+  Block. <- colnames(Block.)[apply(Block. != 0, 2, which.max)]
+  Block. <- factor(as.integer(factor(Block., levels = unique(Block.))))
+  if (nlevels(Block.) == 1) {
+    DT.design[, paste("Block", levels(Block.), sep = ".")] <- as.logical(as.integer(Block.))
+  } else if (nlevels(Block.) > 1) {
+    Block. <- data.table(model.matrix(~ Block. - 1))
+    DT.design <- cbind(DT.design, mapply(Block., FUN = as.logical))
+  }
 
-  # DEA
+  # For seaMass-Δ (optional)
+  DT.design[, RefWeight := 1]
   DT.design[, Sample := Assay]
-  DT.design[, Condition := NA]
+  DT.design[, Condition := factor("default")]
 
-  if (data.is.data.table) setDF(data)
+  if (!data.is.data.table) setDF(data)
   setDF(DT.design)
   return(DT.design[])
 }
@@ -85,7 +91,7 @@ new_design <- function(data) {
 
 #' Import SCIEX ProteinPilot data
 #'
-#' Reads in a SCIEX ProteinPilot \code{ComponentSummary.txt} file for processing with \link{seamassdelta}.
+#' Reads in a SCIEX ProteinPilot \code{ComponentSummary.txt} file for processing with \link{seaMass_sigma}.
 #'
 #' @param file Location of the \code{ComponentSummary.txt} file.
 #' @param shared Include shared components?
@@ -95,7 +101,7 @@ new_design <- function(data) {
 #'   \code{"weak signal"}}
 #' @param data Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
 #'   \link[data.table]{fread} default parameters.
-#' @return A \link{data.frame} for input into \link{seamassdelta}.
+#' @return A \link{data.frame} for input into \link{seaMass_sigma}.
 #' @import data.table
 #' @export
 
@@ -165,14 +171,14 @@ import_ProteinPilot <- function(
 
 #' Import Thermo ProteomeDiscoverer data
 #'
-#' Reads in a Thermo ProteomeDiscoverer \code{PSMs.txt} file for processing with \link{seamassdelta}.
+#' Reads in a Thermo ProteomeDiscoverer \code{PSMs.txt} file for processing with \link{seaMass_sigma}.
 #'
 #' @param file Location of the \code{PSMs.txt} file.
 #' @param shared Include shared components?
 #' @param used Include only measurements marked as used by ProteomeDiscoverer?
 #' @param data Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
 #'   \link[data.table]{fread} default parameters.
-#' @return A \link{data.frame} for input into \link{seamassdelta}.
+#' @return A \link{data.frame} for input into \link{seaMass_sigma}.
 #' @import data.table
 #' @export
 import_ProteomeDiscoverer <- function(
@@ -260,13 +266,13 @@ import_ProteomeDiscoverer <- function(
 
 #' Import Waters Progenesis data
 #'
-#' Reads in a Waters Progenesis \code{pep_ion_measurements.csv} file for processing with \link{seamassdelta}.
+#' Reads in a Waters Progenesis \code{pep_ion_measurements.csv} file for processing with \link{seaMass_sigma}.
 #'
 #' @param file Location of the \code{pep_ion_measurements.csv} file.
 #' @param used Include only measurements marked as used by Progenesis?
 #' @param data Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
 #'   \link[data.table]{fread} default parameters.
-#' @return A \link{data.frame} for input into \link{seamassdelta}.
+#' @return A \link{data.frame} for input into \link{seaMass_sigma}.
 #' @import data.table
 #' @export
 
@@ -341,16 +347,16 @@ import_Progenesis <- function(
 
 #' Import OpenSWATH data
 #'
-#' Reads in the output of an OpenSWATH -> PyProphet -> TRIC pipeline for processing with \link{seamassdelta}.
+#' Reads in the output of an OpenSWATH -> PyProphet -> TRIC pipeline for processing with \link{seaMass_sigma}.
 #'
 #' @param files A \code{csv} file to import.
 #' @param m_score.cutoff Include only measurements with PyProphet m_score >= than this?
 #' @param data Advanced: Rather than specifying a \code{file}, you can enter a \link{data.frame} preloaded with
 #'   \link[data.table]{fread} default parameters.
-#' @return A \link{data.frame} for input into \link{seamassdelta}.
+#' @return A \link{data.frame} for input into \link{seaMass_sigma}.
 #' @import data.table
 #' @export
-import_OpenSwath <- function(
+import_OpenSWATH <- function(
   file = NULL,
   shared = FALSE,
   m_score.cutoff = 0.05,
@@ -422,11 +428,11 @@ import_OpenSwath <- function(
 
 #' Import data outputed by an MSstats import routine
 #'
-#' Reads in a set of \code{_with_dscore} datasets processed by OpenSWATH and PyProphet for processing with \link{seamassdelta}.
+#' Reads in a set of \code{_with_dscore} datasets processed by OpenSWATH and PyProphet for processing with \link{seaMass_sigma}.
 #'
 #' @param data MSstats output
 #'   \link[data.table]{fread} default parameters.
-#' @return A \link{data.frame} for input into \link{seamassdelta}.
+#' @return A \link{data.frame} for input into \link{seaMass_sigma}.
 #' @import data.table
 #' @export
 import_MSstats <- function(data) {

@@ -13,7 +13,7 @@ https://doi.org/10.1016/j.molmet.2019.08.003).
 
 ## Requirements
 
-seaMass is an R package that works on Windows, MacOS and Linux. Small studies (n=4 vs n=4) will take about one to two hours to process with default control parameters. Large studies (e.g. 100 samples) could take overnight or longer. Memory requirements are dependent on the amount of data in the largest block of assays (Each iTraq/TMT run is a separate block, whereas in label-free/SILAC/DIA the blocks are user-preference). Typically 16-32Gb of memory is required. To reduce memory usage at the expense of speed, reduce the number of CPU threads via the 'nthread' parameter of the seaMass 'control' object (see tutorial below).
+seaMass is an R package that works on Windows, MacOS and Linux. Small studies (n=4 vs n=4) will take about one to two hours to process with default control parameters. Large studies (e.g. 100 samples) could take overnight or longer. Memory requirements are dependent on the amount of data in the largest block of assays (Each iTraq/TMT run is a separate block, whereas in label-free/SILAC/DIA the blocks are user-preference). Typically 16-32Gb of memory is required. To reduce memory usage at the expense of speed, reduce the number of CPU threads via the 'nthread' parameter of the seaMass 'control' objects (see tutorial below).
 
 ## Installation
 
@@ -31,18 +31,16 @@ devtools::install_github("biospi/seaMass", dependencies = TRUE)
 
 To upgrade to the latest version of seaMass, simply run this line again.
 
-## Usage
+## seaMass-Σ
 
-*Note: Currently seaMass-Σ and seaMass-Δ are one function; in the next version they will be separate.*
-
-Firstly, you need to use an *import* function to convert from an upstream tool format to seaMass' standardised *data.frame* format. Then you can assign injections to runs if you've used fractionation, and specify a study design if you'd like to do differential expression analysis. Finally, you use the *seamassdelta* function to fit the model and generate the results.
+Firstly, you need to use an *import* function to convert from an upstream tool format to seaMass' standardised *data.frame* format. Then you can assign injections to runs if you've used fractionation, and specify a block structure to your assays if this is a large study (TMT/iTraq studies are blocked automatically). Finally, you use the *seaMass-sigma* function to fit the model and generate unnormalised group-level quants.
 
 ### Tutorial
 
 Load the included ProteinPilot iTraq dataset (note this is a small subset of proteins from our spike-in study and as such is not useful for anything else than this tutorial).
 
 ```
-library(seamassdelta)
+library(seaMass)
 
 # Import tutorial iTraq dataset.
 file <- system.file(file.path("demo", "Tutorial_PeptideSummary.txt.bz2"), package = "seamassdelta")
@@ -64,7 +62,7 @@ data.runs$Run[53:78] <- "2"
 runs(data) <- data.runs
 ```
 
-Next, you can give the assays the names you prefer, and assign samples to assays (in case you have pure technical replicates, for example).
+If you have a large amount of assays, you may group them into blocks so that seaMass will be robust to batch effects or measurement drift etc. This will also help memory consumption, as blocks are processed by seaMass independently. If you are processing iTraq or TMT data, each run will be treated as a seperate block by default, which seaMass-Σ will autodetect. To compare across blocks correctly, you need to normalise them via reference assays. Here we can specify specific reference assays e.g. pooled reference samples, of if the study design has been blocked appropriately, we can just use all relevant assays:
 
 ```
 # Get skeleton design matrix
@@ -76,97 +74,36 @@ data.design$Assay <- factor(c(
   NA, NA, NA, NA, "2.1", "2.2", "2.3", "2.4"
 ))
 
-# Assign samples to assays (a 1-to-1 mapping if all your samples are separately digested;
-#  pure technical replicates should share the same sample name).
-data.design$Sample <- factor(c(
-  NA, NA, NA, NA, "A1", "A2", "B1", "B2",
-  NA, NA, NA, NA, "A3", "A4", "B3", "B4"
-))
-```
-
-If you have a large amount of assays, you may group them into blocks so that seaMass will be robust to batch effects or measurement drift etc. This will also help memory consumption, as blocks are processed by seaMass independently. If you are processing iTraq or TMT data, each run will be treated as a seperate block by default, which seaMass-delta will autodetect. To compare across blocks correctly, you need to normalise them via reference assays. Here we can specify specific reference assays e.g. pooled reference samples, of if the study design has been blocked appropriately, we can just use all relevant assays:
-
-```
 # Define reference assays for each block
-data.design$BlockRef <- c(
+data.design$Reference <- c(
   F, F, F, F, T, T, T, T,
   F, F, F, F, T, T, T, T
 )
 ```
 
-Optionally, you can do differential expression analysis (or any mixed-effects model supported by the *MCMCglmm* package). You can run a *dea_* function post-hoc using the *fit* object returned by *seamassdelta*, or you can supply one or more *dea_* functions to run during the *seamassdelta* call. The *dea_* functions will perform the model seperately for each pair of conditions specified by a *Condition* column in your experiment design:
+Next, run the seaMass-Σ model. Specifying TRUE for summaries will generate csv reports in the directory specified by the *seaMass-sigma* *name* parameter, and any internal control parameters (such as the number of CPU threads to use) can be specified through a *sigma_control* object. 
 
 ```
-# specify a list of one of more differential expression analysis functions.
-dea.func <- list(t.tests = dea_MCMCglmm)
-
-# 'dea_' functions expect a column 'Condition' to have been specified in 'data.design'.
-#  You can use 'NA' to ignore irrelevant samples.
-data.design$Condition <- factor(c(
-  NA, NA, NA, NA, "A", "A", "B", "B",
-  NA, NA, NA, NA, "A", "A", "B", "B"
-))
-```
-
-If you have multiple channels per run (*e.g.* iTraq, TMT, SILAC) you need to specify the reference assay(s) for each run so that quants can be linked between runs. seaMass does not need specific reference samples (e.g. pooled samples) to have been run as long as you have a blocked design with the same proportion of samples in each treatment group in each run. For example, below we have designated 4 A and 4 B samples as reference channels for Run 1, and 2 A and 2 B samples as reference channels for Run 2.
-
-```
-# iTraq/TMT/SILAC only: Since we have more than one iTraq run we need to normalise across them.
-#  Here we can specify specific reference assays e.g. pooled reference samples, of if the study
-#  design has been blocked appropriately, we can just use all relevant assays:
-data.design$BlockRef <- factor(c(
-  F, F, F, F, T, T, T, T,
-  F, F, F, F, T, T, T, T)
-)
-```
-
-For differential expression analysis, a Bayesian version of median normalisation will be used. By default all proteins are considered in the normalisation, but you can choose a subset if required as illustrated below (here to all the rat proteins):
-
-```
-# returns a custom normalisation function
-norm_truth <- function() {
-  ref.groups <- levels(data$Group)[grep("_RAT", levels(data$Group))]
-  return(function(...) norm_median(..., ref.groups = ref.groups))
-}
-```
-
-Finally, run the model. Intermediate and results data is stored in the directory specified by the *seamassdelta* *output* parameter, and any internal control parameters (such as the number of CPU threads to use) can be specified through a *control* object. 
-
-```
-# run seaMass-delta
-fit <- seamassdelta(
+# run seaMass-Σ
+fits <- seaMass_sigma(
   data,
-  data.design = data.design,
-  norm.func = norm_truth(),
-  dea.func = dea.func,
-  output = "Tutorial.seamassdelta",
-  control = new_control(nthread = 4)
+  data.design,
+  summaries = TRUE,
+  name = "Tutorial",
+  control = new_sigma_control(nthread = 4)
 )
 ```
 
-Once run, results tables (in csv format) and diagnostic plots are available in the *output* subdirectory of the output directory specified above. Or you can use the R package functions to retrieve results and generate plots from the *fit* object created by the *seamassdelta* call:
+seaMass-Σ computes unnormalised protein group quants (together with peptide deviations from the protein group quants, and peptide/feature variances) for each block. To allow comparisons to be made across blocks (standardisation), and optionally normalisation and/or false discovery rate controlled differential expression analysis, run seaMass-Δ on the *seaMass_sigma_fits* object returned by seaMass-Σ. Internal control parameters can be specified through a *delta_control* object. 
 
 ```
-# Output list of protein groups analysed.
-data.groups <- groups(fit)
-print(data.groups)
-
-# Output processed design matrix
-data.design <- design(fit)
-print(data.design)
-
-# Output protein group quants with accessions and assay/sample names
-data.group.quants <- group_quants(fit)
-data.group.quants <- merge(data.group.quants, data.design[, c("AssayID", "Assay", "Sample")])
-data.group.quants <- merge(data.group.quants, data.groups[, c("GroupID", "Group")])
-print(data.group.quants)
-
-# Output fdr-controlled protein group differential expression for the 't.test' analysis, with accessions.
-data.de <- group_fdr(fit)
-data.de <- merge(data.de, data.groups[, c("GroupID", "Group")], sort = F)
-print(data.de)
-
-# Plot precision-recall curve (sensitivity against false discovery rate.
-data.de$truth <- ifelse(grepl("_RAT", data.de$Group), 0, 1)
-plot_pr(data.de)
+# run seaMass-Δ
+fit <- seaMass_delta(
+  fits,
+  data.design,
+  summaries = TRUE,
+  control = new_delta_control(nthread = 4)
+)
 ```
+
+**TODO:** Differential expression analysis with seaMass-Δ. 
