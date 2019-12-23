@@ -22,8 +22,13 @@ fdr_ash <- function(
   mixcompdist = "halfuniform",
   ...
 ) {
+  warn <- getOption("warn")
+  options(warn = 1)
+
   # filter
   if (min.test.samples.per.condition < 2) stop("sorry, 'min.test.samples.per.condition' needs to be at least 2")
+
+  message(paste0("[", Sys.time(), "]  ash false discovery rate correction..."))
 
   DT <- as.data.table(data)
 
@@ -66,8 +71,8 @@ fdr_ash <- function(
     if (length(rmcols) > 0) DT <- DT[, -rmcols, with = F]
     fit.fdr$result[, Model := DT[use.FDR == T, Model]]
     fit.fdr$result[, Effect := DT[use.FDR == T, Effect]]
-    fit.fdr$result[, GroupID := DT[use.FDR == T, GroupID]]
-    DT <- merge(DT, fit.fdr$result, all.x = T, by = c("Model", "Effect", "GroupID"))
+    fit.fdr$result[, Group := DT[use.FDR == T, Group]]
+    DT <- merge(DT, fit.fdr$result, all.x = T, by = c("Model", "Effect", "Group"))
     DT[, use.FDR := NULL]
   }
 
@@ -75,6 +80,8 @@ fdr_ash <- function(
   else if (by.model) setorder(DT, Model, qvalue, na.last = T)
   else if (by.effect) setorder(DT, Effect, qvalue, na.last = T)
   else setorder(DT, qvalue, na.last = T)
+
+  options(warn = warn)
 
   if (!as.data.table) setDF(DT)
   else DT[]

@@ -81,7 +81,7 @@ new_design <- function(data) {
   # For seaMass-Δ (optional)
   DT.design[, RefWeight := 1]
   DT.design[, Sample := Assay]
-  DT.design[, Condition := factor("default")]
+  DT.design[, Condition := factor(NA)]
 
   if (!data.is.data.table) setDF(data)
   setDF(DT.design)

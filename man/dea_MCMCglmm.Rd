@@ -6,7 +6,7 @@
 \usage{
 dea_MCMCglmm(
   fit,
-  data = group_quants(fit),
+  data = normalised_group_quants(fit, summary = T),
   data.design = design(fit),
   fixed = ~Condition,
   random = NULL,
@@ -15,13 +15,7 @@ dea_MCMCglmm(
   em.func = function(...) emmeans::emmeans(..., pairwise ~ Condition),
   output = NULL,
   as.data.table = FALSE,
-  use.precision = TRUE,
   dist.mean.func = dist_lst_mcmc,
-  model.seed = control(fit)$model.seed,
-  model.nchain = 4,
-  model.nwarmup = 1024,
-  model.thin = 1,
-  model.nsample = 1024,
   ...
 )
 }

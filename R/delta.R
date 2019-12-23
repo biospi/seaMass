@@ -16,11 +16,11 @@
 seaMass_delta <- function(
   fits,
   data.design = design(fits),
-  ref.groups = levels(groups(fit)$Group),
   summaries = FALSE,
   plots = FALSE,
   name = sub("^(.*)\\..*\\.seaMass-sigma", "\\1", basename(fits[[1]])),
-  control = new_delta_control()
+  control = new_delta_control(),
+  ...
 ) {
   # check for finished output and return that
   fit <- open_delta_fit(name, T)
@@ -82,7 +82,7 @@ seaMass_delta <- function(
   message(paste0("[", Sys.time(), "]  standardising blocks..."))
   parallel_lapply(as.list(1:control$input.nchain), function(input, fit, fits, DT.design, DT.groups) {
     DT.group.quants <- rbindlist(lapply(fits, function(ft) {
-      DT <- unnormalised_group_quants(ft, summary.func = NULL, chain = input, as.data.table = T)
+      DT <- unnormalised_group_quants(ft, chain = input, as.data.table = T)
       DT <- merge(DT, DT.design[, .(Assay, RefWeight)], by = "Assay")
       DT[, value := value - {
         x <- weighted.mean(value, RefWeight)
@@ -105,7 +105,7 @@ seaMass_delta <- function(
   # normalise quants by norm.groups
   if (!is.null(control$norm.model)) {
     dir.create(file.path(fit, "norm"))
-    if (control$norm.model == "median") norm_median(fit, control$norm.groups)
+    do.call(paste("norm", control$norm.model, sep = "_"), list(fit = fit, norm.groups = control$norm.groups))
   }
 
   # plot assay exposures
@@ -116,11 +116,26 @@ seaMass_delta <- function(
     # group quants
     message("[", paste0(Sys.time(), "]  summarising normalised group quants..."))
     set.seed(control$model.seed)
-    DT.group.quants <- normalised_group_quants(fit, as.data.table = T)
+    DT.group.quants <- normalised_group_quants(fit, summary = T, as.data.table = T)
     DT.group.quants <- dcast(DT.group.quants, Group ~ Assay, drop = F, value.var = colnames(DT.group.quants)[5:ncol(DT.group.quants)])
     DT.group.quants <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants, by = "Group")
     fwrite(DT.group.quants, file.path(fit, "output", "group_log2_normalised_quants.csv"))
     rm(DT.group.quants)
+  }
+
+  # differential expression analysis and false discovery rate correction
+  if (!is.null(control$dea.model) && !all(is.na(DT.design$Condition))) {
+    params <- list(...)
+    #params <- list()
+    params$fit <- fit
+    DT.de <- do.call(paste("dea", control$dea.model, sep = "_"), params)
+    if (nrow(DT.de) > 0) {
+      fst::write.fst(DT.de, file.path(fit, "de.fst"))
+      if (!is.null(control$fdr.model)) {
+        DT.fdr <- do.call(paste("fdr", control$fdr.model, sep = "_"), params)
+        fst::write.fst(DT.fdr, file.path(fit, "fdr.fst"))
+      }
+    }
   }
 
   # return fit object
@@ -156,8 +171,7 @@ new_delta_control <- function(
   model.thin = 1,
   model.nsample = 1024,
   norm.groups = NULL,
-  nthread = parallel::detectCores() %/% 2,
-  ...
+  nthread = parallel::detectCores() %/% 2
 ) {
   # validate parameters
   if (model.nchain == 1) {

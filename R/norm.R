@@ -10,7 +10,7 @@ norm_median <- function(fit, norm.groups = NULL)
 
   if (is.null(norm.groups)) norm.groups <- groups(fit)$Group
   parallel_lapply(as.list(1:control(fit)$input.nchain), function(input, fit, norm.groups) {
-    DT.group.quants <- unnormalised_group_quants(fit, summary.func = NULL, chain = input, as.data.table = T)
+    DT.group.quants <- unnormalised_group_quants(fit, chain = input, as.data.table = T)
     DT.group.quants[, exposure := median(value[Group %in% norm.groups]), by = .(Assay, chainID, mcmcID)]
     DT.group.quants[, value := value - exposure]
 

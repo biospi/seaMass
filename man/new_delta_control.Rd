@@ -14,8 +14,7 @@ new_delta_control(
   model.thin = 1,
   model.nsample = 1024,
   norm.groups = NULL,
-  nthread = parallel::detectCores()\%/\%2,
-  ...
+  nthread = parallel::detectCores()\%/\%2
 )
 }
 \arguments{

@@ -183,7 +183,7 @@ plot_priors <- function(data.fits = NULL, ci = c(0.05, 0.95), by = NULL, xlab = 
 #' @return The sum of \code{x} and \code{y}.
 #' @import data.table
 #' @export
-plot_assay_exposures <- function(fit, data = normalised_group_quants(fit, summary.func = NULL)) {
+plot_assay_exposures <- function(fit, data = normalised_group_quants(fit)) {
   DT <- as.data.table(data)
   DT.design <- as.data.table(data.design)
 

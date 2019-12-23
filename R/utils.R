@@ -22,7 +22,8 @@ batch_split <- function(DT, columns, n) {
   nbatch <- ceiling(length(unique(DT.t$BatchID)) / n)
   levels(DT.t$BatchID) <- rep(1:nbatch, each = n)[1:nlevels(DT.t$BatchID)]
 
-  return(split(DT, DT.t$BatchID, drop = T, keep.by = F))
+  DT[, BatchID := DT.t$BatchID]
+  return(split(DT, by = "BatchID", drop = T))
 }
 
 

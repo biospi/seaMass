@@ -1,6 +1,6 @@
-read_mcmc <- function(fit, effect.name, columnID, batchIDs, summaryIDs, itemIDs, dir, chains, summary.func) {
+read_mcmc <- function(fit, effect.name, columnID, batchIDs, summaryIDs, itemIDs, dir, chains, summary) {
   filename <- file.path(file.path(fit, dir, paste0(effect.name, ".fst")))
-  if (file.exists(filename) && !is.null(summary.func)) {
+  if (file.exists(filename) && !is.null(summary)) {
     # load and filter from cache
     DT <- fst::read.fst(filename, as.data.table = T)
     if (!is.null(itemIDs)) DT <- DT[get(columnID) %in% itemIDs]
@@ -16,12 +16,12 @@ read_mcmc <- function(fit, effect.name, columnID, batchIDs, summaryIDs, itemIDs,
 
     # read
     ctrl <- control(fit)
-    if (is.null(summary.func)) {
+    if (is.null(summary)) {
       inputs <- list(DT.index)
     } else {
       inputs <- batch_split(DT.index, batchIDs, 16)
     }
-    DT <- rbindlist(parallel_lapply(inputs, function(input, fit, dir, chains, summary.func, summaryIDs) {
+    DT <- rbindlist(parallel_lapply(inputs, function(input, fit, dir, chains, summary, summaryIDs) {
       # minimise file access
       input[, file.prev := shift(file, fill = "")]
       input[, to.prev := shift(to + 1, fill = 0)]
@@ -45,10 +45,10 @@ read_mcmc <- function(fit, effect.name, columnID, batchIDs, summaryIDs, itemIDs,
       }))
 
       # optional summarise
-      if (!is.null(summary.func)) {
+      if (!is.null(summary)) {
         # average samples if assay run in multiple blocks
         if (length(unique(DT$BlockID)) > 1) DT <- DT[, .(value = mean(value)), by = c(summaryIDs, "chainID", "mcmcID")]
-        DT <- DT[, summary.func(chainID, mcmcID, value), by = summaryIDs]
+        DT <- DT[, do.call(summary, list(chainID = chainID, mcmcID = mcmcID, value = value)), by = summaryIDs]
       }
 
       setcolorder(DT, summaryIDs)
@@ -56,7 +56,7 @@ read_mcmc <- function(fit, effect.name, columnID, batchIDs, summaryIDs, itemIDs,
     }, nthread = ifelse(length(inputs) == 1, 1, ctrl$nthread)))
 
     # cache results
-    if (!is.null(summary.func) && is.null(itemIDs) && identical(chains, 1:ctrl$model.nchain)) {
+    if (!is.null(summary) && is.null(itemIDs) && identical(chains, 1:ctrl$model.nchain)) {
       fst::write.fst(DT, filename)
     }
   }
@@ -247,7 +247,7 @@ measurement_vars <- function(x, ...) {
 #' @import doRNG
 #' @import data.table
 #' @export
-measurement_vars.seaMass_sigma_fit <- function(fit, measurements = NULL, summary.func = dist_invchisq_mcmc, dir = "model1", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
+measurement_vars.seaMass_sigma_fit <- function(fit, measurements = NULL, summary = FALSE, dir = "model1", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
   DT.measurements <- fst::read.fst(file.path(fit, "meta", "measurements.fst"), as.data.table = T)
   if (is.null(measurements)) {
     itemIDs <- NULL
@@ -255,17 +255,10 @@ measurement_vars.seaMass_sigma_fit <- function(fit, measurements = NULL, summary
     itemIDs <- DT.measurements[Measurement %in% measurements, MeasurementID]
   }
 
-  DT <- read_mcmc(
-    fit,
-    "measurement.vars",
-    "MeasurementID",
-    c("GroupID", "ComponentID", "MeasurementID"),
-    c("GroupID", "ComponentID", "MeasurementID"),
-    itemIDs,
-    dir,
-    chains,
-    summary.func
-  )
+  if(is.null(summary) || summary == F) summary <- NULL
+  if(!is.null(summary)) summary <- ifelse(summary == T, "dist_invchisq_mcmc", paste("dist", summary, sep = "_"))
+
+  DT <- read_mcmc(fit, "measurement.vars", "MeasurementID", c("GroupID", "ComponentID", "MeasurementID"), c("GroupID", "ComponentID", "MeasurementID"), itemIDs, dir, chains, summary)
 
   DT <- merge(DT, fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = T)[, .(GroupID, Group)], by = "GroupID")
   DT[, GroupID := NULL]
@@ -292,7 +285,7 @@ component_vars <- function(x, ...) {
 #' @import doRNG
 #' @import data.table
 #' @export
-component_vars.seaMass_sigma_fit <- function(fit, components = NULL, summary.func = dist_invchisq_mcmc, dir = "model1", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
+component_vars.seaMass_sigma_fit <- function(fit, components = NULL, summary = FALSE, dir = "model1", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
   DT.components <- fst::read.fst(file.path(fit, "meta", "components.fst"), as.data.table = T)
   if (is.null(components)) {
     itemIDs <- NULL
@@ -300,17 +293,10 @@ component_vars.seaMass_sigma_fit <- function(fit, components = NULL, summary.fun
     itemIDs <- DT.components[Component %in% components, ComponentID]
   }
 
-  DT <- read_mcmc(
-    fit,
-    "component.vars",
-    "ComponentID",
-    c("GroupID", "ComponentID"),
-    c("GroupID", "ComponentID"),
-    itemIDs,
-    dir,
-    chains,
-    summary.func
-  )
+  if(is.null(summary) || summary == F) summary <- NULL
+  if(!is.null(summary)) summary <- ifelse(summary == T, "dist_invchisq_mcmc", paste("dist", summary, sep = "_"))
+
+  DT <- read_mcmc(fit, "component.vars", "ComponentID", c("GroupID", "ComponentID"), c("GroupID", "ComponentID"), itemIDs, dir, chains, summary)
 
   DT <- merge(DT, fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = T)[, .(GroupID, Group)], by = "GroupID")
   DT[, GroupID := NULL]
@@ -335,7 +321,7 @@ assay_vars <- function(x, ...) {
 #' @import doRNG
 #' @import data.table
 #' @export
-assay_vars.seaMass_sigma_fit <- function(fit, groups = NULL, summary.func = dist_invchisq_mcmc, dir = "model1", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
+assay_vars.seaMass_sigma_fit <- function(fit, groups = NULL, summary = FALSE, dir = "model1", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
   DT.groups <- fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = T)
   if (is.null(groups)) {
     itemIDs <- NULL
@@ -343,17 +329,10 @@ assay_vars.seaMass_sigma_fit <- function(fit, groups = NULL, summary.func = dist
     itemIDs <- DT.groups[Group %in% groups, GroupID]
   }
 
-  DT <- read_mcmc(
-    fit,
-    "assay.vars",
-    "GroupID",
-    c("GroupID", "AssayID"),
-    c("GroupID", "AssayID"),
-    itemIDs,
-    dir,
-    chains,
-    summary.func
-  )
+  if(is.null(summary) || summary == F) summary <- NULL
+  if(!is.null(summary)) summary <- ifelse(summary == T, "dist_invchisq_mcmc", paste("dist", summary, sep = "_"))
+
+  DT <- read_mcmc(fit, "assay.vars", "GroupID", c("GroupID", "AssayID"), c("GroupID", "AssayID"), itemIDs, dir, chains, summary)
 
   DT <- merge(DT, DT.groups[, .(GroupID, Group)], by = "GroupID")
   DT[, GroupID := NULL]
@@ -378,7 +357,7 @@ component_deviations <- function(x, ...) {
 #' @import doRNG
 #' @import data.table
 #' @export
-component_deviations.seaMass_sigma_fit <- function(fit, components = NULL, summary.func = dist_lst_mcmc, dir = "model1", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
+component_deviations.seaMass_sigma_fit <- function(fit, components = NULL, summary = FALSE, dir = "model1", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
   DT.components <- fst::read.fst(file.path(fit, "meta", "components.fst"), as.data.table = T)
   if (is.null(components)) {
     itemIDs <- NULL
@@ -386,17 +365,10 @@ component_deviations.seaMass_sigma_fit <- function(fit, components = NULL, summa
     itemIDs <- DT.components[Component %in% components, ComponentID]
   }
 
-  DT <- read_mcmc(
-    fit,
-    "component.deviations",
-    "ComponentID",
-    c("GroupID", "ComponentID"),
-    c("GroupID", "ComponentID", "AssayID"),
-    itemIDs,
-    dir,
-    chains,
-    summary.func
-  )
+  if(is.null(summary) || summary == F) summary <- NULL
+  if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
+
+  DT <- read_mcmc(fit, "component.deviations", "ComponentID", c("GroupID", "ComponentID"), c("GroupID", "ComponentID", "AssayID"), itemIDs, dir, chains, summary)
 
   DT <- merge(DT, fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = T)[, .(GroupID, Group)], by = "GroupID")
   DT[, GroupID := NULL]
@@ -423,7 +395,7 @@ assay_deviations <- function(x, ...) {
 #' @import doRNG
 #' @import data.table
 #' @export
-assay_deviations.seaMass_sigma_fit <- function(fit, components = NULL, summary.func = dist_lst_mcmc, dir = "model1", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
+assay_deviations.seaMass_sigma_fit <- function(fit, components = NULL, summary = FALSE, dir = "model1", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
   DT.components <- fst::read.fst(file.path(fit, "meta", "components.fst"), as.data.table = T)
   if (is.null(components)) {
     itemIDs <- NULL
@@ -431,17 +403,10 @@ assay_deviations.seaMass_sigma_fit <- function(fit, components = NULL, summary.f
     itemIDs <- DT.components[Component %in% components, ComponentID]
   }
 
-  DT <- read_mcmc(
-    fit,
-    "assay.deviations",
-    "ComponentID",
-    c("GroupID", "ComponentID"),
-    c("GroupID", "ComponentID", "AssayID"),
-    itemIDs,
-    dir,
-    chains,
-    summary.func
-  )
+  if(is.null(summary) || summary == F) summary <- NULL
+  if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
+
+  DT <- read_mcmc(fit, "assay.deviations", "ComponentID", c("GroupID", "ComponentID"), c("GroupID", "ComponentID", "AssayID"), itemIDs, dir, chains, summary)
 
   DT <- merge(DT, fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = T)[, .(GroupID, Group)], by = "GroupID")
   DT[, GroupID := NULL]
@@ -464,11 +429,11 @@ unnormalised_group_quants <- function(x, ...) {
 }
 
 
-#' @describeIn seaMass_sigma Returns the model unnormalised group quantifications from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
+#' @describeIn seaMass_delta Returns the model unnormalised group quantifications from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 #' @import doRNG
 #' @import data.table
 #' @export
-unnormalised_group_quants.seaMass_sigma_fit <- function(fit, groups = NULL, summary.func = dist_lst_mcmc, dir = "model1", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
+unnormalised_group_quants.seaMass_sigma_fit <- function(fit, groups = NULL, summary = FALSE, dist_lst_mcmc, dir = "model1", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
   DT.groups <- fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = T)
   if (is.null(groups)) {
     itemIDs <- NULL
@@ -476,17 +441,10 @@ unnormalised_group_quants.seaMass_sigma_fit <- function(fit, groups = NULL, summ
     itemIDs <- DT.groups[Group %in% groups, GroupID]
   }
 
-  DT <- read_mcmc(
-    fit,
-    "group.quants",
-    "GroupID",
-    "GroupID",
-    c("GroupID", "AssayID", "BaselineID", "nComponent", "nMeasurement"),
-    itemIDs,
-    dir,
-    chains,
-    summary.func
-  )
+  if(is.null(summary) || summary == F) summary <- NULL
+  if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
+
+  DT <- read_mcmc(fit, "group.quants", "GroupID", "GroupID", c("GroupID", "AssayID", "BaselineID", "nComponent", "nMeasurement"), itemIDs, dir, chains, summary)
 
   DT <- merge(DT, DT.groups[, .(GroupID, Group)], by = "GroupID")
   DT[, GroupID := NULL]
