@@ -71,11 +71,11 @@ seaMass_delta <- function(sigma_fits, data.design = design(sigma_fits), summarie
   fst::write.fst(DT.groups, file.path(fit, "meta", "groups.fst"))
 
   # standardise quants using reference weights
-  standardise_blocks(fit)
+  standardise_blocks(fit, as.data.table = T)
 
   # normalise quants by norm.groups
   if (!is.null(control$norm.model)) {
-    do.call(paste("norm", control$norm.model, sep = "_"), list(fit = fit, norm.groups = control$norm.groups))
+    do.call(paste("norm", control$norm.model, sep = "_"), list(fit = fit, norm.groups = control$norm.groups, as.data.table = T))
   }
 
   # plot assay exposures
@@ -87,12 +87,11 @@ seaMass_delta <- function(sigma_fits, data.design = design(sigma_fits), summarie
     params <- list(...)
     #params <- list()
     params$fit <- fit
+    params$as.data.table <- T
     DT.de <- do.call(paste("dea", control$dea.model, sep = "_"), params)
     if (nrow(DT.de) > 0) {
-      fst::write.fst(DT.de, file.path(fit, "de.fst"))
       if (!is.null(control$fdr.model)) {
         DT.fdr <- do.call(paste("fdr", control$fdr.model, sep = "_"), params)
-        fst::write.fst(DT.fdr, file.path(fit, "fdr.fst"))
       }
     }
   }

@@ -41,7 +41,7 @@ open_delta_fit(dir, quiet = FALSE, force = FALSE)
   fit,
   groups = NULL,
   summary = FALSE,
-  output = "standardised",
+  input = "standardised",
   chains = 1:control(fit)$model.nchain,
   as.data.table = FALSE
 )
@@ -50,14 +50,21 @@ open_delta_fit(dir, quiet = FALSE, force = FALSE)
   fit,
   groups = NULL,
   summary = FALSE,
-  output = "normalised",
+  input = "normalised",
   chains = 1:control(fit)$model.nchain,
   as.data.table = FALSE
 )
 
-\method{group_de}{seaMass_delta_fit}(fit, output = "de", as.data.table = FALSE)
+\method{group_de}{seaMass_delta_fit}(
+  fit,
+  groups = NULL,
+  summary = FALSE,
+  input = "de",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+)
 
-\method{group_fdr}{seaMass_delta_fit}(fit, output = "fdr", as.data.table = FALSE)
+\method{group_fdr}{seaMass_delta_fit}(fit, input = "fdr", as.data.table = FALSE)
 
 \method{unnormalised_group_quants}{seaMass_sigma_fit}(
   fit,

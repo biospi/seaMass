@@ -14,6 +14,7 @@ dea_MCMCglmm(
   rcov = ~idh(Condition):Sample,
   prior = list(R = list(V = diag(nlevels(factor(data.design$Condition))), nu = 2e-04)),
   em.func = function(...) emmeans::emmeans(..., pairwise ~ Condition),
+  as.data.table = FALSE,
   ...
 )
 }

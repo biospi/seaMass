@@ -6,7 +6,8 @@
 #' @export
 fdr_ash <- function(
   fit,
-  data = group_de(fit),
+  input = "de",
+  output = "fdr",
   by.model = T,
   by.effect = T,
   as.data.table = FALSE,
@@ -22,15 +23,16 @@ fdr_ash <- function(
   mixcompdist = "halfuniform",
   ...
 ) {
-  warn <- getOption("warn")
-  options(warn = 1)
-
   # filter
   if (min.test.samples.per.condition < 2) stop("sorry, 'min.test.samples.per.condition' needs to be at least 2")
 
-  message(paste0("[", Sys.time(), "]  ash false discovery rate correction..."))
+  warn <- getOption("warn")
+  options(warn = 1)
 
-  DT <- as.data.table(data)
+  message(paste0("[", Sys.time(), "]  ash false discovery rate correction..."))
+  dir.create(file.path(fit, output))
+
+  DT <- group_de(fit, input = input, summary = T, as.data.table = T)
 
   DT[, use.FDR :=
     (`1:nMaxComponent` >= min.components | `2:nMaxComponent` >= min.components) &
@@ -80,6 +82,8 @@ fdr_ash <- function(
   else if (by.model) setorder(DT, Model, qvalue, na.last = T)
   else if (by.effect) setorder(DT, Effect, qvalue, na.last = T)
   else setorder(DT, qvalue, na.last = T)
+
+  fst::write.fst(DT, file.path(fit, paste(output, "fst", sep = ".")))
 
   options(warn = warn)
 
