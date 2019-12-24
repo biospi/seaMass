@@ -71,28 +71,25 @@ norm_median <- function(fit, input = "standardised", output = "normalised", norm
 norm_lmRob <- function(fit, input = "standardised", output = "normalised", norm.groups = NULL, as.data.table = FALSE) {
   message(paste0("[", Sys.time(), "]  lmRob normalisation..."))
 
-  ref.groupIDs <- groups(fit, as.data.table = T)[Group %in% ref.groups, GroupID]
-  items <- batch_split(as.data.table(data), c("chainID", "mcmcID"), 16)
-
-  # calculate exposures
-  DT.assay.exposures <- rbindlist(parallel_lapply(items, function(input) {
-    input[, {
-      DT <- .SD[, .(AssayID = factor(AssayID), value)]
-      DT[, .(AssayID = levels(AssayID), exposure = robust::lmRob(value ~ factor(AssayID), DT)$coefficients)]
+  if (is.null(norm.groups)) norm.groups <- groups(fit)$Group
+  dir.create(file.path(fit, output))
+  parallel_lapply(as.list(1:control(fit)$model.nchain), function(item, fit, norm.groups, input, output) {
+    DT.group.quants <- unnormalised_group_quants(fit, input = input, chain = item, as.data.table = T)
+    DT.exposures <- DT.group.quants[, {
+      DT <- .SD[, .(Assay = factor(Assay), value)]
+      DT[, .(Assay = levels(Assay), exposure = robust::lmRob(value ~ factor(Assay), DT)$coefficients)]
     }, by = .(chainID, mcmcID)]
-  }, nthread = control(fit)$nthread))
+    DT.group.quants <- merge(DT.group.quants, DT.exposures, by = c("Assay", "chainID", "mcmcID"))
+    setcolorder(DT.group.quants, c("Group", "Assay", "nComponent", "nMeasurement"))
+    setorder(DT.group.quants, Group, Assay)
 
-  # apply exposures
-  DT <- merge(DT, DT.assay.exposures[, .(AssayID, chainID, mcmcID, exposure = value)], by = c("AssayID", "chainID", "mcmcID"))
-  DT[, value := value - exposure]
+    # write
+    fst::write.fst(DT.group.quants, file.path(fit, output, paste(item, "fst", sep = ".")))
+    if (item == 1) fst::write.fst(DT.group.quants[, .(file = file.path(output, "1.fst"), from = first(.I), to = last(.I)), by = Group], file.path(fit, paste(output, "index.fst", sep = ".")))
+    return(NULL)
+  }, nthread = control(fit)$nthread)
 
-  # reorder
-  setcolorder(DT, "GroupID")
-  setorder(DT, GroupID, AssayID, chainID, mcmcID)
-
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
+  return(normalised_group_quants(fit, input = output, as.data.table = as.data.table))
 }
 
 
@@ -105,31 +102,25 @@ norm_lmRob <- function(fit, input = "standardised", output = "normalised", norm.
 norm_MCMCglmm <- function(fit, input = "standardised", output = "normalised", norm.groups = NULL, as.data.table = FALSE) {
   message(paste0("[", Sys.time(), "]  MCMCglmm normalisation..."))
 
-  ref.groupIDs <- groups(fit, as.data.table = T)[Group %in% ref.groups, GroupID]
-  items <- batch_split(as.data.table(data), c("chainID", "mcmcID"), 1)
+  if (is.null(norm.groups)) norm.groups <- groups(fit)$Group
+  dir.create(file.path(fit, output))
+  parallel_lapply(as.list(1:control(fit)$model.nchain), function(item, fit, norm.groups, input, output) {
+    DT.group.quants <- unnormalised_group_quants(fit, input = input, chain = item, as.data.table = T)
 
-  input <- items[[1]]
-
-  prior <- list(R = list(V = diag(length(unique(input$GroupID))), nu = 0.02))
-  system.time(model <- MCMCglmm::MCMCglmm(value ~ AssayID, rcov = ~ idh(GroupID):units, data = input[, .(AssayID = factor(AssayID), GroupID = factor(GroupID), value)], prior = prior))
-
-  # calculate exposures
-  DT.assay.exposures <- rbindlist(parallel_lapply(items, function(input) {
-    input[, {
-      DT <- .SD[, .(AssayID = factor(AssayID), value)]
-      DT[, .(AssayID = levels(AssayID), exposure = robust::lmRob(value ~ factor(AssayID), DT)$coefficients)]
+    DT.exposures <- DT.group.quants[, {
+      DT <- .SD[, .(Assay = factor(Assay), value)]
+      DT[, .(Assay = levels(Assay), exposure = robust::lmRob(value ~ factor(Assay), DT)$coefficients)]
     }, by = .(chainID, mcmcID)]
-  }, nthread = control(fit)$nthread))
 
-  # apply exposures
-  DT <- merge(DT, DT.assay.exposures[, .(AssayID, chainID, mcmcID, exposure = value)], by = c("AssayID", "chainID", "mcmcID"))
-  DT[, value := value - exposure]
+    DT.group.quants <- merge(DT.group.quants, DT.exposures, by = c("Assay", "chainID", "mcmcID"))
+    setcolorder(DT.group.quants, c("Group", "Assay", "nComponent", "nMeasurement"))
+    setorder(DT.group.quants, Group, Assay)
 
-  # reorder
-  setcolorder(DT, "GroupID")
-  setorder(DT, GroupID, AssayID, chainID, mcmcID)
+    # write
+    fst::write.fst(DT.group.quants, file.path(fit, output, paste(item, "fst", sep = ".")))
+    if (item == 1) fst::write.fst(DT.group.quants[, .(file = file.path(output, "1.fst"), from = first(.I), to = last(.I)), by = Group], file.path(fit, paste(output, "index.fst", sep = ".")))
+    return(NULL)
+  }, nthread = control(fit)$nthread)
 
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
+  return(normalised_group_quants(fit, input = output, as.data.table = as.data.table))
 }
