@@ -475,20 +475,7 @@ dea_metafor <- function(
 #' @import data.table
 #' @import doRNG
 #' @export
-dea_MCMCglmm <- function(
-  fit,
-  data = normalised_group_quants(fit, summary = T),
-  data.design = design(fit),
-  fixed = ~ Condition,
-  random = NULL,
-  rcov = ~ idh(Condition):Sample,
-  prior = list(R = list(V = diag(nlevels(factor(data.design$Condition))), nu = 2e-4)),
-  em.func = function(...) emmeans::emmeans(..., pairwise ~ Condition),
-  output = NULL,
-  as.data.table = FALSE,
-  dist.mean.func = dist_lst_mcmc,
-  ...
-) {
+dea_MCMCglmm <- function(fit, input = "normalised", output = "de", data.design = design(fit), fixed = ~ Condition, random = NULL, rcov = ~ idh(Condition):Sample, prior = list(R = list(V = diag(nlevels(factor(data.design$Condition))), nu = 2e-4)), em.func = function(...) emmeans::emmeans(..., pairwise ~ Condition), ...) {
   message(paste0("[", Sys.time(), "]  MCMCglmm differential expression analysis..."))
 
   # process parameters

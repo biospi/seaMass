@@ -17,42 +17,42 @@ sigma_process0 <- function(fit, chain) {
     # Measurement EB prior
     message(paste0("[", Sys.time(), "]  measurement prior..."))
     set.seed(ctrl$model.seed)
-    DT.priors <- data.table(Effect = "Measurements", measurement_vars(fit, dir = "model0", summary = T, as.data.table = T)[, squeeze_var(v, df)])
+    DT.priors <- data.table(Effect = "Measurements", measurement_vars(fit, input = "model0", summary = T, as.data.table = T)[, squeeze_var(v, df)])
 
     # Component EB prior
     if(!is.null(ctrl$component.model)) {
       message(paste0("[", Sys.time(), "]  component prior..."))
       set.seed(ctrl$model.seed)
-      DT.priors <- rbind(DT.priors, data.table(Effect = "Components", component_vars(fit, dir = "model0", summary = T, as.data.table = T)[, squeeze_var(v, df)]))
+      DT.priors <- rbind(DT.priors, data.table(Effect = "Components", component_vars(fit, input = "model0", summary = T, as.data.table = T)[, squeeze_var(v, df)]))
     }
 
     # Assay EB priors
     if(!is.null(ctrl$assay.model)) {
       message(paste0("[", Sys.time(), "]  assay prior..."))
-      inputs <- assay_deviations(fit, dir = "model0", as.data.table = T)
-      inputs <- inputs[mcmcID %% (ctrl$model.nsample / 64) == 0] # TODO: FIGURE OUT SMALLEST NUMBER OF SAMPLES
-      inputs <- rbindlist(lapply(1:ctrl$model.nchain, function(i) {
-        DT <- copy(inputs)
+      items <- assay_deviations(fit, input = "model0", as.data.table = T)
+      items <- items[mcmcID %% (ctrl$model.nsample / 64) == 0] # TODO: FIGURE OUT SMALLEST NUMBER OF SAMPLES
+      items <- rbindlist(lapply(1:ctrl$model.nchain, function(i) {
+        DT <- copy(items)
         DT[, chainID := i]
         return(DT)
       }))
-      inputs <- split(inputs, by = c("Assay", "chainID"))
+      items <- split(items, by = c("Assay", "chainID"))
 
       message(paste0("[", Sys.time(), "]   modelling assay quality..."))
       set.seed(ctrl$model.seed)
-      DT.assay.prior <- rbindlist(parallel_lapply(inputs, function(input, ctrl) {
-        input[, Component := factor(Component)]
+      DT.assay.prior <- rbindlist(parallel_lapply(items, function(item, ctrl) {
+        item[, Component := factor(Component)]
 
         # our Bayesian model
         model <- MCMCglmm::MCMCglmm(
           value ~ 1,
           random = ~ Component,
           rcov = ~ idh(Component):units,
-          data = input,
+          data = item,
           prior = list(
             B = list(mu = 0, V = 1e-20),
             G = list(list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2)),
-            R = list(V = diag(nlevels(input$Component)), nu = 2e-4)
+            R = list(V = diag(nlevels(item$Component)), nu = 2e-4)
           ),
           burnin = ctrl$model.nwarmup,
           nitt = ctrl$model.nwarmup + (ctrl$model.nsample * ctrl$model.thin) / ctrl$model.nchain,
@@ -60,7 +60,7 @@ sigma_process0 <- function(fit, chain) {
           verbose = F
         )
 
-        return(data.table(Assay = input[1, Assay], chainID = input[1, chainID], mcmcID = 1:nrow(model$VCV), value = model$VCV[, "Component"]))
+        return(data.table(Assay = item[1, Assay], chainID = item[1, chainID], mcmcID = 1:nrow(model$VCV), value = model$VCV[, "Component"]))
       }, nthread = ctrl$nthread))
 
       DT.assay.prior <- DT.assay.prior[, dist_invchisq_mcmc(chainID, mcmcID, value), by = Assay]

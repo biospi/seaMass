@@ -5,6 +5,7 @@
 \alias{open_delta_fit}
 \alias{del.seaMass_delta_fit}
 \alias{control.seaMass_delta_fit}
+\alias{sigma_fits.seaMass_delta_fit}
 \alias{design.seaMass_delta_fit}
 \alias{groups.seaMass_delta_fit}
 \alias{unnormalised_group_quants.seaMass_delta_fit}
@@ -15,11 +16,11 @@
 \title{seaMass-Δ}
 \usage{
 seaMass_delta(
-  fits,
-  data.design = design(fits),
+  sigma_fits,
+  data.design = design(sigma_fits),
   summaries = FALSE,
   plots = FALSE,
-  name = sub("^(.*)\\\\..*\\\\.seaMass-sigma", "\\\\1", basename(fits[[1]])),
+  name = sub("^(.*)\\\\..*\\\\.seaMass-sigma", "\\\\1", basename(sigma_fits[[1]])),
   control = new_delta_control(),
   ...
 )
@@ -30,6 +31,8 @@ open_delta_fit(dir, quiet = FALSE, force = FALSE)
 
 \method{control}{seaMass_delta_fit}(fit)
 
+\method{sigma_fits}{seaMass_delta_fit}(fit)
+
 \method{design}{seaMass_delta_fit}(fit, as.data.table = F)
 
 \method{groups}{seaMass_delta_fit}(fit, as.data.table = FALSE)
@@ -38,6 +41,7 @@ open_delta_fit(dir, quiet = FALSE, force = FALSE)
   fit,
   groups = NULL,
   summary = FALSE,
+  output = "standardised",
   chains = 1:control(fit)$model.nchain,
   as.data.table = FALSE
 )
@@ -46,26 +50,27 @@ open_delta_fit(dir, quiet = FALSE, force = FALSE)
   fit,
   groups = NULL,
   summary = FALSE,
+  output = "normalised",
   chains = 1:control(fit)$model.nchain,
   as.data.table = FALSE
 )
 
-\method{group_de}{seaMass_delta_fit}(fit, as.data.table = FALSE)
+\method{group_de}{seaMass_delta_fit}(fit, output = "de", as.data.table = FALSE)
 
-\method{group_fdr}{seaMass_delta_fit}(fit, as.data.table = FALSE)
+\method{group_fdr}{seaMass_delta_fit}(fit, output = "fdr", as.data.table = FALSE)
 
 \method{unnormalised_group_quants}{seaMass_sigma_fit}(
   fit,
   groups = NULL,
   summary = FALSE,
   dist_lst_mcmc,
-  dir = "model1",
+  input = "model1",
   chains = 1:control(fit)$model.nchain,
   as.data.table = FALSE
 )
 }
 \arguments{
-\item{fits}{A list of \link{seaMass_sigma_fit} objects, as returned by seaMass-Σ.}
+\item{sigma_fits}{A list of \link{seaMass_sigma_fit} objects, as returned by seaMass-Σ.}
 
 \item{data.design}{Optionally, a \link{data.frame} created by \link{new_design} and then customised, which specifies
 sample names, RefWeight channels, and any covariates specified by the experimental design.}
@@ -90,6 +95,8 @@ quants output by seaMass-Σ
 \item \code{del}: Delete the directory backing a previously created \code{seaMass_delta} object.
 
 \item \code{control}: Returns the \link{seaMass_delta_control} object from an open \code{seaMass_delta_fit} object.
+
+\item \code{sigma_fits}: Returns the differential expression from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 
 \item \code{design}: Returns the study design \code{data.frame} from an open \code{seaMass_delta_fit} object.
 

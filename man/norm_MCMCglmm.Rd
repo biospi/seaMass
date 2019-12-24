@@ -6,11 +6,12 @@
 \usage{
 norm_MCMCglmm(
   fit,
-  data,
-  ref.groups = levels(groups(fit)$Group),
+  input = "standardised",
+  output = "normalised",
+  norm.groups = NULL,
   as.data.table = FALSE
 )
 }
 \description{
-blah
+Normalisation through a Bayesian linear regression with per-group variance components.
 }

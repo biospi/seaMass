@@ -39,13 +39,13 @@ sigma_model <- function(fit, dir, chain = 1) {
     # run model
     DT.index <- merge(DT.index, DT.groups[, .(GroupID, timing)], by = "GroupID")
     DT.index[, rowID := .I]
-    inputs <- split(DT.index, by = "rowID", keep.by = F)
-    outputs <- rbindlists(parallel_lapply(inputs, function(input, fit, dir, chain, DT.priors) {
+    items <- split(DT.index, by = "rowID", keep.by = F)
+    outputs <- rbindlists(parallel_lapply(items, function(item, fit, dir, chain, DT.priors) {
       ctrl <- control(fit)
       nitt <- ctrl$model.nwarmup + (ctrl$model.nsample * ctrl$model.thin) / ctrl$model.nchain
 
       # load data
-      DT <- fst::read.fst(file.path(fit, dir, input[, file]), as.data.table = T, from = input[, from], to = input[, to])
+      DT <- fst::read.fst(file.path(fit, dir, item[, file]), as.data.table = T, from = item[, from], to = item[, to])
 
       # calculate how many real (non-imputed) components and measurements back each Assay
       DT.assay.n <- DT[, .(nMeasurement = sum(!is.na(RawCount))), by = .(AssayID, ComponentID)]
@@ -345,13 +345,13 @@ sigma_model <- function(fit, dir, chain = 1) {
 
         # if large enough write out group quants now to conserve memory, otherwise don't to conserve disk space
         if (object.size(output$DT.group.quants) > 2^18) {
-          filename <- file.path("group.quants", paste0(chain, ".", input[, GroupID], ".fst"))
+          filename <- file.path("group.quants", paste0(chain, ".", item[, GroupID], ".fst"))
           fst::write.fst(output$DT.group.quants, file.path(fit, dir, filename))
 
           if (chain == 1) {
             # construct index
             output$DT.group.quants.index <- data.table(
-              GroupID = input[, GroupID],
+              GroupID = item[, GroupID],
               file = filename,
               from = 1,
               to = nrow(output$DT.group.quants)
@@ -366,7 +366,7 @@ sigma_model <- function(fit, dir, chain = 1) {
         # if large enough write out component deviations now to conserve memory, otherwise don't to conserve disk space
         if (!is.null(output$DT.component.deviations)) {
           if (object.size(output$DT.component.deviations) > 2^18) {
-            filename <- file.path("component.deviations", paste0(chain, ".", input[, GroupID], ".fst"))
+            filename <- file.path("component.deviations", paste0(chain, ".", item[, GroupID], ".fst"))
             fst::write.fst(output$DT.component.deviations, file.path(fit, dir, filename))
 
             if (chain == 1) {
@@ -391,7 +391,7 @@ sigma_model <- function(fit, dir, chain = 1) {
         # if large enough write out component deviations now to conserve memory, otherwise don't to conserve disk space
         if (!is.null(output$DT.assay.deviations)) {
           if (object.size(output$DT.assay.deviations) > 2^18) {
-            filename <- file.path("assay.deviations", paste0(chain, ".", input[, GroupID], ".fst"))
+            filename <- file.path("assay.deviations", paste0(chain, ".", item[, GroupID], ".fst"))
             fst::write.fst(output$DT.assay.deviations, file.path(fit, dir, filename))
 
             if (chain == 1) {
@@ -415,7 +415,7 @@ sigma_model <- function(fit, dir, chain = 1) {
 
         # if large enough write out measurement vars now to conserve memory, otherwise don't to conserve disk space
         if (object.size(output$DT.measurement.vars) > 2^18) {
-          filename <- file.path("measurement.vars", paste0(chain, ".", input[, GroupID], ".fst"))
+          filename <- file.path("measurement.vars", paste0(chain, ".", item[, GroupID], ".fst"))
           fst::write.fst(output$DT.measurement.vars, file.path(fit, dir, filename))
 
           if (chain == 1) {
@@ -439,7 +439,7 @@ sigma_model <- function(fit, dir, chain = 1) {
         # if large enough write out component vars now to conserve memory, otherwise don't to conserve disk space
         if (!is.null(output$DT.component.vars)) {
           if (object.size(output$DT.component.vars) > 2^18) {
-            filename <- file.path("component.vars", paste0(chain, ".", input[, GroupID], ".fst"))
+            filename <- file.path("component.vars", paste0(chain, ".", item[, GroupID], ".fst"))
             fst::write.fst(output$DT.component.vars, file.path(fit, dir, filename))
 
             if (chain == 1) {
@@ -464,7 +464,7 @@ sigma_model <- function(fit, dir, chain = 1) {
         # if large enough write out assay vars now to conserve memory, otherwise don't to conserve disk space
         if (!is.null(output$DT.assay.vars)) {
           if (object.size(output$DT.assay.vars) > 2^18) {
-            filename <- file.path("assay.vars", paste0(chain, ".", input[, GroupID], ".fst"))
+            filename <- file.path("assay.vars", paste0(chain, ".", item[, GroupID], ".fst"))
             fst::write.fst(output$DT.assay.vars, file.path(fit, dir, filename))
 
             if (chain == 1) {

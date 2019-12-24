@@ -6,11 +6,12 @@
 \usage{
 norm_lmRob(
   fit,
-  data,
-  ref.groups = levels(groups(fit)$Group),
+  input = "standardised",
+  output = "normalised",
+  norm.groups = NULL,
   as.data.table = FALSE
 )
 }
 \description{
-blah
+Normalisation through robust linear regression
 }

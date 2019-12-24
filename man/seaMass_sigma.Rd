@@ -28,7 +28,7 @@ seaMass_sigma(
   control = new_sigma_control()
 )
 
-open_sigma_fits(dirs, quiet = FALSE, force = FALSE)
+open_sigma_fits(names, quiet = FALSE, force = FALSE)
 
 \method{del}{seaMass_sigma_fit}(fit)
 
@@ -44,15 +44,15 @@ open_sigma_fits(dirs, quiet = FALSE, force = FALSE)
 
 \method{groups}{seaMass_sigma_fit}(fit, as.data.table = FALSE)
 
-\method{summary}{seaMass_sigma_fit}(fit, group, dir = "model1")
+\method{summary}{seaMass_sigma_fit}(fit, group, input = "model1")
 
-\method{timings}{seaMass_sigma_fit}(fit, dir = "model1", as.data.table = F)
+\method{timings}{seaMass_sigma_fit}(fit, input = "model1", as.data.table = F)
 
 \method{measurement_vars}{seaMass_sigma_fit}(
   fit,
   measurements = NULL,
   summary = FALSE,
-  dir = "model1",
+  input = "model1",
   chains = 1:control(fit)$model.nchain,
   as.data.table = FALSE
 )
@@ -61,7 +61,7 @@ open_sigma_fits(dirs, quiet = FALSE, force = FALSE)
   fit,
   components = NULL,
   summary = FALSE,
-  dir = "model1",
+  input = "model1",
   chains = 1:control(fit)$model.nchain,
   as.data.table = FALSE
 )
@@ -70,7 +70,7 @@ open_sigma_fits(dirs, quiet = FALSE, force = FALSE)
   fit,
   groups = NULL,
   summary = FALSE,
-  dir = "model1",
+  input = "model1",
   chains = 1:control(fit)$model.nchain,
   as.data.table = FALSE
 )
@@ -79,7 +79,7 @@ open_sigma_fits(dirs, quiet = FALSE, force = FALSE)
   fit,
   components = NULL,
   summary = FALSE,
-  dir = "model1",
+  input = "model1",
   chains = 1:control(fit)$model.nchain,
   as.data.table = FALSE
 )
@@ -88,7 +88,7 @@ open_sigma_fits(dirs, quiet = FALSE, force = FALSE)
   fit,
   components = NULL,
   summary = FALSE,
-  dir = "model1",
+  input = "model1",
   chains = 1:control(fit)$model.nchain,
   as.data.table = FALSE
 )

@@ -28,22 +28,22 @@ batch_split <- function(DT, columns, n) {
 
 
 parallel_lapply <- function(
-  inputs,
+  items,
   func,
   nthread = 0,
-  pred = rep(1, length(inputs)),
+  pred = rep(1, length(items)),
   .packages = "seaMass"
 ) {
   # retreive function arguments from the parent environment
   func.args <- sapply(names(formals(func)), function(arg) as.name(arg), simplify = F, USE.NAMES = T)
-  for(n in names(func.args)) if (n != "input") assign(n, get(n, parent.frame(n = 1)))
+  for(n in names(func.args)) if (n != "item") assign(n, get(n, parent.frame(n = 1)))
 
-  if (length(inputs) > 1) {
+  if (length(items) > 1) {
     pb <- txtProgressBar(max = sum(pred), style = 3)
     setTxtProgressBar(pb, 0)
   }
 
-  if (nthread <= 1 || length(inputs) == 1) {
+  if (nthread <= 1 || length(items) == 1) {
     # if nthread is 1 then turn off all multiprocessing
     if (nthread == 1) {
       dt.threads <- data.table::getDTthreads()
@@ -53,10 +53,10 @@ parallel_lapply <- function(
     }
 
     # sequential
-    outputs <- lapply(seq_along(inputs), function(i) {
-      input <- inputs[[i]]
+    outputs <- lapply(seq_along(items), function(i) {
+      item <- items[[i]]
       output <- do.call("func", func.args)
-      if (length(inputs) > 1) setTxtProgressBar(pb, getTxtProgressBar(pb) + pred[i])
+      if (length(items) > 1) setTxtProgressBar(pb, getTxtProgressBar(pb) + pred[i])
       return(output)
     })
 
@@ -78,9 +78,9 @@ parallel_lapply <- function(
 
     # parallel
     outputs <- foreach::foreach(
-      input = iterators::iter(inputs),
+      item = iterators::iter(items),
       .packages = .packages,
-      .export = c("func", names(func.args)[func.args != "input"]),
+      .export = c("func", names(func.args)[func.args != "item"]),
       .noexport = "output",
       .options.snow = list(progress = function(n, i) setTxtProgressBar(pb, getTxtProgressBar(pb) + pred[i]))
     ) %dorng% {
@@ -93,7 +93,7 @@ parallel_lapply <- function(
     }
   }
 
-  if (length(inputs) > 1) {
+  if (length(items) > 1) {
     setTxtProgressBar(pb, sum(pred))
     close(pb)
   }
