@@ -5,7 +5,153 @@
 #' @import data.table
 #' @import doRNG
 #' @export
-dea_MCMCglmm <- function(fit, input = "normalised", output = "de", data.design = design(fit), fixed = ~ Condition, random = NULL, rcov = ~ idh(Condition):Sample, prior = list(R = list(V = diag(nlevels(factor(data.design$Condition))), nu = 2e-4)), em.func = function(...) emmeans::emmeans(..., pairwise ~ Condition), as.data.table = FALSE, ...) {
+dea_MCMCglmm <- function(fit, input = "normalised", output = "de", data.design = design(fit), as.data.table = FALSE,
+                         fixed = ~ Condition,
+                         random = ~ idh(Condition):Sample,
+                         prior = list(G = list(G1 = list(V = diag(nlevels(factor(data.design$Condition))), nu = nlevels(factor(data.design$Condition)), alpha.mu = rep(0, nlevels(factor(data.design$Condition))), alpha.V = diag(25^2, nlevels(factor(data.design$Condition)))))),
+                         em.func = function(...) emmeans::emmeans(..., pairwise ~ Condition),
+                         ...) {
+  message(paste0("[", Sys.time(), "]  MCMCglmm differential expression analysis..."))
+
+  # process parameters
+  ctrl <- control(fit)
+  fixed <- as.formula(sub("^.*~", "value ~", deparse(fixed)))
+  nitt <- ctrl$model.nwarmup + (ctrl$model.nsample * ctrl$model.thin) / ctrl$model.nchain
+
+  # tidy em.func
+  if (!is.list(em.func)) em.func <- list(em.func)
+  if (all(sapply(em.func, is.function))) {
+    if(is.null(names(em.func))) names(em.func) <- 1:length(em.func)
+    names(em.func) <- ifelse(names(em.func) == "", 1:length(em.func), names(em.func))
+  } else {
+    stop("'em.func' must be a function or list of functions taking a '...' parameter and specialising the 'emmeans::emmeans' function.")
+  }
+
+  # prepare design
+  DT.design <- as.data.table(data.design)[!is.na(Condition)]
+  if (!is.null(DT.design$nComponent)) DT.design[, nComponent := NULL]
+  if (!is.null(DT.design$nMeasurement)) DT.design[, nMeasurement := NULL]
+
+  # loop over all chains and all groups
+  dir.create(file.path(fit, output))
+  for (chain in 1:ctrl$model.nchain) {
+    message(paste0("[", Sys.time(), "]  chain ", chain ,"/", ctrl$model.nchain, "..."))
+
+    DT.de.index <- rbindlist(parallel_lapply(batch_split(groups(fit, as.data.table = T), "Group", 16), function(item, chain, fit, input, output, DT.design, fixed, random, rcov, prior, nitt, ctrl, em.func) {
+      DT.batch <- normalised_group_quants(fit, input = input, groups = item$Group, chain = chain, as.data.table = T)
+      batch <- lapply(split(DT.batch, by = "Group", drop = T), function(DT) {
+        model <- list()
+        group <- DT[1, Group]
+
+        # have to keep all.y assays in even if NA otherwise MCMCglmm will get confused over its priors
+        DT <- droplevels(merge(DT, DT.design, all.y = T, by = "Assay"))
+
+        # add rcov prior
+        prior.MCMCglmm <- prior
+        prior.MCMCglmm$R <- list(V = diag(nlevels(DT$Assay)), nu = 2e-4)
+
+        if (any(!is.na(DT$m))) try({
+          # run MCMCglmm
+          set.seed(ctrl$model.seed + chain)
+          model$MCMCglmm <- MCMCglmm::MCMCglmm(
+            fixed = fixed,
+            random = random,
+            rcov = ~ idh(Assay):units,
+            data = DT,
+            prior = prior.MCMCglmm,
+            nitt = nitt,
+            burnin = ctrl$model.nwarmup,
+            thin = ctrl$model.thin,
+            singular.ok = T,
+            verbose = F
+          )
+
+          # run em.funcs
+          model$emmGrid <- lapply(1:length(em.func), function(i) em.func[[i]](model$MCMCglmm, data = DT))
+          names(model$emmGrid) <- names(em.func)
+
+          # extract from emmGrid
+          model$DT.de <- rbindlist(lapply(1:length(model$emmGrid), function(i) {
+            DT.emmeans <- as.data.table(emmeans::as.mcmc.emmGrid(model$emmGrid[[i]]$emmeans))
+            DT.emmeans[, mcmcID := .I]
+            DT.emmeans <- melt(DT.emmeans, id.vars = "mcmcID", variable.name = "Model")
+            DT.emmeans[, Effect := sub("^(.*) .*$", "\\1", Model)]
+            DT.emmeans[, Level := sub("^.* (.*)$", "\\1", Model)]
+            DT.emmeans[, Level0 := NA]
+
+            # just supply contrasts until the refactor
+            #if (!is.null(model$emmGrid[[i]]$contrasts)) {
+            DT.contrasts <- as.data.table(emmeans::as.mcmc.emmGrid(model$emmGrid[[i]]$contrasts))
+            DT.contrasts[, mcmcID := .I]
+            DT.contrasts <- melt(DT.contrasts, id.vars = "mcmcID", variable.name = "Model")
+            DT.contrasts[, Effect := DT.emmeans[1, Effect]]
+            DT.contrasts[, Level := sub("^contrast (.*) - .*$", "\\1", Model)]
+            DT.contrasts[, Level0 := sub("^contrast .* - (.*)$", "\\1", Model)]
+            #DT.emmeans <- rbind(DT.emmeans, DT.contrasts)
+            DT.emmeans <- DT.contrasts
+            #}
+
+            # add metadata
+            DT.meta <- unique(rbind(DT.emmeans[, .(Effect, Level)], DT.emmeans[, .(Effect, Level = Level0)]))[!is.na(Level)]
+            DT.meta[, a := max(0, DT[get(Effect) == Level, nComponent], na.rm = T)]
+            DT.meta[, b := max(0, DT[get(Effect) == Level, nMeasurement], na.rm = T)]
+            DT.meta[, c := length(unique(DT[Condition == "A" & !is.na(value), Sample]))]
+            DT.meta[, d := length(unique(DT[Condition == "A" & !is.na(value) & nComponent > 0, Sample]))]
+
+            DT.emmeans <- merge(DT.meta, DT.emmeans, all.y = T, by = c("Effect", "Level"))
+            setnames(DT.emmeans, c("a", "b", "c", "d"), c("1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample"))
+            DT.emmeans[, Level := NULL]
+            setnames(DT.meta, "Level", "Level0")
+            DT.emmeans <- merge(DT.meta, DT.emmeans, all.y = T, by = c("Effect", "Level0"))
+            setnames(DT.emmeans, c("a", "b", "c", "d"), c("2:nMaxComponent", "2:nMaxMeasurement", "2:nTestSample", "2:nRealSample"))
+            DT.emmeans[, Level0 := NULL]
+
+            DT.emmeans[, Effect := factor(Effect, levels = unique(Effect))]
+            setcolorder(DT.emmeans, c("Effect", "Model"))
+            return(DT.emmeans)
+          }))
+          model$DT.de[, Group := group]
+          model$DT.de[, chainID := chain]
+          setcolorder(model$DT.de, c("Model", "Effect", "Group", "chainID", "mcmcID"))
+
+          return(model)
+        })
+
+        return(model)
+      })
+
+      # save
+      saveRDS(batch, file.path(fit, output, paste(item[1, BatchID], "rds", sep = ".")))
+
+      # flatten
+      DT.batch.de <- rbindlist(lapply(1:length(batch), function(i) {
+        if (!is.null(batch[[i]]$DT.de)) {
+          return(droplevels(batch[[i]]$DT.de))
+        } else {
+          return(NULL)
+        }
+      }))
+      setcolorder(DT.batch.de, c("Model", "Effect", "Group", "1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample", "2:nMaxComponent", "2:nMaxMeasurement", "2:nTestSample", "2:nRealSample"))
+
+      fst::write.fst(DT.batch.de, file.path(fit, output, paste(chain, item[1, BatchID], "fst", sep = ".")))
+      return(DT.batch.de[, .(file = file.path(output, paste(chain, item[1, BatchID], "fst", sep = ".")), from = first(.I), to = last(.I)), by = Group])
+    }, nthread = ctrl$nthread))
+
+    if (chain == 1) fst::write.fst(DT.de.index, file.path(fit, paste(output, "index.fst", sep = ".")))
+  }
+
+  return(group_de(fit, input = output, as.data.table = as.data.table))
+}
+
+
+#' Mixed-effects univariate differential expression analysis with 'MCMCglmm'
+#'
+#' The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.
+#'
+#' @import data.table
+#' @import doRNG
+#' @export
+dea_MCMCglmmMeta <- function(fit, input = "normalised", output = "de", data.design = design(fit), fixed = ~ Condition, random = NULL, rcov = ~ idh(Condition):Sample, prior = list(R = list(V = diag(nlevels(factor(data.design$Condition))), nu = 2e-4)), em.func = function(...) emmeans::emmeans(..., pairwise ~ Condition), as.data.table = FALSE, ...) {
   message(paste0("[", Sys.time(), "]  summarising normalised group quants..."))
   normalised_group_quants(fit, summary = T, as.data.table = T)
 
