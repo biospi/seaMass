@@ -8,8 +8,8 @@ fdr_ash <- function(
   fit,
   input = "de",
   output = "fdr",
-  by.model = T,
-  by.effect = T,
+  by.model = TRUE,
+  by.effect = TRUE,
   as.data.table = FALSE,
   use.df = TRUE,
   min.components = 1,
@@ -44,39 +44,45 @@ fdr_ash <- function(
     (`1:nRealSample` + `2:nTestSample` >= min.real.samples) &
     (`1:nRealSample` >= min.real.samples.per.condition & `2:nTestSample` >= min.real.samples.per.condition)]
 
-  if (by.model && by.effect) DTs <- split(DT, by = c("Model", "Effect"), drop = T)
-  else if (by.model) DTs <- split(DT, by = "Model", drop = T)
-  else if (by.effect) DTs <- split(DT, by = "Effect", drop = T)
-  else DTs <- list(DT)
+  if (by.model && by.effect) {
+    DTs <- split(DT, by = c("Model", "Effect"), drop = T)
+  } else if (by.model) {
+    DTs <- split(DT, by = "Model", drop = T)
+  } else if (by.effect) {
+    DTs <- split(DT, by = "Effect", drop = T)
+  } else {
+    DTs <- list(DT)
+  }
 
-  DT <- foreach(DT = iterators::iter(DTs), .final = rbindlist, .inorder = F, .packages = "data.table") %do% {
-    setDTthreads(1)
+  DT <- rbindlist(parallel_lapply(DTs, function(item, use.df, mixcompdist) {
     # run ash, but allowing variable DF
     if (use.df) {
       lik_ts = list(
         name = "t",
-        const = length(unique(DT[use.FDR == T, df])) == 1,
-        lcdfFUN = function(x) stats::pt(x, df = DT[use.FDR == T, df], log = T),
-        lpdfFUN = function(x) stats::dt(x, df = DT[use.FDR == T, df], log = T),
-        etruncFUN = function(a,b) etrunct::e_trunct(a, b, df = DT[use.FDR == T, df], r = 1),
-        e2truncFUN = function(a,b) etrunct::e_trunct(a, b, df = DT[use.FDR == T, df], r = 2)
+        const = length(unique(item[use.FDR == T, df])) == 1,
+        lcdfFUN = function(x) stats::pt(x, df = item[use.FDR == T, df], log = T),
+        lpdfFUN = function(x) stats::dt(x, df = item[use.FDR == T, df], log = T),
+        etruncFUN = function(a,b) etrunct::e_trunct(a, b, df = item[use.FDR == T, df], r = 1),
+        e2truncFUN = function(a,b) etrunct::e_trunct(a, b, df = item[use.FDR == T, df], r = 2)
       )
-      fit.fdr <- ashr::ash(DT[use.FDR == T, m], DT[use.FDR == T, s], mixcompdist, lik = lik_ts)
+      fit.fdr <- ashr::ash(item[use.FDR == T, m], item[use.FDR == T, s], mixcompdist, lik = lik_ts)
     } else {
-      fit.fdr <- ashr::ash(DT[use.FDR == T, m], DT[use.FDR == T, s], mixcompdist)
+      fit.fdr <- ashr::ash(item[use.FDR == T, m], item[use.FDR == T, s], mixcompdist)
     }
 
     setDT(fit.fdr$result)
     fit.fdr$result[, betahat := NULL]
     fit.fdr$result[, sebetahat := NULL]
-    rmcols <- which(colnames(DT) %in% colnames(fit.fdr$result))
-    if (length(rmcols) > 0) DT <- DT[, -rmcols, with = F]
-    fit.fdr$result[, Model := DT[use.FDR == T, Model]]
-    fit.fdr$result[, Effect := DT[use.FDR == T, Effect]]
-    fit.fdr$result[, Group := DT[use.FDR == T, Group]]
-    DT <- merge(DT, fit.fdr$result, all.x = T, by = c("Model", "Effect", "Group"))
-    DT[, use.FDR := NULL]
-  }
+    rmcols <- which(colnames(item) %in% colnames(fit.fdr$result))
+    if (length(rmcols) > 0) item <- item[, -rmcols, with = F]
+    fit.fdr$result[, Model := item[use.FDR == T, Model]]
+    fit.fdr$result[, Effect := item[use.FDR == T, Effect]]
+    fit.fdr$result[, Group := item[use.FDR == T, Group]]
+    item <- merge(item, fit.fdr$result, all.x = T, by = c("Model", "Effect", "Group"))
+    item[, use.FDR := NULL]
+
+    return(item)
+  }))
 
   if (by.model && by.effect) setorder(DT, Model, Effect, qvalue, na.last = T)
   else if (by.model) setorder(DT, Model, qvalue, na.last = T)

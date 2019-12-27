@@ -8,7 +8,7 @@ norm_lmRob(
   fit,
   input = "standardised",
   output = "normalised",
-  norm.groups = NULL,
+  norm.groups = ".*",
   as.data.table = FALSE
 )
 }

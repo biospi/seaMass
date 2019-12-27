@@ -13,7 +13,7 @@
 #' @return A \code{seaMass_delta_fit} object that can be interrogated for various metadata and results.
 #' @import data.table
 #' @export
-seaMass_delta <- function(sigma_fits, data.design = design(sigma_fits), summaries = FALSE, plots = FALSE, name = sub("^(.*)\\..*\\.seaMass-sigma", "\\1", basename(sigma_fits[[1]])), control = new_delta_control(), ...) {
+seaMass_delta <- function(sigma_fits, data.design = design(sigma_fits), norm.groups = ".*", summaries = FALSE, plots = FALSE, name = sub("^(.*)\\..*\\.seaMass-sigma", "\\1", basename(sigma_fits[[1]])), control = new_delta_control(), ...) {
   # check for finished output and return that
   fit <- open_delta_fit(name, T)
   if (!is.null(fit)) {
@@ -45,6 +45,7 @@ seaMass_delta <- function(sigma_fits, data.design = design(sigma_fits), summarie
   control$plots <- plots
   control$name <- name
   control$sigma_fits <- sigma_fits
+  control$norm.groups <- norm.groups
   control$version <- packageVersion("seaMass")
   saveRDS(control, file.path(fit, "meta", "control.rds"))
 
@@ -75,7 +76,7 @@ seaMass_delta <- function(sigma_fits, data.design = design(sigma_fits), summarie
 
   # normalise quants by norm.groups
   if (!is.null(control$norm.model)) {
-    do.call(paste("norm", control$norm.model, sep = "_"), list(fit = fit, norm.groups = control$norm.groups, as.data.table = T))
+    do.call(paste("norm", control$norm.model, sep = "_"), list(fit = fit, norm.groups = norm.groups, as.data.table = T))
   }
 
   # plot assay exposures
@@ -129,18 +130,7 @@ seaMass_delta <- function(sigma_fits, data.design = design(sigma_fits), summarie
 #' @param nthread Number of CPU threads to employ
 #' @return \code{seaMass_sigma_control} object to pass to \link{sigma}
 #' @export
-new_delta_control <- function(
-  norm.model = "median",
-  dea.model = "MCMCglmm",
-  fdr.model = "ash",
-  model.seed = 0,
-  model.nchain = 4,
-  model.nwarmup = 256,
-  model.thin = 1,
-  model.nsample = 1024,
-  norm.groups = NULL,
-  nthread = parallel::detectCores() %/% 2
-) {
+new_delta_control <- function(norm.model = "median", dea.model = "MCMCglmm", fdr.model = "ash", model.seed = 0, model.nchain = 4, model.nwarmup = 256, model.thin = 1, model.nsample = 1024, nthread = parallel::detectCores() %/% 2) {
   # validate parameters
   if (model.nchain == 1) {
     message("WARNNING: You are specifying only a single MCMC chain, convergence diagnostics will be unavailable. It is recommended to specify model.nchain=4 or more in 'control' for publishable results.")

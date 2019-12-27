@@ -18,6 +18,7 @@
 seaMass_delta(
   sigma_fits,
   data.design = design(sigma_fits),
+  norm.groups = ".*",
   summaries = FALSE,
   plots = FALSE,
   name = sub("^(.*)\\\\..*\\\\.seaMass-sigma", "\\\\1", basename(sigma_fits[[1]])),
