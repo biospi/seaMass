@@ -9,7 +9,7 @@ norm_median(
   input = "standardised",
   output = "normalised",
   norm.groups = ".*",
-  as.data.table = FALSE
+  ...
 )
 }
 \description{

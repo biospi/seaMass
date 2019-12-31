@@ -5,18 +5,27 @@
 #' @import data.table
 #' @import doRNG
 #' @export
-dea_MCMCglmm <- function(fit, input = "normalised", output = "de", data.design = design(fit), as.data.table = FALSE,
-                         fixed = ~ Condition,
-                         random = ~ idh(Condition):Sample,
-                         prior = list(G = list(G1 = list(V = diag(nlevels(factor(data.design$Condition))), nu = nlevels(factor(data.design$Condition)), alpha.mu = rep(0, nlevels(factor(data.design$Condition))), alpha.V = diag(25^2, nlevels(factor(data.design$Condition)))))),
-                         em.func = function(...) emmeans::emmeans(..., pairwise ~ Condition),
-                         ...) {
+dea_MCMCglmm <- function(
+  fit,
+  input = "normalised",
+  output = "de",
+  data.design = design(fit),
+  fixed = ~ Condition,
+  random = NULL,
+  rcov = ~ idh(Condition):Sample,
+  prior = list(R = list(V = diag(nlevels(factor(data.design$Condition))), nu = 2e-4)),
+  em.func = function(...) emmeans::emmeans(..., pairwise ~ Condition),
+  ...
+) {
+  warn <- getOption("warn")
+  options(warn = 1)
+
   message(paste0("[", Sys.time(), "]  MCMCglmm differential expression analysis..."))
 
   # process parameters
   ctrl <- control(fit)
-  fixed <- as.formula(sub("^.*~", "value ~", deparse(fixed)))
-  nitt <- ctrl$model.nwarmup + (ctrl$model.nsample * ctrl$model.thin) / ctrl$model.nchain
+  fixed <- as.formula(sub("^.*~", "m ~", deparse(fixed)))
+  nitt <- ctrl$dea.nwarmup + (ctrl$model.nsample * ctrl$dea.thin) / ctrl$model.nchain
 
   # tidy em.func
   if (!is.list(em.func)) em.func <- list(em.func)
@@ -33,41 +42,38 @@ dea_MCMCglmm <- function(fit, input = "normalised", output = "de", data.design =
   if (!is.null(DT.design$nMeasurement)) DT.design[, nMeasurement := NULL]
 
   # loop over all chains and all groups
-  dir.create(file.path(fit, output))
+  dir.create(file.path(fit, output), showWarnings = F)
   for (chain in 1:ctrl$model.nchain) {
-    message(paste0("[", Sys.time(), "]  chain ", chain ,"/", ctrl$model.nchain, "..."))
+    message(paste0("[", Sys.time(), "]   chain ", chain ,"/", ctrl$model.nchain, "..."))
 
-    DT.de.index <- rbindlist(parallel_lapply(batch_split(groups(fit, as.data.table = T), "Group", 16), function(item, chain, fit, input, output, DT.design, fixed, random, rcov, prior, nitt, ctrl, em.func) {
-      DT.batch <- normalised_group_quants(fit, input = input, groups = item$Group, chain = chain, as.data.table = T)
+    DT.de.index <- rbindlist(parallel_lapply(batch_split(groups(fit, as.data.table = T), "Group", 64), function(item, fit, input, chain, ctrl, DT.design, prior, fixed, random, nitt, em.func, output) {
+      DT.batch <- normalised_group_quants(fit, input = input, groups = item$Group, summary = T, chain = chain, as.data.table = T)
       batch <- lapply(split(DT.batch, by = "Group", drop = T), function(DT) {
         model <- list()
         group <- DT[1, Group]
 
         # have to keep all.y assays in even if NA otherwise MCMCglmm will get confused over its priors
-        DT <- droplevels(merge(DT, DT.design, all.y = T, by = "Assay"))
+        model$DT.input <- droplevels(merge(DT, DT.design, all.y = T, by = "Assay"))
+        if (any(!is.na(model$DT.input[, m]))) ({
 
-        # add rcov prior
-        prior.MCMCglmm <- prior
-        prior.MCMCglmm$R <- list(V = diag(nlevels(DT$Assay)), nu = 2e-4)
-
-        if (any(!is.na(DT$m))) try({
           # run MCMCglmm
-          set.seed(ctrl$model.seed + chain)
+          set.seed(ctrl$random.seed + chain)
           model$MCMCglmm <- MCMCglmm::MCMCglmm(
             fixed = fixed,
             random = random,
-            rcov = ~ idh(Assay):units,
-            data = DT,
-            prior = prior.MCMCglmm,
+            rcov = rcov,
+            mev = ifelse(is.na(model$DT.input[, s]), 0, model$DT.input[, s]^2),
+            data = model$DT.input,
+            prior = prior,
             nitt = nitt,
-            burnin = ctrl$model.nwarmup,
-            thin = ctrl$model.thin,
+            burnin = ctrl$dea.nwarmup,
+            thin = ctrl$dea.thin,
             singular.ok = T,
             verbose = F
           )
 
           # run em.funcs
-          model$emmGrid <- lapply(1:length(em.func), function(i) em.func[[i]](model$MCMCglmm, data = DT))
+          model$emmGrid <- lapply(1:length(em.func), function(i) em.func[[i]](model$MCMCglmm, data = model$DT.input))
           names(model$emmGrid) <- names(em.func)
 
           # extract from emmGrid
@@ -79,7 +85,7 @@ dea_MCMCglmm <- function(fit, input = "normalised", output = "de", data.design =
             DT.emmeans[, Level := sub("^.* (.*)$", "\\1", Model)]
             DT.emmeans[, Level0 := NA]
 
-            # just supply contrasts until the refactor
+            # just do contrasts for now
             #if (!is.null(model$emmGrid[[i]]$contrasts)) {
             DT.contrasts <- as.data.table(emmeans::as.mcmc.emmGrid(model$emmGrid[[i]]$contrasts))
             DT.contrasts[, mcmcID := .I]
@@ -93,10 +99,10 @@ dea_MCMCglmm <- function(fit, input = "normalised", output = "de", data.design =
 
             # add metadata
             DT.meta <- unique(rbind(DT.emmeans[, .(Effect, Level)], DT.emmeans[, .(Effect, Level = Level0)]))[!is.na(Level)]
-            DT.meta[, a := max(0, DT[get(Effect) == Level, nComponent], na.rm = T)]
-            DT.meta[, b := max(0, DT[get(Effect) == Level, nMeasurement], na.rm = T)]
-            DT.meta[, c := length(unique(DT[Condition == "A" & !is.na(value), Sample]))]
-            DT.meta[, d := length(unique(DT[Condition == "A" & !is.na(value) & nComponent > 0, Sample]))]
+            DT.meta[, a := max(0, model$DT.input[get(as.character(Effect)) == Level, nComponent], na.rm = T)]
+            DT.meta[, b := max(0, model$DT.input[get(as.character(Effect)) == Level, nMeasurement], na.rm = T)]
+            DT.meta[, c := length(unique(model$DT.input[Condition == "A" & !is.na(m), Sample]))]
+            DT.meta[, d := length(unique(model$DT.input[Condition == "A" & !is.na(m) & nComponent > 0, Sample]))]
 
             DT.emmeans <- merge(DT.meta, DT.emmeans, all.y = T, by = c("Effect", "Level"))
             setnames(DT.emmeans, c("a", "b", "c", "d"), c("1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample"))
@@ -121,7 +127,7 @@ dea_MCMCglmm <- function(fit, input = "normalised", output = "de", data.design =
       })
 
       # save
-      saveRDS(batch, file.path(fit, output, paste(item[1, BatchID], "rds", sep = ".")))
+      #saveRDS(batch, file.path(fit, output, paste(chain, item[1, BatchID], "rds", sep = ".")))
 
       # flatten
       DT.batch.de <- rbindlist(lapply(1:length(batch), function(i) {
@@ -131,18 +137,23 @@ dea_MCMCglmm <- function(fit, input = "normalised", output = "de", data.design =
           return(NULL)
         }
       }))
-      setcolorder(DT.batch.de, c("Model", "Effect", "Group", "1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample", "2:nMaxComponent", "2:nMaxMeasurement", "2:nTestSample", "2:nRealSample"))
 
-      fst::write.fst(DT.batch.de, file.path(fit, output, paste(chain, item[1, BatchID], "fst", sep = ".")))
-      return(DT.batch.de[, .(file = file.path(output, paste(chain, item[1, BatchID], "fst", sep = ".")), from = first(.I), to = last(.I)), by = Group])
+      if (nrow(DT.batch.de > 0)) {
+        setcolorder(DT.batch.de, c("Effect", "Model", "Group", "1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample", "2:nMaxComponent", "2:nMaxMeasurement", "2:nTestSample", "2:nRealSample"))
+        fst::write.fst(DT.batch.de, file.path(fit, output, paste(chain, item[1, BatchID], "fst", sep = ".")))
+        return(DT.batch.de[, .(file = file.path(output, paste(chain, item[1, BatchID], "fst", sep = ".")), from = first(.I), to = last(.I)), by = Group])
+      } else {
+        return(NULL)
+      }
     }, nthread = ctrl$nthread))
 
-    if (chain == 1) fst::write.fst(DT.de.index, file.path(fit, paste(output, "index.fst", sep = ".")))
+    if (chain == 1 && nrow(DT.de.index) > 0) fst::write.fst(DT.de.index, file.path(fit, paste(output, "index.fst", sep = ".")))
   }
 
-  return(group_de(fit, input = output, as.data.table = as.data.table))
-}
+  options(warn = warn)
 
+  return(fit)
+}
 
 #' Mixed-effects univariate differential expression analysis with 'MCMCglmm'
 #'
@@ -151,14 +162,26 @@ dea_MCMCglmm <- function(fit, input = "normalised", output = "de", data.design =
 #' @import data.table
 #' @import doRNG
 #' @export
-dea_MCMCglmmMeta <- function(fit, input = "normalised", output = "de", data.design = design(fit), fixed = ~ Condition, random = NULL, rcov = ~ idh(Condition):Sample, prior = list(R = list(V = diag(nlevels(factor(data.design$Condition))), nu = 2e-4)), em.func = function(...) emmeans::emmeans(..., pairwise ~ Condition), as.data.table = FALSE, ...) {
-  message(paste0("[", Sys.time(), "]  summarising normalised group quants..."))
-  normalised_group_quants(fit, summary = T, as.data.table = T)
+dea_MCMCglmm_experimental <- function(
+  fit,
+  input = "normalised",
+  output = "de",
+  data.design = design(fit),
+  fixed = ~ Condition,
+  random = ~ idh(Condition):Sample,
+  prior = list(G = list(G1 = list(V = diag(nlevels(factor(data.design$Condition))), nu = nlevels(factor(data.design$Condition)), alpha.mu = rep(0, nlevels(factor(data.design$Condition))), alpha.V = diag(25^2, nlevels(factor(data.design$Condition)))))),
+  em.func = function(...) emmeans::emmeans(..., pairwise ~ Condition),
+  ...
+) {
+  warn <- getOption("warn")
+  options(warn = 1)
+
+  message(paste0("[", Sys.time(), "]  MCMCglmm differential expression analysis..."))
 
   # process parameters
   ctrl <- control(fit)
-  fixed <- as.formula(sub("^.*~", "m ~", deparse(fixed)))
-  nitt <- ctrl$model.nwarmup + (ctrl$model.nsample * ctrl$model.thin) / ctrl$model.nchain
+  fixed <- as.formula(sub("^.*~", "value ~", deparse(fixed)))
+  nitt <- ctrl$dea.nwarmup + (ctrl$model.nsample * ctrl$dea.thin) / ctrl$model.nchain
 
   # tidy em.func
   if (!is.list(em.func)) em.func <- list(em.func)
@@ -170,44 +193,47 @@ dea_MCMCglmmMeta <- function(fit, input = "normalised", output = "de", data.desi
   }
 
   # prepare design
-  data.design.is.data.table <- is.data.table(data.design)
-  DT.design <- setDT(data.design)
-  DT.design <- DT.design[!is.na(Condition)]
+  DT.design <- as.data.table(data.design)[!is.na(Condition)]
   if (!is.null(DT.design$nComponent)) DT.design[, nComponent := NULL]
   if (!is.null(DT.design$nMeasurement)) DT.design[, nMeasurement := NULL]
 
-  # loop over all groups
-  message(paste0("[", Sys.time(), "]  MCMCglmm differential expression analysis..."))
-  ctrl <- control(fit)
-  dir.create(file.path(fit, output))
-  parallel_lapply(as.list(1:ctrl$model.nchain), function(item, DT.design, fixed, random, rcov, prior, nitt, ctrl, em.func, fit, output) {
-    DT.de <- rbindlist(lapply(batch_split(normalised_group_quants(fit, summary = T, chain = item, as.data.table = T), "Group", 8), function(batch.in) {
-      batch.out <- lapply(split(batch.in, by = "Group", drop = T), function(DT) {
-        group <- factor(DT[1, Group])
+  # loop over all chains and all groups
+  dir.create(file.path(fit, output), showWarnings = F)
+  for (chain in 1:ctrl$model.nchain) {
+    message(paste0("[", Sys.time(), "]   chain ", chain ,"/", ctrl$model.nchain, "..."))
+
+    DT.de.index <- rbindlist(parallel_lapply(batch_split(groups(fit, as.data.table = T), "Group", 64), function(item, fit, input, chain, ctrl, DT.design, prior, fixed, random, nitt, em.func, output) {
+      DT.batch <- normalised_group_quants(fit, input = input, groups = item$Group, chain = chain, as.data.table = T)
+      batch <- lapply(split(DT.batch, by = "Group", drop = T), function(DT) {
         model <- list()
+        group <- DT[1, Group]
+        #DT <- DT[mcmcID %% ctrl$dea.thin == 0]
 
         # have to keep all.y assays in even if NA otherwise MCMCglmm will get confused over its priors
-        DT <- droplevels(merge(DT, DT.design, all.y = T, by = "Assay"))
+        model$DT.input <- droplevels(merge(DT, DT.design, all.y = T, by = "Assay"))
 
-        if (any(!is.na(DT$m))) try({
+        if (any(!is.na(model$DT.input[, value]))) ({
+          # add rcov prior
+          prior.MCMCglmm <- prior
+          prior.MCMCglmm$R <- list(V = diag(nlevels(DT$Assay)), nu = 2e-2)
+
           # run MCMCglmm
-          set.seed(ctrl$model.seed + item)
+          set.seed(ctrl$random.seed + chain)
           model$MCMCglmm <- MCMCglmm::MCMCglmm(
             fixed = fixed,
             random = random,
-            rcov = rcov,
-            mev = ifelse(is.na(DT$s), 0, DT$s^2),
-            data = DT,
-            prior = prior,
+            rcov = ~ idh(Assay):units,
+            data = model$DT.input,
+            prior = prior.MCMCglmm,
             nitt = nitt,
-            burnin = ctrl$model.nwarmup,
-            thin = ctrl$model.thin,
+            burnin = ctrl$dea.nwarmup,
+            thin = ctrl$dea.thin,
             singular.ok = T,
             verbose = F
           )
 
           # run em.funcs
-          model$emmGrid <- lapply(1:length(em.func), function(i) em.func[[i]](model$MCMCglmm, data = DT))
+          model$emmGrid <- lapply(1:length(em.func), function(i) em.func[[i]](model$MCMCglmm, data = model$DT.input))
           names(model$emmGrid) <- names(em.func)
 
           # extract from emmGrid
@@ -219,7 +245,7 @@ dea_MCMCglmmMeta <- function(fit, input = "normalised", output = "de", data.desi
             DT.emmeans[, Level := sub("^.* (.*)$", "\\1", Model)]
             DT.emmeans[, Level0 := NA]
 
-            # just supply contrasts until the refactor
+            # just do contrasts for now
             #if (!is.null(model$emmGrid[[i]]$contrasts)) {
             DT.contrasts <- as.data.table(emmeans::as.mcmc.emmGrid(model$emmGrid[[i]]$contrasts))
             DT.contrasts[, mcmcID := .I]
@@ -233,10 +259,10 @@ dea_MCMCglmmMeta <- function(fit, input = "normalised", output = "de", data.desi
 
             # add metadata
             DT.meta <- unique(rbind(DT.emmeans[, .(Effect, Level)], DT.emmeans[, .(Effect, Level = Level0)]))[!is.na(Level)]
-            DT.meta[, a := max(0, DT[get(Effect) == Level, nComponent], na.rm = T)]
-            DT.meta[, b := max(0, DT[get(Effect) == Level, nMeasurement], na.rm = T)]
-            DT.meta[, c := length(DT[Condition == "A" & !is.na(m), Sample])]
-            DT.meta[, d := length(DT[Condition == "A" & !is.na(m) & nComponent > 0, Sample])]
+            DT.meta[, a := max(0, model$DT.input[get(as.character(Effect)) == Level, nComponent], na.rm = T)]
+            DT.meta[, b := max(0, model$DT.input[get(as.character(Effect)) == Level, nMeasurement], na.rm = T)]
+            DT.meta[, c := length(unique(model$DT.input[Condition == "A" & !is.na(value), Sample]))]
+            DT.meta[, d := length(unique(model$DT.input[Condition == "A" & !is.na(value) & nComponent > 0, Sample]))]
 
             DT.emmeans <- merge(DT.meta, DT.emmeans, all.y = T, by = c("Effect", "Level"))
             setnames(DT.emmeans, c("a", "b", "c", "d"), c("1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample"))
@@ -251,34 +277,41 @@ dea_MCMCglmmMeta <- function(fit, input = "normalised", output = "de", data.desi
             return(DT.emmeans)
           }))
           model$DT.de[, Group := group]
-          model$DT.de[, chainID := item]
+          model$DT.de[, chainID := chain]
           setcolorder(model$DT.de, c("Model", "Effect", "Group", "chainID", "mcmcID"))
 
           return(model)
         })
 
+        return(model)
       })
 
       # save
-      saveRDS(batch.out, file.path(fit, output, paste(item, batch.in[1, BatchID], "rds", sep = ".")))
+      #saveRDS(batch, file.path(fit, output, paste(chain, item[1, BatchID], "rds", sep = ".")))
 
       # flatten
-      DT.de <- rbindlist(lapply(1:length(batch.out), function(i) {
-        if (!is.null(batch.out[[i]]$DT.de)) {
-          return(droplevels(batch.out[[i]]$DT.de))
+      DT.batch.de <- rbindlist(lapply(1:length(batch), function(i) {
+        if (!is.null(batch[[i]]$DT.de)) {
+          return(droplevels(batch[[i]]$DT.de))
         } else {
           return(NULL)
         }
       }))
-      return(DT.de)
-    }))
-    setcolorder(DT.de, c("Model", "Effect", "Group", "1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample", "2:nMaxComponent", "2:nMaxMeasurement", "2:nTestSample", "2:nRealSample"))
 
-    fst::write.fst(DT.de, file.path(fit, output, paste(item, "fst", sep = ".")))
-    if (item == 1) fst::write.fst(DT.de[, .(file = file.path(output, "1.fst"), from = first(.I), to = last(.I)), by = Group], file.path(fit, paste(output, "index.fst", sep = ".")))
-    return(NULL)
-  }, nthread = ctrl$nthread)
+      if (nrow(DT.batch.de > 0)) {
+        setcolorder(DT.batch.de, c("Model", "Effect", "Group", "1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample", "2:nMaxComponent", "2:nMaxMeasurement", "2:nTestSample", "2:nRealSample"))
+        fst::write.fst(DT.batch.de, file.path(fit, output, paste(chain, item[1, BatchID], "fst", sep = ".")))
+        return(DT.batch.de[, .(file = file.path(output, paste(chain, item[1, BatchID], "fst", sep = ".")), from = first(.I), to = last(.I)), by = Group])
+      } else {
+        return(NULL)
+      }
+    }, nthread = ctrl$nthread))
 
-  if (!data.design.is.data.table) setDF(data.design)
-  return(group_de(fit, input = output, as.data.table = as.data.table))
+    if (chain == 1 && nrow(DT.de.index) > 0) fst::write.fst(DT.de.index, file.path(fit, paste(output, "index.fst", sep = ".")))
+  }
+
+  options(warn = warn)
+
+  return(fit)
 }
+

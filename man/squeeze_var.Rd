@@ -4,7 +4,7 @@
 \alias{squeeze_var}
 \title{Our squeezeVar function - works for small DF unlike Limma squeezeVar, but slower}
 \usage{
-squeeze_var(v, df, use.deconvolution = TRUE, plots = FALSE, ...)
+squeeze_var(v, df, use.deconvolution = TRUE, ...)
 }
 \description{
 Our squeezeVar function - works for small DF unlike Limma squeezeVar, but slower

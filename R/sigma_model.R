@@ -8,7 +8,7 @@
 #' @export
 sigma_model <- function(fit, dir, chain = 1) {
   ctrl <- control(fit)
-  set.seed(ctrl$model.seed + chain-1)
+  set.seed(ctrl$random.seed + chain-1)
   message(paste0("[", Sys.time(), "] ", toupper(dir), " block=", sub("^.*\\.(.*)\\.seaMass-sigma$", "\\1", fit), " chain=", chain, "/", ctrl$model.nchain))
 
   # load metadata

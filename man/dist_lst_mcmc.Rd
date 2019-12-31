@@ -4,7 +4,7 @@
 \alias{dist_lst_mcmc}
 \title{fit location-scale t distribution}
 \usage{
-dist_lst_mcmc(chainID, mcmcID, value, plots = FALSE, ...)
+dist_lst_mcmc(chainID, mcmcID, value, ...)
 }
 \description{
 fit location-scale t distribution

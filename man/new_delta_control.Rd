@@ -5,14 +5,14 @@
 \title{Control parameters for seaMass-Δ}
 \usage{
 new_delta_control(
-  norm.model = "median",
+  norm.model = "theta",
+  norm.nwarmup = 256,
+  norm.thin = 1,
   dea.model = "MCMCglmm",
+  dea.nwarmup = 4096,
+  dea.thin = 16,
   fdr.model = "ash",
-  model.seed = 0,
-  model.nchain = 4,
-  model.nwarmup = 256,
-  model.thin = 1,
-  model.nsample = 1024,
+  random.seed = 0,
   nthread = parallel::detectCores()\%/\%2
 )
 }
@@ -21,9 +21,13 @@ new_delta_control(
 
 \item{dea.model}{Either 'MCMCglmm' differential expression analysis or NULL (none)}
 
+\item{dea.thin}{MCMC thinning factor for dea_MCMCglmm input}
+
 \item{fdr.model}{Either 'ash' false discovery rate control or NULL (none)}
 
-\item{model.seed}{Random number seed}
+\item{random.seed}{Random number seed}
+
+\item{nthread}{Number of CPU threads to employ}
 
 \item{model.nchain}{Number of MCMC chains to run}
 
@@ -32,8 +36,6 @@ new_delta_control(
 \item{model.thin}{MCMC thinning factor}
 
 \item{model.nsample}{Total number of MCMC samples to deliver downstream}
-
-\item{nthread}{Number of CPU threads to employ}
 
 \item{hpc}{Either \code{NULL} (execute locally), \code{pbs}, \code{sge} or \code{slurm} (submit to HPC cluster) [TODO]}
 }

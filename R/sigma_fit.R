@@ -1,4 +1,14 @@
-read_mcmc <- function(fit, effect.name, columnID, batchIDs, summaryIDs, itemIDs, input, chains, summary) {
+read_mcmc <- function(
+  fit,
+  effect.name,
+  columnID,
+  batchIDs,
+  summaryIDs,
+  itemIDs,
+  input,
+  chains,
+  summary
+) {
   filename <- file.path(file.path(fit, input, paste0(effect.name, ".fst")))
   if (file.exists(filename) && !is.null(summary)) {
     # load and filter from cache
@@ -66,7 +76,11 @@ read_mcmc <- function(fit, effect.name, columnID, batchIDs, summaryIDs, itemIDs,
 
 #' @rdname seaMass_sigma
 #' @export
-open_sigma_fits <- function(names, quiet = FALSE, force = FALSE) {
+open_sigma_fits <- function(
+  names,
+  quiet = FALSE,
+  force = FALSE
+) {
   names <- sapply(names, function(input) list.files(dirname(input), paste0("^", basename(input), ".*\\.seaMass-sigma$")))
   if(force || all(file.exists(file.path(names, ".complete")))) {
     fits <- lapply(names, function(input) {
@@ -88,8 +102,8 @@ open_sigma_fits <- function(names, quiet = FALSE, force = FALSE) {
 
 
 #' @export
-del <- function(x, ...) {
-  return(UseMethod("del", x))
+del <- function(fit, ...) {
+  return(UseMethod("del", fit))
 }
 
 
@@ -101,8 +115,8 @@ del.seaMass_sigma_fit <- function(fit) {
 
 
 #' @export
-control <- function(x, ...) {
-  return(UseMethod("control", x))
+control <- function(fit, ...) {
+  return(UseMethod("control", fit))
 }
 
 
@@ -115,15 +129,18 @@ control.seaMass_sigma_fit <- function(fit) {
 
 
 #' @export
-design <- function(x, ...) {
-  UseMethod("design", x)
+design <- function(fit, ...) {
+  UseMethod("design", fit)
 }
 
 
 #' @describeIn seaMass_sigma Returns the study design \code{data.frame} from an open \code{seaMass_sigma_fit} object.
 #' @import data.table
 #' @export
-design.seaMass_sigma_fit  <- function(fit, as.data.table = F) {
+design.seaMass_sigma_fit  <- function(
+  fit,
+  as.data.table = F
+) {
   DT <- fst::read.fst(file.path(fit, "meta", "design.fst"), as.data.table = as.data.table)
   DT[, AssayID := NULL]
 
@@ -136,7 +153,10 @@ design.seaMass_sigma_fit  <- function(fit, as.data.table = F) {
 #' @describeIn seaMass_sigma Returns the full study design \code{data.frame} from an open \code{seaMass_sigma_fits} object.
 #' @import data.table
 #' @export
-design.seaMass_sigma_fits <- function(fits, as.data.table = F) {
+design.seaMass_sigma_fits <- function(
+  fits,
+  as.data.table = F
+) {
   DT <- rbindlist(lapply(fits, function(fit) design(fit, as.data.table = T)), idcol = "Block")
   DT[, Block := factor(Block, levels = unique(Block))]
 
@@ -147,15 +167,18 @@ design.seaMass_sigma_fits <- function(fits, as.data.table = F) {
 
 
 #' @export
-measurements <- function(x, ...) {
-  return(UseMethod("measurements", x))
+measurements <- function(fit, ...) {
+  return(UseMethod("measurements", fit))
 }
 
 
 #' @describeIn seaMass_sigma Returns the measurement metadata from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 #' @import data.table
 #' @export
-measurements.seaMass_sigma_fit <- function(fit, as.data.table = FALSE) {
+measurements.seaMass_sigma_fit <- function(
+  fit,
+  as.data.table = FALSE
+) {
   DT <- fst::read.fst(file.path(fit, "meta", "measurements.fst"), as.data.table = T)
   DT[, MeasurementID := NULL]
 
@@ -166,15 +189,18 @@ measurements.seaMass_sigma_fit <- function(fit, as.data.table = FALSE) {
 
 
 #' @export
-components <- function(x, ...) {
-  return(UseMethod("components", x))
+components <- function(fit, ...) {
+  return(UseMethod("components", fit))
 }
 
 
 #' @describeIn seaMass_sigma Returns the component metadata from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 #' @import data.table
 #' @export
-components.seaMass_sigma_fit <- function(fit, as.data.table = FALSE) {
+components.seaMass_sigma_fit <- function(
+  fit,
+  as.data.table = FALSE
+) {
   DT <- fst::read.fst(file.path(fit, "meta", "components.fst"), as.data.table = T)
   DT[, ComponentID := NULL]
 
@@ -185,15 +211,18 @@ components.seaMass_sigma_fit <- function(fit, as.data.table = FALSE) {
 
 
 #' @export
-groups <- function(x, ...) {
-  return(UseMethod("groups", x))
+groups <- function(fit, ...) {
+  return(UseMethod("groups", fit))
 }
 
 
 #' @describeIn seaMass_sigma Returns the group metadata from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 #' @import data.table
 #' @export
-groups.seaMass_sigma_fit <- function(fit, as.data.table = FALSE) {
+groups.seaMass_sigma_fit <- function(
+  fit,
+  as.data.table = FALSE
+) {
   DT <- fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = T)
   DT[, GroupID := NULL]
 
@@ -206,7 +235,11 @@ groups.seaMass_sigma_fit <- function(fit, as.data.table = FALSE) {
 #' @describeIn seaMass_sigma Returns the model summary for a groupID from an open \code{seaMass_sigma_fit} object.
 #' @import data.table
 #' @export summary.seaMass_sigma_fit
-summary.seaMass_sigma_fit <- function(fit, group, input = "model1") {
+summary.seaMass_sigma_fit <- function(
+  fit,
+  group,
+  input = "model1"
+) {
   filenames <- list.files(file.path(fit, input, "summaries"), "^[0-9]+\\..*fst$", full.names = T)
   if (length(filenames) == 0) return(NULL)
 
@@ -217,15 +250,19 @@ summary.seaMass_sigma_fit <- function(fit, group, input = "model1") {
 
 
 #' @export
-timings <- function(x, ...) {
-  return(UseMethod("timings", x))
+timings <- function(fit, ...) {
+  return(UseMethod("timings", fit))
 }
 
 
 #' @describeIn seaMass_sigma Returns the model timings from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 #' @import data.table
 #' @export
-timings.seaMass_sigma_fit<- function(fit, input = "model1", as.data.table = F) {
+timings.seaMass_sigma_fit<- function(
+  fit,
+  input = "model1",
+  as.data.table = FALSE
+) {
   filenames <- list.files(file.path(fit, input, "timings"), "^[0-9]+\\..*fst$", full.names = T)
   if (length(filenames) == 0) return(NULL)
 
@@ -238,8 +275,8 @@ timings.seaMass_sigma_fit<- function(fit, input = "model1", as.data.table = F) {
 
 
 #' @export
-measurement_vars <- function(x, ...) {
-  return(UseMethod("measurement_vars", x))
+measurement_vars <- function(fit, ...) {
+  return(UseMethod("measurement_vars", fit))
 }
 
 
@@ -247,7 +284,14 @@ measurement_vars <- function(x, ...) {
 #' @import doRNG
 #' @import data.table
 #' @export
-measurement_vars.seaMass_sigma_fit <- function(fit, measurements = NULL, summary = FALSE, input = "model1", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
+measurement_vars.seaMass_sigma_fit <- function(
+  fit,
+  measurements = NULL,
+  summary = FALSE,
+  input = "model1",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+) {
   DT.measurements <- fst::read.fst(file.path(fit, "meta", "measurements.fst"), as.data.table = T)
   if (is.null(measurements)) {
     itemIDs <- NULL
@@ -276,8 +320,8 @@ measurement_vars.seaMass_sigma_fit <- function(fit, measurements = NULL, summary
 
 
 #' @export
-component_vars <- function(x, ...) {
-  return(UseMethod("component_vars", x))
+component_vars <- function(fit, ...) {
+  return(UseMethod("component_vars", fit))
 }
 
 
@@ -285,7 +329,14 @@ component_vars <- function(x, ...) {
 #' @import doRNG
 #' @import data.table
 #' @export
-component_vars.seaMass_sigma_fit <- function(fit, components = NULL, summary = FALSE, input = "model1", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
+component_vars.seaMass_sigma_fit <- function(
+  fit,
+  components = NULL,
+  summary = FALSE,
+  input = "model1",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+) {
   DT.components <- fst::read.fst(file.path(fit, "meta", "components.fst"), as.data.table = T)
   if (is.null(components)) {
     itemIDs <- NULL
@@ -312,8 +363,8 @@ component_vars.seaMass_sigma_fit <- function(fit, components = NULL, summary = F
 
 
 #' @export
-assay_vars <- function(x, ...) {
-  return(UseMethod("assay_vars", x))
+assay_vars <- function(fit, ...) {
+  return(UseMethod("assay_vars", fit))
 }
 
 
@@ -321,7 +372,14 @@ assay_vars <- function(x, ...) {
 #' @import doRNG
 #' @import data.table
 #' @export
-assay_vars.seaMass_sigma_fit <- function(fit, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
+assay_vars.seaMass_sigma_fit <- function(
+  fit,
+  groups = NULL,
+  summary = FALSE,
+  input = "model1",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+) {
   DT.groups <- fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = T)
   if (is.null(groups)) {
     itemIDs <- NULL
@@ -348,8 +406,8 @@ assay_vars.seaMass_sigma_fit <- function(fit, groups = NULL, summary = FALSE, in
 
 
 #' @export
-component_deviations <- function(x, ...) {
-  return(UseMethod("component_deviations", x))
+component_deviations <- function(fit, ...) {
+  return(UseMethod("component_deviations", fit))
 }
 
 
@@ -357,7 +415,14 @@ component_deviations <- function(x, ...) {
 #' @import doRNG
 #' @import data.table
 #' @export
-component_deviations.seaMass_sigma_fit <- function(fit, components = NULL, summary = FALSE, input = "model1", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
+component_deviations.seaMass_sigma_fit <- function(
+  fit,
+  components = NULL,
+  summary = FALSE,
+  input = "model1",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+) {
   DT.components <- fst::read.fst(file.path(fit, "meta", "components.fst"), as.data.table = T)
   if (is.null(components)) {
     itemIDs <- NULL
@@ -386,8 +451,8 @@ component_deviations.seaMass_sigma_fit <- function(fit, components = NULL, summa
 
 
 #' @export
-assay_deviations <- function(x, ...) {
-  return(UseMethod("assay_deviations", x))
+assay_deviations <- function(fit, ...) {
+  return(UseMethod("assay_deviations", fit))
 }
 
 
@@ -395,7 +460,14 @@ assay_deviations <- function(x, ...) {
 #' @import doRNG
 #' @import data.table
 #' @export
-assay_deviations.seaMass_sigma_fit <- function(fit, components = NULL, summary = FALSE, input = "model1", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
+assay_deviations.seaMass_sigma_fit <- function(
+  fit,
+  components = NULL,
+  summary = FALSE,
+  input = "model1",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+) {
   DT.components <- fst::read.fst(file.path(fit, "meta", "components.fst"), as.data.table = T)
   if (is.null(components)) {
     itemIDs <- NULL
@@ -424,8 +496,8 @@ assay_deviations.seaMass_sigma_fit <- function(fit, components = NULL, summary =
 
 
 #' @export
-unnormalised_group_quants <- function(x, ...) {
-  return(UseMethod("unnormalised_group_quants", x))
+unnormalised_group_quants <- function(fit, ...) {
+  return(UseMethod("unnormalised_group_quants", fit))
 }
 
 
@@ -433,7 +505,15 @@ unnormalised_group_quants <- function(x, ...) {
 #' @import doRNG
 #' @import data.table
 #' @export
-unnormalised_group_quants.seaMass_sigma_fit <- function(fit, groups = NULL, summary = FALSE, dist_lst_mcmc, input = "model1", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
+unnormalised_group_quants.seaMass_sigma_fit <- function(
+  fit,
+  groups = NULL,
+  summary = FALSE,
+  dist_lst_mcmc,
+  input = "model1",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+) {
   DT.groups <- fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = T)
   if (is.null(groups)) {
     itemIDs <- NULL

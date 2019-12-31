@@ -154,10 +154,11 @@ seaMass_sigma <- function(
     DT0 <- DT0[GroupID <= DT0[which.max(DT0[as.integer(factor(DT0$ComponentID)) <= control$component.eb.max, ComponentID]), GroupID]]
 
     # create output directory
-    fits[[i]] <- normalizePath(paste(name, blocks[i], "seaMass-sigma", sep = "."))
-    class(fits[[i]]) <- "seaMass_sigma_fit"
+    fits[[i]] <- paste(name, blocks[i], "seaMass-sigma", sep = ".")
     if (file.exists(fits[[i]])) unlink(fits[[i]], recursive = T)
     dir.create(fits[[i]])
+    fits[[i]] <- normalizePath(fits[[i]])
+    class(fits[[i]]) <- "seaMass_sigma_fit"
 
     # save data with random access indices
     dir.create(file.path(fits[[i]], "model0"))
@@ -235,7 +236,7 @@ seaMass_sigma <- function(
 #' @param missingness.model Either \code{zero} (NAs set to 0), \code{measurement} (NAs set to lowest quant of that measurement) or
 #'   \code{censored} (NAs modelled as censored between 0 and lowest quant of that measurement; default)
 #' @param missingness.threshold All measurement quants equal to or below this are treated as missing (default = 0)
-#' @param model.seed Random number seed
+#' @param random.seed Random number seed
 #' @param model.nchain Number of MCMC chains to run
 #' @param model.nwarmup Number of MCMC warmup iterations to run for each chain
 #' @param model.thin MCMC thinning factor
@@ -252,14 +253,15 @@ new_sigma_control <- function(
   component.eb.max = 1024,
   assay.model = "independent",
   assay.eb.min = 3,
+  assay.eb.thin = 16,
   error.model = "poisson",
   missingness.model = "censored",
   missingness.threshold = 0,
-  model.seed = 0,
   model.nchain = 4,
   model.nwarmup = 256,
   model.thin = 1,
   model.nsample = 1024,
+  random.seed = 0,
   nthread = parallel::detectCores() %/% 2,
   hpc = NULL
 ) {

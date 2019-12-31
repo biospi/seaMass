@@ -12,14 +12,15 @@ new_sigma_control(
   component.eb.max = 1024,
   assay.model = "independent",
   assay.eb.min = 3,
+  assay.eb.thin = 16,
   error.model = "poisson",
   missingness.model = "censored",
   missingness.threshold = 0,
-  model.seed = 0,
   model.nchain = 4,
   model.nwarmup = 256,
   model.thin = 1,
   model.nsample = 1024,
+  random.seed = 0,
   nthread = parallel::detectCores()\%/\%2,
   hpc = NULL
 )
@@ -46,8 +47,6 @@ new_sigma_control(
 
 \item{missingness.threshold}{All measurement quants equal to or below this are treated as missing (default = 0)}
 
-\item{model.seed}{Random number seed}
-
 \item{model.nchain}{Number of MCMC chains to run}
 
 \item{model.nwarmup}{Number of MCMC warmup iterations to run for each chain}
@@ -55,6 +54,8 @@ new_sigma_control(
 \item{model.thin}{MCMC thinning factor}
 
 \item{model.nsample}{Total number of MCMC samples to deliver downstream}
+
+\item{random.seed}{Random number seed}
 
 \item{nthread}{Number of CPU threads to employ}
 

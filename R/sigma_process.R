@@ -16,13 +16,13 @@ sigma_process0 <- function(fit, chain) {
 
     # Measurement EB prior
     message(paste0("[", Sys.time(), "]  measurement prior..."))
-    set.seed(ctrl$model.seed)
+    set.seed(ctrl$random.seed)
     DT.priors <- data.table(Effect = "Measurements", measurement_vars(fit, input = "model0", summary = T, as.data.table = T)[, squeeze_var(v, df)])
 
     # Component EB prior
     if(!is.null(ctrl$component.model)) {
       message(paste0("[", Sys.time(), "]  component prior..."))
-      set.seed(ctrl$model.seed)
+      set.seed(ctrl$random.seed)
       DT.priors <- rbind(DT.priors, data.table(Effect = "Components", component_vars(fit, input = "model0", summary = T, as.data.table = T)[, squeeze_var(v, df)]))
     }
 
@@ -30,7 +30,7 @@ sigma_process0 <- function(fit, chain) {
     if(!is.null(ctrl$assay.model)) {
       message(paste0("[", Sys.time(), "]  assay prior..."))
       items <- assay_deviations(fit, input = "model0", as.data.table = T)
-      items <- items[mcmcID %% (ctrl$model.nsample / 64) == 0] # TODO: FIGURE OUT SMALLEST NUMBER OF SAMPLES
+      items <- items[mcmcID %% ctrl$assay.eb.thin == 0]
       items <- rbindlist(lapply(1:ctrl$model.nchain, function(i) {
         DT <- copy(items)
         DT[, chainID := i]
@@ -39,7 +39,7 @@ sigma_process0 <- function(fit, chain) {
       items <- split(items, by = c("Assay", "chainID"))
 
       message(paste0("[", Sys.time(), "]   modelling assay quality..."))
-      set.seed(ctrl$model.seed)
+      set.seed(ctrl$random.seed)
       DT.assay.prior <- rbindlist(parallel_lapply(items, function(item, ctrl) {
         item[, Component := factor(Component)]
 
@@ -116,7 +116,7 @@ sigma_process1 <- function(fit, chain) {
     if (ctrl$summaries == T) {
       # measurement vars
       message("[", paste0(Sys.time(), "]  summarising measurement variances..."))
-      set.seed(ctrl$model.seed)
+      set.seed(ctrl$random.seed)
       DT.measurement.vars <- measurement_vars(fit, summary = T, as.data.table = T)
       setcolorder(DT.measurement.vars, c("Group", "Component"))
       fwrite(DT.measurement.vars, file.path(fit, "output", "measurement_log2_variances.csv"))
@@ -125,7 +125,7 @@ sigma_process1 <- function(fit, chain) {
       # component vars
       if(!is.null(ctrl$component.model)) {
         message("[", paste0(Sys.time(), "]  summarising component variances..."))
-        set.seed(ctrl$model.seed)
+        set.seed(ctrl$random.seed)
         DT.component.vars <- component_vars(fit, summary = T, as.data.table = T)
         setcolorder(DT.component.vars, "Group")
         fwrite(DT.component.vars, file.path(fit, "output", "component_log2_variances.csv"))
@@ -135,7 +135,7 @@ sigma_process1 <- function(fit, chain) {
       # component deviations
       if(!is.null(ctrl$component.model) && ctrl$component.model == "independent") {
         message("[", paste0(Sys.time(), "]  summarising component deviations..."))
-        set.seed(ctrl$model.seed)
+        set.seed(ctrl$random.seed)
         DT.component.deviations <- component_deviations(fit, summary = T, as.data.table = T)
         DT.component.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.component.deviations, by = "Group")
         DT.component.deviations <- merge(DT.components[, .(ComponentID, Component)], DT.component.deviations, by = "Component")
@@ -157,7 +157,7 @@ sigma_process1 <- function(fit, chain) {
       # assay deviations
       if(!is.null(ctrl$assay.model) && ctrl$assay.model == "independent") {
         message("[", paste0(Sys.time(), "]  summarising assay deviations..."))
-        set.seed(ctrl$model.seed)
+        set.seed(ctrl$random.seed)
         DT.assay.deviations <- assay_deviations(fit, summary = T, as.data.table = T)
         DT.assay.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.assay.deviations, by = "Group")
         DT.assay.deviations <- merge(DT.components[, .(ComponentID, Component)], DT.assay.deviations, by = "Component")
@@ -178,7 +178,7 @@ sigma_process1 <- function(fit, chain) {
 
       # group quants
       message("[", paste0(Sys.time(), "]  summarising unnormalised group quants..."))
-      set.seed(ctrl$model.seed)
+      set.seed(ctrl$random.seed)
       DT.group.quants <- unnormalised_group_quants(fit, summary = T, as.data.table = T)
       DT.group.quants <- dcast(DT.group.quants, Group ~ Assay, drop = F, value.var = colnames(DT.group.quants)[6:ncol(DT.group.quants)])
       DT.group.quants <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants, by = "Group")

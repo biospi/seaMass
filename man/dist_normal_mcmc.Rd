@@ -4,7 +4,7 @@
 \alias{dist_normal_mcmc}
 \title{fit normal distribution with fitdistrplus}
 \usage{
-dist_normal_mcmc(chainID, mcmcID, value, plots = FALSE, ...)
+dist_normal_mcmc(chainID, mcmcID, value, ...)
 }
 \description{
 fit normal distribution with fitdistrplus

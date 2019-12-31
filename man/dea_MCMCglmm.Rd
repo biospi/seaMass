@@ -9,13 +9,10 @@ dea_MCMCglmm(
   input = "normalised",
   output = "de",
   data.design = design(fit),
-  as.data.table = FALSE,
   fixed = ~Condition,
-  random = ~idh(Condition):Sample,
-  prior = list(G = list(G1 = list(V = diag(nlevels(factor(data.design$Condition))), nu =
-    nlevels(factor(data.design$Condition)), alpha.mu = rep(0,
-    nlevels(factor(data.design$Condition))), alpha.V = diag(25^2,
-    nlevels(factor(data.design$Condition)))))),
+  random = NULL,
+  rcov = ~idh(Condition):Sample,
+  prior = list(R = list(V = diag(nlevels(factor(data.design$Condition))), nu = 2e-04)),
   em.func = function(...) emmeans::emmeans(..., pairwise ~ Condition),
   ...
 )

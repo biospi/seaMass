@@ -1,7 +1,7 @@
 Package: seaMass
 Type: Package
 Title: Statistical modelling for mass spectrometry omics
-Version: 1.0.0.4
+Version: 1.0.1.0
 Authors@R: as.person(c(
     "Andrew Dowsey <andrew.dowsey@bristol.ac.uk> [aut, cre]",
     "Alexander Phillips <a.m.phillips@liverpool.ac.uk> [ctb]",
@@ -31,6 +31,7 @@ Imports:
     logKDE (>= 0.3.2),
     metafor (>= 2.1-0),
     MCMCglmm (>= 2.29),
+    preprocessCore (>= 1.46.0),
     R.utils (>= 2.9.0),
     robust (>= 0.4-18.1),
     utf8 (>= 1.1.4)

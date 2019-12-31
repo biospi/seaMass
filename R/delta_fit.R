@@ -1,17 +1,21 @@
 #' @rdname seaMass_delta
 #' @import data.table
 #' @export
-open_delta_fit <- function(dir, quiet = FALSE, force = FALSE) {
-  dir <- paste(dir, "seaMass-delta", sep = ".")
-  if(force || file.exists(file.path(dir, ".complete"))) {
-    delta_fit <- normalizePath(dir)
+open_delta_fit <- function(
+  name,
+  quiet = FALSE,
+  force = FALSE
+) {
+  name <- file.path(dirname(name), paste(basename(name), "seaMass-delta", sep = "."))
+  if(force || file.exists(file.path(name, ".complete"))) {
+    delta_fit <- normalizePath(name)
     class(delta_fit) <- "seaMass_delta_fit"
     return(delta_fit)
   } else {
     if (quiet) {
       return(NULL)
     } else {
-      stop(paste0("ERROR: Directory does not contain a complete seaMass-", utf8::utf8_encode("\U00000394"), " execution."))
+      stop(paste0("ERROR: Directory '", name, "' does not contain a complete seaMass-", utf8::utf8_encode("\U00000394"), " execution."))
     }
   }
 }
@@ -33,8 +37,8 @@ control.seaMass_delta_fit <- function(fit) {
 
 
 #' @export
-sigma_fits <- function(x, ...) {
-  return(UseMethod("sigma_fits", x))
+sigma_fits <- function(fit, ...) {
+  return(UseMethod("sigma_fits", fit))
 }
 
 
@@ -49,7 +53,10 @@ sigma_fits.seaMass_delta_fit <- function(fit) {
 #' @describeIn seaMass_delta Returns the study design \code{data.frame} from an open \code{seaMass_delta_fit} object.
 #' @import data.table
 #' @export
-design.seaMass_delta_fit <- function(fit, as.data.table = F) {
+design.seaMass_delta_fit <- function(
+  fit,
+  as.data.table = F
+) {
   DT <- fst::read.fst(file.path(fit, "meta", "design.fst"), as.data.table = T)
 
   if (!as.data.table) setDF(DT)
@@ -61,7 +68,10 @@ design.seaMass_delta_fit <- function(fit, as.data.table = F) {
 #' @describeIn seaMass_delta Returns the group metadata from an open \code{seaMass_delta_fit} object as a \code{data.frame}.
 #' @import data.table
 #' @export
-groups.seaMass_delta_fit <- function(fit, as.data.table = FALSE) {
+groups.seaMass_delta_fit <- function(
+  fit,
+  as.data.table = FALSE
+) {
   DT <- fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = T)
 
   if (!as.data.table) setDF(DT)
@@ -73,7 +83,14 @@ groups.seaMass_delta_fit <- function(fit, as.data.table = FALSE) {
 #' @describeIn seaMass_delta Returns the input unnormalised group quantifications from an open \code{seaMass_delta_fit} object as a \code{data.frame}.
 #' @import data.table
 #' @export
-unnormalised_group_quants.seaMass_delta_fit <- function(fit, groups = NULL, summary = FALSE, input = "standardised", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
+unnormalised_group_quants.seaMass_delta_fit <- function(
+  fit,
+  groups = NULL,
+  summary = FALSE,
+  input = "standardised",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+) {
   if(is.null(summary) || summary == F) summary <- NULL
   if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
 
@@ -86,15 +103,22 @@ unnormalised_group_quants.seaMass_delta_fit <- function(fit, groups = NULL, summ
 
 
 #' @export
-normalised_group_quants <- function(x, ...) {
-  return(UseMethod("normalised_group_quants", x))
+normalised_group_quants <- function(fit, ...) {
+  return(UseMethod("normalised_group_quants", fit))
 }
 
 
 #' @describeIn seaMass_delta Returns the normalised group quantifications from an open \code{seaMass_delta_fit} object as a \code{data.frame}.
 #' @import data.table
 #' @export
-normalised_group_quants.seaMass_delta_fit <- function(fit, groups = NULL, summary = FALSE, input = "normalised", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
+normalised_group_quants.seaMass_delta_fit <- function(
+  fit,
+  groups = NULL,
+  summary = FALSE,
+  input = "normalised",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+) {
   if (!dir.exists(file.path(fit, input))) {
     DT <- unnormalised_group_quants(fit, groups, summary.func, chains, as.data.table = T)
     DT[, exposure := 0]
@@ -112,15 +136,50 @@ normalised_group_quants.seaMass_delta_fit <- function(fit, groups = NULL, summar
 
 
 #' @export
-group_de <- function(x, ...) {
-  return(UseMethod("group_de", x))
+group_vars <- function(fit, ...) {
+  return(UseMethod("group_vars", fit))
 }
 
 
 #' @describeIn seaMass_delta Returns the differential expression from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 #' @import data.table
 #' @export
-group_de.seaMass_delta_fit <- function(fit, groups = NULL, summary = FALSE, input = "de", chains = 1:control(fit)$model.nchain, as.data.table = FALSE) {
+group_vars.seaMass_delta_fit <- function(
+  fit,
+  groups = NULL,
+  summary = FALSE,
+  input = "normalised.group.vars",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+) {
+  if(is.null(summary) || summary == F) summary <- NULL
+  if(!is.null(summary)) summary <- ifelse(summary == T, "dist_invchisq_mcmc", paste("dist", summary, sep = "_"))
+
+  DT <- read_mcmc(fit, input, "Group", "Group", "Group", groups, ".", chains, summary)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+}
+
+
+#' @export
+group_de <- function(fit, ...) {
+  return(UseMethod("group_de", fit))
+}
+
+
+#' @describeIn seaMass_delta Returns the differential expression from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
+#' @import data.table
+#' @export
+group_de.seaMass_delta_fit <- function(
+  fit,
+  groups = NULL,
+  summary = FALSE,
+  input = "de",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+) {
   if(is.null(summary) || summary == F) summary <- NULL
   if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
 
@@ -133,18 +192,22 @@ group_de.seaMass_delta_fit <- function(fit, groups = NULL, summary = FALSE, inpu
 
 
 #' @export
-group_fdr <- function(x, ...) {
-  return(UseMethod("group_fdr", x))
+group_fdr <- function(fit, ...) {
+  return(UseMethod("group_fdr", fit))
 }
 
 
 #' @describeIn seaMass_delta Returns the false discovery rate correct differential expression from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 #' @import data.table
 #' @export
-group_fdr.seaMass_delta_fit <- function(fit, input = "fdr", as.data.table = FALSE) {
+group_fdr.seaMass_delta_fit <- function(
+  fit,
+  input = "fdr",
+  as.data.table = FALSE
+) {
   if (file.exists(file.path(fit, paste(input, "fst", sep = ".")))) {
     return(fst::read.fst(file.path(fit, paste(input, "fst", sep = ".")), as.data.table = as.data.table))
   } else {
-    return(NULL)
+    return(group_de(fit, summary = T, as.data.table = as.data.table))
   }
 }

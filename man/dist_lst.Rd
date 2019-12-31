@@ -4,7 +4,7 @@
 \alias{dist_lst}
 \title{fit location-scale t distribution with fitdistrplus}
 \usage{
-dist_lst(value, plots = FALSE, ...)
+dist_lst(value, min.df = 0, plots = FALSE, ...)
 }
 \description{
 fit location-scale t distribution with fitdistrplus

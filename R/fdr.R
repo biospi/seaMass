@@ -8,8 +8,8 @@ fdr_ash <- function(
   fit,
   input = "de",
   output = "fdr",
-  by.model = TRUE,
   by.effect = TRUE,
+  by.model = TRUE,
   as.data.table = FALSE,
   use.df = TRUE,
   min.components = 1,
@@ -30,9 +30,9 @@ fdr_ash <- function(
   options(warn = 1)
 
   message(paste0("[", Sys.time(), "]  ash false discovery rate correction..."))
-  dir.create(file.path(fit, output))
+  dir.create(file.path(fit, output), showWarnings = F)
 
-  DT <- group_de(fit, input = input, summary = T, as.data.table = T)
+  DT <- group_de(fit, input = input, summary = "lst_mcmc_ash", as.data.table = T)
 
   DT[, use.FDR :=
     (`1:nMaxComponent` >= min.components | `2:nMaxComponent` >= min.components) &
@@ -45,16 +45,17 @@ fdr_ash <- function(
     (`1:nRealSample` >= min.real.samples.per.condition & `2:nTestSample` >= min.real.samples.per.condition)]
 
   if (by.model && by.effect) {
-    DTs <- split(DT, by = c("Model", "Effect"), drop = T)
-  } else if (by.model) {
-    DTs <- split(DT, by = "Model", drop = T)
+    DT[, Batch := interaction(Effect, Model, drop = T, lex.order = T)]
   } else if (by.effect) {
-    DTs <- split(DT, by = "Effect", drop = T)
+    DT[, Batch := Effect]
+  } else if (by.model) {
+    DT[, Batch := Model]
   } else {
-    DTs <- list(DT)
+    DT[, Batch := factor("all")]
   }
+  setcolorder(DT, "Batch")
 
-  DT <- rbindlist(parallel_lapply(DTs, function(item, use.df, mixcompdist) {
+  DT <- rbindlist(parallel_lapply(split(DT, by = "Batch"), function(item, use.df, mixcompdist) {
     # run ash, but allowing variable DF
     if (use.df) {
       lik_ts = list(
@@ -75,27 +76,31 @@ fdr_ash <- function(
     fit.fdr$result[, sebetahat := NULL]
     rmcols <- which(colnames(item) %in% colnames(fit.fdr$result))
     if (length(rmcols) > 0) item <- item[, -rmcols, with = F]
+    fit.fdr$result[, Batch := item[use.FDR == T, Batch]]
     fit.fdr$result[, Model := item[use.FDR == T, Model]]
     fit.fdr$result[, Effect := item[use.FDR == T, Effect]]
     fit.fdr$result[, Group := item[use.FDR == T, Group]]
-    item <- merge(item, fit.fdr$result, all.x = T, by = c("Model", "Effect", "Group"))
+    item <- merge(item, fit.fdr$result, all.x = T, by = c("Batch", "Model", "Effect", "Group"))
     item[, use.FDR := NULL]
 
     return(item)
   }))
 
-  if (by.model && by.effect) setorder(DT, Model, Effect, qvalue, na.last = T)
-  else if (by.model) setorder(DT, Model, qvalue, na.last = T)
-  else if (by.effect) setorder(DT, Effect, qvalue, na.last = T)
-  else setorder(DT, qvalue, na.last = T)
+  if (by.model && by.effect) {
+    setorder(DT, Batch, Effect, Model, qvalue, na.last = T)
+  } else if (by.model) {
+    setorder(DT, Batch, Model, qvalue, na.last = T)
+  } else if (by.effect) {
+    setorder(DT, Batch, Effect, qvalue, na.last = T)
+  } else {
+    setorder(DT, Batch, qvalue, na.last = T)
+  }
 
   fst::write.fst(DT, file.path(fit, paste(output, "fst", sep = ".")))
 
   options(warn = warn)
 
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
+  return(fit)
 }
 
 
@@ -108,8 +113,8 @@ fdr_ash <- function(
 fdr_BH <- function(
   fit,
   data = group_de(fit),
-  by.model = T,
   by.effect = T,
+  by.model = T,
   as.data.table = FALSE,
   min.components = 1,
   min.components.per.condition = 0,
@@ -152,7 +157,5 @@ fdr_BH <- function(
   else if (by.effect) setorder(DT, Effect, qvalue, pvalue, na.last = T)
   else setorder(DT, qvalue, pvalue, na.last = T)
 
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
+  return(fit)
 }

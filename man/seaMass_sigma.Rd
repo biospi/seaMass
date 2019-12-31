@@ -46,7 +46,7 @@ open_sigma_fits(names, quiet = FALSE, force = FALSE)
 
 \method{summary}{seaMass_sigma_fit}(fit, group, input = "model1")
 
-\method{timings}{seaMass_sigma_fit}(fit, input = "model1", as.data.table = F)
+\method{timings}{seaMass_sigma_fit}(fit, input = "model1", as.data.table = FALSE)
 
 \method{measurement_vars}{seaMass_sigma_fit}(
   fit,

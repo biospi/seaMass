@@ -6,14 +6,19 @@
 #' @param sigma_fits A list of \link{seaMass_sigma_fit} objects, as returned by seaMass-Σ.
 #' @param data.design Optionally, a \link{data.frame} created by \link{new_design} and then customised, which specifies
 #'   sample names, RefWeight channels, and any covariates specified by the experimental design.
-#' @param summaries Generate all summaries
-#' @param plots Generate all plots
 #' @param name Name of folder on disk where all intermediate and output data will be stored; default is \code{"output"}.
 #' @param control A control object created with \link{new_delta_control} specifying control parameters for the differential analysis.
 #' @return A \code{seaMass_delta_fit} object that can be interrogated for various metadata and results.
 #' @import data.table
 #' @export
-seaMass_delta <- function(sigma_fits, data.design = design(sigma_fits), norm.groups = ".*", summaries = FALSE, plots = FALSE, name = sub("^(.*)\\..*\\.seaMass-sigma", "\\1", basename(sigma_fits[[1]])), control = new_delta_control(), ...) {
+seaMass_delta <- function(
+  sigma_fits,
+  data.design = design(sigma_fits),
+  norm.groups = ".*",
+  name = sub("^(.*)\\..*\\.seaMass-sigma", "\\1", basename(sigma_fits[[1]])),
+  control = new_delta_control(),
+  ...
+) {
   # check for finished output and return that
   fit <- open_delta_fit(name, T)
   if (!is.null(fit)) {
@@ -25,7 +30,7 @@ seaMass_delta <- function(sigma_fits, data.design = design(sigma_fits), norm.gro
   message(paste0("[", Sys.time(), "] seaMass-", utf8::utf8_encode("\U00000394"), " started."))
   data.table::setDTthreads(control$nthread)
   fst::threads_fst(control$nthread)
-  set.seed(control$model.seed)
+  set.seed(control$random.seed)
 
   # create fit and output directories
   fit <- paste(name, "seaMass-delta", sep = ".")
@@ -37,12 +42,10 @@ seaMass_delta <- function(sigma_fits, data.design = design(sigma_fits), norm.gro
   class(fit) <- "seaMass_delta_fit"
 
   # check and save control
-  control$input.nchain <- unique(sapply(sigma_fits, function(fit) control(fit)$model.nchain))
-  if (length(control$input.nchain) != 1) stop("ERROR: Blocks must have same number of MCMC chains")
-  control$input.nsample <- unique(sapply(sigma_fits, function(fit) control(fit)$model.nsample))
-  if (length(control$input.nsample) != 1) stop("ERROR: Blocks must have same number of MCMC samples")
-  control$summaries <- summaries
-  control$plots <- plots
+  control$model.nchain <- unique(sapply(sigma_fits, function(fit) seaMass::control(fit)$model.nchain))
+  if (length(control$model.nchain) != 1) stop("ERROR: Blocks must have same number of MCMC chains")
+  control$model.nsample <- unique(sapply(sigma_fits, function(fit) seaMass::control(fit)$model.nsample))
+  if (length(control$model.nsample) != 1) stop("ERROR: Blocks must have same number of MCMC samples")
   control$name <- name
   control$sigma_fits <- sigma_fits
   control$norm.groups <- norm.groups
@@ -51,11 +54,11 @@ seaMass_delta <- function(sigma_fits, data.design = design(sigma_fits), norm.gro
 
   # merged design
   DT.design <- unique(as.data.table(data.design)[!is.na(Assay)], by = "Assay")
-  if (!is.null(DT.design$nGroup)) DT.design[, nGroup := NULL]
-  if (!is.null(DT.design$nComponent)) DT.design[, nComponent := NULL]
-  if (!is.null(DT.design$nMeasurement)) DT.design[, nMeasurement := NULL]
-  if (!is.null(DT.design$nDatapoint)) DT.design[, nDatapoint := NULL]
-  if (!is.null(DT.design$Block)) DT.design[, Block := NULL]
+  if ("nGroup" %in% colnames(DT.design)) DT.design[, nGroup := NULL]
+  if ("nComponent" %in% colnames(DT.design)) DT.design[, nComponent := NULL]
+  if ("nMeasurement" %in% colnames(DT.design)) DT.design[, nMeasurement := NULL]
+  if ("nDatapoint" %in% colnames(DT.design)) DT.design[, nDatapoint := NULL]
+  if ("Block" %in% colnames(DT.design)) DT.design[, Block := NULL]
   DT.design <- merge(
     DT.design,
     design(sigma_fits, as.data.table = T)[, .(nGroup = max(nGroup), nComponent = max(nComponent), nMeasurement = max(nMeasurement), nDatapoint = max(nDatapoint)), by = Assay],
@@ -72,41 +75,50 @@ seaMass_delta <- function(sigma_fits, data.design = design(sigma_fits), norm.gro
   fst::write.fst(DT.groups, file.path(fit, "meta", "groups.fst"))
 
   # standardise quants using reference weights
-  standardise_blocks(fit, as.data.table = T)
+  standardise_blocks(fit)
 
   # normalise quants by norm.groups
   if (!is.null(control$norm.model)) {
-    do.call(paste("norm", control$norm.model, sep = "_"), list(fit = fit, norm.groups = norm.groups, as.data.table = T))
+    do.call(paste("norm", control$norm.model, sep = "_"), list(fit = fit, norm.groups = norm.groups))
   }
 
   # plot assay exposures
   g <- plot_assay_exposures(fit)
   ggplot2::ggsave(file.path(fit, "output", "assay_exposures.pdf"), width = 4, height = 0.5 + 1 * nlevels(DT.design$Assay), limitsize = F)
 
+  # group quants
+  message("[", paste0(Sys.time(), "]  summarising normalised group quants..."))
+  set.seed(control$random.seed)
+  DT.group.quants <- normalised_group_quants(fit, summary = T, as.data.table = T)
+  DT.group.quants <- dcast(DT.group.quants, Group ~ Assay, drop = F, value.var = colnames(DT.group.quants)[5:ncol(DT.group.quants)])
+  DT.group.quants <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants, by = "Group")
+  fwrite(DT.group.quants, file.path(fit, "output", "group_log2_normalised_quants.csv"))
+  rm(DT.group.quants)
+
   # differential expression analysis and false discovery rate correction
   if (!is.null(control$dea.model) && !all(is.na(DT.design$Condition))) {
     params <- list(...)
-    #params <- list()
     params$fit <- fit
-    params$as.data.table <- T
-    DT.de <- do.call(paste("dea", control$dea.model, sep = "_"), params)
-    if (nrow(DT.de) > 0) {
+    do.call(paste("dea", control$dea.model, sep = "_"), params)
+    if (file.exists(file.path(fit, "de.index.fst"))) {
       if (!is.null(control$fdr.model)) {
-        DT.fdr <- do.call(paste("fdr", control$fdr.model, sep = "_"), params)
+        do.call(paste("fdr", control$fdr.model, sep = "_"), params)
+        DTs.fdr <- split(group_fdr(fit, as.data.table = T), drop = T, by = "Batch")
+        for (name in names(DTs.fdr)) {
+          # save pretty version
+          DT.fdr <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DTs.fdr[[name]], by = "Group")
+          setorder(DT.fdr, qvalue)
+          fwrite(DT.fdr, file.path(fit, "output", paste("group_log2DE", gsub("\\s", "", name), "csv", sep = ".")))
+          # plot fdr
+          g <- seamassdelta::plot_fdr(DT.fdr, 1.0)
+          ggplot2::ggsave(file.path(fit, "output", paste("group_log2DE_fdr", gsub("\\s", "", name), "pdf", sep = ".")), g, width = 8, height = 8)
+        }
+      } else {
+        group_de(fit, summary = T, as.data.table = T)
       }
     }
   }
 
-  if (summaries) {
-    # group quants
-    message("[", paste0(Sys.time(), "]  summarising normalised group quants..."))
-    set.seed(control$model.seed)
-    DT.group.quants <- normalised_group_quants(fit, summary = T, as.data.table = T)
-    DT.group.quants <- dcast(DT.group.quants, Group ~ Assay, drop = F, value.var = colnames(DT.group.quants)[5:ncol(DT.group.quants)])
-    DT.group.quants <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants, by = "Group")
-    fwrite(DT.group.quants, file.path(fit, "output", "group_log2_normalised_quants.csv"))
-    rm(DT.group.quants)
-  }
   # return fit object
   write.table(data.frame(), file.path(fit, ".complete"), col.names = F)
   message(paste0("[", Sys.time(), "] seaMass-", utf8::utf8_encode("\U00000394"), " finished!"))
@@ -121,21 +133,27 @@ seaMass_delta <- function(sigma_fits, data.design = design(sigma_fits), norm.gro
 #' @param norm.model Either 'median' normalisation or NULL (none)
 #' @param dea.model Either 'MCMCglmm' differential expression analysis or NULL (none)
 #' @param fdr.model Either 'ash' false discovery rate control or NULL (none)
-#' @param model.seed Random number seed
+#' @param random.seed Random number seed
 #' @param model.nchain Number of MCMC chains to run
 #' @param model.nwarmup Number of MCMC warmup iterations to run for each chain
 #' @param model.thin MCMC thinning factor
 #' @param model.nsample Total number of MCMC samples to deliver downstream
+#' @param dea.thin MCMC thinning factor for dea_MCMCglmm input
 #' @param hpc Either \code{NULL} (execute locally), \code{pbs}, \code{sge} or \code{slurm} (submit to HPC cluster) [TODO]
 #' @param nthread Number of CPU threads to employ
 #' @return \code{seaMass_sigma_control} object to pass to \link{sigma}
 #' @export
-new_delta_control <- function(norm.model = "median", dea.model = "MCMCglmm", fdr.model = "ash", model.seed = 0, model.nchain = 4, model.nwarmup = 256, model.thin = 1, model.nsample = 1024, nthread = parallel::detectCores() %/% 2) {
-  # validate parameters
-  if (model.nchain == 1) {
-    message("WARNNING: You are specifying only a single MCMC chain, convergence diagnostics will be unavailable. It is recommended to specify model.nchain=4 or more in 'control' for publishable results.")
-  }
-
+new_delta_control <- function(
+  norm.model = "theta",
+  norm.nwarmup = 256,
+  norm.thin = 1,
+  dea.model = "MCMCglmm",
+  dea.nwarmup = 4096,
+  dea.thin = 16,
+  fdr.model = "ash",
+  random.seed = 0,
+  nthread = parallel::detectCores() %/% 2
+) {
   # create control object
   control <- as.list(environment())
   class(control) <- "seaMass_delta_control"

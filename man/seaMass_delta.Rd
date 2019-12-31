@@ -10,6 +10,7 @@
 \alias{groups.seaMass_delta_fit}
 \alias{unnormalised_group_quants.seaMass_delta_fit}
 \alias{normalised_group_quants.seaMass_delta_fit}
+\alias{group_vars.seaMass_delta_fit}
 \alias{group_de.seaMass_delta_fit}
 \alias{group_fdr.seaMass_delta_fit}
 \alias{unnormalised_group_quants.seaMass_sigma_fit}
@@ -19,14 +20,12 @@ seaMass_delta(
   sigma_fits,
   data.design = design(sigma_fits),
   norm.groups = ".*",
-  summaries = FALSE,
-  plots = FALSE,
   name = sub("^(.*)\\\\..*\\\\.seaMass-sigma", "\\\\1", basename(sigma_fits[[1]])),
   control = new_delta_control(),
   ...
 )
 
-open_delta_fit(dir, quiet = FALSE, force = FALSE)
+open_delta_fit(name, quiet = FALSE, force = FALSE)
 
 \method{del}{seaMass_delta_fit}(fit)
 
@@ -52,6 +51,15 @@ open_delta_fit(dir, quiet = FALSE, force = FALSE)
   groups = NULL,
   summary = FALSE,
   input = "normalised",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+)
+
+\method{group_vars}{seaMass_delta_fit}(
+  fit,
+  groups = NULL,
+  summary = FALSE,
+  input = "normalised.group.vars",
   chains = 1:control(fit)$model.nchain,
   as.data.table = FALSE
 )
@@ -83,10 +91,6 @@ open_delta_fit(dir, quiet = FALSE, force = FALSE)
 \item{data.design}{Optionally, a \link{data.frame} created by \link{new_design} and then customised, which specifies
 sample names, RefWeight channels, and any covariates specified by the experimental design.}
 
-\item{summaries}{Generate all summaries}
-
-\item{plots}{Generate all plots}
-
 \item{name}{Name of folder on disk where all intermediate and output data will be stored; default is \code{"output"}.}
 
 \item{control}{A control object created with \link{new_delta_control} specifying control parameters for the differential analysis.}
@@ -113,6 +117,8 @@ quants output by seaMass-Σ
 \item \code{unnormalised_group_quants}: Returns the input unnormalised group quantifications from an open \code{seaMass_delta_fit} object as a \code{data.frame}.
 
 \item \code{normalised_group_quants}: Returns the normalised group quantifications from an open \code{seaMass_delta_fit} object as a \code{data.frame}.
+
+\item \code{group_vars}: Returns the differential expression from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 
 \item \code{group_de}: Returns the differential expression from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 

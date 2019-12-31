@@ -8,7 +8,7 @@ standardise_blocks(
   fit,
   output = "standardised",
   data.design = design(fit),
-  as.data.table = FALSE
+  ...
 )
 }
 \description{
