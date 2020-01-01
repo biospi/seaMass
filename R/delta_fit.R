@@ -53,7 +53,7 @@ sigma_fits.seaMass_delta_fit <- function(fit) {
 #' @describeIn seaMass_delta Returns the study design \code{data.frame} from an open \code{seaMass_delta_fit} object.
 #' @import data.table
 #' @export
-design.seaMass_delta_fit <- function(
+assay_design.seaMass_delta_fit <- function(
   fit,
   as.data.table = F
 ) {

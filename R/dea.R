@@ -9,7 +9,7 @@ dea_MCMCglmm <- function(
   fit,
   input = "normalised",
   output = "de",
-  data.design = design(fit),
+  data.design = assay_design(fit),
   fixed = ~ Condition,
   random = NULL,
   rcov = ~ idh(Condition):Sample,
@@ -42,6 +42,7 @@ dea_MCMCglmm <- function(
   if (!is.null(DT.design$nMeasurement)) DT.design[, nMeasurement := NULL]
 
   # loop over all chains and all groups
+  if (file.exists(file.path(fit, paste(output, "fst", sep = ".")))) file.remove(file.path(fit, paste(output, "fst", sep = ".")))
   dir.create(file.path(fit, output), showWarnings = F)
   for (chain in 1:ctrl$model.nchain) {
     message(paste0("[", Sys.time(), "]   chain ", chain ,"/", ctrl$model.nchain, "..."))
@@ -101,8 +102,8 @@ dea_MCMCglmm <- function(
             DT.meta <- unique(rbind(DT.emmeans[, .(Effect, Level)], DT.emmeans[, .(Effect, Level = Level0)]))[!is.na(Level)]
             DT.meta[, a := max(0, model$DT.input[get(as.character(Effect)) == Level, nComponent], na.rm = T)]
             DT.meta[, b := max(0, model$DT.input[get(as.character(Effect)) == Level, nMeasurement], na.rm = T)]
-            DT.meta[, c := length(unique(model$DT.input[Condition == "A" & !is.na(m), Sample]))]
-            DT.meta[, d := length(unique(model$DT.input[Condition == "A" & !is.na(m) & nComponent > 0, Sample]))]
+            DT.meta[, c := length(unique(model$DT.input[get(as.character(Effect)) == Level & !is.na(m), Sample]))]
+            DT.meta[, d := length(unique(model$DT.input[get(as.character(Effect)) == Level & !is.na(m) & nComponent > 0, Sample]))]
 
             DT.emmeans <- merge(DT.meta, DT.emmeans, all.y = T, by = c("Effect", "Level"))
             setnames(DT.emmeans, c("a", "b", "c", "d"), c("1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample"))
@@ -166,7 +167,7 @@ dea_MCMCglmm_experimental <- function(
   fit,
   input = "normalised",
   output = "de",
-  data.design = design(fit),
+  data.design = assay_design(fit),
   fixed = ~ Condition,
   random = ~ idh(Condition):Sample,
   prior = list(G = list(G1 = list(V = diag(nlevels(factor(data.design$Condition))), nu = nlevels(factor(data.design$Condition)), alpha.mu = rep(0, nlevels(factor(data.design$Condition))), alpha.V = diag(25^2, nlevels(factor(data.design$Condition)))))),
@@ -198,6 +199,7 @@ dea_MCMCglmm_experimental <- function(
   if (!is.null(DT.design$nMeasurement)) DT.design[, nMeasurement := NULL]
 
   # loop over all chains and all groups
+  if (file.exists(file.path(fit, paste(output, "fst", sep = ".")))) file.remove(file.path(fit, paste(output, "fst", sep = ".")))
   dir.create(file.path(fit, output), showWarnings = F)
   for (chain in 1:ctrl$model.nchain) {
     message(paste0("[", Sys.time(), "]   chain ", chain ,"/", ctrl$model.nchain, "..."))

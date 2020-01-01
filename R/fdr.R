@@ -30,6 +30,7 @@ fdr_ash <- function(
   options(warn = 1)
 
   message(paste0("[", Sys.time(), "]  ash false discovery rate correction..."))
+  if (file.exists(file.path(fit, paste(output, "fst", sep = ".")))) file.remove(file.path(fit, paste(output, "fst", sep = ".")))
   dir.create(file.path(fit, output), showWarnings = F)
 
   DT <- group_de(fit, input = input, summary = "lst_mcmc_ash", as.data.table = T)

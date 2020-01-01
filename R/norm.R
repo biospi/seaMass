@@ -7,13 +7,14 @@
 standardise_blocks <- function(
   fit,
   output = "standardised",
-  data.design = design(fit),
+  data.design = assay_design(fit),
   ...
 ) {
   message(paste0("[", Sys.time(), "]  standardising blocks..."))
 
   ctrl <- control(fit)
   DT.refweights <- as.data.table(data.design)[, .(Assay, RefWeight)]
+  if (file.exists(file.path(fit, paste(output, "fst", sep = ".")))) file.remove(file.path(fit, paste(output, "fst", sep = ".")))
   dir.create(file.path(fit, output), showWarnings = F)
   parallel_lapply(as.list(1:ctrl$model.nchain), function(item, fit, output, ctrl, DT.refweights) {
     DT <- rbindlist(lapply(ctrl$sigma_fits, function(ft) {
@@ -54,8 +55,10 @@ norm_theta <- function(
   norm.groups = ".*",
   ...
 ) {
+  if (file.exists(file.path(fit, paste(output, "fst", sep = ".")))) file.remove(file.path(fit, paste(output, "fst", sep = ".")))
   dir.create(file.path(fit, output), showWarnings = F)
   output2 <- paste(output, "group.vars", sep = ".")
+  if (file.exists(file.path(fit, paste(output2, "fst", sep = ".")))) file.remove(file.path(fit, paste(output2, "fst", sep = ".")))
   dir.create(file.path(fit, output2), showWarnings = F)
 
   message(paste0("[", Sys.time(), "]  summarising unnormalised group quants..."))
@@ -70,7 +73,7 @@ norm_theta <- function(
 
   message(paste0("[", Sys.time(), "]  seaMass-Θ normalisation..."))
   parallel_lapply(DTs, function(item, fit, ctrl, input, output) {
-    item <- droplevels(merge(item, unique(design(fit, as.data.table = T)[, .(Assay, Sample)]), by = "Assay"))
+    item <- droplevels(merge(item, unique(assay_design(fit, as.data.table = T)[, .(Assay, Sample)]), by = "Assay"))
 
     # seaMass-Θ Bayesian model
     model <- MCMCglmm::MCMCglmm(
@@ -141,6 +144,7 @@ norm_theta_experimental <- function(
   groups <- groups(fit, as.data.table = T)[, Group]
   groups <- groups[grep(norm.groups, groups)]
 
+  if (file.exists(file.path(fit, paste(output, "fst", sep = ".")))) file.remove(file.path(fit, paste(output, "fst", sep = ".")))
   dir.create(file.path(fit, output), showWarnings = F)
   parallel_lapply(as.list(1:ctrl$model.nchain), function(item, fit, ctrl, groups, input, output) {
     DT <- unnormalised_group_quants(fit, groups, input = input, chain = item, as.data.table = T)
@@ -148,7 +152,7 @@ norm_theta_experimental <- function(
 
     # our Bayesian model
     DT[, GroupAssay := interaction(Group, Assay, drop = T, lex.order = T)]
-    DT <- droplevels(merge(DT, unique(design(fit, as.data.table = T)[, .(Assay, Sample)]), by = "Assay"))
+    DT <- droplevels(merge(DT, unique(assay_design(fit, as.data.table = T)[, .(Assay, Sample)]), by = "Assay"))
 
     nG <- nlevels(DT$Group)
     nGA <- nlevels(DT$GroupAssay)
@@ -205,6 +209,7 @@ norm_median <- function(
 ) {
   message(paste0("[", Sys.time(), "]  median normalisation..."))
 
+  if (file.exists(file.path(fit, paste(output, "fst", sep = ".")))) file.remove(file.path(fit, paste(output, "fst", sep = ".")))
   dir.create(file.path(fit, output), showWarnings = F)
   parallel_lapply(as.list(1:control(fit)$model.nchain), function(item, fit, norm.groups, input, output) {
     DT <- unnormalised_group_quants(fit, input = input, chain = item, as.data.table = T)
@@ -235,6 +240,7 @@ norm_quantile <- function(
 ) {
   message(paste0("[", Sys.time(), "]  quantile normalisation..."))
 
+  if (file.exists(file.path(fit, paste(output, "fst", sep = ".")))) file.remove(file.path(fit, paste(output, "fst", sep = ".")))
   dir.create(file.path(fit, output), showWarnings = F)
   parallel_lapply(as.list(1:control(fit)$model.nchain), function(item, fit, input, output) {
     DT <- unnormalised_group_quants(fit, input = input, chain = item, as.data.table = T)

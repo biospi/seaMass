@@ -5,8 +5,8 @@
 \alias{open_sigma_fits}
 \alias{del.seaMass_sigma_fit}
 \alias{control.seaMass_sigma_fit}
-\alias{design.seaMass_sigma_fit}
-\alias{design.seaMass_sigma_fits}
+\alias{assay_design.seaMass_sigma_fit}
+\alias{assay_design.seaMass_sigma_fits}
 \alias{measurements.seaMass_sigma_fit}
 \alias{components.seaMass_sigma_fit}
 \alias{groups.seaMass_sigma_fit}
@@ -21,7 +21,7 @@
 \usage{
 seaMass_sigma(
   data,
-  data.design = new_design(data),
+  data.design = new_assay_design(data),
   summaries = FALSE,
   plots = FALSE,
   name = "fit",
@@ -34,9 +34,9 @@ open_sigma_fits(names, quiet = FALSE, force = FALSE)
 
 \method{control}{seaMass_sigma_fit}(fit)
 
-\method{design}{seaMass_sigma_fit}(fit, as.data.table = F)
+\method{assay_design}{seaMass_sigma_fit}(fit, as.data.table = F)
 
-\method{design}{seaMass_sigma_fits}(fits, as.data.table = F)
+\method{assay_design}{seaMass_sigma_fits}(fits, as.data.table = F)
 
 \method{measurements}{seaMass_sigma_fit}(fit, as.data.table = FALSE)
 
@@ -86,6 +86,7 @@ open_sigma_fits(names, quiet = FALSE, force = FALSE)
 
 \method{assay_deviations}{seaMass_sigma_fit}(
   fit,
+  measurements = NULL,
   components = NULL,
   summary = FALSE,
   input = "model1",
@@ -121,9 +122,9 @@ Fit the seaMass-Σ Bayesian group-level quantification model.
 
 \item \code{control}: Returns the \link{seaMass_sigma_control} object from an open \code{seaMass_sigma_fit} object.
 
-\item \code{design}: Returns the study design \code{data.frame} from an open \code{seaMass_sigma_fit} object.
+\item \code{assay_design}: Returns the study design \code{data.frame} from an open \code{seaMass_sigma_fit} object.
 
-\item \code{design}: Returns the full study design \code{data.frame} from an open \code{seaMass_sigma_fits} object.
+\item \code{assay_design}: Returns the full study design \code{data.frame} from an open \code{seaMass_sigma_fits} object.
 
 \item \code{measurements}: Returns the measurement metadata from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 

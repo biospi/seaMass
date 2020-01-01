@@ -9,10 +9,9 @@ new_sigma_control(
   measurement.eb.min = 2,
   component.model = "independent",
   component.eb.min = 3,
-  component.eb.max = 1024,
-  assay.model = "independent",
+  assay.model = "component",
   assay.eb.min = 3,
-  assay.eb.thin = 16,
+  assay.eb.nsample = 16,
   error.model = "poisson",
   missingness.model = "censored",
   missingness.threshold = 0,
@@ -20,6 +19,7 @@ new_sigma_control(
   model.nwarmup = 256,
   model.thin = 1,
   model.nsample = 1024,
+  eb.max = 1024,
   random.seed = 0,
   nthread = parallel::detectCores()\%/\%2,
   hpc = NULL
@@ -35,8 +35,8 @@ new_sigma_control(
 
 \item{component.eb.min}{Minimum number of components per group to use for computing Empirical Bayes priors}
 
-\item{assay.model}{Either \code{NULL} (no assay model), \code{single} (single random effect) or \code{independent}
-(per-assay independent random effects; default)}
+\item{assay.model}{Either \code{NULL} (no assay model), \code{measurement} (per-assay independent random effects across measurements)
+or \code{component} (per-assay independent random effects across components; default)}
 
 \item{assay.eb.min}{Minimum number of assays per group group to use for computing Empirical Bayes priors}
 

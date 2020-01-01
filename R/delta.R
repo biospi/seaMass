@@ -13,7 +13,7 @@
 #' @export
 seaMass_delta <- function(
   sigma_fits,
-  data.design = design(sigma_fits),
+  data.design = assay_design(sigma_fits),
   norm.groups = ".*",
   name = sub("^(.*)\\..*\\.seaMass-sigma", "\\1", basename(sigma_fits[[1]])),
   control = new_delta_control(),
@@ -61,7 +61,7 @@ seaMass_delta <- function(
   if ("Block" %in% colnames(DT.design)) DT.design[, Block := NULL]
   DT.design <- merge(
     DT.design,
-    design(sigma_fits, as.data.table = T)[, .(nGroup = max(nGroup), nComponent = max(nComponent), nMeasurement = max(nMeasurement), nDatapoint = max(nDatapoint)), by = Assay],
+    assay_design(sigma_fits, as.data.table = T)[, .(nGroup = max(nGroup), nComponent = max(nComponent), nMeasurement = max(nMeasurement), nDatapoint = max(nDatapoint)), by = Assay],
     by = "Assay"
   )
   if (!is.factor(DT.design$Assay)) DT.design[, Assay := factor(Assay, levels = unique(Assay))]
@@ -82,10 +82,6 @@ seaMass_delta <- function(
     do.call(paste("norm", control$norm.model, sep = "_"), list(fit = fit, norm.groups = norm.groups))
   }
 
-  # plot assay exposures
-  g <- plot_assay_exposures(fit)
-  ggplot2::ggsave(file.path(fit, "output", "assay_exposures.pdf"), width = 4, height = 0.5 + 1 * nlevels(DT.design$Assay), limitsize = F)
-
   # group quants
   message("[", paste0(Sys.time(), "]  summarising normalised group quants..."))
   set.seed(control$random.seed)
@@ -94,6 +90,13 @@ seaMass_delta <- function(
   DT.group.quants <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants, by = "Group")
   fwrite(DT.group.quants, file.path(fit, "output", "group_log2_normalised_quants.csv"))
   rm(DT.group.quants)
+
+  # plot PCA and assay exposures
+  message("[", paste0(Sys.time(), "]  plotting PCA and assay exposures..."))
+  g <- plot_assay_exposures(fit)
+  ggplot2::ggsave(file.path(fit, "output", "assay_exposures.pdf"), width = 8, height = 0.5 + 1 * nlevels(DT.design$Assay), limitsize = F)
+  g <- plot_pca(fit)
+  ggplot2::ggsave(file.path(fit, "output", "assay_pca.pdf"), width = 12, height = 12, limitsize = F)
 
   # differential expression analysis and false discovery rate correction
   if (!is.null(control$dea.model) && !all(is.na(DT.design$Condition))) {

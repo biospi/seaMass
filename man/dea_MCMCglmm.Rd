@@ -8,7 +8,7 @@ dea_MCMCglmm(
   fit,
   input = "normalised",
   output = "de",
-  data.design = design(fit),
+  data.design = assay_design(fit),
   fixed = ~Condition,
   random = NULL,
   rcov = ~idh(Condition):Sample,

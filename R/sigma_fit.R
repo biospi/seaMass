@@ -129,15 +129,15 @@ control.seaMass_sigma_fit <- function(fit) {
 
 
 #' @export
-design <- function(fit, ...) {
-  UseMethod("design", fit)
+assay_design <- function(fit, ...) {
+  UseMethod("assay_design", fit)
 }
 
 
 #' @describeIn seaMass_sigma Returns the study design \code{data.frame} from an open \code{seaMass_sigma_fit} object.
 #' @import data.table
 #' @export
-design.seaMass_sigma_fit  <- function(
+assay_design.seaMass_sigma_fit  <- function(
   fit,
   as.data.table = F
 ) {
@@ -153,11 +153,11 @@ design.seaMass_sigma_fit  <- function(
 #' @describeIn seaMass_sigma Returns the full study design \code{data.frame} from an open \code{seaMass_sigma_fits} object.
 #' @import data.table
 #' @export
-design.seaMass_sigma_fits <- function(
+assay_design.seaMass_sigma_fits <- function(
   fits,
   as.data.table = F
 ) {
-  DT <- rbindlist(lapply(fits, function(fit) design(fit, as.data.table = T)), idcol = "Block")
+  DT <- rbindlist(lapply(fits, function(fit) assay_design(fit, as.data.table = T)), idcol = "Block")
   DT[, Block := factor(Block, levels = unique(Block))]
 
   if (!as.data.table) setDF(DT)
@@ -462,32 +462,56 @@ assay_deviations <- function(fit, ...) {
 #' @export
 assay_deviations.seaMass_sigma_fit <- function(
   fit,
+  measurements = NULL,
   components = NULL,
   summary = FALSE,
   input = "model1",
   chains = 1:control(fit)$model.nchain,
   as.data.table = FALSE
 ) {
-  DT.components <- fst::read.fst(file.path(fit, "meta", "components.fst"), as.data.table = T)
-  if (is.null(components)) {
-    itemIDs <- NULL
+  if (control(fit)$assay.model == "measurement") {
+    DT.measurements <- fst::read.fst(file.path(fit, "meta", "measurements.fst"), as.data.table = T)
+    if (is.null(measurements)) {
+      itemIDs <- NULL
+    } else {
+      itemIDs <- DT.measurements[Measurement %in% measurements, MeasurementID]
+    }
+
+    if(is.null(summary) || summary == F) summary <- NULL
+    if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
+
+    DT <- read_mcmc(fit, "assay.deviations", "MeasurementID", c("GroupID", "MeasurementID"), c("GroupID", "MeasurementID", "AssayID"), itemIDs, input, chains, summary)
+
+    DT <- merge(DT, fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = T)[, .(GroupID, Group)], by = "GroupID")
+    DT[, GroupID := NULL]
+    DT <- merge(DT, DT.measurements[, .(MeasurementID, Measurement)], by = "MeasurementID")
+    DT[, MeasurementID := NULL]
+    DT <- merge(DT, fst::read.fst(file.path(fit, "meta", "design.fst"), as.data.table = T)[, .(AssayID, Assay)], by = "AssayID")
+    DT[, AssayID := NULL]
+    setcolorder(DT, c("Group", "Measurement", "Assay"))
+    setorder(DT, Group, Measurement, Assay)
   } else {
-    itemIDs <- DT.components[Component %in% components, ComponentID]
+    DT.components <- fst::read.fst(file.path(fit, "meta", "components.fst"), as.data.table = T)
+    if (is.null(components)) {
+      itemIDs <- NULL
+    } else {
+      itemIDs <- DT.components[Component %in% components, ComponentID]
+    }
+
+    if(is.null(summary) || summary == F) summary <- NULL
+    if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
+
+    DT <- read_mcmc(fit, "assay.deviations", "ComponentID", c("GroupID", "ComponentID"), c("GroupID", "ComponentID", "AssayID"), itemIDs, input, chains, summary)
+
+    DT <- merge(DT, fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = T)[, .(GroupID, Group)], by = "GroupID")
+    DT[, GroupID := NULL]
+    DT <- merge(DT, DT.components[, .(ComponentID, Component)], by = "ComponentID")
+    DT[, ComponentID := NULL]
+    DT <- merge(DT, fst::read.fst(file.path(fit, "meta", "design.fst"), as.data.table = T)[, .(AssayID, Assay)], by = "AssayID")
+    DT[, AssayID := NULL]
+    setcolorder(DT, c("Group", "Component", "Assay"))
+    setorder(DT, Group, Component, Assay)
   }
-
-  if(is.null(summary) || summary == F) summary <- NULL
-  if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
-
-  DT <- read_mcmc(fit, "assay.deviations", "ComponentID", c("GroupID", "ComponentID"), c("GroupID", "ComponentID", "AssayID"), itemIDs, input, chains, summary)
-
-  DT <- merge(DT, fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = T)[, .(GroupID, Group)], by = "GroupID")
-  DT[, GroupID := NULL]
-  DT <- merge(DT, DT.components[, .(ComponentID, Component)], by = "ComponentID")
-  DT[, ComponentID := NULL]
-  DT <- merge(DT, fst::read.fst(file.path(fit, "meta", "design.fst"), as.data.table = T)[, .(AssayID, Assay)], by = "AssayID")
-  DT[, AssayID := NULL]
-  setcolorder(DT, c("Group", "Component", "Assay"))
-  setorder(DT, Group, Component, Assay)
 
   if (!as.data.table) setDF(DT)
   else DT[]

@@ -16,7 +16,7 @@
 #' @export
 seaMass_sigma <- function(
   data,
-  data.design = new_design(data),
+  data.design = new_assay_design(data),
   summaries = FALSE,
   plots = FALSE,
   name = "fit",
@@ -44,8 +44,12 @@ seaMass_sigma <- function(
   fits <- vector("list", length(block.cols))
   for(i in 1:length(fits)) {
     # extract input data for this block
-    DT <- merge(DT.all, DT.design.all[get(block.cols[i]) == T, .(Run, Channel, Assay)], by = c("Run", "Channel"))
-    if (!is.null(DT$Injection)) DT[, Injection := NULL]
+    DT <- copy(DT.all)
+    if ("RefWeight" %in% colnames(DT)) DT[, RefWeight := NULL]
+    if ("Sample" %in% colnames(DT)) DT[, Sample := NULL]
+    if ("Condition" %in% colnames(DT)) DT[, Condition := NULL]
+    DT <- merge(DT, DT.design.all[get(block.cols[i]) == T, .(Run, Channel, Assay)], by = c("Run", "Channel"))
+    if ("Injection" %in% colnames(DT)) DT[, Injection := NULL]
     DT[, Run := NULL]
     DT[, Channel := NULL]
     # missingness.threshold
@@ -151,7 +155,11 @@ seaMass_sigma <- function(
     DT0 <- merge(DT0, DT0.assays, by = c("GroupID", "AssayID"))
 
     setorder(DT0, GroupID, ComponentID, MeasurementID, AssayID)
-    DT0 <- DT0[GroupID <= DT0[which.max(DT0[as.integer(factor(DT0$ComponentID)) <= control$component.eb.max, ComponentID]), GroupID]]
+    if (is.null(control$component.model)) {
+      DT0 <- DT0[GroupID <= DT0[which.max(DT0[as.integer(factor(DT0$MeasurementID)) <= control$eb.max, MeasurementID]), GroupID]]
+    } else {
+      DT0 <- DT0[GroupID <= DT0[which.max(DT0[as.integer(factor(DT0$ComponentID)) <= control$eb.max, ComponentID]), GroupID]]
+    }
 
     # create output directory
     fits[[i]] <- paste(name, blocks[i], "seaMass-sigma", sep = ".")
@@ -229,8 +237,8 @@ seaMass_sigma <- function(
 #' @param component.model Either \code{NULL} (no component model; default), \code{single} (single random effect) or \code{independent}
 #'   (per-component independent random effects)
 #' @param component.eb.min Minimum number of components per group to use for computing Empirical Bayes priors
-#' @param assay.model Either \code{NULL} (no assay model), \code{single} (single random effect) or \code{independent}
-#'   (per-assay independent random effects; default)
+#' @param assay.model Either \code{NULL} (no assay model), \code{measurement} (per-assay independent random effects across measurements)
+#'   or \code{component} (per-assay independent random effects across components; default)
 #' @param assay.eb.min Minimum number of assays per group group to use for computing Empirical Bayes priors
 #' @param error.model Either \code{lognormal} or \code{poisson} (default)
 #' @param missingness.model Either \code{zero} (NAs set to 0), \code{measurement} (NAs set to lowest quant of that measurement) or
@@ -250,10 +258,9 @@ new_sigma_control <- function(
   measurement.eb.min = 2,
   component.model = "independent",
   component.eb.min = 3,
-  component.eb.max = 1024,
-  assay.model = "independent",
+  assay.model = "component",
   assay.eb.min = 3,
-  assay.eb.thin = 16,
+  assay.eb.nsample = 16,
   error.model = "poisson",
   missingness.model = "censored",
   missingness.threshold = 0,
@@ -261,6 +268,7 @@ new_sigma_control <- function(
   model.nwarmup = 256,
   model.thin = 1,
   model.nsample = 1024,
+  eb.max = 1024,
   random.seed = 0,
   nthread = parallel::detectCores() %/% 2,
   hpc = NULL
@@ -275,8 +283,8 @@ new_sigma_control <- function(
   if (!is.null(component.model) && component.model != "single" && component.model != "independent") {
     stop("'component.model' needs to be either NULL, 'single' or 'independent' (default)")
   }
-  if (!is.null(assay.model) && assay.model != "single" && assay.model != "independent") {
-    stop("'assay.model' needs to be either NULL, 'single' or 'independent' (default)")
+  if (!is.null(assay.model) && assay.model != "measurement" && assay.model != "component") {
+    stop("'assay.model' needs to be either NULL, 'measurement' or 'component' (default)")
   }
   if (!is.null(missingness.model) && missingness.model != "measurement" && missingness.model != "censored") {
     stop("'missingness.model' needs to be either 'zero', 'measurement' or 'censored' (default)")

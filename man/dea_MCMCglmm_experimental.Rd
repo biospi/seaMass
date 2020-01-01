@@ -8,7 +8,7 @@ dea_MCMCglmm_experimental(
   fit,
   input = "normalised",
   output = "de",
-  data.design = design(fit),
+  data.design = assay_design(fit),
   fixed = ~Condition,
   random = ~idh(Condition):Sample,
   prior = list(G = list(G1 = list(V = diag(nlevels(factor(data.design$Condition))), nu =

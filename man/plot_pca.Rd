@@ -6,9 +6,9 @@
 \usage{
 plot_pca(
   fit,
-  data = group_quants(fit, summary = F),
-  data.summary = group_quants(fit),
-  data.design = design(fit)
+  data = normalised_group_quants(fit),
+  data.summary = normalised_group_quants(fit, summary = T),
+  data.design = assay_design(fit)
 )
 }
 \arguments{

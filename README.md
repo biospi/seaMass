@@ -66,7 +66,7 @@ If you have a large amount of assays, you may group them into blocks so that sea
 
 ```
 # Get skeleton design matrix
-data.design <- new_design(data)
+data.design <- new_assay_design(data)
 
 # You can rename assays, or remove them from the analysis with 'NA'.
 data.design$Assay <- factor(c(
@@ -79,7 +79,7 @@ Next, run the seaMass-Σ model. Specifying TRUE for summaries will generate csv 
 
 ```
 # run seaMass-Σ
-fits <- seaMass_sigma(
+sigma_fits <- seaMass_sigma(
   data,
   data.design,
   summaries = TRUE,
@@ -116,10 +116,18 @@ Finally, run seaMass-Δ. Internal control parameters can be specified through a 
 
 ```
 # run seaMass-Δ
-fit <- seaMass_delta(
-  fits,
+delta_fit <- seaMass_delta(
+  sigma_fits,
   data.design,
-  summaries = TRUE,
   control = new_delta_control(nthread = 4)
 )
+```
+
+Since we know the ground truth, lets visualise our performance with a Precision-Recall plot.
+
+```
+# set ground truth and plot
+data.fdr <- group_fdr(fit)
+data.fdr$truth <- ifelse(grepl("_RAT$", data.fdr$Group), 0, 1)
+plot_pr(data.fdr, 0.5)
 ```

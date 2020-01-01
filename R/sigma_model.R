@@ -129,12 +129,13 @@ sigma_model <- function(fit, dir, chain = 1) {
         # assay random effect
         if (is.null(ctrl$assay.model)) {
           random.assay <- NULL
-        } else if (ctrl$assay.model == "single") {
-          random.assay <- "ComponentID"
+        } else if (ctrl$assay.model == "measurement") {
+          for (l in levels(DT$AssayID)) DT[, paste0("AssayID", l) := ifelse(AssayID == l, 1, 0)]
+          random.assay <- paste(paste0("idh(AssayID", levels(DT$AssayID), "):MeasurementID"), collapse = "+")
           if (is.null(DT.priors)) {
-            prior.assay <- list(AssayID = list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2))
+            prior.assay <- lapply(1:nlevels(DT$AssayID), function(k) list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2))
           } else {
-            prior.assay <- list(AssayID = list(V = log(2) * DT.priors[Effect == "Assays", v], nu = DT.priors[Effect == "Assays", df]))
+            prior.assay <- lapply(1:nlevels(DT$AssayID), function(k) list(V = log(2) * DT.priors[!is.na("AssayID")][k, v], nu = DT.priors[!is.na("AssayID")][k, df]))
           }
         } else {
           for (l in levels(DT$AssayID)) DT[, paste0("AssayID", l) := ifelse(AssayID == l, 1, 0)]
@@ -240,19 +241,35 @@ sigma_model <- function(fit, dir, chain = 1) {
         }
 
         ### EXTRACT ASSAY DEVIATIONS
-        if (!is.null(ctrl$assay.model) && ctrl$assay.model == "independent") {
-          output$DT.assay.deviations <- as.data.table(model$Sol[, grep("^AssayID[0-9]+\\.ComponentID\\.[0-9]+$", colnames(model$Sol)), drop = F])
-          output$DT.assay.deviations[, mcmcID := 1:nrow(output$DT.assay.deviations)]
-          output$DT.assay.deviations <- melt(output$DT.assay.deviations, variable.name = "ComponentID", id.vars = "mcmcID")
-          output$DT.assay.deviations[, AssayID := as.integer(sub("^AssayID([0-9]+)\\.ComponentID\\.[0-9]+$", "\\1", ComponentID))]
-          output$DT.assay.deviations[, ComponentID := as.integer(sub("^AssayID[0-9]+\\.ComponentID\\.([0-9]+)$", "\\1", ComponentID))]
-          output$DT.assay.deviations[, GroupID := DT[1, GroupID]]
-          output$DT.assay.deviations[, chainID := chain]
-          output$DT.assay.deviations[, value := value / log(2)]
+        if (!is.null(ctrl$assay.model)) {
+          if (ctrl$assay.model == "measurement") {
+            output$DT.assay.deviations <- as.data.table(model$Sol[, grep("^AssayID[0-9]+\\.MeasurementID\\.[0-9]+$", colnames(model$Sol)), drop = F])
+            output$DT.assay.deviations[, mcmcID := 1:nrow(output$DT.assay.deviations)]
+            output$DT.assay.deviations <- melt(output$DT.assay.deviations, variable.name = "MeasurementID", id.vars = "mcmcID")
+            output$DT.assay.deviations[, AssayID := as.integer(sub("^AssayID([0-9]+)\\.MeasurementID\\.[0-9]+$", "\\1", MeasurementID))]
+            output$DT.assay.deviations[, MeasurementID := as.integer(sub("^AssayID[0-9]+\\.MeasurementID\\.([0-9]+)$", "\\1", MeasurementID))]
+            output$DT.assay.deviations[, GroupID := DT[1, GroupID]]
+            output$DT.assay.deviations[, chainID := chain]
+            output$DT.assay.deviations[, value := value / log(2)]
 
-          # merge with DT.n.real
-          output$DT.assay.deviations <- merge(output$DT.assay.deviations, DT.component.n, by = c("ComponentID", "AssayID"))
-          setcolorder(output$DT.assay.deviations, c("GroupID", "AssayID", "nComponent", "ComponentID", "nMeasurement", "chainID", "mcmcID"))
+            # merge with DT.n.real
+            output$DT.assay.deviations <- merge(output$DT.assay.deviations, DT.component.n[, .(AssayID, nMeasurement)], by = "AssayID")
+            setcolorder(output$DT.assay.deviations, c("GroupID", "AssayID", "nMeasurement", "MeasurementID", "chainID", "mcmcID"))
+            setorder(output$DT.assay.deviations, GroupID, MeasurementID, AssayID)
+          } else {
+            output$DT.assay.deviations <- as.data.table(model$Sol[, grep("^AssayID[0-9]+\\.ComponentID\\.[0-9]+$", colnames(model$Sol)), drop = F])
+            output$DT.assay.deviations[, mcmcID := 1:nrow(output$DT.assay.deviations)]
+            output$DT.assay.deviations <- melt(output$DT.assay.deviations, variable.name = "ComponentID", id.vars = "mcmcID")
+            output$DT.assay.deviations[, AssayID := as.integer(sub("^AssayID([0-9]+)\\.ComponentID\\.[0-9]+$", "\\1", ComponentID))]
+            output$DT.assay.deviations[, ComponentID := as.integer(sub("^AssayID[0-9]+\\.ComponentID\\.([0-9]+)$", "\\1", ComponentID))]
+            output$DT.assay.deviations[, GroupID := DT[1, GroupID]]
+            output$DT.assay.deviations[, chainID := chain]
+            output$DT.assay.deviations[, value := value / log(2)]
+
+            # merge with DT.n.real
+            output$DT.assay.deviations <- merge(output$DT.assay.deviations, DT.component.n, by = c("ComponentID", "AssayID"))
+            setcolorder(output$DT.assay.deviations, c("GroupID", "AssayID", "nComponent", "ComponentID", "nMeasurement", "chainID", "mcmcID"))
+          }
         }
 
         model$Sol <- NULL
@@ -318,8 +335,8 @@ sigma_model <- function(fit, dir, chain = 1) {
 
         ### EXTRACT ASSAY VARIANCES
         if (!is.null(ctrl$assay.model)) {
-          if (ctrl$assay.model == "single") {
-            output$DT.assay.vars <- as.data.table(model$VCV[, "ComponentID", drop = F])
+          if (ctrl$assay.model == "measurement") {
+            output$DT.assay.vars <- as.data.table(model$VCV[, grep("^AssayID[0-9]+\\.MeasurementID$", colnames(model$VCV)), drop = F])
           } else {
             output$DT.assay.vars <- as.data.table(model$VCV[, grep("^AssayID[0-9]+\\.ComponentID$", colnames(model$VCV)), drop = F])
           }
@@ -327,8 +344,8 @@ sigma_model <- function(fit, dir, chain = 1) {
           output$DT.assay.vars <- melt(output$DT.assay.vars, id.vars = "mcmcID")
 
           # assayID
-          if (ctrl$assay.model == "single") {
-            output$DT.assay.vars[, AssayID := 0]
+          if (ctrl$assay.model == "measurement") {
+            output$DT.assay.vars[, AssayID := as.integer(sub("^AssayID([0-9]+)\\.MeasurementID$", "\\1", variable))]
           } else {
             output$DT.assay.vars[, AssayID := as.integer(sub("^AssayID([0-9]+)\\.ComponentID$", "\\1", variable))]
           }
@@ -396,15 +413,27 @@ sigma_model <- function(fit, dir, chain = 1) {
 
             if (chain == 1) {
               # construct index
-              output$DT.assay.deviations.index <- output$DT.assay.deviations[, .(
-                from = .I[!duplicated(output$DT.assay.deviations, by = c("GroupID", "ComponentID"))],
-                to = .I[!duplicated(output$DT.assay.deviations, fromLast = T, by = c("GroupID", "ComponentID"))]
-              )]
-              output$DT.assay.deviations.index <- cbind(
-                output$DT.assay.deviations[output$DT.assay.deviations.index$from, .(GroupID, ComponentID)],
-                data.table(file = filename),
-                output$DT.assay.deviations.index
-              )
+              if (ctrl$assay.model == "measurement") {
+                output$DT.assay.deviations.index <- output$DT.assay.deviations[, .(
+                  from = .I[!duplicated(output$DT.assay.deviations, by = c("GroupID", "MeasurementID"))],
+                  to = .I[!duplicated(output$DT.assay.deviations, fromLast = T, by = c("GroupID", "MeasurementID"))]
+                )]
+                output$DT.assay.deviations.index <- cbind(
+                  output$DT.assay.deviations[output$DT.assay.deviations.index$from, .(GroupID, MeasurementID)],
+                  data.table(file = filename),
+                  output$DT.assay.deviations.index
+                )
+              } else {
+                output$DT.assay.deviations.index <- output$DT.assay.deviations[, .(
+                  from = .I[!duplicated(output$DT.assay.deviations, by = c("GroupID", "ComponentID"))],
+                  to = .I[!duplicated(output$DT.assay.deviations, fromLast = T, by = c("GroupID", "ComponentID"))]
+                )]
+                output$DT.assay.deviations.index <- cbind(
+                  output$DT.assay.deviations[output$DT.assay.deviations.index$from, .(GroupID, ComponentID)],
+                  data.table(file = filename),
+                  output$DT.assay.deviations.index
+                )
+              }
             }
 
             output$DT.assay.deviations <- data.table()
@@ -531,29 +560,56 @@ sigma_model <- function(fit, dir, chain = 1) {
 
     # write out assay deviations
     if (!is.null(outputs$DT.assay.deviations)) {
-      if (nrow(outputs$DT.assay.deviations) > 0) {
-        setorder(outputs$DT.assay.deviations, GroupID, ComponentID, AssayID, chainID, mcmcID)
-        filename <- file.path("assay.deviations", paste0(chain, ".fst"))
-        fst::write.fst(outputs$DT.assay.deviations, file.path(fit, dir, filename))
+      if (ctrl$assay.model == "measurement") {
+        if (nrow(outputs$DT.assay.deviations) > 0) {
+          setorder(outputs$DT.assay.deviations, GroupID, MeasurementID, AssayID, chainID, mcmcID)
+          filename <- file.path("assay.deviations", paste0(chain, ".fst"))
+          fst::write.fst(outputs$DT.assay.deviations, file.path(fit, dir, filename))
 
-        # finish index construction
-        if (chain == 1) {
-          outputs$DT.assay.deviations.2index <- outputs$DT.assay.deviations[, .(
-            from = .I[!duplicated(outputs$DT.assay.deviations, by = c("GroupID", "ComponentID"))],
-            to = .I[!duplicated(outputs$DT.assay.deviations, fromLast = T, by = c("GroupID", "ComponentID"))]
-          )]
-          outputs$DT.assay.deviations.index <- rbind(outputs$DT.assay.deviations.index, cbind(
-            outputs$DT.assay.deviations[outputs$DT.assay.deviations.2index$from, .(GroupID, ComponentID)],
-            data.table(file = filename),
-            outputs$DT.assay.deviations.2index
-          ))
+          # finish index construction
+          if (chain == 1) {
+            outputs$DT.assay.deviations.2index <- outputs$DT.assay.deviations[, .(
+              from = .I[!duplicated(outputs$DT.assay.deviations, by = c("GroupID", "MeasurementID"))],
+              to = .I[!duplicated(outputs$DT.assay.deviations, fromLast = T, by = c("GroupID", "MeasurementID"))]
+            )]
+            outputs$DT.assay.deviations.index <- rbind(outputs$DT.assay.deviations.index, cbind(
+              outputs$DT.assay.deviations[outputs$DT.assay.deviations.2index$from, .(GroupID, MeasurementID)],
+              data.table(file = filename),
+              outputs$DT.assay.deviations.2index
+            ))
+          }
         }
-      }
 
-      # write index
-      if (chain == 1) {
-        setkey(outputs$DT.assay.deviations.index, GroupID, file, from, ComponentID)
-        fst::write.fst(outputs$DT.assay.deviations.index, file.path(fit, dir, paste0("assay.deviations.index.fst")))
+        # write index
+        if (chain == 1) {
+          setkey(outputs$DT.assay.deviations.index, GroupID, file, from, MeasurementID)
+          fst::write.fst(outputs$DT.assay.deviations.index, file.path(fit, dir, paste0("assay.deviations.index.fst")))
+        }
+      } else {
+        if (nrow(outputs$DT.assay.deviations) > 0) {
+          setorder(outputs$DT.assay.deviations, GroupID, ComponentID, AssayID, chainID, mcmcID)
+          filename <- file.path("assay.deviations", paste0(chain, ".fst"))
+          fst::write.fst(outputs$DT.assay.deviations, file.path(fit, dir, filename))
+
+          # finish index construction
+          if (chain == 1) {
+            outputs$DT.assay.deviations.2index <- outputs$DT.assay.deviations[, .(
+              from = .I[!duplicated(outputs$DT.assay.deviations, by = c("GroupID", "ComponentID"))],
+              to = .I[!duplicated(outputs$DT.assay.deviations, fromLast = T, by = c("GroupID", "ComponentID"))]
+            )]
+            outputs$DT.assay.deviations.index <- rbind(outputs$DT.assay.deviations.index, cbind(
+              outputs$DT.assay.deviations[outputs$DT.assay.deviations.2index$from, .(GroupID, ComponentID)],
+              data.table(file = filename),
+              outputs$DT.assay.deviations.2index
+            ))
+          }
+        }
+
+        # write index
+        if (chain == 1) {
+          setkey(outputs$DT.assay.deviations.index, GroupID, file, from, ComponentID)
+          fst::write.fst(outputs$DT.assay.deviations.index, file.path(fit, dir, paste0("assay.deviations.index.fst")))
+        }
       }
 
       outputs$DT.assay.deviations <- NULL

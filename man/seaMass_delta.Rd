@@ -6,7 +6,7 @@
 \alias{del.seaMass_delta_fit}
 \alias{control.seaMass_delta_fit}
 \alias{sigma_fits.seaMass_delta_fit}
-\alias{design.seaMass_delta_fit}
+\alias{assay_design.seaMass_delta_fit}
 \alias{groups.seaMass_delta_fit}
 \alias{unnormalised_group_quants.seaMass_delta_fit}
 \alias{normalised_group_quants.seaMass_delta_fit}
@@ -18,7 +18,7 @@
 \usage{
 seaMass_delta(
   sigma_fits,
-  data.design = design(sigma_fits),
+  data.design = assay_design(sigma_fits),
   norm.groups = ".*",
   name = sub("^(.*)\\\\..*\\\\.seaMass-sigma", "\\\\1", basename(sigma_fits[[1]])),
   control = new_delta_control(),
@@ -33,7 +33,7 @@ open_delta_fit(name, quiet = FALSE, force = FALSE)
 
 \method{sigma_fits}{seaMass_delta_fit}(fit)
 
-\method{design}{seaMass_delta_fit}(fit, as.data.table = F)
+\method{assay_design}{seaMass_delta_fit}(fit, as.data.table = F)
 
 \method{groups}{seaMass_delta_fit}(fit, as.data.table = FALSE)
 
@@ -110,7 +110,7 @@ quants output by seaMass-Σ
 
 \item \code{sigma_fits}: Returns the differential expression from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 
-\item \code{design}: Returns the study design \code{data.frame} from an open \code{seaMass_delta_fit} object.
+\item \code{assay_design}: Returns the study design \code{data.frame} from an open \code{seaMass_delta_fit} object.
 
 \item \code{groups}: Returns the group metadata from an open \code{seaMass_delta_fit} object as a \code{data.frame}.
 

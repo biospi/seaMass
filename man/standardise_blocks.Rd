@@ -7,7 +7,7 @@
 standardise_blocks(
   fit,
   output = "standardised",
-  data.design = design(fit),
+  data.design = assay_design(fit),
   ...
 )
 }

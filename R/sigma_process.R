@@ -30,7 +30,9 @@ sigma_process0 <- function(fit, chain) {
     if(!is.null(ctrl$assay.model)) {
       message(paste0("[", Sys.time(), "]  assay prior..."))
       items <- assay_deviations(fit, input = "model0", as.data.table = T)
-      items <- items[mcmcID %% ctrl$assay.eb.thin == 0]
+      items <- items[mcmcID %% (ctrl$model.nsample / ctrl$assay.eb.nsample) == 0]
+      if ("Measurement" %in% colnames(items)) setnames(items, "Measurement", "Item")
+      if ("Component" %in% colnames(items)) setnames(items, "Component", "Item")
       items <- rbindlist(lapply(1:ctrl$model.nchain, function(i) {
         DT <- copy(items)
         DT[, chainID := i]
@@ -39,20 +41,20 @@ sigma_process0 <- function(fit, chain) {
       items <- split(items, by = c("Assay", "chainID"))
 
       message(paste0("[", Sys.time(), "]   modelling assay quality..."))
-      set.seed(ctrl$random.seed)
       DT.assay.prior <- rbindlist(parallel_lapply(items, function(item, ctrl) {
-        item[, Component := factor(Component)]
+        item <- droplevels(item)
 
         # our Bayesian model
+        set.seed(ctrl$random.seed + item[, chainID])
         model <- MCMCglmm::MCMCglmm(
           value ~ 1,
-          random = ~ Component,
-          rcov = ~ idh(Component):units,
+          random = ~ Item,
+          rcov = ~ idh(Item):units,
           data = item,
           prior = list(
             B = list(mu = 0, V = 1e-20),
             G = list(list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2)),
-            R = list(V = diag(nlevels(item$Component)), nu = 2e-4)
+            R = list(V = diag(nlevels(item$Item)), nu = 2e-4)
           ),
           burnin = ctrl$model.nwarmup,
           nitt = ctrl$model.nwarmup + (ctrl$model.nsample * ctrl$model.thin) / ctrl$model.nchain,
@@ -60,7 +62,7 @@ sigma_process0 <- function(fit, chain) {
           verbose = F
         )
 
-        return(data.table(Assay = item[1, Assay], chainID = item[1, chainID], mcmcID = 1:nrow(model$VCV), value = model$VCV[, "Component"]))
+        return(data.table(Assay = item[1, Assay], chainID = item[1, chainID], mcmcID = 1:nrow(model$VCV), value = model$VCV[, "Item"]))
       }, nthread = ctrl$nthread))
 
       DT.assay.prior <- DT.assay.prior[, dist_invchisq_mcmc(chainID, mcmcID, value), by = Assay]
@@ -70,7 +72,7 @@ sigma_process0 <- function(fit, chain) {
       DT.priors <- rbind(DT.priors, DT.assay.prior, use.names = T, fill = T)
     }
 
-    # SAVE PRIOTS
+    # SAVE PRIORS
     fst::write.fst(DT.priors, file.path(fit, "model1", "priors.fst"))
     fwrite(DT.priors, file.path(fit, "output", "model_priors.csv"))
 
@@ -155,7 +157,7 @@ sigma_process1 <- function(fit, chain) {
       }
 
       # assay deviations
-      if(!is.null(ctrl$assay.model) && ctrl$assay.model == "independent") {
+      if(!is.null(ctrl$assay.model) && ctrl$assay.model == "component") {
         message("[", paste0(Sys.time(), "]  summarising assay deviations..."))
         set.seed(ctrl$random.seed)
         DT.assay.deviations <- assay_deviations(fit, summary = T, as.data.table = T)
@@ -206,7 +208,7 @@ sigma_plots <- function(fit, chain) {
   # dir.create(file.path(fit, "plots", "components"), showWarnings = F)
   #
   # DT.groups <- groups(fit, as.data.table = T)
-  # DT.design <- design(fit, as.data.table = T)
+  # DT.design <- assay_design(fit, as.data.table = T)
   # DT.group.quants <- group_quants(fit, as.data.table = T)
   # pids <- levels(DT.group.quants$GroupID)
   # pids <- pids[seq(chain, length(pids), ctrl$model.nchain)]
