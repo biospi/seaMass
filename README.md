@@ -43,7 +43,7 @@ Load the included ProteinPilot iTraq dataset (note this is a small subset of pro
 library(seaMass)
 
 # Import tutorial iTraq dataset.
-file <- system.file(file.path("demo", "Tutorial_PeptideSummary.txt.bz2"), package = "seamassdelta")
+file <- system.file(file.path("demo", "Tutorial_PeptideSummary.txt.bz2"), package = "seaMass")
 data <- import_ProteinPilot(file)
 ```
 
@@ -127,7 +127,7 @@ Since we know the ground truth, lets visualise our performance with a Precision-
 
 ```
 # set ground truth and plot
-data.fdr <- group_fdr(fit)
+data.fdr <- group_fdr(delta_fit)
 data.fdr$truth <- ifelse(grepl("_RAT$", data.fdr$Group), 0, 1)
 plot_pr(data.fdr, 0.5)
 ```

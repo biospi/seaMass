@@ -7,7 +7,7 @@
 sigma_plots(fit, chain)
 }
 \arguments{
-\item{fit}{seamassdelta fit object.}
+\item{fit}{fit object.}
 
 \item{i}{.}
 }

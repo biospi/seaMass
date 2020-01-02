@@ -1,6 +1,6 @@
 #' sigma_process0 (internal)
 #'
-#' @param fit seamassdelta fit object.
+#' @param fit fit object.
 #' @param i .
 #' @import data.table
 #' @import foreach
@@ -85,7 +85,7 @@ sigma_process0 <- function(fit, chain) {
 
 #' sigma_process1 (internal)
 #'
-#' @param fit seamassdelta fit object.
+#' @param fit fit object.
 #' @param chain Number of chain to process.
 #' @import data.table
 #' @import foreach
@@ -193,7 +193,7 @@ sigma_process1 <- function(fit, chain) {
 
 #' sigma_plots (internal)
 #'
-#' @param fit seamassdelta fit object.
+#' @param fit fit object.
 #' @param i .
 #' @import data.table
 #' @import doRNG

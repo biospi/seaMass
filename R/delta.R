@@ -151,7 +151,7 @@ seaMass_delta <- function(
           setorder(DT.fdr, qvalue)
           fwrite(DT.fdr, file.path(fit, "output", paste("group_log2_de", gsub("\\s", "", name), "csv", sep = ".")))
           # plot fdr
-          g <- seamassdelta::plot_fdr(DT.fdr, 1.0)
+          g <- plot_fdr(DT.fdr, 1.0)
           ggplot2::ggsave(file.path(fit, "output", paste("group_log2_de", gsub("\\s", "", name), "pdf", sep = ".")), g, width = 8, height = 8)
         }
       } else {
@@ -179,7 +179,7 @@ seaMass_delta <- function(
             setorder(DT.fdr, qvalue)
             fwrite(DT.fdr, file.path(fit, "output", paste("component_deviations_log2_de", gsub("\\s", "", name), "csv", sep = ".")))
             # plot fdr
-            g <- seamassdelta::plot_fdr(DT.fdr, 1.0)
+            g <- plot_fdr(DT.fdr, 1.0)
             ggplot2::ggsave(file.path(fit, "output", paste("component_deviations_log2_de", gsub("\\s", "", name), "pdf", sep = ".")), g, width = 8, height = 8)
           }
         } else {
