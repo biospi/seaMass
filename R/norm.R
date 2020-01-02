@@ -1,16 +1,16 @@
-#' Standardise blocks
+#' Standardise group quants
 #'
-#' Make assays across blocks comparable by standardising using RefWeights as the denominator.
+#' Make unnormalised group quants across blocks comparable by standardising using RefWeights as the denominator.
 #'
 #' @import data.table
 #' @export
-standardise_blocks <- function(
+standardise_group_quants <- function(
   fit,
   output = "standardised",
   data.design = assay_design(fit),
   ...
 ) {
-  message(paste0("[", Sys.time(), "]  standardising blocks..."))
+  message(paste0("[", Sys.time(), "]  standardising unnormalised group quants..."))
 
   ctrl <- control(fit)
   DT.refweights <- as.data.table(data.design)[, .(Assay, RefWeight)]
@@ -42,6 +42,44 @@ standardise_blocks <- function(
 }
 
 
+#' Standardise component deviations
+#'
+#' Make component deviations comparable between blocks.
+#'
+#' @import data.table
+#' @export
+standardise_component_deviations <- function(
+  fit,
+  output = "standardised.component.deviations",
+  ...
+) {
+  message(paste0("[", Sys.time(), "]  standardising component deviations..."))
+
+  ctrl <- control(fit)
+  if (file.exists(file.path(fit, paste(output, "fst", sep = ".")))) file.remove(file.path(fit, paste(output, "fst", sep = ".")))
+  dir.create(file.path(fit, output), showWarnings = F)
+  parallel_lapply(as.list(1:ctrl$model.nchain), function(item, fit, output, ctrl) {
+    DT <- rbindlist(lapply(ctrl$sigma_fits, function(ft) component_deviations(ft, chain = item, as.data.table = T)))
+
+    # average MCMC samples if assay was used in multiple blocks
+    DT <- DT[, .(value = mean(value), nComponent = max(nComponent), nMeasurement = max(nMeasurement)), by = .(Assay, Group, Component, chainID, mcmcID)]
+
+    # write
+    setcolorder(DT, c("Group", "Component", "Assay", "nComponent", "nMeasurement"))
+    setorder(DT, Group, Component, Assay, chainID, mcmcID)
+    fst::write.fst(DT, file.path(fit, output, paste(item, "fst", sep = ".")))
+    if (item == 1) {
+      DT.index <- DT[, .(from = .I[!duplicated(DT, by = c("Group", "Component"))], to = .I[!duplicated(DT, fromLast = T, by = c("Group", "Component"))])]
+      DT.index <- cbind(DT[DT.index$from, .(Group, Component)], data.table(file = file.path(output, "1.fst")), DT.index)
+      fst::write.fst(DT.index, file.path(fit, paste(output, "index.fst", sep = ".")))
+    }
+
+    return(NULL)
+  }, nthread = ctrl$nthread)
+
+  return(fit)
+}
+
 #' seaMass-Θ normalisation
 #'
 #' Normalisation through a Bayesian linear regression with per-group variance components.
@@ -61,7 +99,7 @@ norm_theta <- function(
   if (file.exists(file.path(fit, paste(output2, "fst", sep = ".")))) file.remove(file.path(fit, paste(output2, "fst", sep = ".")))
   dir.create(file.path(fit, output2), showWarnings = F)
 
-  message(paste0("[", Sys.time(), "]  summarising unnormalised group quants..."))
+  message(paste0("[", Sys.time(), "]  summarising standardised group quants..."))
   groups <- groups(fit, as.data.table = T)[, Group]
   ctrl <- control(fit)
   DTs <- lapply(1:ctrl$model.nchain, function(chain) {

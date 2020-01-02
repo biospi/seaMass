@@ -15,6 +15,7 @@ seaMass_delta <- function(
   sigma_fits,
   data.design = assay_design(sigma_fits),
   norm.groups = ".*",
+  component.deviations = TRUE,
   name = sub("^(.*)\\..*\\.seaMass-sigma", "\\1", basename(sigma_fits[[1]])),
   control = new_delta_control(),
   ...
@@ -75,7 +76,8 @@ seaMass_delta <- function(
   fst::write.fst(DT.groups, file.path(fit, "meta", "groups.fst"))
 
   # standardise quants using reference weights
-  standardise_blocks(fit)
+  standardise_group_quants(fit)
+  if (component.deviations == T) standardise_component_deviations(fit)
 
   # normalise quants by norm.groups
   if (!is.null(control$norm.model)) {

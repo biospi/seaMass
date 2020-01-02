@@ -20,6 +20,7 @@ seaMass_delta(
   sigma_fits,
   data.design = assay_design(sigma_fits),
   norm.groups = ".*",
+  component.deviations = TRUE,
   name = sub("^(.*)\\\\..*\\\\.seaMass-sigma", "\\\\1", basename(sigma_fits[[1]])),
   control = new_delta_control(),
   ...
