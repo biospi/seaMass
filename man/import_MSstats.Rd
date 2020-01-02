@@ -11,8 +11,8 @@ import_MSstats(data)
 \link[data.table]{fread} default parameters.}
 }
 \value{
-A \link{data.frame} for input into \link{seamassdelta}.
+A \link{data.frame} for input into \link{seaMass_sigma}.
 }
 \description{
-Reads in a set of \code{_with_dscore} datasets processed by OpenSWATH and PyProphet for processing with \link{seamassdelta}.
+Reads in a set of \code{_with_dscore} datasets processed by OpenSWATH and PyProphet for processing with \link{seaMass_sigma}.
 }

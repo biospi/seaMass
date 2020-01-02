@@ -6,9 +6,11 @@
 \usage{
 fdr_ash(
   fit,
-  data = group_de(fit),
-  by.model = T,
-  by.effect = T,
+  input = "de",
+  output = "fdr",
+  type = "group.quants",
+  by.effect = TRUE,
+  by.model = TRUE,
   as.data.table = FALSE,
   use.df = TRUE,
   min.components = 1,

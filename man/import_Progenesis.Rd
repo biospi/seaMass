@@ -15,8 +15,8 @@ import_Progenesis(file = NULL, used = T, data = NULL)
 \link[data.table]{fread} default parameters.}
 }
 \value{
-A \link{data.frame} for input into \link{seamassdelta}.
+A \link{data.frame} for input into \link{seaMass_sigma}.
 }
 \description{
-Reads in a Waters Progenesis \code{pep_ion_measurements.csv} file for processing with \link{seamassdelta}.
+Reads in a Waters Progenesis \code{pep_ion_measurements.csv} file for processing with \link{seaMass_sigma}.
 }

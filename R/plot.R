@@ -4,28 +4,27 @@
 #' @return The sum of \code{x} and \code{y}.
 #' @import data.table
 #' @export
-plot_pca <- function(fit, data = group_quants(fit, summary = F), data.summary = group_quants(fit), data.design = design(fit)) {
+plot_pca <- function(fit, data = normalised_group_quants(fit), data.summary = normalised_group_quants(fit, summary = T), data.design = assay_design(fit)) {
   DT.group.quants <- as.data.table(data)
   DT.group.quants.summary <- as.data.table(data.summary)
   DT.design <- as.data.table(data.design)
-  if (is.null(DT.design$AssayID)) DT.design <- merge(DT.design, design(fit, as.data.table = T)[, .(Assay, AssayID)], by = "Assay")
 
   # remove assays with zero variance (pure reference samples)
-  DT.assays.pca <- DT.group.quants.summary[, .(use = var(m) >= 0.0000001), by = AssayID]
-  DT.group.quants <- merge(DT.group.quants, DT.assays.pca, by = "AssayID")[use == T][, !"use"]
-  DT.group.quants.summary <- merge(DT.group.quants.summary, DT.assays.pca, by = "AssayID")[use == T][, !"use"]
+  DT.assays.pca <- DT.group.quants.summary[, .(use = var(m) >= 0.0000001), by = Assay]
+  DT.group.quants <- merge(DT.group.quants, DT.assays.pca, by = "Assay")[use == T][, !"use"]
+  DT.group.quants.summary <- merge(DT.group.quants.summary, DT.assays.pca, by = "Assay")[use == T][, !"use"]
 
   # est
-  DT.pca.est <- data.table::dcast(DT.group.quants.summary, GroupID ~ AssayID, value.var = "m")
+  DT.pca.est <- data.table::dcast(DT.group.quants.summary, Group ~ Assay, value.var = "m")
   DT.pca.est <- DT.pca.est[complete.cases(DT.pca.est)]
-  DT.pca.est <- data.table::dcast(melt(DT.pca.est, id.vars = "GroupID"), variable ~ GroupID, value.var = "value")
+  DT.pca.est <- data.table::dcast(melt(DT.pca.est, id.vars = "Group"), variable ~ Group, value.var = "value")
 
   # MCMC quants
   DT.pca.mcmc <- rbindlist(lapply(split(DT.group.quants, by = c("chainID", "mcmcID")), function(DT) {
-   DT[, AssayID := paste(AssayID, chainID, mcmcID, sep = ".")]
-   DT <- data.table::dcast(DT, GroupID ~ AssayID, value.var = "value")
+   DT[, Assay := paste(Assay, chainID, mcmcID, sep = ".")]
+   DT <- data.table::dcast(DT, Group ~ Assay, value.var = "value")
    DT <- DT[complete.cases(DT)]
-   data.table::dcast(melt(DT, id.vars = "GroupID"), variable ~ GroupID, value.var = "value")
+   data.table::dcast(melt(DT, id.vars = "Group"), variable ~ Group, value.var = "value")
   }))
 
   # X
@@ -37,9 +36,9 @@ plot_pca <- function(fit, data = group_quants(fit, summary = F), data.summary = 
   DT.pca.est$variable <- NULL
 
   # SE and col.w
-  DT.pca.SE <- data.table::dcast(DT.group.quants.summary, GroupID ~ AssayID, value.var = "s")
+  DT.pca.SE <- data.table::dcast(DT.group.quants.summary, Group ~ Assay, value.var = "s")
   DT.pca.SE <- DT.pca.SE[complete.cases(DT.pca.SE)]
-  DT.pca.SE$GroupID <- NULL
+  DT.pca.SE$Group <- NULL
   row.w <- 1.0 / colMeans(DT.pca.SE^2)
   col.w <- 1.0 / rowMeans(DT.pca.SE^2)
 
@@ -51,16 +50,16 @@ plot_pca <- function(fit, data = group_quants(fit, summary = F), data.summary = 
   DT.pca.assays <- data.table(
     PC1 = pca.assays$ind$coord[,1],
     PC2 = pca.assays$ind$coord[,2],
-    AssayID = as.integer(rownames(pca.assays$ind$coord))
+    Assay = factor(rownames(pca.assays$ind$coord), levels = levels(DT.design$Assay))
   )
-  DT.pca.assays <- merge(DT.pca.assays, DT.design, by = "AssayID")
+  DT.pca.assays <- merge(DT.pca.assays, DT.design, by = "Assay")
   DT.pca.assays[, SampleAssay := factor(paste0("(", Sample, ") ", Assay))]
 
   # extract sup individuals
   DT.pca.assays.sup <- data.table(
     PC1 = pca.assays$ind.sup$coord[,1],
     PC2 = pca.assays$ind.sup$coord[,2],
-    AssayID = as.integer(rownames(pca.assays$ind$coord))
+    Assay = factor(rownames(pca.assays$ind$coord), levels = levels(DT.design$Assay))
   )
   DT.pca.assays.sup.density <- DT.pca.assays.sup[, {
     dens <- ks::kde(cbind(PC1, PC2))
@@ -68,19 +67,19 @@ plot_pca <- function(fit, data = group_quants(fit, summary = F), data.summary = 
       expand.grid(x = dens$eval.points[[1]], y = dens$eval.points[[2]]),
       z = as.vector(dens$estimate) / dens$cont["50%"]
     )
-  }, by = AssayID]
-  DT.pca.assays.sup <- merge(DT.pca.assays.sup, DT.design, by = "AssayID")
-  DT.pca.assays.sup.density <- merge(DT.pca.assays.sup.density, DT.design, by = "AssayID")
+  }, by = Assay]
+  DT.pca.assays.sup <- merge(DT.pca.assays.sup, DT.design, by = "Assay")
+  DT.pca.assays.sup.density <- merge(DT.pca.assays.sup.density, DT.design, by = "Assay")
 
   g <- ggplot2::ggplot(DT.pca.assays, ggplot2::aes(x = PC1, y = PC2))
   if (all(is.na(DT.pca.assays$Condition))) {
     #g <- g + ggplot2::geom_point(data = DT.pca.assays.sup, alpha = 0.01)
-    g <- g + ggplot2::stat_contour(data = DT.pca.assays.sup.density, ggplot2::aes(group = AssayID, x = x, y = y, z = z), breaks = 1)
+    g <- g + ggplot2::stat_contour(data = DT.pca.assays.sup.density, ggplot2::aes(group = Assay, x = x, y = y, z = z), breaks = 1)
     g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = SampleAssay), size = 3.0)
     g <- g + ggplot2::geom_point()
   } else {
     #g <- g + ggplot2::geom_point(data = DT.pca.assays.sup, alpha = 0.01)
-    g <- g + ggplot2::stat_contour(data = DT.pca.assays.sup.density, ggplot2::aes(colour = Condition, group = AssayID, x = x, y = y, z = z), breaks = 1)
+    g <- g + ggplot2::stat_contour(data = DT.pca.assays.sup.density, ggplot2::aes(colour = Condition, group = Assay, x = x, y = y, z = z), breaks = 1)
     g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = SampleAssay, colour = Condition), size = 3.0)
     g <- g + ggplot2::geom_point(ggplot2::aes(colour = Condition))
   }
@@ -102,8 +101,6 @@ plot_fits <- function(data, data.fits = NULL, ci = c(0.05, 0.95), by = NULL, xla
   DT.fits <- as.data.table(data.fits)
 
   xlim <- c(
-    #ifelse(is.infinite(trans(0)), min(quantile(DT$v, probs = ci[1]), ci[2] * DT.fits$v), 0),
-    #max(quantile(DT$v, probs = ci[2]), (1 + ci[1]) * DT.fits$v0, (1 + ci[1]) * DT.fits$v)
     min(ifelse(is.infinite(trans(0)), quantile(DT$v, probs = ci[1]), 0), quantile(DT$v, probs = ci[1])),
     quantile(DT$v, probs = ci[2])
   )
@@ -163,8 +160,8 @@ plot_priors <- function(data.fits = NULL, ci = c(0.05, 0.95), by = NULL, xlab = 
   DT.fits[, x := inv.trans(z)]
   DT.fits[, y := extraDistr::dinvchisq(x, df, v) * c(diff(x) / diff(z), NA)]
 
-
   g <- ggplot2::ggplot(DT.fits, ggplot2::aes(x = trans(x)))
+  g <- g + ggplot2::theme(axis.title.y = ggplot2::element_blank(), axis.text.y = ggplot2::element_blank(), axis.ticks.y= ggplot2::element_blank())
   g <- g + ggplot2::geom_hline(yintercept = 0, color = "darkgrey")
 
   g <- g + ggplot2::geom_line(ggplot2::aes(x = z, y = y), DT.fits, colour = "red")
@@ -174,6 +171,7 @@ plot_priors <- function(data.fits = NULL, ci = c(0.05, 0.95), by = NULL, xlab = 
   g <- g + ggplot2::xlab(xlab)
   if (!is.null(ylim)) g <- g + ggplot2::scale_y_continuous(limits = c(0, ylim))
   if (!is.null(by)) g <- g + ggplot2::facet_wrap(as.formula(paste("~", by)), ncol = 1, scales = "free_y")
+
   return(g)
 }
 
@@ -184,22 +182,24 @@ plot_priors <- function(data.fits = NULL, ci = c(0.05, 0.95), by = NULL, xlab = 
 #' @return The sum of \code{x} and \code{y}.
 #' @import data.table
 #' @export
-plot_exposures <- function(fit, data = group_quants(fit, summary = F), data.design = design(fit)) {
+plot_assay_exposures <- function(fit, data = normalised_group_quants(fit), data.design = assay_design(fit)) {
   DT <- as.data.table(data)
   DT.design <- as.data.table(data.design)
 
-  DT.assay.exposures <- DT[, head(.SD, 1), by = .(AssayID, chainID, mcmcID)][, .(AssayID, chainID, mcmcID, value = exposure)]
+  DT.assay.exposures <- DT[, head(.SD, 1), by = .(Assay, chainID, mcmcID)][, .(Assay, chainID, mcmcID, value = exposure)]
+  # add minute amount of noise so that stdev > 0
+  DT.assay.exposures[, value := rnorm(.N, value, 1e-10)]
 
   assay.exposures.meta <- function(x) {
     m = median(x)
     data.table(median = m, fc = paste0("  ", ifelse(m < 0, format(-2^-m, digits = 3), format(2^m, digits = 3)), "fc"))
   }
-  DT.assay.exposures.meta <- merge(setDT(data.design)[, .(AssayID, Assay)], DT.assay.exposures[, as.list(assay.exposures.meta(value)), by = AssayID], by = "AssayID")
+  DT.assay.exposures.meta <- DT.assay.exposures[, as.list(assay.exposures.meta(value)), by = Assay]
 
   assay.exposures.density <- function(x) {
     as.data.table(density(x, n = 4096)[c("x","y")])
   }
-  DT.assay.exposures.density <- merge(DT.design[, .(AssayID, Assay)], DT.assay.exposures[, as.list(assay.exposures.density(value)), by = AssayID], by = "AssayID")
+  DT.assay.exposures.density <- DT.assay.exposures[, as.list(assay.exposures.density(value)), by = Assay]
 
   x.max <- max(0.5, max(abs(DT.assay.exposures.density$x)))
   g <- ggplot2::ggplot(DT.assay.exposures.density, ggplot2::aes(x = x, y = y))
@@ -546,11 +546,11 @@ plot_pr <- function(data, ymax = NULL) {
 
 #' @import data.table
 #' @export
-plot_group_quants <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design = design(fit), group = NULL) {
+plot_group_quants <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(fit), group = NULL) {
   if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
   DT.group.quants <- group_quants(fit, groupID, group, summary = F, as.data.table = T)
-  DT.group.quants <- merge(DT.group.quants, design(fit, as.data.table = T)[, .(AssayID, Assay)], by = "AssayID")
+  DT.group.quants <- merge(DT.group.quants, assay_design(fit, as.data.table = T)[, .(AssayID, Assay)], by = "AssayID")
   DT.group.quants.meta <- DT.group.quants[, .(lower = quantile(value, 0.025), median = median(value), upper = quantile(value, 0.975)), by = Assay]
   DT.group.quants.meta <- merge(DT.group.quants.meta, data.design, by = "Assay")
   DT.group.quants.meta[, SampleAssay := factor(paste0("[", Sample, "] ", Assay))]
@@ -587,12 +587,12 @@ plot_group_quants <- function(fit, groupID = NULL, log2FC.lim = NULL, data.desig
 
 #' @import data.table
 #' @export
-plot_component_deviations <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design = design(fit), group = NULL) {
+plot_component_deviations <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(fit), group = NULL) {
   if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
   DT.component.deviations <- component_deviations(fit, groupID, group, summary = F, as.data.table = T)
   DT.component.deviations <- merge(DT.component.deviations, components(fit, as.data.table = T)[, .(ComponentID, Component)], by = "ComponentID")
-  DT.component.deviations <- merge(DT.component.deviations, design(fit, as.data.table = T)[, .(SampleID, Sample)], by = "SampleID")
+  DT.component.deviations <- merge(DT.component.deviations, assay_design(fit, as.data.table = T)[, .(SampleID, Sample)], by = "SampleID")
   DT.component.deviations.meta <- DT.component.deviations[, .(lower = quantile(value, 0.025), median = median(value), upper = quantile(value, 0.975)), by = .(Component, Sample)]
   DT.component.deviations.meta <- merge(DT.component.deviations.meta, data.design, by = c("Sample"))
   DT.component.deviations <- merge(DT.component.deviations, DT.component.deviations.meta, by = c("Component", "Sample"))
@@ -628,7 +628,7 @@ plot_component_deviations <- function(fit, groupID = NULL, log2FC.lim = NULL, da
 
 #' @import data.table
 #' @export
-plot_component_stdevs <- function(fit, groupID = NULL, log2SD.lim = NULL, data.design = design(fit), group = NULL) {
+plot_component_stdevs <- function(fit, groupID = NULL, log2SD.lim = NULL, data.design = assay_design(fit), group = NULL) {
   if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
   DT.component.stdevs <- component_stdevs(fit, groupID, group, summary = F, as.data.table = T)
@@ -666,7 +666,7 @@ plot_component_stdevs <- function(fit, groupID = NULL, log2SD.lim = NULL, data.d
 
 #' @import data.table
 #' @export
-plot_measurement_stdevs <- function(fit, groupID = NULL, log2SD.lim = NULL, data.design = design(fit), group = NULL) {
+plot_measurement_stdevs <- function(fit, groupID = NULL, log2SD.lim = NULL, data.design = assay_design(fit), group = NULL) {
   if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
   DT.measurement.stdevs <- measurement_stdevs(fit, groupID, group, summary = F, as.data.table = T)
@@ -706,7 +706,7 @@ plot_measurement_stdevs <- function(fit, groupID = NULL, log2SD.lim = NULL, data
 
 #' @import data.table
 #' @export
-plot_raw_quants <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design = design(fit), group = NULL) {
+plot_raw_quants <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(fit), group = NULL) {
   if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
   DT.groups <- groups(fit, as.data.table = T)
@@ -720,7 +720,7 @@ plot_raw_quants <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design 
   DT[, upper := sapply(conf.int, function(x) x[2])]
   DT <- merge(DT, components(fit, as.data.table = T)[, .(ComponentID, Component)], by = "ComponentID")
   DT <- merge(DT, measurements(fit, as.data.table = T)[, .(MeasurementID, Measurement)], by = "MeasurementID")
-  DT <- merge(DT, design(fit, as.data.table = T)[, .(AssayID, Assay)], by = "AssayID")
+  DT <- merge(DT, assay_design(fit, as.data.table = T)[, .(AssayID, Assay)], by = "AssayID")
   DT <- merge(DT, data.design, by = "Assay")
   DT[, SampleAssay := factor(paste0("[", Sample, "] ", Assay))]
   DT <- droplevels(DT)
@@ -758,7 +758,7 @@ plot_raw_quants <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design 
 #' @import data.table
 #' @import ggplot2
 #' @export
-plot_components <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design = design(fit), group = NULL) {
+plot_components <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(fit), group = NULL) {
   if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
   DT.groups <- groups(fit, as.data.table = T)
@@ -796,7 +796,7 @@ plot_components <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design 
 #' @import data.table
 #' @import ggplot2
 #' @export
-plot_measurements <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design = design(fit), group = NULL) {
+plot_measurements <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(fit), group = NULL) {
   if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
   DT.groups <- groups(fit, as.data.table = T)

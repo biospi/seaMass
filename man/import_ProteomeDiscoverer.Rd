@@ -17,8 +17,8 @@ import_ProteomeDiscoverer(file = NULL, shared = F, used = T, data = NULL)
 \link[data.table]{fread} default parameters.}
 }
 \value{
-A \link{data.frame} for input into \link{seamassdelta}.
+A \link{data.frame} for input into \link{seaMass_sigma}.
 }
 \description{
-Reads in a Thermo ProteomeDiscoverer \code{PSMs.txt} file for processing with \link{seamassdelta}.
+Reads in a Thermo ProteomeDiscoverer \code{PSMs.txt} file for processing with \link{seaMass_sigma}.
 }

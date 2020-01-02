@@ -1,13 +1,13 @@
-Package: seamassdelta
+Package: seaMass
 Type: Package
-Title: Differential expression analysis for mass spectrometry proteomics and metabolomics
-Version: 1.0.0.2
+Title: Statistical modelling for mass spectrometry omics
+Version: 1.0.1.0
 Authors@R: as.person(c(
     "Andrew Dowsey <andrew.dowsey@bristol.ac.uk> [aut, cre]",
     "Alexander Phillips <a.m.phillips@liverpool.ac.uk> [ctb]",
     "Ranjeet Bhamber <ranjeet.bhamber@bristol.ac.uk> [ctb]"
   ))
-Description: Differential expression analysis for mass spectrometry proteomics and metabolomics.
+Description: Statistical modelling for mass spectrometry omics
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
@@ -18,6 +18,7 @@ Imports:
     data.table (>= 1.12.6),
     doRNG (>= 1.7.1),
     doSNOW (>= 1.0.18),
+    emmeans (>= 1.4.3.01),
     extraDistr (>= 1.8.11),
     FactoMineR (>= 1.42),
     fitdistrplus (>= 1.0-14),
@@ -30,6 +31,8 @@ Imports:
     logKDE (>= 0.3.2),
     metafor (>= 2.1-0),
     MCMCglmm (>= 2.29),
+    preprocessCore (>= 1.46.0),
     R.utils (>= 2.9.0),
+    robust (>= 0.4-18.1),
     utf8 (>= 1.1.4)
-RoxygenNote: 7.0.0
+RoxygenNote: 7.0.2
