@@ -80,6 +80,20 @@ groups.seaMass_delta_fit <- function(
 }
 
 
+#' @describeIn seaMass_delta Returns the component metadata from an open \code{seaMass_delta_fit} object as a \code{data.frame}.
+#' @import data.table
+#' @export
+components.seaMass_delta_fit <- function(
+  fit,
+  as.data.table = FALSE
+) {
+  DT <- fst::read.fst(file.path(fit, "meta", "components.fst"), as.data.table = T)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+}
+
 #' @describeIn seaMass_delta Returns the input unnormalised group quantifications from an open \code{seaMass_delta_fit} object as a \code{data.frame}.
 #' @import data.table
 #' @export
@@ -128,6 +142,28 @@ normalised_group_quants.seaMass_delta_fit <- function(
 
     DT <- read_mcmc(fit, input, "Group", "Group", c("Group", "Assay", "nComponent", "nMeasurement"), groups, ".", chains, summary)
   }
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+}
+
+
+#' @describeIn seaMass_delta Returns the input standardised component deviations from an open \code{seaMass_delta_fit} object as a \code{data.frame}.
+#' @import data.table
+#' @export
+component_deviations.seaMass_delta_fit <- function(
+  fit,
+  components = NULL,
+  summary = FALSE,
+  input = "standardised.component.deviations",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+) {
+  if(is.null(summary) || summary == F) summary <- NULL
+  if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
+
+  DT <- read_mcmc(fit, input, "Component", c("Group", "Component"), c("Group", "Component", "Assay", "nComponent", "nMeasurement"), components, ".", chains, summary)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -192,6 +228,34 @@ group_de.seaMass_delta_fit <- function(
 
 
 #' @export
+component_deviations_de <- function(fit, ...) {
+  return(UseMethod("component_deviations_de", fit))
+}
+
+
+#' @describeIn seaMass_delta Returns the differential expression from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
+#' @import data.table
+#' @export
+component_deviations_de.seaMass_delta_fit <- function(
+  fit,
+  components = NULL,
+  summary = FALSE,
+  input = "de.component.deviations",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+) {
+  if(is.null(summary) || summary == F) summary <- NULL
+  if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
+
+  DT <- read_mcmc(fit, input, "Component", c("Group", "Component"), c("Model", "Effect", "Group", "Component", "1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample", "2:nMaxComponent", "2:nMaxMeasurement", "2:nTestSample", "2:nRealSample"), components, ".", chains, summary)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+}
+
+
+#' @export
 group_fdr <- function(fit, ...) {
   return(UseMethod("group_fdr", fit))
 }
@@ -211,3 +275,26 @@ group_fdr.seaMass_delta_fit <- function(
     return(group_de(fit, summary = T, as.data.table = as.data.table))
   }
 }
+
+
+#' @export
+component_deviations_fdr <- function(fit, ...) {
+  return(UseMethod("component_deviations_fdr", fit))
+}
+
+
+#' @describeIn seaMass_delta Returns the false discovery rate correct differential expression from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
+#' @import data.table
+#' @export
+component_deviations_fdr.seaMass_delta_fit <- function(
+  fit,
+  input = "fdr.component.deviations",
+  as.data.table = FALSE
+) {
+  if (file.exists(file.path(fit, paste(input, "fst", sep = ".")))) {
+    return(fst::read.fst(file.path(fit, paste(input, "fst", sep = ".")), as.data.table = as.data.table))
+  } else {
+    return(component_deviations_de(fit, summary = T, as.data.table = as.data.table))
+  }
+}
+

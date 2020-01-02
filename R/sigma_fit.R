@@ -9,8 +9,8 @@ read_mcmc <- function(
   chains,
   summary
 ) {
-  filename <- file.path(file.path(fit, input, paste0(effect.name, ".fst")))
-  if (file.exists(filename) && !is.null(summary)) {
+  if (!is.null(summary)) filename <- file.path(file.path(fit, input, paste(effect.name, summary, "fst", sep = ".")))
+  if (!is.null(summary) && file.exists(filename)) {
     # load and filter from cache
     DT <- fst::read.fst(filename, as.data.table = T)
     if (!is.null(itemIDs)) DT <- DT[get(columnID) %in% itemIDs]

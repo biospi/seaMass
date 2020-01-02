@@ -8,11 +8,15 @@
 \alias{sigma_fits.seaMass_delta_fit}
 \alias{assay_design.seaMass_delta_fit}
 \alias{groups.seaMass_delta_fit}
+\alias{components.seaMass_delta_fit}
 \alias{unnormalised_group_quants.seaMass_delta_fit}
 \alias{normalised_group_quants.seaMass_delta_fit}
+\alias{component_deviations.seaMass_delta_fit}
 \alias{group_vars.seaMass_delta_fit}
 \alias{group_de.seaMass_delta_fit}
+\alias{component_deviations_de.seaMass_delta_fit}
 \alias{group_fdr.seaMass_delta_fit}
+\alias{component_deviations_fdr.seaMass_delta_fit}
 \alias{unnormalised_group_quants.seaMass_sigma_fit}
 \title{seaMass-Δ}
 \usage{
@@ -38,6 +42,8 @@ open_delta_fit(name, quiet = FALSE, force = FALSE)
 
 \method{groups}{seaMass_delta_fit}(fit, as.data.table = FALSE)
 
+\method{components}{seaMass_delta_fit}(fit, as.data.table = FALSE)
+
 \method{unnormalised_group_quants}{seaMass_delta_fit}(
   fit,
   groups = NULL,
@@ -52,6 +58,15 @@ open_delta_fit(name, quiet = FALSE, force = FALSE)
   groups = NULL,
   summary = FALSE,
   input = "normalised",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+)
+
+\method{component_deviations}{seaMass_delta_fit}(
+  fit,
+  components = NULL,
+  summary = FALSE,
+  input = "standardised.component.deviations",
   chains = 1:control(fit)$model.nchain,
   as.data.table = FALSE
 )
@@ -74,7 +89,22 @@ open_delta_fit(name, quiet = FALSE, force = FALSE)
   as.data.table = FALSE
 )
 
+\method{component_deviations_de}{seaMass_delta_fit}(
+  fit,
+  components = NULL,
+  summary = FALSE,
+  input = "de.component.deviations",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+)
+
 \method{group_fdr}{seaMass_delta_fit}(fit, input = "fdr", as.data.table = FALSE)
+
+\method{component_deviations_fdr}{seaMass_delta_fit}(
+  fit,
+  input = "fdr.component.deviations",
+  as.data.table = FALSE
+)
 
 \method{unnormalised_group_quants}{seaMass_sigma_fit}(
   fit,
@@ -115,15 +145,23 @@ quants output by seaMass-Σ
 
 \item \code{groups}: Returns the group metadata from an open \code{seaMass_delta_fit} object as a \code{data.frame}.
 
+\item \code{components}: Returns the component metadata from an open \code{seaMass_delta_fit} object as a \code{data.frame}.
+
 \item \code{unnormalised_group_quants}: Returns the input unnormalised group quantifications from an open \code{seaMass_delta_fit} object as a \code{data.frame}.
 
 \item \code{normalised_group_quants}: Returns the normalised group quantifications from an open \code{seaMass_delta_fit} object as a \code{data.frame}.
+
+\item \code{component_deviations}: Returns the input standardised component deviations from an open \code{seaMass_delta_fit} object as a \code{data.frame}.
 
 \item \code{group_vars}: Returns the differential expression from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 
 \item \code{group_de}: Returns the differential expression from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 
+\item \code{component_deviations_de}: Returns the differential expression from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
+
 \item \code{group_fdr}: Returns the false discovery rate correct differential expression from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
+
+\item \code{component_deviations_fdr}: Returns the false discovery rate correct differential expression from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 
 \item \code{unnormalised_group_quants}: Returns the model unnormalised group quantifications from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 }}

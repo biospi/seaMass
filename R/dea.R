@@ -10,6 +10,7 @@ dea_MCMCglmm <- function(
   input = "normalised",
   output = "de",
   data.design = assay_design(fit),
+  type = "group.quants",
   fixed = ~ Condition,
   random = NULL,
   rcov = ~ idh(Condition):Sample,
@@ -20,7 +21,7 @@ dea_MCMCglmm <- function(
   warn <- getOption("warn")
   options(warn = 1)
 
-  message(paste0("[", Sys.time(), "]  MCMCglmm differential expression analysis..."))
+  message(paste0("[", Sys.time(), "]  MCMCglmm differential expression analysis for ", type, "..."))
 
   # process parameters
   ctrl <- control(fit)
@@ -41,16 +42,28 @@ dea_MCMCglmm <- function(
   if (!is.null(DT.design$nComponent)) DT.design[, nComponent := NULL]
   if (!is.null(DT.design$nMeasurement)) DT.design[, nMeasurement := NULL]
 
-  # loop over all chains and all groups
+  # loop over all chains and all groups/components
   if (file.exists(file.path(fit, paste(output, "fst", sep = ".")))) file.remove(file.path(fit, paste(output, "fst", sep = ".")))
   dir.create(file.path(fit, output), showWarnings = F)
   for (chain in 1:ctrl$model.nchain) {
     message(paste0("[", Sys.time(), "]   chain ", chain ,"/", ctrl$model.nchain, "..."))
 
-    DT.de.index <- rbindlist(parallel_lapply(batch_split(groups(fit, as.data.table = T), "Group", 64), function(item, fit, input, chain, ctrl, DT.design, prior, fixed, random, nitt, em.func, output) {
-      DT.batch <- normalised_group_quants(fit, input = input, groups = item$Group, summary = T, chain = chain, as.data.table = T)
-      batch <- lapply(split(DT.batch, by = "Group", drop = T), function(DT) {
+    if (type == "group.quants") {
+      DTs <- batch_split(groups(fit, as.data.table = T), "Group", 64)
+    } else {
+      DTs <- batch_split(components(fit, as.data.table = T), "Component", 64)
+    }
+
+    DT.de.index <- rbindlist(parallel_lapply(DTs, function(item, fit, type, input, chain, ctrl, DT.design, prior, fixed, random, nitt, em.func, output) {
+      if (type == "group.quants") {
+        DTs.batch <- split(normalised_group_quants(fit, input = input, groups = item$Group, summary = T, chain = chain, as.data.table = T), by = "Group", drop = T)
+      } else {
+        DTs.batch <- split(component_deviations(fit, input = input, components = item$Component, summary = T, chain = chain, as.data.table = T), by = c("Group", "Component"), drop = T)
+      }
+
+      batch <- lapply(DTs.batch, function(DT) {
         model <- list()
+        if (type != "group.quants") component <- DT[1, Component]
         group <- DT[1, Group]
 
         # have to keep all.y assays in even if NA otherwise MCMCglmm will get confused over its priors
@@ -118,8 +131,13 @@ dea_MCMCglmm <- function(
             return(DT.emmeans)
           }))
           model$DT.de[, Group := group]
+          if (type != "group.quants") model$DT.de[, Component := component]
           model$DT.de[, chainID := chain]
-          setcolorder(model$DT.de, c("Model", "Effect", "Group", "chainID", "mcmcID"))
+          if (type == "group.quants") {
+            setcolorder(model$DT.de, c("Model", "Effect", "Group", "chainID", "mcmcID"))
+          } else {
+            setcolorder(model$DT.de, c("Model", "Effect", "Group", "Component", "chainID", "mcmcID"))
+          }
 
           return(model)
         })
@@ -140,9 +158,16 @@ dea_MCMCglmm <- function(
       }))
 
       if (nrow(DT.batch.de > 0)) {
-        setcolorder(DT.batch.de, c("Effect", "Model", "Group", "1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample", "2:nMaxComponent", "2:nMaxMeasurement", "2:nTestSample", "2:nRealSample"))
+        if (type == "group.quants") {
+          setcolorder(DT.batch.de, c("Effect", "Model", "Group", "1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample", "2:nMaxComponent", "2:nMaxMeasurement", "2:nTestSample", "2:nRealSample"))
+          DT.index <- DT.batch.de[, .(file = file.path(output, paste(chain, item[1, BatchID], "fst", sep = ".")), from = first(.I), to = last(.I)), by = Group]
+        } else {
+          setcolorder(DT.batch.de, c("Effect", "Model", "Group", "Component", "1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample", "2:nMaxComponent", "2:nMaxMeasurement", "2:nTestSample", "2:nRealSample"))
+          DT.index <- DT.batch.de[, .(from = .I[!duplicated(DT.batch.de, by = c("Group", "Component"))], to = .I[!duplicated(DT.batch.de, fromLast = T, by = c("Group", "Component"))])]
+          DT.index <- cbind(DT.batch.de[DT.index$from, .(Group, Component)], data.table(file = file.path(output, paste(chain, item[1, BatchID], "fst", sep = "."))), DT.index)
+        }
         fst::write.fst(DT.batch.de, file.path(fit, output, paste(chain, item[1, BatchID], "fst", sep = ".")))
-        return(DT.batch.de[, .(file = file.path(output, paste(chain, item[1, BatchID], "fst", sep = ".")), from = first(.I), to = last(.I)), by = Group])
+        return(DT.index)
       } else {
         return(NULL)
       }

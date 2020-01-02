@@ -75,6 +75,13 @@ seaMass_delta <- function(
   DT.groups[, Group := factor(Group, levels = unique(Group))]
   fst::write.fst(DT.groups, file.path(fit, "meta", "groups.fst"))
 
+  # merged components
+  DT.components <- rbindlist(lapply(sigma_fits, function(fit) components(fit, as.data.table = T)))
+  DT.components <- DT.components[, .(nMeasurement = sum(nMeasurement), nDatapoint = sum(nDatapoint)), by = Component]
+  setorder(DT.components, -nMeasurement, -nDatapoint, Component)
+  DT.components[, Component := factor(Component, levels = unique(Component))]
+  fst::write.fst(DT.components, file.path(fit, "meta", "components.fst"))
+
   # standardise quants using reference weights
   standardise_group_quants(fit)
   if (component.deviations == T) standardise_component_deviations(fit)
@@ -93,17 +100,44 @@ seaMass_delta <- function(
   fwrite(DT.group.quants, file.path(fit, "output", "group_log2_normalised_quants.csv"))
   rm(DT.group.quants)
 
+  # component deviations
+  if (component.deviations == T) {
+    message("[", paste0(Sys.time(), "]  summarising component deviations..."))
+    set.seed(control$random.seed)
+    DT.component.deviations <- component_deviations(fit, summary = T, as.data.table = T)
+    DT.component.deviations[, GroupComponent := paste(Group, Component, sep = "_seaMass_")]
+    setcolorder(DT.component.deviations, "GroupComponent")
+    DT.component.deviations <- dcast(DT.component.deviations, GroupComponent ~ Assay, drop = F, value.var = colnames(DT.component.deviations)[7:ncol(DT.component.deviations)])
+    DT.component.deviations[, Group := sub("^(.*)_seaMass_.*$", "\\1", GroupComponent)]
+    DT.component.deviations[, Component := sub("^.*_seaMass_(.*)$", "\\1", GroupComponent)]
+    DT.component.deviations[, GroupComponent := NULL]
+    DT.component.deviations <- merge(DT.components[, .(Component, nMeasurement, nDatapoint)], DT.component.deviations, by = "Component")
+    setcolorder(DT.component.deviations, c("Group", "Component"))
+    fwrite(DT.component.deviations, file.path(fit, "output", "component_log2_deviations.csv"))
+    rm(DT.component.deviations)
+  }
+
   # plot PCA and assay exposures
   message("[", paste0(Sys.time(), "]  plotting PCA and assay exposures..."))
   g <- plot_assay_exposures(fit)
-  ggplot2::ggsave(file.path(fit, "output", "assay_exposures.pdf"), width = 8, height = 0.5 + 1 * nlevels(DT.design$Assay), limitsize = F)
+  ggplot2::ggsave(file.path(fit, "output", "assay_log2_exposures.pdf"), width = 8, height = 0.5 + 1 * nlevels(DT.design$Assay), limitsize = F)
   g <- plot_pca(fit)
-  ggplot2::ggsave(file.path(fit, "output", "assay_pca.pdf"), width = 12, height = 12, limitsize = F)
+  ggplot2::ggsave(file.path(fit, "output", "group_log2_quants_pca.pdf"), width = 12, height = 12, limitsize = F)
+  if (component.deviations == T) {
+    DT <- component_deviations(fit, as.data.table = T)
+    DT[, Group := interaction(Group, Component, sep = " : ", lex.order = T)]
+    DT.summary <- component_deviations(fit, summary = T, as.data.table = T)
+    DT.summary[, Group := interaction(Group, Component, sep = " : ", lex.order = T)]
+    g <- plot_pca(fit, data = DT, data.summary = DT.summary)
+    ggplot2::ggsave(file.path(fit, "output", "component_log2_deviations_pca.pdf"), width = 12, height = 12, limitsize = F)
+  }
 
   # differential expression analysis and false discovery rate correction
   if (!is.null(control$dea.model) && !all(is.na(DT.design$Condition))) {
     params <- list(...)
     params$fit <- fit
+
+    # group quants
     do.call(paste("dea", control$dea.model, sep = "_"), params)
     if (file.exists(file.path(fit, "de.index.fst"))) {
       if (!is.null(control$fdr.model)) {
@@ -112,14 +146,45 @@ seaMass_delta <- function(
         for (name in names(DTs.fdr)) {
           # save pretty version
           DT.fdr <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DTs.fdr[[name]], by = "Group")
+          DT.fdr[, Batch := NULL]
+          setcolorder(DT.fdr, c("Effect", "Model"))
           setorder(DT.fdr, qvalue)
-          fwrite(DT.fdr, file.path(fit, "output", paste("group_log2DE", gsub("\\s", "", name), "csv", sep = ".")))
+          fwrite(DT.fdr, file.path(fit, "output", paste("group_log2_de", gsub("\\s", "", name), "csv", sep = ".")))
           # plot fdr
           g <- seamassdelta::plot_fdr(DT.fdr, 1.0)
-          ggplot2::ggsave(file.path(fit, "output", paste("group_log2DE_fdr", gsub("\\s", "", name), "pdf", sep = ".")), g, width = 8, height = 8)
+          ggplot2::ggsave(file.path(fit, "output", paste("group_log2_de", gsub("\\s", "", name), "pdf", sep = ".")), g, width = 8, height = 8)
         }
       } else {
         group_de(fit, summary = T, as.data.table = T)
+      }
+    }
+
+    # component deviations
+    if (component.deviations == T) {
+      params$input <- "standardised.component.deviations"
+      params$output <- "de.component.deviations"
+      params$type <- "component.deviations"
+      do.call(paste("dea", control$dea.model, sep = "_"), params)
+      if (file.exists(file.path(fit, "de.component.deviations.index.fst"))) {
+        if (!is.null(control$fdr.model)) {
+          params$input <- "de.component.deviations"
+          params$output <- "fdr.component.deviations"
+          do.call(paste("fdr", control$fdr.model, sep = "_"), params)
+          DTs.fdr <- split(component_deviations_fdr(fit, as.data.table = T), drop = T, by = "Batch")
+          for (name in names(DTs.fdr)) {
+            # save pretty version
+            DT.fdr <- merge(DT.components, DTs.fdr[[name]], by = "Component")
+            DT.fdr[, Batch := NULL]
+            setcolorder(DT.fdr, c("Effect", "Model", "Group"))
+            setorder(DT.fdr, qvalue)
+            fwrite(DT.fdr, file.path(fit, "output", paste("component_deviations_log2_de", gsub("\\s", "", name), "csv", sep = ".")))
+            # plot fdr
+            g <- seamassdelta::plot_fdr(DT.fdr, 1.0)
+            ggplot2::ggsave(file.path(fit, "output", paste("component_deviations_log2_de", gsub("\\s", "", name), "pdf", sep = ".")), g, width = 8, height = 8)
+          }
+        } else {
+          component_deviations_de(fit, summary = T, as.data.table = T)
+        }
       }
     }
   }

@@ -8,6 +8,7 @@ fdr_ash <- function(
   fit,
   input = "de",
   output = "fdr",
+  type = "group.quants",
   by.effect = TRUE,
   by.model = TRUE,
   as.data.table = FALSE,
@@ -29,11 +30,15 @@ fdr_ash <- function(
   warn <- getOption("warn")
   options(warn = 1)
 
-  message(paste0("[", Sys.time(), "]  ash false discovery rate correction..."))
+  message(paste0("[", Sys.time(), "]  ash false discovery rate correction for ", type, "..."))
   if (file.exists(file.path(fit, paste(output, "fst", sep = ".")))) file.remove(file.path(fit, paste(output, "fst", sep = ".")))
   dir.create(file.path(fit, output), showWarnings = F)
 
-  DT <- group_de(fit, input = input, summary = "lst_mcmc_ash", as.data.table = T)
+  if (type == "group.quants") {
+    DT <- group_de(fit, input = input, summary = "lst_mcmc_ash", as.data.table = T)
+  } else {
+    DT <- component_deviations_de(fit, input = input, summary = "lst_mcmc_ash", as.data.table = T)
+  }
 
   DT[, use.FDR :=
     (`1:nMaxComponent` >= min.components | `2:nMaxComponent` >= min.components) &
@@ -81,20 +86,25 @@ fdr_ash <- function(
     fit.fdr$result[, Model := item[use.FDR == T, Model]]
     fit.fdr$result[, Effect := item[use.FDR == T, Effect]]
     fit.fdr$result[, Group := item[use.FDR == T, Group]]
-    item <- merge(item, fit.fdr$result, all.x = T, by = c("Batch", "Model", "Effect", "Group"))
+    if (type == "group.quants") {
+      item <- merge(item, fit.fdr$result, all.x = T, by = c("Batch", "Model", "Effect", "Group"))
+    } else {
+      fit.fdr$result[, Component := item[use.FDR == T, Component]]
+      item <- merge(item, fit.fdr$result, all.x = T, by = c("Batch", "Model", "Effect", "Group", "Component"))
+    }
     item[, use.FDR := NULL]
 
     return(item)
   }))
 
   if (by.model && by.effect) {
-    setorder(DT, Batch, Effect, Model, qvalue, na.last = T)
+    setorder(DT, Effect, Model, qvalue, na.last = T)
   } else if (by.model) {
-    setorder(DT, Batch, Model, qvalue, na.last = T)
+    setorder(DT, Model, qvalue, na.last = T)
   } else if (by.effect) {
-    setorder(DT, Batch, Effect, qvalue, na.last = T)
+    setorder(DT, Effect, qvalue, na.last = T)
   } else {
-    setorder(DT, Batch, qvalue, na.last = T)
+    setorder(DT, qvalue, na.last = T)
   }
 
   fst::write.fst(DT, file.path(fit, paste(output, "fst", sep = ".")))

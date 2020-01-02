@@ -8,6 +8,7 @@ fdr_ash(
   fit,
   input = "de",
   output = "fdr",
+  type = "group.quants",
   by.effect = TRUE,
   by.model = TRUE,
   as.data.table = FALSE,

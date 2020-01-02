@@ -9,6 +9,7 @@ dea_MCMCglmm(
   input = "normalised",
   output = "de",
   data.design = assay_design(fit),
+  type = "group.quants",
   fixed = ~Condition,
   random = NULL,
   rcov = ~idh(Condition):Sample,
