@@ -84,7 +84,8 @@ seaMass_delta <- function(
 
   # standardise quants using reference weights
   standardise_group_quants(fit)
-  if (component.deviations == T) standardise_component_deviations(fit)
+  component.model <- control(sigma_fits(fit)[[1]])$component.model
+  if (component.deviations == T && !is.null(component.model) && component.model == "independent") standardise_component_deviations(fit)
 
   # normalise quants by norm.groups
   if (!is.null(control$norm.model)) {
@@ -101,7 +102,7 @@ seaMass_delta <- function(
   rm(DT.group.quants)
 
   # component deviations
-  if (component.deviations == T) {
+  if (component.deviations == T && !is.null(component.model) && component.model == "independent") {
     message("[", paste0(Sys.time(), "]  summarising component deviations..."))
     set.seed(control$random.seed)
     DT.component.deviations <- component_deviations(fit, summary = T, as.data.table = T)
@@ -123,7 +124,7 @@ seaMass_delta <- function(
   ggplot2::ggsave(file.path(fit, "output", "assay_log2_exposures.pdf"), width = 8, height = 0.5 + 1 * nlevels(DT.design$Assay), limitsize = F)
   g <- plot_pca(fit)
   ggplot2::ggsave(file.path(fit, "output", "group_log2_quants_pca.pdf"), width = 12, height = 12, limitsize = F)
-  if (component.deviations == T) {
+  if (component.deviations == T && !is.null(component.model) && component.model == "independent") {
     DT <- component_deviations(fit, as.data.table = T)
     DT[, Group := interaction(Group, Component, sep = " : ", lex.order = T)]
     DT.summary <- component_deviations(fit, summary = T, as.data.table = T)
@@ -160,7 +161,7 @@ seaMass_delta <- function(
     }
 
     # component deviations
-    if (component.deviations == T) {
+    if (component.deviations == T && !is.null(component.model) && component.model == "independent") {
       params$input <- "standardised.component.deviations"
       params$output <- "de.component.deviations"
       params$type <- "component.deviations"
