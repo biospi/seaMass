@@ -62,9 +62,8 @@ plot_pca <- function(fit, data = normalised_group_quants(fit), data.summary = no
   # calculate limits
   min.lim0 <- c(min(DT.results.median$x), min(DT.results.median$y))
   max.lim0 <- c(max(DT.results.median$x), max(DT.results.median$y))
-  range.lim0 <- (max.lim - min.lim)
-  min.lim <- min.lim0 - 0.2 * range.lim0
-  max.lim <- max.lim0 + 0.2 * range.lim0
+  min.lim <- min.lim0 - 0.2 * (max.lim0 - min.lim0)
+  max.lim <- max.lim0 + 0.2 * (max.lim0 - min.lim0)
   DT.results <- DT.results[x >= min.lim[1] & x <= max.lim[1] & y >= min.lim[2] & y <= max.lim[2]]
 
   # bandwidth from all data
@@ -86,8 +85,8 @@ plot_pca <- function(fit, data = normalised_group_quants(fit), data.summary = no
   DT.results.contour[, SampleAssay := factor(paste0("(", Sample, ") ", Assay))]
 
   # plot
-  min.lim <- min.lim0 - 0.05 * range.lim0
-  max.lim <- max.lim0 + 0.05 * range.lim0
+  min.lim <- min.lim0 - 0.05 * (max.lim0 - min.lim0)
+  max.lim <- max.lim0 + 0.05 * (max.lim0 - min.lim0)
   g <- ggplot2::ggplot(DT.results.median, ggplot2::aes(x = x, y = y))
   if (all(is.na(DT.results.median$Condition))) {
     if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT.results.contour, ggplot2::aes(group = Assay, x = x, y = y, z = z1), breaks = 1, alpha = 0.5)
