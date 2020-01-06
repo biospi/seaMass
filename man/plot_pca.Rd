@@ -8,7 +8,9 @@ plot_pca(
   fit,
   data = normalised_group_quants(fit),
   data.summary = normalised_group_quants(fit, summary = T),
-  data.design = assay_design(fit)
+  data.design = assay_design(fit),
+  contours = c(1, 2),
+  robust = TRUE
 )
 }
 \arguments{

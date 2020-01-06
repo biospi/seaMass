@@ -266,7 +266,7 @@ new_sigma_control <- function(
   missingness.threshold = 0,
   model.nchain = 4,
   model.nwarmup = 256,
-  model.thin = 1,
+  model.thin = 4,
   model.nsample = 1024,
   eb.max = 1024,
   random.seed = 0,

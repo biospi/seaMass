@@ -9,7 +9,6 @@ fdr_BH(
   data = group_de(fit),
   by.effect = T,
   by.model = T,
-  as.data.table = FALSE,
   min.components = 1,
   min.components.per.condition = 0,
   min.measurements = 1,

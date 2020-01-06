@@ -11,7 +11,6 @@ fdr_ash(
   type = "group.quants",
   by.effect = TRUE,
   by.model = TRUE,
-  as.data.table = FALSE,
   use.df = TRUE,
   min.components = 1,
   min.components.per.condition = 0,

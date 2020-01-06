@@ -15,7 +15,7 @@ seaMass_delta <- function(
   sigma_fits,
   data.design = assay_design(sigma_fits),
   norm.groups = ".*",
-  component.deviations = TRUE,
+  component.deviations = FALSE,
   name = sub("^(.*)\\..*\\.seaMass-sigma", "\\1", basename(sigma_fits[[1]])),
   control = new_delta_control(),
   ...
@@ -149,11 +149,11 @@ seaMass_delta <- function(
           DT.fdr <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DTs.fdr[[name]], by = "Group")
           DT.fdr[, Batch := NULL]
           setcolorder(DT.fdr, c("Effect", "Model"))
-          setorder(DT.fdr, qvalue)
-          fwrite(DT.fdr, file.path(fit, "output", paste("group_log2_de", gsub("\\s", "", name), "csv", sep = ".")))
+          setorder(DT.fdr, qvalue, na.last = T)
+          fwrite(DT.fdr, file.path(fit, "output", paste("group_log2_de", gsub("\\s", "_", name), "csv", sep = ".")))
           # plot fdr
           g <- plot_fdr(DT.fdr, 1.0)
-          ggplot2::ggsave(file.path(fit, "output", paste("group_log2_de", gsub("\\s", "", name), "pdf", sep = ".")), g, width = 8, height = 8)
+          ggplot2::ggsave(file.path(fit, "output", paste("group_log2_de", gsub("\\s", "_", name), "pdf", sep = ".")), g, width = 8, height = 8)
         }
       } else {
         group_de(fit, summary = T, as.data.table = T)
@@ -178,10 +178,10 @@ seaMass_delta <- function(
             DT.fdr[, Batch := NULL]
             setcolorder(DT.fdr, c("Effect", "Model", "Group"))
             setorder(DT.fdr, qvalue)
-            fwrite(DT.fdr, file.path(fit, "output", paste("component_deviations_log2_de", gsub("\\s", "", name), "csv", sep = ".")))
+            fwrite(DT.fdr, file.path(fit, "output", paste("component_deviations_log2_de", gsub("\\s", "_", name), "csv", sep = ".")))
             # plot fdr
             g <- plot_fdr(DT.fdr, 1.0)
-            ggplot2::ggsave(file.path(fit, "output", paste("component_deviations_log2_de", gsub("\\s", "", name), "pdf", sep = ".")), g, width = 8, height = 8)
+            ggplot2::ggsave(file.path(fit, "output", paste("component_deviations_log2_de", gsub("\\s", "_", name), "pdf", sep = ".")), g, width = 8, height = 8)
           }
         } else {
           component_deviations_de(fit, summary = T, as.data.table = T)
@@ -217,7 +217,7 @@ seaMass_delta <- function(
 new_delta_control <- function(
   norm.model = "theta",
   norm.nwarmup = 256,
-  norm.thin = 1,
+  norm.thin = 4,
   dea.model = "MCMCglmm",
   dea.nwarmup = 4096,
   dea.thin = 16,

@@ -11,7 +11,6 @@ fdr_ash <- function(
   type = "group.quants",
   by.effect = TRUE,
   by.model = TRUE,
-  as.data.table = FALSE,
   use.df = TRUE,
   min.components = 1,
   min.components.per.condition = 0,
@@ -30,8 +29,7 @@ fdr_ash <- function(
   warn <- getOption("warn")
   options(warn = 1)
 
-  message(paste0("[", Sys.time(), "]  ash false discovery rate correction for ", type, "..."))
-  if (file.exists(file.path(fit, paste(output, "fst", sep = ".")))) file.remove(file.path(fit, paste(output, "fst", sep = ".")))
+  message(paste0("[", Sys.time(), "]  ash false discovery rate correction..."))
   dir.create(file.path(fit, output), showWarnings = F)
 
   if (type == "group.quants") {
@@ -98,13 +96,13 @@ fdr_ash <- function(
   }))
 
   if (by.model && by.effect) {
-    setorder(DT, Effect, Model, qvalue, na.last = T)
+    setorder(DT, Batch, Effect, Model, qvalue, na.last = T)
   } else if (by.model) {
-    setorder(DT, Model, qvalue, na.last = T)
+    setorder(DT, Batch, Model, qvalue, na.last = T)
   } else if (by.effect) {
-    setorder(DT, Effect, qvalue, na.last = T)
+    setorder(DT, Batch, Effect, qvalue, na.last = T)
   } else {
-    setorder(DT, qvalue, na.last = T)
+    setorder(DT, Batch, qvalue, na.last = T)
   }
 
   fst::write.fst(DT, file.path(fit, paste(output, "fst", sep = ".")))
@@ -126,7 +124,6 @@ fdr_BH <- function(
   data = group_de(fit),
   by.effect = T,
   by.model = T,
-  as.data.table = FALSE,
   min.components = 1,
   min.components.per.condition = 0,
   min.measurements = 1,

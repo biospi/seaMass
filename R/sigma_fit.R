@@ -45,17 +45,20 @@ read_mcmc <- function(
       # read
       DT <- rbindlist(lapply(1:nrow(item), function(i) {
         rbindlist(lapply(chains, function(chain) {
-          fst::read.fst(
-            file.path(fit, input, dirname(item[i, file]), sub("^([0-9]+)", chain, basename(item[i, file]))),
-            from = item[i, from],
-            to = item[i, to],
-            as.data.table = T
-          )
+          DT1 <- NULL
+          try({
+            DT1 <- fst::read.fst(
+              file.path(fit, input, dirname(item[i, file]), sub("^([0-9]+)", chain, basename(item[i, file]))),
+              from = item[i, from],
+              to = item[i, to],
+              as.data.table = T
+          )}, silent = T)
+          return(DT1)
         }))
-      }))
+       }))
 
       # optional summarise
-      if (!is.null(summary)) {
+      if (!is.null(summary) && nrow(DT) > 0) {
         # average samples if assay run in multiple blocks
         if (length(unique(DT$BlockID)) > 1) DT <- DT[, .(value = mean(value)), by = c(summaryIDs, "chainID", "mcmcID")]
         DT <- DT[, do.call(summary, list(chainID = chainID, mcmcID = mcmcID, value = value)), by = summaryIDs]
@@ -244,7 +247,7 @@ summary.seaMass_sigma_fit <- function(
   if (length(filenames) == 0) return(NULL)
 
   DT.summaries <- rbindlist(lapply(filenames, function(file) fst::read.fst(file, as.data.table = T)))
-  groupID <- fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = as.data.table)[Group == group, GroupID]
+  groupID <- fst::read.fst(file.path(fit, "meta", "groups.fst"), as.data.table = T)[Group == group, GroupID]
   return(cat(DT.summaries[GroupID == groupID, Summary]))
 }
 
