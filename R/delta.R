@@ -177,7 +177,7 @@ seaMass_delta <- function(
             DT.fdr <- merge(DT.components, DTs.fdr[[name]], by = "Component")
             DT.fdr[, Batch := NULL]
             setcolorder(DT.fdr, c("Effect", "Model", "Group"))
-            setorder(DT.fdr, qvalue)
+            setorder(DT.fdr, qvalue, na.last = T)
             fwrite(DT.fdr, file.path(fit, "output", paste("component_deviations_log2_de", gsub("\\s", "_", name), "csv", sep = ".")))
             # plot fdr
             g <- plot_fdr(DT.fdr, 1.0)
