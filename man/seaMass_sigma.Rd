@@ -5,8 +5,8 @@
 \alias{open_sigma_fits}
 \alias{del.seaMass_sigma_fit}
 \alias{control.seaMass_sigma_fit}
-\alias{design.seaMass_sigma_fit}
-\alias{design.seaMass_sigma_fits}
+\alias{assay_design.seaMass_sigma_fit}
+\alias{assay_design.seaMass_sigma_fits}
 \alias{measurements.seaMass_sigma_fit}
 \alias{components.seaMass_sigma_fit}
 \alias{groups.seaMass_sigma_fit}
@@ -17,21 +17,21 @@
 \alias{assay_vars.seaMass_sigma_fit}
 \alias{component_deviations.seaMass_sigma_fit}
 \alias{assay_deviations.seaMass_sigma_fit}
-\alias{unnormalised_group_quants.seaMass_sigma_fit}
 \title{seaMass-Σ}
 \usage{
-seaMass_sigma(data, data.design = new_design(data), summaries = FALSE,
-  plots = FALSE, name = "fit", control = new_sigma_control())
+seaMass_sigma(data, data.design = new_assay_design(data),
+  summaries = FALSE, plots = FALSE, name = "fit",
+  control = new_sigma_control())
 
-open_sigma_fits(dirs, quiet = FALSE, force = FALSE)
+open_sigma_fits(names, quiet = FALSE, force = FALSE)
 
 \method{del}{seaMass_sigma_fit}(fit)
 
 \method{control}{seaMass_sigma_fit}(fit)
 
-\method{design}{seaMass_sigma_fit}(fit, as.data.table = F)
+\method{assay_design}{seaMass_sigma_fit}(fit, as.data.table = F)
 
-\method{design}{seaMass_sigma_fits}(fits, as.data.table = F)
+\method{assay_design}{seaMass_sigma_fits}(fits, as.data.table = F)
 
 \method{measurements}{seaMass_sigma_fit}(fit, as.data.table = FALSE)
 
@@ -39,33 +39,29 @@ open_sigma_fits(dirs, quiet = FALSE, force = FALSE)
 
 \method{groups}{seaMass_sigma_fit}(fit, as.data.table = FALSE)
 
-\method{summary}{seaMass_sigma_fit}(fit, group, dir = "model1")
+\method{summary}{seaMass_sigma_fit}(fit, group, input = "model1")
 
-\method{timings}{seaMass_sigma_fit}(fit, dir = "model1",
-  as.data.table = F)
+\method{timings}{seaMass_sigma_fit}(fit, input = "model1",
+  as.data.table = FALSE)
 
 \method{measurement_vars}{seaMass_sigma_fit}(fit, measurements = NULL,
-  summary.func = dist_invchisq_mcmc, dir = "model1",
+  summary = FALSE, input = "model1",
   chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 
 \method{component_vars}{seaMass_sigma_fit}(fit, components = NULL,
-  summary.func = dist_invchisq_mcmc, dir = "model1",
+  summary = FALSE, input = "model1",
   chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 
 \method{assay_vars}{seaMass_sigma_fit}(fit, groups = NULL,
-  summary.func = dist_invchisq_mcmc, dir = "model1",
+  summary = FALSE, input = "model1",
   chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 
 \method{component_deviations}{seaMass_sigma_fit}(fit, components = NULL,
-  summary.func = dist_lst_mcmc, dir = "model1",
+  summary = FALSE, input = "model1",
   chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 
-\method{assay_deviations}{seaMass_sigma_fit}(fit, components = NULL,
-  summary.func = dist_lst_mcmc, dir = "model1",
-  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
-
-\method{unnormalised_group_quants}{seaMass_sigma_fit}(fit, groups = NULL,
-  summary.func = dist_lst_mcmc, dir = "model1",
+\method{assay_deviations}{seaMass_sigma_fit}(fit, measurements = NULL,
+  components = NULL, summary = FALSE, input = "model1",
   chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 }
 \arguments{
@@ -96,9 +92,9 @@ Fit the seaMass-Σ Bayesian group-level quantification model.
 
 \item \code{control}: Returns the \link{seaMass_sigma_control} object from an open \code{seaMass_sigma_fit} object.
 
-\item \code{design}: Returns the study design \code{data.frame} from an open \code{seaMass_sigma_fit} object.
+\item \code{assay_design}: Returns the study design \code{data.frame} from an open \code{seaMass_sigma_fit} object.
 
-\item \code{design}: Returns the full study design \code{data.frame} from an open \code{seaMass_sigma_fits} object.
+\item \code{assay_design}: Returns the full study design \code{data.frame} from an open \code{seaMass_sigma_fits} object.
 
 \item \code{measurements}: Returns the measurement metadata from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 
@@ -119,7 +115,5 @@ Fit the seaMass-Σ Bayesian group-level quantification model.
 \item \code{component_deviations}: Returns the model component deviations from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 
 \item \code{assay_deviations}: Returns the model assay deviations from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
-
-\item \code{unnormalised_group_quants}: Returns the model unnormalised group quantifications from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 }}
 

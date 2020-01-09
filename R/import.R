@@ -50,7 +50,7 @@ runs <- function(data) {
 #' @return \link{data.frame} that can be edited and passed as parameter \code{data.design} of \link{seaMass_sigma}.
 #' @import data.table
 #' @export
-new_design <- function(data) {
+new_assay_design <- function(data) {
   data.is.data.table <- is.data.table(data)
   setDT(data)
 
@@ -78,10 +78,24 @@ new_design <- function(data) {
     DT.design <- cbind(DT.design, mapply(Block., FUN = as.logical))
   }
 
-  # For seaMass-Δ (optional)
-  DT.design[, RefWeight := 1]
-  DT.design[, Sample := Assay]
-  DT.design[, Condition := factor("default")]
+  # For seaMass-Δ
+  if ("RefWeight" %in% colnames(data)) {
+    DT.design <- merge(DT.design, unique(data[, .(Run, Channel, RefWeight)]), by = c("Run", "Channel"), sort = F)
+  } else {
+    DT.design[, RefWeight := 1]
+  }
+
+  if ("Sample" %in% colnames(data)) {
+    DT.design <- merge(DT.design, unique(data[, .(Run, Channel, Sample)]), by = c("Run", "Channel"), sort = F)
+  } else {
+    DT.design[, Sample := Assay]
+  }
+
+  if ("Condition" %in% colnames(data)) {
+    DT.design <- merge(DT.design, unique(data[, .(Run, Channel, Condition)]), by = c("Run", "Channel"), sort = F)
+  } else {
+    DT.design[, Condition := NA]
+  }
 
   if (!data.is.data.table) setDF(data)
   setDF(DT.design)

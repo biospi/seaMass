@@ -4,7 +4,7 @@
 \alias{dist_invchisq_mcmc}
 \title{fit scaled inverse chi squared distribution}
 \usage{
-dist_invchisq_mcmc(chainID, mcmcID, value, plots = FALSE, ...)
+dist_invchisq_mcmc(chainID, mcmcID, value, ...)
 }
 \description{
 Clarke et al 2012 ("A fast robust method for fitting gamma distributions") are right - CvM is about the only robust way to fit gamma distributions!!

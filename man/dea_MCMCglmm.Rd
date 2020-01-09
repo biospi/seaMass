@@ -4,14 +4,12 @@
 \alias{dea_MCMCglmm}
 \title{Mixed-effects univariate differential expression analysis with 'MCMCglmm'}
 \usage{
-dea_MCMCglmm(fit, data = group_quants(fit), data.design = design(fit),
+dea_MCMCglmm(fit, input = "normalised", output = "de",
+  data.design = assay_design(fit), type = "group.quants",
   fixed = ~Condition, random = NULL, rcov = ~idh(Condition):Sample,
   prior = list(R = list(V = diag(nlevels(factor(data.design$Condition))),
   nu = 2e-04)), em.func = function(...) emmeans::emmeans(..., pairwise ~
-  Condition), output = NULL, as.data.table = FALSE,
-  use.precision = TRUE, dist.mean.func = dist_lst_mcmc,
-  model.seed = control(fit)$model.seed, model.nchain = 4,
-  model.nwarmup = 1024, model.thin = 1, model.nsample = 1024, ...)
+  Condition), ...)
 }
 \description{
 The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.

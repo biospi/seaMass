@@ -6,10 +6,11 @@
 #' @export
 fdr_ash <- function(
   fit,
-  data = group_de(fit),
-  by.model = T,
-  by.effect = T,
-  as.data.table = FALSE,
+  input = "de",
+  output = "fdr",
+  type = "group.quants",
+  by.effect = TRUE,
+  by.model = TRUE,
   use.df = TRUE,
   min.components = 1,
   min.components.per.condition = 0,
@@ -25,7 +26,17 @@ fdr_ash <- function(
   # filter
   if (min.test.samples.per.condition < 2) stop("sorry, 'min.test.samples.per.condition' needs to be at least 2")
 
-  DT <- as.data.table(data)
+  warn <- getOption("warn")
+  options(warn = 1)
+
+  message(paste0("[", Sys.time(), "]  ash false discovery rate correction..."))
+  dir.create(file.path(fit, output), showWarnings = F)
+
+  if (type == "group.quants") {
+    DT <- group_de(fit, input = input, summary = "lst_mcmc_ash", as.data.table = T)
+  } else {
+    DT <- component_deviations_de(fit, input = input, summary = "lst_mcmc_ash", as.data.table = T)
+  }
 
   DT[, use.FDR :=
     (`1:nMaxComponent` >= min.components | `2:nMaxComponent` >= min.components) &
@@ -37,48 +48,68 @@ fdr_ash <- function(
     (`1:nRealSample` + `2:nTestSample` >= min.real.samples) &
     (`1:nRealSample` >= min.real.samples.per.condition & `2:nTestSample` >= min.real.samples.per.condition)]
 
-  if (by.model && by.effect) DTs <- split(DT, by = c("Model", "Effect"), drop = T)
-  else if (by.model) DTs <- split(DT, by = "Model", drop = T)
-  else if (by.effect) DTs <- split(DT, by = "Effect", drop = T)
-  else DTs <- list(DT)
+  if (by.model && by.effect) {
+    DT[, Batch := interaction(Effect, Model, drop = T, lex.order = T)]
+  } else if (by.effect) {
+    DT[, Batch := Effect]
+  } else if (by.model) {
+    DT[, Batch := Model]
+  } else {
+    DT[, Batch := factor("all")]
+  }
+  setcolorder(DT, "Batch")
 
-  DT <- foreach(DT = iterators::iter(DTs), .final = rbindlist, .inorder = F, .packages = "data.table") %do% {
-    setDTthreads(1)
+  DT <- rbindlist(parallel_lapply(split(DT, by = "Batch"), function(item, use.df, mixcompdist) {
     # run ash, but allowing variable DF
     if (use.df) {
       lik_ts = list(
         name = "t",
-        const = length(unique(DT[use.FDR == T, df])) == 1,
-        lcdfFUN = function(x) stats::pt(x, df = DT[use.FDR == T, df], log = T),
-        lpdfFUN = function(x) stats::dt(x, df = DT[use.FDR == T, df], log = T),
-        etruncFUN = function(a,b) etrunct::e_trunct(a, b, df = DT[use.FDR == T, df], r = 1),
-        e2truncFUN = function(a,b) etrunct::e_trunct(a, b, df = DT[use.FDR == T, df], r = 2)
+        const = length(unique(item[use.FDR == T, df])) == 1,
+        lcdfFUN = function(x) stats::pt(x, df = item[use.FDR == T, df], log = T),
+        lpdfFUN = function(x) stats::dt(x, df = item[use.FDR == T, df], log = T),
+        etruncFUN = function(a,b) etrunct::e_trunct(a, b, df = item[use.FDR == T, df], r = 1),
+        e2truncFUN = function(a,b) etrunct::e_trunct(a, b, df = item[use.FDR == T, df], r = 2)
       )
-      fit.fdr <- ashr::ash(DT[use.FDR == T, m], DT[use.FDR == T, s], mixcompdist, lik = lik_ts)
+      fit.fdr <- ashr::ash(item[use.FDR == T, m], item[use.FDR == T, s], mixcompdist, lik = lik_ts)
     } else {
-      fit.fdr <- ashr::ash(DT[use.FDR == T, m], DT[use.FDR == T, s], mixcompdist)
+      fit.fdr <- ashr::ash(item[use.FDR == T, m], item[use.FDR == T, s], mixcompdist)
     }
 
     setDT(fit.fdr$result)
     fit.fdr$result[, betahat := NULL]
     fit.fdr$result[, sebetahat := NULL]
-    rmcols <- which(colnames(DT) %in% colnames(fit.fdr$result))
-    if (length(rmcols) > 0) DT <- DT[, -rmcols, with = F]
-    fit.fdr$result[, Model := DT[use.FDR == T, Model]]
-    fit.fdr$result[, Effect := DT[use.FDR == T, Effect]]
-    fit.fdr$result[, GroupID := DT[use.FDR == T, GroupID]]
-    DT <- merge(DT, fit.fdr$result, all.x = T, by = c("Model", "Effect", "GroupID"))
-    DT[, use.FDR := NULL]
+    rmcols <- which(colnames(item) %in% colnames(fit.fdr$result))
+    if (length(rmcols) > 0) item <- item[, -rmcols, with = F]
+    fit.fdr$result[, Batch := item[use.FDR == T, Batch]]
+    fit.fdr$result[, Model := item[use.FDR == T, Model]]
+    fit.fdr$result[, Effect := item[use.FDR == T, Effect]]
+    fit.fdr$result[, Group := item[use.FDR == T, Group]]
+    if (type == "group.quants") {
+      item <- merge(item, fit.fdr$result, all.x = T, by = c("Batch", "Model", "Effect", "Group"))
+    } else {
+      fit.fdr$result[, Component := item[use.FDR == T, Component]]
+      item <- merge(item, fit.fdr$result, all.x = T, by = c("Batch", "Model", "Effect", "Group", "Component"))
+    }
+    item[, use.FDR := NULL]
+
+    return(item)
+  }))
+
+  if (by.model && by.effect) {
+    setorder(DT, Batch, Effect, Model, qvalue, na.last = T)
+  } else if (by.model) {
+    setorder(DT, Batch, Model, qvalue, na.last = T)
+  } else if (by.effect) {
+    setorder(DT, Batch, Effect, qvalue, na.last = T)
+  } else {
+    setorder(DT, Batch, qvalue, na.last = T)
   }
 
-  if (by.model && by.effect) setorder(DT, Model, Effect, qvalue, na.last = T)
-  else if (by.model) setorder(DT, Model, qvalue, na.last = T)
-  else if (by.effect) setorder(DT, Effect, qvalue, na.last = T)
-  else setorder(DT, qvalue, na.last = T)
+  fst::write.fst(DT, file.path(fit, paste(output, "fst", sep = ".")))
 
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
+  options(warn = warn)
+
+  return(fit)
 }
 
 
@@ -91,9 +122,8 @@ fdr_ash <- function(
 fdr_BH <- function(
   fit,
   data = group_de(fit),
-  by.model = T,
   by.effect = T,
-  as.data.table = FALSE,
+  by.model = T,
   min.components = 1,
   min.components.per.condition = 0,
   min.measurements = 1,
@@ -135,7 +165,5 @@ fdr_BH <- function(
   else if (by.effect) setorder(DT, Effect, qvalue, pvalue, na.last = T)
   else setorder(DT, qvalue, pvalue, na.last = T)
 
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
+  return(fit)
 }

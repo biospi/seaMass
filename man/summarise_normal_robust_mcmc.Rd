@@ -4,7 +4,7 @@
 \alias{summarise_normal_robust_mcmc}
 \title{fit normal distribution with fitdistrplus}
 \usage{
-summarise_normal_robust_mcmc(chainID, mcmcID, value, plots = FALSE)
+summarise_normal_robust_mcmc(chainID, mcmcID, value)
 }
 \description{
 fit normal distribution with fitdistrplus

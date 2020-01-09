@@ -43,7 +43,7 @@ Load the included ProteinPilot iTraq dataset (note this is a small subset of pro
 library(seaMass)
 
 # Import tutorial iTraq dataset.
-file <- system.file(file.path("demo", "Tutorial_PeptideSummary.txt.bz2"), package = "seamassdelta")
+file <- system.file(file.path("demo", "Tutorial_PeptideSummary.txt.bz2"), package = "seaMass")
 data <- import_ProteinPilot(file)
 ```
 
@@ -62,30 +62,24 @@ data.runs$Run[53:78] <- "2"
 runs(data) <- data.runs
 ```
 
-If you have a large amount of assays, you may group them into blocks so that seaMass will be robust to batch effects or measurement drift etc. This will also help memory consumption, as blocks are processed by seaMass independently. If you are processing iTraq or TMT data, each run will be treated as a seperate block by default, which seaMass-Σ will autodetect. To compare across blocks correctly, you need to normalise them via reference assays. Here we can specify specific reference assays e.g. pooled reference samples, of if the study design has been blocked appropriately, we can just use all relevant assays:
+If you have a large amount of assays, you may group them into blocks so that seaMass will be robust to batch effects or measurement drift etc. This will also help memory consumption, as blocks are processed by seaMass independently. If you are processing iTraq or TMT data, each run will be treated as a seperate block by default, which seaMass-Σ will autodetect. To compare across blocks correctly, you need to normalise them via reference weights for each assay. Here we can specify specific reference assays e.g. pooled reference samples, of if the study design has been blocked appropriately, we can just use all relevant assays:
 
 ```
 # Get skeleton design matrix
-data.design <- new_design(data)
+data.design <- new_assay_design(data)
 
 # You can rename assays, or remove them from the analysis with 'NA'.
 data.design$Assay <- factor(c(
   NA, NA, NA, NA, "1.1", "1.2", "1.3", "1.4",
   NA, NA, NA, NA, "2.1", "2.2", "2.3", "2.4"
 ))
-
-# Define reference assays for each block
-data.design$Reference <- c(
-  F, F, F, F, T, T, T, T,
-  F, F, F, F, T, T, T, T
-)
 ```
 
 Next, run the seaMass-Σ model. Specifying TRUE for summaries will generate csv reports in the directory specified by the *seaMass-sigma* *name* parameter, and any internal control parameters (such as the number of CPU threads to use) can be specified through a *sigma_control* object. 
 
 ```
 # run seaMass-Σ
-fits <- seaMass_sigma(
+sigma_fits <- seaMass_sigma(
   data,
   data.design,
   summaries = TRUE,
@@ -94,16 +88,46 @@ fits <- seaMass_sigma(
 )
 ```
 
-seaMass-Σ computes unnormalised protein group quants (together with peptide deviations from the protein group quants, and peptide/feature variances) for each block. To allow comparisons to be made across blocks (standardisation), and optionally normalisation and/or false discovery rate controlled differential expression analysis, run seaMass-Δ on the *seaMass_sigma_fits* object returned by seaMass-Σ. Internal control parameters can be specified through a *delta_control* object. 
+seaMass-Σ computes unnormalised protein group quants (together with peptide deviations from the protein group quants, and peptide/feature variances) for each block. To allow comparisons to be made across blocks (standardisation), and optionally normalisation and/or false discovery rate controlled differential expression analysis, run seaMass-Δ on the *seaMass_sigma_fits* object returned by seaMass-Σ. Firstly, define which assays will be used as references: 
+
+```
+# Define reference weights for each block
+data.design$RefWeight <- c(
+  0, 0, 0, 0, 1, 1, 1, 1,
+  0, 0, 0, 0, 1, 1, 1, 1
+)
+```
+
+By default, differential expression analysis functions look for columns *Sample* and *Condition* in *data.design*. If you want to perform differential expression analysis, assign samples to assays, and conditions to samples:
+
+```
+# Define Sample and Condition mappings
+data.design$Sample <- factor(c(
+  NA, NA, NA, NA, "A1", "A2", "B1", "B2",
+  NA, NA, NA, NA, "A3", "A4", "B3", "B4"
+))
+data.design$Condition <- factor(c(
+  NA, NA, NA, NA, "A", "A", "B", "B",
+  NA, NA, NA, NA, "A", "A", "B", "B"
+))
+```
+
+Finally, run seaMass-Δ. Internal control parameters can be specified through a *delta_control* object. 
 
 ```
 # run seaMass-Δ
-fit <- seaMass_delta(
-  fits,
+delta_fit <- seaMass_delta(
+  sigma_fits,
   data.design,
-  summaries = TRUE,
   control = new_delta_control(nthread = 4)
 )
 ```
 
-**TODO:** Differential expression analysis with seaMass-Δ. 
+Since we know the ground truth, lets visualise our performance with a Precision-Recall plot.
+
+```
+# set ground truth and plot
+data.fdr <- group_fdr(delta_fit)
+data.fdr$truth <- ifelse(grepl("_RAT$", data.fdr$Group), 0, 1)
+plot_pr(data.fdr, 0.5)
+```

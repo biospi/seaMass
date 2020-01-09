@@ -6,11 +6,11 @@
 \usage{
 new_sigma_control(measurement.model = "independent",
   measurement.eb.min = 2, component.model = "independent",
-  component.eb.min = 3, component.eb.max = 1024,
-  assay.model = "independent", assay.eb.min = 3,
-  error.model = "poisson", missingness.model = "censored",
-  missingness.threshold = 0, model.seed = 0, model.nchain = 4,
-  model.nwarmup = 256, model.thin = 1, model.nsample = 1024,
+  component.eb.min = 3, assay.model = "component", assay.eb.min = 3,
+  assay.eb.nsample = 16, error.model = "poisson",
+  missingness.model = "censored", missingness.threshold = 0,
+  model.nchain = 4, model.nwarmup = 256, model.thin = 4,
+  model.nsample = 1024, eb.max = 1024, random.seed = 0,
   nthread = parallel::detectCores()\%/\%2, hpc = NULL)
 }
 \arguments{
@@ -23,8 +23,8 @@ new_sigma_control(measurement.model = "independent",
 
 \item{component.eb.min}{Minimum number of components per group to use for computing Empirical Bayes priors}
 
-\item{assay.model}{Either \code{NULL} (no assay model), \code{single} (single random effect) or \code{independent}
-(per-assay independent random effects; default)}
+\item{assay.model}{Either \code{NULL} (no assay model), \code{measurement} (per-assay independent random effects across measurements)
+or \code{component} (per-assay independent random effects across components; default)}
 
 \item{assay.eb.min}{Minimum number of assays per group group to use for computing Empirical Bayes priors}
 
@@ -35,8 +35,6 @@ new_sigma_control(measurement.model = "independent",
 
 \item{missingness.threshold}{All measurement quants equal to or below this are treated as missing (default = 0)}
 
-\item{model.seed}{Random number seed}
-
 \item{model.nchain}{Number of MCMC chains to run}
 
 \item{model.nwarmup}{Number of MCMC warmup iterations to run for each chain}
@@ -44,6 +42,8 @@ new_sigma_control(measurement.model = "independent",
 \item{model.thin}{MCMC thinning factor}
 
 \item{model.nsample}{Total number of MCMC samples to deliver downstream}
+
+\item{random.seed}{Random number seed}
 
 \item{nthread}{Number of CPU threads to employ}
 

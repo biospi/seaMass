@@ -7,7 +7,7 @@
 sigma_process0(fit, chain)
 }
 \arguments{
-\item{fit}{seamassdelta fit object.}
+\item{fit}{fit object.}
 
 \item{i}{.}
 }
