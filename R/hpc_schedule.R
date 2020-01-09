@@ -63,6 +63,19 @@ setClass("pbs",
 
 setClass("sge",
   representation(
+    cpuNum = "numeric",
+    node = "numeric",
+    mem = "character",
+    que = "character",
+    wallTime = "character"
+  ),
+  prototype
+  (
+    cpuNum = 14,
+    node = 1,
+    mem = "64000m",
+    que = "veryshort",
+    wallTime = "12:00:00"
   ),
   contains = "ScheduleHPC"
 )
