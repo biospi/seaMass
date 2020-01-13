@@ -76,12 +76,21 @@ parallel_lapply <- function(
       parallel::setDefaultCluster(cl)
     }
 
+    # stop it transfering stuff we don't want (better it seems is to rm '...')
+    #vars <- ls(all = T, envir = environment(func))
+    #vars <- vars[!(vars %in% func.args)]
+    #print(vars)
+    #vars <- vars[!(vars %in% "DTs")]
+    #rm(list = vars, envir = environment(func))
+    #environment(func) <- new.env(parent = baseenv())
+    #vars <- ls(all = T, envir = environment(func))
+    #print(vars)
+
     # parallel
     outputs <- foreach::foreach(
       item = iterators::iter(items),
       .packages = .packages,
       .export = c("func", names(func.args)[func.args != "item"]),
-      .noexport = "output",
       .options.snow = list(progress = function(n, i) setTxtProgressBar(pb, getTxtProgressBar(pb) + pred[i]))
     ) %dorng% {
       data.table::setDTthreads(1)

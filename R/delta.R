@@ -93,17 +93,17 @@ seaMass_delta <- function(
   }
 
   # group quants
-  message("[", paste0(Sys.time(), "]  summarising normalised group quants..."))
+  message("[", paste0(Sys.time(), "]  normalised group quants..."))
   set.seed(control$random.seed)
   DT.group.quants <- normalised_group_quants(fit, summary = T, as.data.table = T)
   DT.group.quants <- dcast(DT.group.quants, Group ~ Assay, drop = F, value.var = colnames(DT.group.quants)[5:ncol(DT.group.quants)])
   DT.group.quants <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants, by = "Group")
-  fwrite(DT.group.quants, file.path(fit, "output", "group_log2_normalised_quants.csv"))
+  fwrite(DT.group.quants, file.path(fit, "output", "log2_group_normalised_quants.csv"))
   rm(DT.group.quants)
 
   # component deviations
   if (component.deviations == T && !is.null(component.model) && component.model == "independent") {
-    message("[", paste0(Sys.time(), "]  summarising component deviations..."))
+    message("[", paste0(Sys.time(), "]  component deviations..."))
     set.seed(control$random.seed)
     DT.component.deviations <- component_deviations(fit, summary = T, as.data.table = T)
     DT.component.deviations[, GroupComponent := paste(Group, Component, sep = "_seaMass_")]
@@ -114,24 +114,24 @@ seaMass_delta <- function(
     DT.component.deviations[, GroupComponent := NULL]
     DT.component.deviations <- merge(DT.components[, .(Component, nMeasurement, nDatapoint)], DT.component.deviations, by = "Component")
     setcolorder(DT.component.deviations, c("Group", "Component"))
-    fwrite(DT.component.deviations, file.path(fit, "output", "component_log2_deviations.csv"))
+    fwrite(DT.component.deviations, file.path(fit, "output", "log2_component_deviations.csv"))
     rm(DT.component.deviations)
   }
 
   # plot PCA and assay exposures
   message("[", paste0(Sys.time(), "]  plotting PCA and assay exposures..."))
-  g <- plot_assay_exposures(fit)
-  ggplot2::ggsave(file.path(fit, "output", "assay_log2_exposures.pdf"), width = 8, height = 0.5 + 1 * nlevels(DT.design$Assay), limitsize = F)
-  g <- plot_pca(fit)
-  ggplot2::ggsave(file.path(fit, "output", "group_log2_quants_pca.pdf"), width = 12, height = 12, limitsize = F)
   if (component.deviations == T && !is.null(component.model) && component.model == "independent") {
     DT <- component_deviations(fit, as.data.table = T)
     DT[, Group := interaction(Group, Component, sep = " : ", lex.order = T)]
     DT.summary <- component_deviations(fit, summary = T, as.data.table = T)
-    DT.summary[, Group := interaction(Group, Component, sep = " : ", lex.order = T)]
     g <- plot_pca(fit, data = DT, data.summary = DT.summary)
-    ggplot2::ggsave(file.path(fit, "output", "component_log2_deviations_pca.pdf"), width = 12, height = 12, limitsize = F)
+    DT.summary[, Group := interaction(Group, Component, sep = " : ", lex.order = T)]
+    ggplot2::ggsave(file.path(fit, "output", "log2_component_deviations_pca.pdf"), width = 12, height = 12, limitsize = F)
   }
+  g <- plot_pca(fit)
+  ggplot2::ggsave(file.path(fit, "output", "log2_group_quants_pca.pdf"), width = 12, height = 12, limitsize = F)
+  g <- plot_assay_exposures(fit)
+  ggplot2::ggsave(file.path(fit, "output", "log2_assay_exposures.pdf"), width = 8, height = 0.5 + 1 * nlevels(DT.design$Assay), limitsize = F)
 
   # differential expression analysis and false discovery rate correction
   if (!is.null(control$dea.model) && !all(is.na(DT.design$Condition))) {
@@ -150,10 +150,10 @@ seaMass_delta <- function(
           DT.fdr[, Batch := NULL]
           setcolorder(DT.fdr, c("Effect", "Model"))
           setorder(DT.fdr, qvalue, na.last = T)
-          fwrite(DT.fdr, file.path(fit, "output", paste("group_log2_de", gsub("\\s", "_", name), "csv", sep = ".")))
+          fwrite(DT.fdr, file.path(fit, "output", paste("log2_group_de", gsub("\\s", "_", name), "csv", sep = ".")))
           # plot fdr
           g <- plot_fdr(DT.fdr, 1.0)
-          ggplot2::ggsave(file.path(fit, "output", paste("group_log2_de", gsub("\\s", "_", name), "pdf", sep = ".")), g, width = 8, height = 8)
+          ggplot2::ggsave(file.path(fit, "output", paste("log2_group_de", gsub("\\s", "_", name), "pdf", sep = ".")), g, width = 8, height = 8)
         }
       } else {
         group_de(fit, summary = T, as.data.table = T)
@@ -178,10 +178,10 @@ seaMass_delta <- function(
             DT.fdr[, Batch := NULL]
             setcolorder(DT.fdr, c("Effect", "Model", "Group"))
             setorder(DT.fdr, qvalue, na.last = T)
-            fwrite(DT.fdr, file.path(fit, "output", paste("component_deviations_log2_de", gsub("\\s", "_", name), "csv", sep = ".")))
+            fwrite(DT.fdr, file.path(fit, "output", paste("log2_component_deviations_de", gsub("\\s", "_", name), "csv", sep = ".")))
             # plot fdr
             g <- plot_fdr(DT.fdr, 1.0)
-            ggplot2::ggsave(file.path(fit, "output", paste("component_deviations_log2_de", gsub("\\s", "_", name), "pdf", sep = ".")), g, width = 8, height = 8)
+            ggplot2::ggsave(file.path(fit, "output", paste("log2_component_deviations_de", gsub("\\s", "_", name), "pdf", sep = ".")), g, width = 8, height = 8)
           }
         } else {
           component_deviations_de(fit, summary = T, as.data.table = T)
@@ -217,10 +217,10 @@ seaMass_delta <- function(
 new_delta_control <- function(
   norm.model = "theta",
   norm.nwarmup = 256,
-  norm.thin = 4,
+  norm.thin = 1,
   dea.model = "MCMCglmm",
   dea.nwarmup = 4096,
-  dea.thin = 16,
+  dea.thin = 64,
   fdr.model = "ash",
   random.seed = 0,
   nthread = parallel::detectCores() %/% 2

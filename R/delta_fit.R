@@ -108,7 +108,7 @@ unnormalised_group_quants.seaMass_delta_fit <- function(
   if(is.null(summary) || summary == F) summary <- NULL
   if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
 
-  DT <- read_mcmc(fit, input, "Group", "Group", c("Group", "Assay", "nComponent", "nMeasurement"), groups, ".", chains, summary)
+  DT <- read_mcmc(fit, input, "Group", "Group", c("Group", "Assay"), groups, ".", chains, summary)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -140,7 +140,7 @@ normalised_group_quants.seaMass_delta_fit <- function(
     if(is.null(summary) || summary == F) summary <- NULL
     if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
 
-    DT <- read_mcmc(fit, input, "Group", "Group", c("Group", "Assay", "nComponent", "nMeasurement"), groups, ".", chains, summary)
+    DT <- read_mcmc(fit, input, "Group", "Group", c("Group", "Assay"), groups, ".", chains, summary)
   }
 
   if (!as.data.table) setDF(DT)
@@ -163,7 +163,7 @@ component_deviations.seaMass_delta_fit <- function(
   if(is.null(summary) || summary == F) summary <- NULL
   if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
 
-  DT <- read_mcmc(fit, input, "Component", c("Group", "Component"), c("Group", "Component", "Assay", "nComponent", "nMeasurement"), components, ".", chains, summary)
+  DT <- read_mcmc(fit, input, "Component", c("Group", "Component"), c("Group", "Component", "Assay"), components, ".", chains, summary)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -219,7 +219,7 @@ group_de.seaMass_delta_fit <- function(
   if(is.null(summary) || summary == F) summary <- NULL
   if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
 
-  DT <- read_mcmc(fit, input, "Group", "Group", c("Model", "Effect", "Group", "1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample", "2:nMaxComponent", "2:nMaxMeasurement", "2:nTestSample", "2:nRealSample"), groups, ".", chains, summary)
+  DT <- read_mcmc(fit, input, "Group", "Group", c("Group", "Effect", "Model"), groups, ".", chains, summary)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -247,7 +247,7 @@ component_deviations_de.seaMass_delta_fit <- function(
   if(is.null(summary) || summary == F) summary <- NULL
   if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
 
-  DT <- read_mcmc(fit, input, "Component", c("Group", "Component"), c("Model", "Effect", "Group", "Component", "1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample", "2:nMaxComponent", "2:nMaxMeasurement", "2:nTestSample", "2:nRealSample"), components, ".", chains, summary)
+  DT <- read_mcmc(fit, input, "Component", c("Group", "Component"), c("Group", "Component", "Model", "Effect"), components, ".", chains, summary)
 
   if (!as.data.table) setDF(DT)
   else DT[]

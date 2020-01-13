@@ -9,7 +9,7 @@ plot_pca(
   data = normalised_group_quants(fit),
   data.summary = normalised_group_quants(fit, summary = T),
   data.design = assay_design(fit),
-  contours = c(1, 2),
+  contours = 1:2,
   robust = TRUE
 )
 }

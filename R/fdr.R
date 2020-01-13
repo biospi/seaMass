@@ -23,6 +23,9 @@ fdr_ash <- function(
   mixcompdist = "halfuniform",
   ...
 ) {
+  # this is needed to stop foreach massive memory leak!!!
+  rm("...")
+
   # filter
   if (min.test.samples.per.condition < 2) stop("sorry, 'min.test.samples.per.condition' needs to be at least 2")
 

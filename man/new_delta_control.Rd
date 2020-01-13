@@ -7,10 +7,10 @@
 new_delta_control(
   norm.model = "theta",
   norm.nwarmup = 256,
-  norm.thin = 4,
+  norm.thin = 1,
   dea.model = "MCMCglmm",
   dea.nwarmup = 4096,
-  dea.thin = 16,
+  dea.thin = 64,
   fdr.model = "ash",
   random.seed = 0,
   nthread = parallel::detectCores()\%/\%2
