@@ -80,7 +80,7 @@ dea_MCMCglmm <- function(
           attempt <- 1
           while(success == F && attempt <= 16) {
             attempt <- attempt + 1
-            ({
+            try({
               # run MCMCglmm
               model$MCMCglmm <- MCMCglmm::MCMCglmm(
                 fixed = fixed,

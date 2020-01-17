@@ -122,10 +122,10 @@ seaMass_delta <- function(
   message("[", paste0(Sys.time(), "]  plotting PCA and assay exposures..."))
   if (component.deviations == T && !is.null(component.model) && component.model == "independent") {
     DT <- component_deviations(fit, as.data.table = T)
-    DT[, Group := interaction(Group, Component, sep = " : ", lex.order = T)]
+    DT[, Group := interaction(Group, Component, sep = " : ", lex.order = T, drop = T)]
     DT.summary <- component_deviations(fit, summary = T, as.data.table = T)
+    DT.summary[, Group := interaction(Group, Component, sep = " : ", lex.order = T, drop = T)]
     g <- plot_pca(fit, data = DT, data.summary = DT.summary)
-    DT.summary[, Group := interaction(Group, Component, sep = " : ", lex.order = T)]
     ggplot2::ggsave(file.path(fit, "output", "log2_component_deviations_pca.pdf"), width = 12, height = 12, limitsize = F)
   }
   g <- plot_pca(fit)
