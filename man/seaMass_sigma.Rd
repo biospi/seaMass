@@ -21,7 +21,7 @@
 \usage{
 seaMass_sigma(data, data.design = new_assay_design(data),
   summaries = FALSE, plots = FALSE, name = "fit",
-  control = new_sigma_control())
+  control = new_sigma_control(), hpc.schedule = new_hpcschedule())
 
 open_sigma_fits(names, quiet = FALSE, force = FALSE)
 
@@ -78,6 +78,8 @@ assay names and block design.}
 \item{name}{Name of folder prefix on disk where all intermediate and output data will be stored; default is \code{"fit"}.}
 
 \item{control}{A control object created with \link{new_sigma_control} specifying control parameters for the model.}
+
+\item{hpc.schedule}{A hpc object created with \link{new_hpcschedule} specifying hpc parameters for the type of HPC system seaMass will be deployed on.}
 }
 \value{
 A \code{seaMass_sigma_fits} object, which is a list of \code{seaMass_sigma_fit} objects that can be interrogated

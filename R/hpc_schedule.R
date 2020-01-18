@@ -7,18 +7,19 @@ setClass("ScheduleHPC",
   representation(
     block = "numeric",
     nchain = "numeric",
-    fit = "character",
+    fits = "character",
     path = "character",
-    email = "character",
-    rdatafile = "character"
+    output = "character",
+    email = "character"
   ),
-  prototype(
+  prototype
+  (
     block = 2,
     nchain = 4,
-    fit = ".",
-    path = ".",
-    email = "UserName@email.com",
-    rdatafile = "rdata.RData"
+    fits = "NULL",
+    path = "NULL",
+    output = "NULL",
+    email = "UserName@email.com"
   )
 )
 
@@ -118,8 +119,8 @@ setMethod("model0", signature(object = "slurm"), function(object)
 
     # Create Rscript for SLURM submit.
     sink(file.path(object@path,"model0_hpc.R"))
-    cat("library(seamassdelta)\n")
-    cat("process_model0(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
+    cat("library(seaMass)\n")
+    cat("sigma_process0(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
     sink()
 
     totalJobs = object@block * object@nchain - 1
@@ -147,6 +148,13 @@ setMethod("model0", signature(object = "slurm"), function(object)
       cat(sprintf("#SBATCH --mail-user=%s\n\n",object@email))
     }
 
+    cat(sprintf("fit=("))
+    for(i in object$fits)
+    {
+      cat(sprintf("%s "),i)
+    }
+    cat(sprintf("(\n"))
+
     cat(sprintf("#SBATCH --array=0-%d\n",totalJobs))
 
     # Sweep SLURM arrayjob over two variables.
@@ -158,7 +166,8 @@ setMethod("model0", signature(object = "slurm"), function(object)
     cat("taskNumber=$(( taskNumber / ${#chain_val[@]} ))\n")
     cat("block=${block_val[$(( taskNumber % ${#block_val[@]} ))]}\n\n")
 
-    cat(sprintf("srun Rscript model0_hpc.R %s $block $chain \n",object@fit))
+    #cat(sprintf("srun Rscript model0_hpc.R %s $block $chain \n",object@fit))
+    cat("srun Rscript model0_hpc.R ${fit[$block]} $chain \n")
 
     sink()
 
@@ -170,9 +179,9 @@ setMethod("model", signature(object = "slurm"), function(object)
   {
     # Create Rscript for SLURM submit.
     sink(file.path(object@path,"model_hpc.R"))
-    cat("library(seamassdelta)\n")
-		cat(sprintf("load(\"%s\")\n",object@rdatafile))
-    cat("process_model(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
+    cat("library(seaMass)\n")
+		#cat(sprintf("load(\"%s\")\n",object@rdatafile))
+    cat("sigma_process1(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
     sink()
 
     totalJobs = object@block * object@nchain - 1
@@ -210,7 +219,7 @@ setMethod("model", signature(object = "slurm"), function(object)
     cat("taskNumber=$(( taskNumber / ${#chain_val[@]} ))\n")
     cat("block=${block_val[$(( taskNumber % ${#block_val[@]} ))]}\n\n")
 
-    cat(sprintf("srun Rscript model_hpc.R %s $block $chain \n",object@fit))
+    #cat(sprintf("srun Rscript model_hpc.R %s $block $chain \n",object@fit))
     sink()
 
     #system(paste("chmod u+x",file.path(object@path,"model.slurm")))
@@ -222,8 +231,8 @@ setMethod("plots", signature(object = "slurm"), function(object)
   {
     # Create Rscript for SLURM submit.
     sink(file.path(object@path,"plots_hpc.R"))
-    cat("library(seamassdelta)\n")
-    cat("process_plots(commandArgs(T)[1], as.integer(commandArgs(T)[2]))\n")
+    cat("library(seaMass)\n")
+    cat("sigma_plots(commandArgs(T)[1], as.integer(commandArgs(T)[2]))\n")
     sink()
 
     sink(file.path(object@path,"plots.slurm"))
@@ -250,7 +259,7 @@ setMethod("plots", signature(object = "slurm"), function(object)
     }
 
     cat(sprintf("#SBATCH --array=1-%d\n",object@block))
-    cat(sprintf("srun Rscript plots_hpc.R %s $SLURM_ARRAY_TASK_ID\n\n",object@fit))
+    #cat(sprintf("srun Rscript plots_hpc.R %s $SLURM_ARRAY_TASK_ID\n\n",object@fit))
     sink()
 
     #system(paste("chmod u+x",file.path(object@path,"plots.slurm")))
@@ -303,8 +312,8 @@ setMethod("model0", signature(object = "pbs"), function(object)
   {
     # Create Rscript for SLURM submit.
     sink(file.path(object@path,"model0_hpc.r"))
-    cat("library(seamassdelta)\n")
-    cat("process_model0(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
+    cat("library(seaMass)\n")
+    cat(" sigma_process0(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
     sink()
 
     sink(file.path(object@path,"model0.pbs"))
@@ -342,8 +351,8 @@ setMethod("model", signature(object = "pbs"), function(object)
   {
     # Create Rscript for SLURM submit.
     sink(file.path(object@path,"model_hpc.r"))
-    cat("library(seamassdelta)\n")
-    cat("process_model(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
+    cat("library(seaMass)\n")
+    cat("sigma_process1(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
     sink()
 
     sink(file.path(object@path,"model.pbs"))
@@ -382,8 +391,8 @@ setMethod("plots", signature(object = "pbs"), function(object)
   {
     # Create Rscript for SLURM submit.
     sink(file.path(object@path,"plots_hpc.r"))
-    cat("library(seamassdelta)\n")
-    cat("process_plots(commandArgs(T)[1], as.integer(commandArgs(T)[2]))\n")
+    cat("library(seaMass)\n")
+    cat("sigma_plots(commandArgs(T)[1], as.integer(commandArgs(T)[2]))\n")
     sink()
 
     sink(file.path(object@path,"plots.pbs"))
@@ -509,8 +518,8 @@ setMethod("model0", signature(object = "sge"), function(object)
   {
     # Create Rscript for SLURM submit.
     sink(file.path(object@path,"model0_hpc.r"))
-    cat("library(seamassdelta)\n")
-    cat("process_model0(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
+    cat("library(seaMass)\n")
+    cat("sigma_process0(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
     sink()
 
     sink(file.path(object@path,"model0.sge"))
@@ -548,8 +557,8 @@ setMethod("model", signature(object = "sge"), function(object)
   {
     # Create Rscript for SLURM submit.
     sink(file.path(object@path,"model_hpc.r"))
-    cat("library(seamassdelta)\n")
-    cat("process_model(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
+    cat("library(seaMass)\n")
+    cat("sigma_process1(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
     sink()
 
     sink(file.path(object@path,"model.sge"))
@@ -588,8 +597,8 @@ setMethod("plots", signature(object = "sge"), function(object)
   {
     # Create Rscript for SLURM submit.
     sink(file.path(object@path,"plots_hpc.r"))
-    cat("library(seamassdelta)\n")
-    cat("process_plots(commandArgs(T)[1], as.integer(commandArgs(T)[2]))\n")
+    cat("library(seaMass)\n")
+    cat("sigma_plots(commandArgs(T)[1], as.integer(commandArgs(T)[2]))\n")
     sink()
 
     sink(file.path(object@path,"plots.sge"))
