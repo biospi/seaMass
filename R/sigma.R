@@ -228,15 +228,15 @@ seaMass_sigma <- function(
       cpu <- hpc.schedule$taskCPU
     }
 
-    ofit <- vector()
+    fitpath <- vector()
     idx <- 1
     for ( i in fits)
     {
-      ofit[idx] <- i
+      fitpath[idx] <- i
       idx <- idx + 1
     }
 
-    clusterHPC <- new(control$hpc, block = length(fits), nchain = control$model.nchain, fits = "wtf", path = tmp.dir, output = hpc.schedule$output, email = hpc.schedule$email, cpuNum = cpu, node = hpc.schedule$node, taskPerNode = hpc.schedule$taskPerNode, mem = hpc.schedule$mem, que = hpc.schedule$que)
+    clusterHPC <- new(control$hpc, block = length(fits), nchain = control$model.nchain, fits = fitpath, path = tmp.dir, output = hpc.schedule$output, email = hpc.schedule$email, cpuNum = cpu, node = hpc.schedule$node, taskPerNode = hpc.schedule$taskPerNode, mem = hpc.schedule$mem, que = hpc.schedule$que)
 
     # Model0
     model0(clusterHPC)
@@ -251,7 +251,7 @@ seaMass_sigma <- function(
     wd <- getwd()
     setwd(tmp.dir)
 		#save(norm.func, dea.func, fdr.func, file = paste0(control$output,".RData"))
-    zip(file.path(wd, paste0(control$output, "_submit.zip")), ".", flags="-r9Xq")
+    zip(file.path(wd, paste0(control$name, "_submit.zip")), ".", flags="-r9Xq")
     setwd(wd)
 
     # clean up

@@ -116,7 +116,6 @@ setGeneric("submit",
 
 setMethod("model0", signature(object = "slurm"), function(object)
   {
-
     # Create Rscript for SLURM submit.
     sink(file.path(object@path,"model0_hpc.R"))
     cat("library(seaMass)\n")
@@ -148,12 +147,13 @@ setMethod("model0", signature(object = "slurm"), function(object)
       cat(sprintf("#SBATCH --mail-user=%s\n\n",object@email))
     }
 
+    print("what the fuck your here now!!!")
     cat(sprintf("fit=("))
-    for(i in object$fits)
+    for(i in seq(1, object@block,1))
     {
-      cat(sprintf("%s "),i)
+      cat(sprintf("%s ",object@fits[i]))
     }
-    cat(sprintf("(\n"))
+    cat(sprintf(")\n"))
 
     cat(sprintf("#SBATCH --array=0-%d\n",totalJobs))
 
