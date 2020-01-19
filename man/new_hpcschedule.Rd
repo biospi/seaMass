@@ -4,8 +4,9 @@
 \alias{new_hpcschedule}
 \title{HPC parameters for executing seaMass Bayesian model on HPC clusters}
 \usage{
-new_hpcschedule(taskCPU = NULL, que = "cpu", mem = "6G", node = 1,
-  taskPerNode = 1, output = "NULL", email = "UserName@email.com")
+new_hpcschedule(taskCPU = NULL, que = "cpu", mem = "6000m",
+  node = 1, taskPerNode = 1, output = "NULL", wallTime = "NULL",
+  compress = TRUE, email = "UserName@email.com")
 }
 \arguments{
 \item{taskCPU}{Number of CPUs to use per job submission. .i.e. equivilent to the number of threads per task.}
@@ -18,9 +19,11 @@ new_hpcschedule(taskCPU = NULL, que = "cpu", mem = "6G", node = 1,
 
 \item{taskPerNode}{Number of Nodes to use per task.}
 
-\item{output}{Output path is used to overide fit directory}
+\item{output}{Output path is used to overide fit directory.}
 
-\item{email}{email address to use for notigation of completed jobs on HPC system}
+\item{wallTime}{Specify walltime for HPC submission system.}
+
+\item{email}{email address to use for notigation of completed jobs on HPC system.}
 }
 \value{
 hpc.schedule object to pass to \link{seaMass}

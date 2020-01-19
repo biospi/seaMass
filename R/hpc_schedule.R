@@ -116,13 +116,42 @@ setGeneric("submit",
 ### slurm HPC Automation ###
 ############################
 
+
+gen_model0 <- function(path)
+{
+  sink(file.path(path,"model0_hpc.R"))
+  cat("library(seaMass)\n")
+  cat("fits <- commandArgs(T)[1]\n")
+  cat("class(fits) <- \"seaMass_sigma_fit\"\n")
+  cat("sigma_process0(fits, as.integer(commandArgs(T)[2]))\n")
+  sink()
+}
+
+gen_model <- function(path)
+{
+  sink(file.path(path,"model_hpc.R"))
+  cat("library(seaMass)\n")
+  cat("fits <- commandArgs(T)[1]\n")
+  cat("class(fits) <- \"seaMass_sigma_fit\"\n")
+  cat("sigma_process1(fits, as.integer(commandArgs(T)[2]))\n")
+  sink()
+}
+
+gen_plots <- function(path)
+{
+  sink(file.path(path,"plots_hpc.R"))
+  cat("library(seaMass)\n")
+  cat("fits <- commandArgs(T)[1]\n")
+  cat("class(fits) <- \"seaMass_sigma_fit\"\n")
+  cat("sigma_plots(fits, as.integer(commandArgs(T)[2]))\n")
+  sink()
+}
+
+
 setMethod("model0", signature(object = "slurm"), function(object)
   {
     # Create Rscript for SLURM submit.
-    sink(file.path(object@path,"model0_hpc.R"))
-    cat("library(seaMass)\n")
-    cat("sigma_process0(commandArgs(T)[1], as.integer(commandArgs(T)[2]))\n")
-    sink()
+    gen_model0(object@path)
 
     totalJobs = object@block * object@nchain - 1
     sink(file.path(object@path,"model0.slurm"))
@@ -172,17 +201,14 @@ setMethod("model0", signature(object = "slurm"), function(object)
     cat("srun Rscript model0_hpc.R ${fit[$block-1]} $chain \n")
     sink()
 
-    system(paste("chmod u+x",file.path(object@path,"model0.slurm")))
+    #system(paste("chmod u+x",file.path(object@path,"model0.slurm")))
   }
 )
 
 setMethod("model", signature(object = "slurm"), function(object)
   {
     # Create Rscript for SLURM submit.
-    sink(file.path(object@path,"model_hpc.R"))
-    cat("library(seaMass)\n")
-    cat("sigma_process1(commandArgs(T)[1], as.integer(commandArgs(T)[2]))\n")
-    sink()
+    gen_model(object@path)
 
     totalJobs = object@block * object@nchain - 1
     sink(file.path(object@path,"model.slurm"))
@@ -240,10 +266,7 @@ setMethod("model", signature(object = "slurm"), function(object)
 setMethod("plots", signature(object = "slurm"), function(object)
   {
     # Create Rscript for SLURM submit.
-    sink(file.path(object@path,"plots_hpc.R"))
-    cat("library(seaMass)\n")
-    cat("sigma_plots(commandArgs(T)[1], as.integer(commandArgs(T)[2]))\n")
-    sink()
+    gen_plots(object@path)
 
     totalJobs = object@block * object@nchain - 1
     sink(file.path(object@path,"plots.slurm"))
@@ -294,7 +317,7 @@ setMethod("plots", signature(object = "slurm"), function(object)
 
     sink()
 
-    system(paste("chmod u+x",file.path(object@path,"plots.slurm")))
+    #system(paste("chmod u+x",file.path(object@path,"plots.slurm")))
   }
 )
 
@@ -549,10 +572,7 @@ setMethod("submit", signature(object = "pbs"), function(object)
 setMethod("model0", signature(object = "sge"), function(object)
   {
     # Create Rscript for SLURM submit.
-    sink(file.path(object@path,"model0_hpc.R"))
-    cat("library(seaMass)\n")
-    cat("sigma_process0(commandArgs(T)[1], as.integer(commandArgs(T)[2]))\n")
-    sink()
+    gen_model0(object@path)
 
     totalJobs = object@block * object@nchain - 1
     sink(file.path(object@path,"model0.sge"))
@@ -598,17 +618,14 @@ setMethod("model0", signature(object = "sge"), function(object)
     cat("Rscript model0_hpc.R ${fit[$block-1]} $chain \n")
     sink()
 
-    system(paste("chmod u+x",file.path(object@path,"model0.sge")))
+    #system(paste("chmod u+x",file.path(object@path,"model0.sge")))
   }
 )
 
 setMethod("model", signature(object = "sge"), function(object)
   {
     # Create Rscript for SLURM submit.
-    sink(file.path(object@path,"model_hpc.R"))
-    cat("library(seaMass)\n")
-    cat("sigma_process1(commandArgs(T)[1], as.integer(commandArgs(T)[2]))\n")
-    sink()
+    gen_model(object@path)
 
     totalJobs = object@block * object@nchain - 1
     sink(file.path(object@path,"model.sge"))
@@ -655,7 +672,7 @@ setMethod("model", signature(object = "sge"), function(object)
     cat("Rscript model_hpc.R ${fit[$block-1]} $chain \n")
     sink()
 
-    system(paste("chmod u+x",file.path(object@path,"model.sge")))
+    #system(paste("chmod u+x",file.path(object@path,"model.sge")))
   }
 )
 
@@ -663,10 +680,7 @@ setMethod("model", signature(object = "sge"), function(object)
 setMethod("plots", signature(object = "sge"), function(object)
   {
     # Create Rscript for SLURM submit.
-    sink(file.path(object@path,"plots_hpc.R"))
-    cat("library(seaMass)\n")
-    cat("sigma_plots(commandArgs(T)[1], as.integer(commandArgs(T)[2]))\n")
-    sink()
+    gen_plots(object@path)
 
     totalJobs = object@block * object@nchain - 1
     sink(file.path(object@path,"plots.sge"))
@@ -714,7 +728,7 @@ setMethod("plots", signature(object = "sge"), function(object)
 
     sink()
 
-    system(paste("chmod u+x",file.path(object@path,"plots.sge")))
+    #system(paste("chmod u+x",file.path(object@path,"plots.sge")))
   }
 )
 
