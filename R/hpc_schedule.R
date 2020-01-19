@@ -30,7 +30,8 @@ setClass("slurm",
     node = "numeric",
     taskPerNode = "numeric",
     mem = "character",
-    que = "character"
+    que = "character",
+    wallTime = "character"
   ),
   prototype
   (
@@ -38,7 +39,8 @@ setClass("slurm",
     node = 1,
     taskPerNode = 1,
     mem = "64000m",
-    que = "cpu"
+    que = "cpu",
+    wallTime = "12:00:00"
   ),
   contains = "ScheduleHPC"
 )
@@ -119,35 +121,36 @@ setMethod("model0", signature(object = "slurm"), function(object)
     # Create Rscript for SLURM submit.
     sink(file.path(object@path,"model0_hpc.R"))
     cat("library(seaMass)\n")
-    cat("sigma_process0(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
+    cat("sigma_process0(commandArgs(T)[1], as.integer(commandArgs(T)[2]))\n")
     sink()
 
     totalJobs = object@block * object@nchain - 1
     sink(file.path(object@path,"model0.slurm"))
-
     cat("#!/bin/bash\n\n")
 
     #cat("#SBATCH --export=ALL\n")
     #cat(sprintf("#SBATCH --workdir=%s\n",object@fit))
-    cat("#SBATCH --workdir=.\n")
+    #cat("#SBATCH --workdir=.\n")
     cat("#SBATCH --output=slurm-%A_%a.out\n")
     #cat("#SBATCH --requeue\n")
-    cat("#SBATCH --mail-type=FAIL\n\n")
 
     cat(sprintf("#SBATCH --nodes=%d\n",object@node))
     cat(sprintf("#SBATCH --tasks-per-node=%d\n",object@taskPerNode))
     cat(sprintf("#SBATCH --cpus-per-task=%d\n",object@cpuNum))
     cat(sprintf("#SBATCH --mem=%s\n\n",object@mem))
 
-    cat(sprintf("#SBATCH --partition=%s\n",object@que))
-    cat("#SBATCH --time=14-00:00:00\n\n")
+    if (object@wallTime != "NULL")
+    {
+      cat(sprintf("#SBATCH --time=%s\n",object@wallTime))
+    }
+    cat(sprintf("#SBATCH --partition=%s\n\n",object@que))
 
-    cat("#SBATCH --job-name=smd.model0\n")
+    cat("#SBATCH --job-name=sm.Sigma0\n")
     if (object@email != "UserName@email.com"){
       cat(sprintf("#SBATCH --mail-user=%s\n\n",object@email))
+      cat("#SBATCH --mail-type=FAIL\n\n")
     }
 
-    print("what the fuck your here now!!!")
     cat(sprintf("fit=("))
     for(i in seq(1, object@block,1))
     {
@@ -157,7 +160,6 @@ setMethod("model0", signature(object = "slurm"), function(object)
 
     cat(sprintf("#SBATCH --array=0-%d\n",totalJobs))
 
-    # Sweep SLURM arrayjob over two variables.
     cat(sprintf("chain_val=($( seq 1 1 %d ))\n",object@nchain))
     cat(sprintf("block_val=($( seq 1 1 %d ))\n\n",object@block))
 
@@ -167,11 +169,10 @@ setMethod("model0", signature(object = "slurm"), function(object)
     cat("block=${block_val[$(( taskNumber % ${#block_val[@]} ))]}\n\n")
 
     #cat(sprintf("srun Rscript model0_hpc.R %s $block $chain \n",object@fit))
-    cat("srun Rscript model0_hpc.R ${fit[$block]} $chain \n")
-
+    cat("srun Rscript model0_hpc.R ${fit[$block-1]} $chain \n")
     sink()
 
-    #system(paste("chmod u+x",file.path(object@path,"model0.slurm")))
+    system(paste("chmod u+x",file.path(object@path,"model0.slurm")))
   }
 )
 
@@ -180,8 +181,7 @@ setMethod("model", signature(object = "slurm"), function(object)
     # Create Rscript for SLURM submit.
     sink(file.path(object@path,"model_hpc.R"))
     cat("library(seaMass)\n")
-		#cat(sprintf("load(\"%s\")\n",object@rdatafile))
-    cat("sigma_process1(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
+    cat("sigma_process1(commandArgs(T)[1], as.integer(commandArgs(T)[2]))\n")
     sink()
 
     totalJobs = object@block * object@nchain - 1
@@ -190,27 +190,36 @@ setMethod("model", signature(object = "slurm"), function(object)
 
     #cat("#SBATCH --export=ALL\n")
     #cat(sprintf("#SBATCH --workdir=%s\n",object@fit))
-    cat("#SBATCH --workdir=.\n")
+    #cat("#SBATCH --workdir=.\n")
     cat("#SBATCH --output=slurm-%A_%a.out\n")
     #cat("#SBATCH --requeue\n")
-    cat("#SBATCH --mail-type=FAIL\n\n")
 
     cat(sprintf("#SBATCH --nodes=%d\n",object@node))
     cat(sprintf("#SBATCH --tasks-per-node=%d\n",object@taskPerNode))
     cat(sprintf("#SBATCH --cpus-per-task=%d\n",object@cpuNum))
     cat(sprintf("#SBATCH --mem=%s\n\n",object@mem))
 
-    cat(sprintf("#SBATCH --partition=%s\n",object@que))
-    cat("#SBATCH --time=14-00:00:00\n\n")
+    if (object@wallTime != "NULL")
+    {
+      cat(sprintf("#SBATCH --time=%s\n",object@wallTime))
+    }
+    cat(sprintf("#SBATCH --partition=%s\n\n",object@que))
 
-    cat("#SBATCH --job-name=smd.model\n")
+    cat("#SBATCH --job-name=smSigma1\n")
     if (object@email != "UserName@email.com"){
       cat(sprintf("#SBATCH --mail-user=%s\n\n",object@email))
+      cat("#SBATCH --mail-type=FAIL\n\n")
     }
+
+    cat(sprintf("fit=("))
+    for(i in seq(1, object@block,1))
+    {
+      cat(sprintf("%s ",object@fits[i]))
+    }
+    cat(sprintf(")\n"))
 
     cat(sprintf("#SBATCH --array=0-%d\n",totalJobs))
 
-    # Sweep SLURM arrayjob over two variables.
     cat(sprintf("chain_val=($( seq 1 1 %d ))\n",object@nchain))
     cat(sprintf("block_val=($( seq 1 1 %d ))\n\n",object@block))
 
@@ -220,6 +229,7 @@ setMethod("model", signature(object = "slurm"), function(object)
     cat("block=${block_val[$(( taskNumber % ${#block_val[@]} ))]}\n\n")
 
     #cat(sprintf("srun Rscript model_hpc.R %s $block $chain \n",object@fit))
+    cat("srun Rscript model_hpc.R ${fit[$block-1]} $chain \n")
     sink()
 
     #system(paste("chmod u+x",file.path(object@path,"model.slurm")))
@@ -235,34 +245,56 @@ setMethod("plots", signature(object = "slurm"), function(object)
     cat("sigma_plots(commandArgs(T)[1], as.integer(commandArgs(T)[2]))\n")
     sink()
 
+    totalJobs = object@block * object@nchain - 1
     sink(file.path(object@path,"plots.slurm"))
     cat("#!/bin/bash\n\n")
 
     #cat("#SBATCH --export=ALL\n")
     #cat(sprintf("#SBATCH --workdir=%s\n",object@fit))
-    cat("#SBATCH --workdir=.\n")
+    #cat("#SBATCH --workdir=.\n")
     cat("#SBATCH --output=slurm-%A_%a.out\n")
     #cat("#SBATCH --requeue\n")
-    cat("#SBATCH --mail-type=FAIL\n\n")
 
     cat(sprintf("#SBATCH --nodes=%d\n",object@node))
     cat(sprintf("#SBATCH --tasks-per-node=%d\n",object@taskPerNode))
     cat(sprintf("#SBATCH --cpus-per-task=%d\n",object@cpuNum))
     cat(sprintf("#SBATCH --mem=%s\n\n",object@mem))
 
-    cat(sprintf("#SBATCH --partition=%s\n",object@que))
-    cat("#SBATCH --time=14-00:00:00\n\n")
+    if (object@wallTime != "NULL")
+    {
+      cat(sprintf("#SBATCH --time=%s\n",object@wallTime))
+    }
+    cat(sprintf("#SBATCH --partition=%s\n\n",object@que))
 
     cat("#SBATCH --job-name=bp.plots\n")
     if (object@email != "UserName@email.com"){
       cat(sprintf("#SBATCH --mail-user=%s\n\n",object@email))
+      cat("#SBATCH --mail-type=FAIL\n\n")
     }
 
-    cat(sprintf("#SBATCH --array=1-%d\n",object@block))
+    cat(sprintf("fit=("))
+    for(i in seq(1, object@block,1))
+    {
+      cat(sprintf("%s ",object@fits[i]))
+    }
+    cat(sprintf(")\n"))
+
+    cat(sprintf("#SBATCH --array=1-%d\n",totalJobs))
+
+    cat(sprintf("chain_val=($( seq 1 1 %d ))\n",object@nchain))
+    cat(sprintf("block_val=($( seq 1 1 %d ))\n\n",object@block))
+
+    cat("taskNumber=${SLURM_ARRAY_TASK_ID}\n")
+    cat("chain=${chain_val[$(( taskNumber % ${#chain_val[@]} ))]}\n")
+    cat("taskNumber=$(( taskNumber / ${#chain_val[@]} ))\n")
+    cat("block=${block_val[$(( taskNumber % ${#block_val[@]} ))]}\n\n")
+
     #cat(sprintf("srun Rscript plots_hpc.R %s $SLURM_ARRAY_TASK_ID\n\n",object@fit))
+    cat("srun Rscript plots_hpc.R ${fit[$block-1]} $chain \n")
+
     sink()
 
-    #system(paste("chmod u+x",file.path(object@path,"plots.slurm")))
+    system(paste("chmod u+x",file.path(object@path,"plots.slurm")))
   }
 )
 
@@ -299,7 +331,7 @@ setMethod("submit", signature(object = "slurm"), function(object)
 
     sink()
 
-    #system(paste("chmod u+x",file.path(object@path,"slurm.sh")))
+    system(paste("chmod u+x",file.path(object@path,"slurm.sh")))
   }
 )
 
@@ -517,78 +549,113 @@ setMethod("submit", signature(object = "pbs"), function(object)
 setMethod("model0", signature(object = "sge"), function(object)
   {
     # Create Rscript for SLURM submit.
-    sink(file.path(object@path,"model0_hpc.r"))
+    sink(file.path(object@path,"model0_hpc.R"))
     cat("library(seaMass)\n")
-    cat("sigma_process0(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
+    cat("sigma_process0(commandArgs(T)[1], as.integer(commandArgs(T)[2]))\n")
     sink()
 
+    totalJobs = object@block * object@nchain - 1
     sink(file.path(object@path,"model0.sge"))
     cat("#!/bin/bash\n\n")
 
-    cat("#$ -o model0\n")
+    #cat("#$ -o model0\n")
+    cat("#$ -cwd -V\n")
+    cat("#$ -N sm.Sigma0\n")
     cat("#$ -j oe\n")
     cat("#$ -r y\n\n")
 
-    cat(sprintf("#$ -l nodes=%d:ppn=%d\n",object@node,object@cpuNum))
+    #cat(sprintf("#$ -l nodes=%d:ppn=%d\n",object@node,object@cpuNum))
+    cat(sprintf("#$ -pe smp %d",object@cpuNum))
     cat(sprintf("#$ -l mem=%s\n\n",object@mem))
 
-    cat(sprintf("#$ -q %s\n",object@que))
-    cat(sprintf("#$ -l walltime=%s\n\n",object@wallTime))
+    if (object@wallTime != "NULL")
+    {
+      cat(sprintf("#$ -l walltime=%s\n",object@wallTime))
+    }
+    cat(sprintf("#$ -q %s\n\n",object@que))
 
-    cat("#$ -N bp.model0\n")
     if (object@email != "UserName@email.com"){
       cat(sprintf("#$ -M %s\n\n",object@email))
     }
 
-    cat(sprintf("#$ -t 1-%d\n",object@nchain))
-    cat("cd $PBS_O_WORKDIR/model0/results\n")
-    cat("Rscript --vanilla ../../model0_hpc.R $PBS_ARRAYID\n\n")
+    cat(sprintf("fit=("))
+    for(i in seq(1, object@block,1))
+    {
+      cat(sprintf("%s ",object@fits[i]))
+    }
+    cat(sprintf(")\n"))
 
-    cat("EXITCODE=$?\n")
-    cat("qstat -f $PBS_JOBID\n")
-    cat("exit $EXITCODE\n\n")
+    cat(sprintf("#$ -t 1-%d\n",totalJobs))
+
+    cat(sprintf("chain_val=($( seq 1 1 %d ))\n",object@nchain))
+    cat(sprintf("block_val=($( seq 1 1 %d ))\n\n",object@block))
+
+    cat("taskNumber=${SGE_TASK_ID}\n")
+    cat("chain=${chain_val[$(( taskNumber % ${#chain_val[@]} ))]}\n")
+    cat("taskNumber=$(( taskNumber / ${#chain_val[@]} ))\n")
+    cat("block=${block_val[$(( taskNumber % ${#block_val[@]} ))]}\n\n")
+
+    cat("Rscript model0_hpc.R ${fit[$block-1]} $chain \n")
     sink()
 
-    #system(paste("chmod u+x",file.path(object@path,"model0.sge")))
+    system(paste("chmod u+x",file.path(object@path,"model0.sge")))
   }
 )
 
 setMethod("model", signature(object = "sge"), function(object)
   {
     # Create Rscript for SLURM submit.
-    sink(file.path(object@path,"model_hpc.r"))
+    sink(file.path(object@path,"model_hpc.R"))
     cat("library(seaMass)\n")
-    cat("sigma_process1(commandArgs(T)[1], as.integer(commandArgs(T)[2]), as.integer(commandArgs(T)[3]))\n")
+    cat("sigma_process1(commandArgs(T)[1], as.integer(commandArgs(T)[2]))\n")
     sink()
 
+    totalJobs = object@block * object@nchain - 1
     sink(file.path(object@path,"model.sge"))
     cat("#!/bin/bash\n\n")
 
-    cat("#$ -o model\n")
+    #cat("#$ -o model\n")
+    cat("#$ -cwd -V\n")
+    cat("#$ -N sm.Sigma\n")
     cat("#$ -j oe\n")
     cat("#$ -r y\n\n")
 
-    cat(sprintf("#$ -l nodes=%d:ppn=%d\n",object@node,object@cpuNum))
+    #cat(sprintf("#$ -l nodes=%d:ppn=%d\n",object@node,object@cpuNum))
+    cat(sprintf("#$ -pe smp %d",object@cpuNum))
     cat(sprintf("#$ -l mem=%s\n\n",object@mem))
 
-    cat(sprintf("#$ -q %s\n",object@que))
-    cat(sprintf("#$ -l walltime=%s\n\n",object@wallTime))
+    if (object@wallTime != "NULL")
+    {
+      cat(sprintf("#$ -l walltime=%s\n",object@wallTime))
+    }
+    cat(sprintf("#$ -q %s\n\n",object@que))
 
-    cat("#$ -N bp.model\n")
     if (object@email != "UserName@email.com"){
       cat(sprintf("#$ -M %s\n\n",object@email))
     }
 
-    cat(sprintf("#$ -t 1-%d\n",object@nchain))
-    cat("cd $PBS_O_WORKDIR/model/results\n")
-    cat("Rscript --vanilla ../../model_hpc.R $PBS_ARRAYID\n\n")
+    cat(sprintf("fit=("))
+    for(i in seq(1, object@block,1))
+    {
+      cat(sprintf("%s ",object@fits[i]))
+    }
+    cat(sprintf(")\n"))
 
-    cat("EXITCODE=$?\n")
-    cat("qstat -f $PBS_JOBID\n")
-    cat("exit $EXITCODE\n\n")
+    cat(sprintf("#$ -t 1-%d\n",totalJobs))
+
+    cat(sprintf("chain_val=($( seq 1 1 %d ))\n",object@nchain))
+    cat(sprintf("block_val=($( seq 1 1 %d ))\n\n",object@block))
+
+    cat("taskNumber=${SGE_TASK_ID}\n")
+    cat("chain=${chain_val[$(( taskNumber % ${#chain_val[@]} ))]}\n")
+    cat("taskNumber=$(( taskNumber / ${#chain_val[@]} ))\n")
+    cat("block=${block_val[$(( taskNumber % ${#block_val[@]} ))]}\n\n")
+
+    #cat(sprintf("srun Rscript model_hpc.R %s $block $chain \n",object@fit))
+    cat("Rscript model_hpc.R ${fit[$block-1]} $chain \n")
     sink()
 
-    #system(paste("chmod u+x",file.path(object@path,"model.sge")))
+    system(paste("chmod u+x",file.path(object@path,"model.sge")))
   }
 )
 
@@ -596,39 +663,58 @@ setMethod("model", signature(object = "sge"), function(object)
 setMethod("plots", signature(object = "sge"), function(object)
   {
     # Create Rscript for SLURM submit.
-    sink(file.path(object@path,"plots_hpc.r"))
+    sink(file.path(object@path,"plots_hpc.R"))
     cat("library(seaMass)\n")
     cat("sigma_plots(commandArgs(T)[1], as.integer(commandArgs(T)[2]))\n")
     sink()
 
+    totalJobs = object@block * object@nchain - 1
     sink(file.path(object@path,"plots.sge"))
     cat("#!/bin/bash\n\n")
 
-    cat("#$ -o plots\n")
+    #cat("#$ -o plots\n")
+    cat("#$ -cwd -V\n")
+    cat("#$ -N sm.Plots\n")
     cat("#$ -j oe\n")
     cat("#$ -r y\n\n")
 
-    cat(sprintf("#$ -l nodes=%d:ppn=%d\n",object@node,object@cpuNum))
+    #cat(sprintf("#$ -l nodes=%d:ppn=%d\n",object@node,object@cpuNum))
+    cat(sprintf("#$ -pe smp %d",object@cpuNum))
     cat(sprintf("#$ -l mem=%s\n\n",object@mem))
 
-    cat(sprintf("#$ -q %s\n",object@que))
-    cat(sprintf("#$ -l walltime=%s\n\n",object@wallTime))
+    if (object@wallTime != "NULL")
+    {
+      cat(sprintf("#$ -l walltime=%s\n",object@wallTime))
+    }
+    cat(sprintf("#$ -q %s\n\n",object@que))
 
-    cat("#$ -N bp.plots\n")
     if (object@email != "UserName@email.com"){
       cat(sprintf("#$ -M %s\n\n",object@email))
     }
 
-    cat(sprintf("#$ -t 1-%d\n",object@nchain))
-    cat("cd $PBS_O_WORKDIR/plots/results\n")
-    cat("Rscript ../../plots.R $PBS_ARRAYID\n\n")
+    cat(sprintf("fit=("))
+    for(i in seq(1, object@block,1))
+    {
+      cat(sprintf("%s ",object@fits[i]))
+    }
+    cat(sprintf(")\n"))
 
-    cat("EXITCODE=$?\n")
-    cat("qstat -f $PBS_JOBID\n")
-    cat("exit $EXITCODE\n\n")
+    cat(sprintf("#$ -t 1-%d\n",totalJobs))
+
+    cat(sprintf("chain_val=($( seq 1 1 %d ))\n",object@nchain))
+    cat(sprintf("block_val=($( seq 1 1 %d ))\n\n",object@block))
+
+    cat("taskNumber=${SLURM_ARRAY_TASK_ID}\n")
+    cat("chain=${chain_val[$(( taskNumber % ${#chain_val[@]} ))]}\n")
+    cat("taskNumber=$(( taskNumber / ${#chain_val[@]} ))\n")
+    cat("block=${block_val[$(( taskNumber % ${#block_val[@]} ))]}\n\n")
+
+    #cat(sprintf("srun Rscript plots_hpc.R %s $SLURM_ARRAY_TASK_ID\n\n",object@fit))
+    cat("Rscript plots_hpc.R ${fit[$block-1]} $chain \n")
+
     sink()
 
-    #system(paste("chmod u+x",file.path(object@path,"plots.sge")))
+    system(paste("chmod u+x",file.path(object@path,"plots.sge")))
   }
 )
 
@@ -642,8 +728,8 @@ setMethod("submit", signature(object = "sge"), function(object)
 
     cat("# job chain\n")
     cat("MODEL0=$(qsub model0.sge)\n")
-    cat("MODEL=$(qsub -W depend=afterokarray:$MODEL0 model.sge)\n")
-    cat("PLOTS=$(qsub -W depend=afterokarray:$MODEL plots.sge)\n")
+    cat("MODEL=$(qsub -hold_jid_ad model0.sge model.sge)\n")
+    cat("PLOTS=$(qsub -hold_jid_ad model.sge plots.sge)\n")
     cat("EXITCODE=$?\n\n")
 
     cat("# clean up\n")

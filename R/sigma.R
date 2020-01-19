@@ -232,11 +232,26 @@ seaMass_sigma <- function(
     idx <- 1
     for ( i in fits)
     {
-      fitpath[idx] <- i
-      idx <- idx + 1
+      if (hpc.schedule$output != "NULL")
+      {
+        dname=basename(i)
+        fitpath[idx] <- file.path(hpc.schedule$output,dname)
+        idx <- idx + 1
+      } else {
+        fitpath[idx] <- i
+        idx <- idx + 1
+      }
     }
 
-    clusterHPC <- new(control$hpc, block = length(fits), nchain = control$model.nchain, fits = fitpath, path = tmp.dir, output = hpc.schedule$output, email = hpc.schedule$email, cpuNum = cpu, node = hpc.schedule$node, taskPerNode = hpc.schedule$taskPerNode, mem = hpc.schedule$mem, que = hpc.schedule$que)
+    if (control$hpc == "slurm"){
+      clusterHPC <- new(control$hpc, block = length(fits), nchain = control$model.nchain, fits = fitpath, path = tmp.dir, output = hpc.schedule$output, email = hpc.schedule$email, cpuNum = cpu, node = hpc.schedule$node, taskPerNode = hpc.schedule$taskPerNode, mem = hpc.schedule$mem, que = hpc.schedule$que, wallTime = hpc.schedule$wallTime)
+    } else if (control$hpc == "pbs") {
+      stop("PBS system not tested yet")
+    } else if (control$hpc == "sge") {
+      clusterHPC <- new(control$hpc, block = length(fits), nchain = control$model.nchain, fits = fitpath, path = tmp.dir, output = hpc.schedule$output, email = hpc.schedule$email, cpuNum = cpu, node = hpc.schedule$node, mem = hpc.schedule$mem, que = hpc.schedule$que, wallTime = hpc.schedule$wallTime)
+    } else {
+      stop("Unknown HPC system not implemented yet")
+    }
 
     # Model0
     model0(clusterHPC)
@@ -247,11 +262,16 @@ seaMass_sigma <- function(
     # Submit Script
     submit(clusterHPC)
 
-    # create zip file
     wd <- getwd()
     setwd(tmp.dir)
-		#save(norm.func, dea.func, fdr.func, file = paste0(control$output,".RData"))
-    zip(file.path(wd, paste0(control$name, "_submit.zip")), ".", flags="-r9Xq")
+    if (hpc.schedule$compress == TRUE)
+    {
+      # create zip file
+      zip(file.path(wd, paste0(control$name, "_submit.zip")), ".", flags="-r9Xq")
+    } else {
+      allfiles <- list.files(tmp.dir)
+      file.copy(allfiles,wd)
+    }
     setwd(wd)
 
     # clean up
@@ -349,17 +369,20 @@ new_sigma_control <- function(
 #' @param mem Amount of memory needed for each task.
 #' @param node Number of nodes to use per task.
 #' @param taskPerNode Number of Nodes to use per task.
-#' @param output Output path is used to overide fit directory
-#' @param email email address to use for notigation of completed jobs on HPC system
+#' @param output Output path is used to overide fit directory.
+#' @param wallTime Specify walltime for HPC submission system.
+#' @param email email address to use for notigation of completed jobs on HPC system.
 #' @return hpc.schedule object to pass to \link{seaMass}
 #' @export
 new_hpcschedule <- function(
     taskCPU = NULL,
     que = "cpu",
-    mem = '6G',
+    mem = '6000m',
     node = 1,
     taskPerNode = 1,
     output = "NULL",
+    wallTime = "NULL",
+    compress = TRUE,
     email = "UserName@email.com"
 ) {
   hpc.schedule <- as.list(environment())
