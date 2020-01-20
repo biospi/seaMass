@@ -251,7 +251,10 @@ seaMass_sigma <- function(
     # Model:
     model(clusterHPC)
     # Plots:
-    plots(clusterHPC)
+    if (control$plots == TRUE)
+    {
+      plots(clusterHPC)
+    }
     # Submit Script
     submit(clusterHPC)
 
