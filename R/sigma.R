@@ -221,13 +221,6 @@ seaMass_sigma <- function(
     tmp.dir <- tempfile("bayesprot.")
     dir.create(tmp.dir, showWarnings = FALSE)
 
-    if (is.null(hpc.schedule$taskCPU))
-    {
-      cpu <- control$nthread
-    } else {
-      cpu <- hpc.schedule$taskCPU
-    }
-
     fitpath <- vector()
     idx <- 1
     for ( i in fits)
@@ -244,11 +237,11 @@ seaMass_sigma <- function(
     }
 
     if (control$hpc == "slurm"){
-      clusterHPC <- new(control$hpc, block = length(fits), nchain = control$model.nchain, fits = fitpath, path = tmp.dir, output = hpc.schedule$output, email = hpc.schedule$email, cpuNum = cpu, node = hpc.schedule$node, taskPerNode = hpc.schedule$taskPerNode, mem = hpc.schedule$mem, que = hpc.schedule$que, wallTime = hpc.schedule$wallTime)
+      clusterHPC <- new(control$hpc, block = length(fits), nchain = control$model.nchain, fits = fitpath, path = tmp.dir, output = hpc.schedule$output, email = hpc.schedule$email, cpuNum = control$nthread, node = hpc.schedule$node, taskPerNode = hpc.schedule$taskPerNode, mem = hpc.schedule$mem, que = hpc.schedule$que, wallTime = hpc.schedule$wallTime)
     } else if (control$hpc == "pbs") {
       stop("PBS system not tested yet")
     } else if (control$hpc == "sge") {
-      clusterHPC <- new(control$hpc, block = length(fits), nchain = control$model.nchain, fits = fitpath, path = tmp.dir, output = hpc.schedule$output, email = hpc.schedule$email, cpuNum = cpu, node = hpc.schedule$node, mem = hpc.schedule$mem, que = hpc.schedule$que, wallTime = hpc.schedule$wallTime)
+      clusterHPC <- new(control$hpc, block = length(fits), nchain = control$model.nchain, fits = fitpath, path = tmp.dir, output = hpc.schedule$output, email = hpc.schedule$email, cpuNum = control$nthread, node = hpc.schedule$node, mem = hpc.schedule$mem, que = hpc.schedule$que, wallTime = hpc.schedule$wallTime)
     } else {
       stop("Unknown HPC system not implemented yet")
     }
@@ -364,7 +357,6 @@ new_sigma_control <- function(
 #' HPC parameters for executing seaMass Bayesian model on HPC clusters
 #'
 #' Each stage of seamasdelta is split into seperate tasks, currently each task only needs 1 node.
-#' @param taskCPU Number of CPUs to use per job submission. .i.e. equivilent to the number of threads per task.
 #' @param que Name of the que on the HPC to submit the jobs to. Different ques are tailered and have different requirements.
 #' @param mem Amount of memory needed for each task.
 #' @param node Number of nodes to use per task.
@@ -375,7 +367,6 @@ new_sigma_control <- function(
 #' @return hpc.schedule object to pass to \link{seaMass}
 #' @export
 new_hpcschedule <- function(
-    taskCPU = NULL,
     que = "cpu",
     mem = '6000m',
     node = 1,

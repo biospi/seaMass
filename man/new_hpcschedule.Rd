@@ -4,13 +4,11 @@
 \alias{new_hpcschedule}
 \title{HPC parameters for executing seaMass Bayesian model on HPC clusters}
 \usage{
-new_hpcschedule(taskCPU = NULL, que = "cpu", mem = "6000m",
-  node = 1, taskPerNode = 1, output = "NULL", wallTime = "NULL",
+new_hpcschedule(que = "cpu", mem = "6000m", node = 1,
+  taskPerNode = 1, output = "NULL", wallTime = "NULL",
   compress = TRUE, email = "UserName@email.com")
 }
 \arguments{
-\item{taskCPU}{Number of CPUs to use per job submission. .i.e. equivilent to the number of threads per task.}
-
 \item{que}{Name of the que on the HPC to submit the jobs to. Different ques are tailered and have different requirements.}
 
 \item{mem}{Amount of memory needed for each task.}
