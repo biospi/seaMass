@@ -4,72 +4,86 @@
 #' @return The sum of \code{x} and \code{y}.
 #' @import data.table
 #' @export
-plot_pca <- function(fit, data = normalised_group_quants(fit), data.summary = normalised_group_quants(fit, summary = T), data.design = assay_design(fit), contours = c(1, 2), robust = TRUE) {
-  DT <- as.data.table(data)
-  DT.summary <- as.data.table(data.summary)
+plot_pca <- function(
+  fit,
+  data = normalised_group_quants(fit),
+  data.summary = normalised_group_quants(fit, summary = T),
+  data.design = assay_design(fit),
+  contours = 1:2,
+  robust = TRUE
+) {
+  data.is.data.table <- is.data.table(data)
+  data.summary.is.data.table <- is.data.table(data.summary)
+  if (!data.is.data.table) setDT(data)
+  if (!data.summary.is.data.table) setDT(data.summary)
   DT.design <- as.data.table(data.design)
 
-  # remove assays with zero variance (pure reference samples) and groups with missing values
-  assays <- DT.summary[, .(use = var(m) >= 0.0000001), by = Assay][use == T, Assay]
-  groups <- data.table::dcast(DT.summary, Group ~ Assay, value.var = "m")
+  # assays with zero variance (pure reference samples) and groups with missing values, to remove later
+  assays <- data.summary[, .(use = var(m) >= 1e-5), by = Assay][use == T, Assay]
+  groups <- data.table::dcast(data.summary, Group ~ Assay, value.var = "m")
   groups <- groups[complete.cases(groups), Group]
 
-  DT.summary <- DT.summary[Assay %in% assays & Group %in% groups]
-  DT <- DT[Assay %in% assays & Group %in% groups]
-
   # format for PCA
-  DT.summary[, rowname := as.character(Assay)]
-  DT[, rowname := paste(Assay, chainID, mcmcID, sep = ".")]
+  data.summary[, rowname := as.character(Assay)]
+  data[, rowname := as.character(interaction(Assay, chainID, mcmcID), lex.order = T)]
 
-  data.summary <- setDF(data.table::dcast(DT.summary, rowname ~ Group, value.var = "m"))
-  rownames(data.summary) <- data.summary$rowname
-  data.summary$rowname <- NULL
+  DT <-setDF(rbind(
+    data.table::dcast(data.summary[Assay %in% assays & Group %in% groups], rowname ~ Group, value.var = "m"),
+    data.table::dcast(data[Assay %in% assays & Group %in% groups], rowname ~ Group, value.var = "value")
+  ))
+  rownames(DT) <- DT$rowname
+  DT$rowname <- NULL
 
-  data <- setDF(data.table::dcast(DT, rowname ~ Group, value.var = "value"))
-  rownames(data) <- data$rowname
-  data$rowname <- NULL
+  data[, rowname := NULL]
 
   # FactoMineR PCA
   if (robust) {
-    DT.se <- data.table::dcast(DT.summary, rowname ~ Group, value.var = "s")
+    # can row.w and col.w calculation be improved?
+    DT.se <- data.table::dcast(data.summary[Assay %in% assays & Group %in% groups], rowname ~ Group, value.var = "s")
     DT.se[, rowname := NULL]
-    row.w <- 1.0 / as.numeric(rowMeans(DT.se)^2)
-    col.w <- 1.0 / as.numeric(colMeans(DT.se^2))
-    ft <- FactoMineR::PCA(rbind(data, data.summary), scale.unit = F, ind.sup = 1:nrow(data), row.w = row.w, col.w = col.w, graph = F)
+    data.summary[, rowname := NULL]
+    row.w <- 1.0 / as.numeric(apply(DT.se, 1, median)^2)
+    col.w <- 1.0 / as.numeric(apply(DT.se, 2, median)^2)
+    rm(DT.se)
+
+    ft <- FactoMineR::PCA(DT, scale.unit = F, ind.sup = (length(assays) + 1):nrow(DT), row.w = row.w, col.w = col.w, graph = F)
   } else {
-    ft <- FactoMineR::PCA(rbind(data, data.summary), scale.unit = F, ind.sup = 1:nrow(data), graph = F)
+    ft <- FactoMineR::PCA(DT, scale.unit = F, ind.sup = (length(assays) + 1):nrow(DT), graph = F)
   }
 
   # extract main results (not needed)
-  #DT.summary.results <- data.table(
+  #DT.summary <- data.table(
   #  x = ft$ind$coord[,1],
   #  y = ft$ind$coord[,2],
   #  Assay = factor(rownames(ft$ind$coord), levels = levels(DT.design$Assay))
   #)
-  #DT.summary.results <- merge(DT.summary.results, DT.design, by = "Assay")
-  #DT.summary.results[, SampleAssay := factor(paste0("(", Sample, ") ", Assay))]
+  #DT.summary <- merge(DT.summary, DT.design, by = "Assay")
+  #DT.summary[, SampleAssay := factor(paste0("(", Sample, ") ", Assay))]
 
   # extract 'supplementary' MCMC results
-  DT.results <- data.table(
+  DT <- data.table(
     x = ft$ind.sup$coord[,1],
     y = ft$ind.sup$coord[,2],
     Assay = factor(sub("\\.[0-9]+\\.[0-9]+$", "", rownames(ft$ind.sup$coord)), levels = levels(DT.design$Assay))
   )
-  DT.results <- merge(DT.results, DT.design, by = "Assay")
-  DT.results[, SampleAssay := factor(paste0("(", Sample, ") ", Assay))]
-  DT.results.median <- DT.results[, .(SampleAssay = first(SampleAssay), Condition = first(Condition), x = median(x), y = median(y)), by = Assay]
+  pc1 <- ft$eig[1, "percentage of variance"]
+  pc2 <- ft$eig[2, "percentage of variance"]
+  rm(ft)
+  DT <- merge(DT, DT.design, by = "Assay")
+  DT[, SampleAssay := factor(paste0("(", Sample, ") ", Assay))]
+  DT.median <- DT[, .(SampleAssay = first(SampleAssay), Condition = first(Condition), x = median(x), y = median(y)), by = Assay]
 
   # calculate limits
-  min.lim0 <- c(min(DT.results.median$x), min(DT.results.median$y))
-  max.lim0 <- c(max(DT.results.median$x), max(DT.results.median$y))
+  min.lim0 <- c(min(DT.median$x), min(DT.median$y))
+  max.lim0 <- c(max(DT.median$x), max(DT.median$y))
   min.lim <- min.lim0 - 0.2 * (max.lim0 - min.lim0)
   max.lim <- max.lim0 + 0.2 * (max.lim0 - min.lim0)
-  DT.results <- DT.results[x >= min.lim[1] & x <= max.lim[1] & y >= min.lim[2] & y <= max.lim[2]]
+  DT <- DT[x >= min.lim[1] & x <= max.lim[1] & y >= min.lim[2] & y <= max.lim[2]]
 
   # bandwidth from all data
-  H <- ks::Hpi(cbind(DT.results$x, DT.results$y))
+  H <- ks::Hpi(cbind(DT$x, DT$y))
   # generate density contour line
-  DT.results.contour <- DT.results[, {
+  DT <- DT[, {
     DT <- NULL
     try({
       dens <- ks::kde(cbind(x, y), H, xmin = min.lim, xmax = max.lim)
@@ -81,30 +95,34 @@ plot_pca <- function(fit, data = normalised_group_quants(fit), data.summary = no
       )
     })
   }, by = Assay]
-  DT.results.contour <- merge(DT.results.contour, DT.design, by = "Assay")
-  DT.results.contour[, SampleAssay := factor(paste0("(", Sample, ") ", Assay))]
+  DT <- merge(DT, DT.design, by = "Assay")
+  DT[, SampleAssay := factor(paste0("(", Sample, ") ", Assay))]
 
   # plot
   min.lim <- min.lim0 - 0.05 * (max.lim0 - min.lim0)
   max.lim <- max.lim0 + 0.05 * (max.lim0 - min.lim0)
-  g <- ggplot2::ggplot(DT.results.median, ggplot2::aes(x = x, y = y))
-  if (all(is.na(DT.results.median$Condition))) {
-    if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT.results.contour, ggplot2::aes(group = Assay, x = x, y = y, z = z1), breaks = 1, alpha = 0.5)
-    if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT.results.contour, ggplot2::aes(group = Assay, x = x, y = y, z = z2), breaks = 1, alpha = 0.25)
-    if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT.results.contour, ggplot2::aes(group = Assay, x = x, y = y, z = z3), breaks = 1, alpha = 0.125)
+  g <- ggplot2::ggplot(DT.median, ggplot2::aes(x = x, y = y))
+  if (all(is.na(DT.median$Condition))) {
+    if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, x = x, y = y, z = z1), breaks = 1, alpha = 0.5)
+    if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, x = x, y = y, z = z2), breaks = 1, alpha = 0.25)
+    if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, x = x, y = y, z = z3), breaks = 1, alpha = 0.125)
     g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = SampleAssay), size = 2.5)
     g <- g + ggplot2::geom_point()
   } else {
-    if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT.results.contour, ggplot2::aes(group = Assay, colour = Condition, x = x, y = y, z = z1), breaks = 1, alpha = 0.5)
-    if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT.results.contour, ggplot2::aes(group = Assay, colour = Condition, x = x, y = y, z = z2), breaks = 1, alpha = 0.25)
-    if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT.results.contour, ggplot2::aes(group = Assay, colour = Condition, x = x, y = y, z = z3), breaks = 1, alpha = 0.125)
+    if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, colour = Condition, x = x, y = y, z = z1), breaks = 1, alpha = 0.5)
+    if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, colour = Condition, x = x, y = y, z = z2), breaks = 1, alpha = 0.25)
+    if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, colour = Condition, x = x, y = y, z = z3), breaks = 1, alpha = 0.125)
     g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = SampleAssay, colour = Condition), size = 2.5)
     g <- g + ggplot2::geom_point(ggplot2::aes(colour = Condition))
   }
-  g <- g + ggplot2::xlab(paste0("PC1 (", format(round(ft$eig[1, "percentage of variance"], 2), nsmall = 2), "%)"))
-  g <- g + ggplot2::ylab(paste0("PC2 (", format(round(ft$eig[2, "percentage of variance"], 2), nsmall = 2), "%)"))
+  g <- g + ggplot2::xlab(paste0("PC1 (", format(round(pc1, 2), nsmall = 2), "%)"))
+  g <- g + ggplot2::ylab(paste0("PC2 (", format(round(pc2, 2), nsmall = 2), "%)"))
   g <- g + ggplot2::coord_fixed(xlim = c(min.lim[1], max.lim[1]), ylim = c(min.lim[2], max.lim[2]))
-  g
+
+  if (!data.is.data.table) setDF(data)
+  if (!data.summary.is.data.table) setDF(data.summary)
+
+  return(g)
 }
 
 

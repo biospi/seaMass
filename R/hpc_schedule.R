@@ -157,11 +157,6 @@ setMethod("model0", signature(object = "slurm"), function(object)
     sink(file.path(object@path,"model0.slurm"))
     cat("#!/bin/bash\n\n")
 
-    #cat("#SBATCH --export=ALL\n")
-    #cat(sprintf("#SBATCH --workdir=%s\n",object@fit))
-    #cat("#SBATCH --workdir=.\n")
-    #cat("#SBATCH --requeue\n")
-
     cat("#SBATCH --job-name=sm.Sigma0\n")
     cat(sprintf("#SBATCH --partition=%s\n",object@que))
     cat("#SBATCH --output=slurm-%A_%a.out\n")
@@ -210,11 +205,6 @@ setMethod("model", signature(object = "slurm"), function(object)
     totalJobs = object@block * object@nchain - 1
     sink(file.path(object@path,"model.slurm"))
     cat("#!/bin/bash\n\n")
-
-    #cat("#SBATCH --export=ALL\n")
-    #cat(sprintf("#SBATCH --workdir=%s\n",object@fit))
-    #cat("#SBATCH --workdir=.\n")
-    #cat("#SBATCH --requeue\n")
 
     cat("#SBATCH --job-name=sm.Sigma0\n")
     cat(sprintf("#SBATCH --partition=%s\n",object@que))
@@ -265,11 +255,6 @@ setMethod("plots", signature(object = "slurm"), function(object)
     totalJobs = object@block * object@nchain - 1
     sink(file.path(object@path,"plots.slurm"))
     cat("#!/bin/bash\n\n")
-
-    #cat("#SBATCH --export=ALL\n")
-    #cat(sprintf("#SBATCH --workdir=%s\n",object@fit))
-    #cat("#SBATCH --workdir=.\n")
-    #cat("#SBATCH --requeue\n")
 
     cat("#SBATCH --job-name=sm.Sigma0\n")
     cat(sprintf("#SBATCH --partition=%s\n",object@que))

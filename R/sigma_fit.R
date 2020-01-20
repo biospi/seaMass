@@ -61,7 +61,10 @@ read_mcmc <- function(
       if (!is.null(summary) && nrow(DT) > 0) {
         # average samples if assay run in multiple blocks
         if (length(unique(DT$BlockID)) > 1) DT <- DT[, .(value = mean(value)), by = c(summaryIDs, "chainID", "mcmcID")]
-        DT <- DT[, do.call(summary, list(chainID = chainID, mcmcID = mcmcID, value = value)), by = summaryIDs]
+        DT.summary <- DT[, do.call(summary, list(chainID = chainID, mcmcID = mcmcID, value = value)), by = summaryIDs]
+        # add back metadata
+        DT <- DT[, c(summaryIDs, colnames(DT)[!(colnames(DT) %in% c(colnames(DT.summary), "chainID", "mcmcID", "value"))]), with = F]
+        DT <- merge(DT[!duplicated(DT[, summaryIDs, with = F])], DT.summary, by = summaryIDs)
       }
 
       setcolorder(DT, summaryIDs)
@@ -84,7 +87,14 @@ open_sigma_fits <- function(
   quiet = FALSE,
   force = FALSE
 ) {
-  names <- sapply(names, function(input) list.files(dirname(input), paste0("^", basename(input), ".*\\.seaMass-sigma$")))
+  names <- sapply(names, function(name) {
+    if (file.exists(paste0(name, ".seaMass-sigma"))) {
+      return(name)
+    } else {
+      return(list.files(dirname(name), paste0("^", basename(name), "\\.[0-9]+\\.seaMass-sigma$")))
+    }
+  })
+
   if(force || all(file.exists(file.path(names, ".complete")))) {
     fits <- lapply(names, function(input) {
       fit <- normalizePath(input)
@@ -98,7 +108,7 @@ open_sigma_fits <- function(
     if (quiet) {
       return(NULL)
     } else {
-      stop("ERROR: directories do not contain completed seaMass-Σ blocks.")
+      stop("ERROR: names do not lead to directories containing completed seaMass-Σ blocks.")
     }
   }
 }
@@ -551,7 +561,7 @@ unnormalised_group_quants.seaMass_sigma_fit <- function(
   if(is.null(summary) || summary == F) summary <- NULL
   if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
 
-  DT <- read_mcmc(fit, "group.quants", "GroupID", "GroupID", c("GroupID", "AssayID", "BaselineID", "nComponent", "nMeasurement"), itemIDs, input, chains, summary)
+  DT <- read_mcmc(fit, "group.quants", "GroupID", "GroupID", c("GroupID", "AssayID"), itemIDs, input, chains, summary)
 
   DT <- merge(DT, DT.groups[, .(GroupID, Group)], by = "GroupID")
   DT[, GroupID := NULL]

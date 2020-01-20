@@ -6,10 +6,13 @@
 \usage{
 dea_MCMCglmm(fit, input = "normalised", output = "de",
   data.design = assay_design(fit), type = "group.quants",
-  fixed = ~Condition, random = NULL, rcov = ~idh(Condition):Sample,
+  emmeans.args = list(pairwise ~ Condition), fixed = ~Condition,
+  random = NULL, rcov = ~idh(Condition):Sample, start = NULL,
   prior = list(R = list(V = diag(nlevels(factor(data.design$Condition))),
-  nu = 2e-04)), em.func = function(...) emmeans::emmeans(..., pairwise ~
-  Condition), ...)
+  nu = 2e-04)), tune = NULL, pedigree = NULL, nodes = "ALL",
+  scale = TRUE, pr = FALSE, pl = FALSE, DIC = TRUE, saveX = TRUE,
+  saveZ = TRUE, saveXL = TRUE, slice = FALSE, ginverse = NULL,
+  trunc = FALSE, ...)
 }
 \description{
 The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.
