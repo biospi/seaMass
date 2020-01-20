@@ -10,7 +10,7 @@
 #' @param plots Generate all plots.
 #' @param name Name of folder prefix on disk where all intermediate and output data will be stored; default is \code{"fit"}.
 #' @param control A control object created with \link{new_sigma_control} specifying control parameters for the model.
-#' @param hpc.schedule A hpc object created with \link{new_hpcschedule} specifying hpc parameters for the type of HPC system seaMass will be deployed on.
+#' @param hpc.schedule A hpc object created with \link{new_hpc_schedule} specifying hpc parameters for the type of HPC system seaMass will be deployed on.
 #' @return A \code{seaMass_sigma_fits} object, which is a list of \code{seaMass_sigma_fit} objects that can be interrogated
 #'   for various metadata and results.
 #' @import data.table
@@ -22,7 +22,7 @@ seaMass_sigma <- function(
   plots = FALSE,
   name = "fit",
   control = new_sigma_control(),
-  hpc.schedule = new_hpcschedule()
+  hpc.schedule = new_hpc_schedule()
 ) {
   # check for finished output and return that
   fits <- open_sigma_fits(name, T)
@@ -363,10 +363,11 @@ new_sigma_control <- function(
 #' @param taskPerNode Number of Nodes to use per task.
 #' @param output Output path is used to overide fit directory.
 #' @param wallTime Specify walltime for HPC submission system.
+#' @param compress Compress HPC submission files into a ZIP file, default value = TRUE.
 #' @param email email address to use for notigation of completed jobs on HPC system.
 #' @return hpc.schedule object to pass to \link{seaMass}
 #' @export
-new_hpcschedule <- function(
+new_hpc_schedule <- function(
     que = "cpu",
     mem = '6000M',
     node = 1,
