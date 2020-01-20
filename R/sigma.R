@@ -10,6 +10,7 @@
 #' @param plots Generate all plots.
 #' @param name Name of folder prefix on disk where all intermediate and output data will be stored; default is \code{"fit"}.
 #' @param control A control object created with \link{new_sigma_control} specifying control parameters for the model.
+#' @param hpc.schedule A hpc object created with \link{new_hpc_schedule} specifying hpc parameters for the type of HPC system seaMass will be deployed on.
 #' @return A \code{seaMass_sigma_fits} object, which is a list of \code{seaMass_sigma_fit} objects that can be interrogated
 #'   for various metadata and results.
 #' @import data.table
@@ -20,7 +21,8 @@ seaMass_sigma <- function(
   summaries = FALSE,
   plots = FALSE,
   name = "fit",
-  control = new_sigma_control()
+  control = new_sigma_control(),
+  hpc.schedule = new_hpc_schedule()
 ) {
   # check for finished output and return that
   fits <- open_sigma_fits(name, T)
@@ -216,7 +218,62 @@ seaMass_sigma <- function(
     }
   } else {
     # submit to hpc directly here
-    stop("not implemented yet")
+    tmp.dir <- tempfile("bayesprot.")
+    dir.create(tmp.dir, showWarnings = FALSE)
+
+    fitpath <- vector()
+    idx <- 1
+    for ( i in fits)
+    {
+      if (hpc.schedule$output != "NULL")
+      {
+        dname=basename(i)
+        fitpath[idx] <- file.path(hpc.schedule$output,dname)
+        idx <- idx + 1
+      } else {
+        fitpath[idx] <- i
+        idx <- idx + 1
+      }
+    }
+
+    if (control$hpc == "slurm"){
+      clusterHPC <- new(control$hpc, block = length(fits), nchain = control$model.nchain, fits = fitpath, path = tmp.dir, output = hpc.schedule$output, email = hpc.schedule$email, cpuNum = control$nthread, node = hpc.schedule$node, taskPerNode = hpc.schedule$taskPerNode, mem = hpc.schedule$mem, que = hpc.schedule$que, wallTime = hpc.schedule$wallTime)
+    } else if (control$hpc == "pbs") {
+      stop("PBS system not tested yet")
+    } else if (control$hpc == "sge") {
+      clusterHPC <- new(control$hpc, block = length(fits), nchain = control$model.nchain, fits = fitpath, path = tmp.dir, output = hpc.schedule$output, email = hpc.schedule$email, cpuNum = control$nthread, node = hpc.schedule$node, mem = hpc.schedule$mem, que = hpc.schedule$que, wallTime = hpc.schedule$wallTime)
+    } else {
+      stop("Unknown HPC system not implemented yet")
+    }
+
+    # Model0
+    model0(clusterHPC)
+    # Model:
+    model(clusterHPC)
+    # Plots:
+    if (control$plots == TRUE)
+    {
+      plots(clusterHPC)
+    }
+    # Submit Script
+    submit(clusterHPC)
+
+    wd <- getwd()
+    setwd(tmp.dir)
+    if (hpc.schedule$compress == TRUE)
+    {
+      # create zip file
+      zip(file.path(wd, paste0(control$name, "_submit.zip")), ".", flags="-r9Xq")
+    } else {
+      allfiles <- list.files(tmp.dir)
+      file.copy(allfiles,wd)
+    }
+    setwd(wd)
+
+    # clean up
+    unlink(tmp.dir, recursive = T)
+
+    message(paste0("[", Sys.time(), "] HPC submission zip saved as ", file.path(wd, paste0(control$output, ".zip"))))
   }
 
   ### TIDY UP
@@ -298,4 +355,33 @@ new_sigma_control <- function(
   class(control) <- "seaMass_sigma_control"
 
   return(control)
+}
+
+#' HPC parameters for executing seaMass Bayesian model on HPC clusters
+#'
+#' Each stage of seamasdelta is split into seperate tasks, currently each task only needs 1 node.
+#' @param que Name of the que on the HPC to submit the jobs to. Different ques are tailered and have different requirements.
+#' @param mem Amount of memory needed for each task.
+#' @param node Number of nodes to use per task.
+#' @param taskPerNode Number of Nodes to use per task.
+#' @param output Output path is used to overide fit directory.
+#' @param wallTime Specify walltime for HPC submission system.
+#' @param compress Compress HPC submission files into a ZIP file, default value = TRUE.
+#' @param email email address to use for notigation of completed jobs on HPC system.
+#' @return hpc.schedule object to pass to \link{seaMass}
+#' @export
+new_hpc_schedule <- function(
+    que = "cpu",
+    mem = '6000M',
+    node = 1,
+    taskPerNode = 1,
+    output = "NULL",
+    wallTime = "NULL",
+    compress = TRUE,
+    email = "UserName@email.com"
+) {
+  hpc.schedule <- as.list(environment())
+  hpc.schedule$version <- packageVersion("seaMass")
+  class(hpc.schedule) <- "seaMass_sigma_hpc"
+  return(hpc.schedule)
 }

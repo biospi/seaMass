@@ -4,20 +4,14 @@
 \alias{dea_MCMCglmm_experimental}
 \title{Mixed-effects univariate differential expression analysis with 'MCMCglmm'}
 \usage{
-dea_MCMCglmm_experimental(
-  fit,
-  input = "normalised",
-  output = "de",
-  data.design = assay_design(fit),
-  fixed = ~Condition,
-  random = ~idh(Condition):Sample,
-  prior = list(G = list(G1 = list(V = diag(nlevels(factor(data.design$Condition))), nu =
-    nlevels(factor(data.design$Condition)), alpha.mu = rep(0,
-    nlevels(factor(data.design$Condition))), alpha.V = diag(25^2,
-    nlevels(factor(data.design$Condition)))))),
-  em.func = function(...) emmeans::emmeans(..., pairwise ~ Condition),
-  ...
-)
+dea_MCMCglmm_experimental(fit, input = "normalised", output = "de",
+  data.design = assay_design(fit), fixed = ~Condition,
+  random = ~idh(Condition):Sample, prior = list(G = list(G1 = list(V =
+  diag(nlevels(factor(data.design$Condition))), nu =
+  nlevels(factor(data.design$Condition)), alpha.mu = rep(0,
+  nlevels(factor(data.design$Condition))), alpha.V = diag(25^2,
+  nlevels(factor(data.design$Condition)))))), em.func = function(...)
+  emmeans::emmeans(..., pairwise ~ Condition), ...)
 }
 \description{
 The model is performed pair-wise across the levels of the 'Condition' in 'data.design'. Default is a standard Student's t-test model.

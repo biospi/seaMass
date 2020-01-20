@@ -4,11 +4,8 @@
 \alias{plot_assay_exposures}
 \title{Add together two numbers.}
 \usage{
-plot_assay_exposures(
-  fit,
-  data = normalised_group_quants(fit),
-  data.design = assay_design(fit)
-)
+plot_assay_exposures(fit, data = normalised_group_quants(fit),
+  data.design = assay_design(fit))
 }
 \arguments{
 \item{datafile}{A number.}

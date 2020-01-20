@@ -4,26 +4,14 @@
 \alias{new_sigma_control}
 \title{Control parameters for seaMass-Σ}
 \usage{
-new_sigma_control(
-  measurement.model = "independent",
-  measurement.eb.min = 2,
-  component.model = "independent",
-  component.eb.min = 3,
-  assay.model = "component",
-  assay.eb.min = 3,
-  assay.eb.nsample = 16,
-  error.model = "poisson",
-  missingness.model = "censored",
-  missingness.threshold = 0,
-  model.nchain = 4,
-  model.nwarmup = 256,
-  model.thin = 4,
-  model.nsample = 1024,
-  eb.max = 1024,
-  random.seed = 0,
-  nthread = parallel::detectCores()\%/\%2,
-  hpc = NULL
-)
+new_sigma_control(measurement.model = "independent",
+  measurement.eb.min = 2, component.model = "independent",
+  component.eb.min = 3, assay.model = "component", assay.eb.min = 3,
+  assay.eb.nsample = 16, error.model = "poisson",
+  missingness.model = "censored", missingness.threshold = 0,
+  model.nchain = 4, model.nwarmup = 256, model.thin = 4,
+  model.nsample = 1024, eb.max = 1024, random.seed = 0,
+  nthread = parallel::detectCores()\%/\%2, hpc = NULL)
 }
 \arguments{
 \item{measurement.model}{Either \code{single} (single residual) or \code{independent} (per-measurement independent residuals; default)}

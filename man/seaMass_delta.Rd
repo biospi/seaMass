@@ -20,15 +20,10 @@
 \alias{unnormalised_group_quants.seaMass_sigma_fit}
 \title{seaMass-Δ}
 \usage{
-seaMass_delta(
-  sigma_fits,
-  data.design = assay_design(sigma_fits),
-  norm.groups = ".*",
-  component.deviations = FALSE,
-  name = sub("^(.*)\\\\..*\\\\.seaMass-sigma", "\\\\1", basename(sigma_fits[[1]])),
-  control = new_delta_control(),
-  ...
-)
+seaMass_delta(sigma_fits, data.design = assay_design(sigma_fits),
+  norm.groups = ".*", component.deviations = FALSE,
+  name = sub("^(.*)\\\\..*\\\\.seaMass-sigma", "\\\\1",
+  basename(sigma_fits[[1]])), control = new_delta_control(), ...)
 
 open_delta_fit(name, quiet = FALSE, force = FALSE)
 
@@ -44,77 +39,40 @@ open_delta_fit(name, quiet = FALSE, force = FALSE)
 
 \method{components}{seaMass_delta_fit}(fit, as.data.table = FALSE)
 
-\method{unnormalised_group_quants}{seaMass_delta_fit}(
-  fit,
-  groups = NULL,
-  summary = FALSE,
-  input = "standardised",
-  chains = 1:control(fit)$model.nchain,
-  as.data.table = FALSE
-)
+\method{unnormalised_group_quants}{seaMass_delta_fit}(fit, groups = NULL,
+  summary = FALSE, input = "standardised",
+  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 
-\method{normalised_group_quants}{seaMass_delta_fit}(
-  fit,
-  groups = NULL,
-  summary = FALSE,
-  input = "normalised",
-  chains = 1:control(fit)$model.nchain,
-  as.data.table = FALSE
-)
+\method{normalised_group_quants}{seaMass_delta_fit}(fit, groups = NULL,
+  summary = FALSE, input = "normalised",
+  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 
-\method{component_deviations}{seaMass_delta_fit}(
-  fit,
-  components = NULL,
-  summary = FALSE,
-  input = "standardised.component.deviations",
-  chains = 1:control(fit)$model.nchain,
-  as.data.table = FALSE
-)
+\method{component_deviations}{seaMass_delta_fit}(fit, components = NULL,
+  summary = FALSE, input = "standardised.component.deviations",
+  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 
-\method{group_vars}{seaMass_delta_fit}(
-  fit,
-  groups = NULL,
-  summary = FALSE,
-  input = "normalised.group.vars",
-  chains = 1:control(fit)$model.nchain,
-  as.data.table = FALSE
-)
+\method{group_vars}{seaMass_delta_fit}(fit, groups = NULL,
+  summary = FALSE, input = "normalised.group.vars",
+  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 
-\method{group_de}{seaMass_delta_fit}(
-  fit,
-  groups = NULL,
-  summary = FALSE,
-  input = "de",
-  chains = 1:control(fit)$model.nchain,
-  as.data.table = FALSE
-)
+\method{group_de}{seaMass_delta_fit}(fit, groups = NULL,
+  summary = FALSE, input = "de",
+  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 
-\method{component_deviations_de}{seaMass_delta_fit}(
-  fit,
-  components = NULL,
-  summary = FALSE,
+\method{component_deviations_de}{seaMass_delta_fit}(fit,
+  components = NULL, summary = FALSE,
   input = "de.component.deviations",
-  chains = 1:control(fit)$model.nchain,
-  as.data.table = FALSE
-)
+  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 
-\method{group_fdr}{seaMass_delta_fit}(fit, input = "fdr", as.data.table = FALSE)
+\method{group_fdr}{seaMass_delta_fit}(fit, input = "fdr",
+  as.data.table = FALSE)
 
-\method{component_deviations_fdr}{seaMass_delta_fit}(
-  fit,
-  input = "fdr.component.deviations",
-  as.data.table = FALSE
-)
+\method{component_deviations_fdr}{seaMass_delta_fit}(fit,
+  input = "fdr.component.deviations", as.data.table = FALSE)
 
-\method{unnormalised_group_quants}{seaMass_sigma_fit}(
-  fit,
-  groups = NULL,
-  summary = FALSE,
-  dist_lst_mcmc,
-  input = "model1",
-  chains = 1:control(fit)$model.nchain,
-  as.data.table = FALSE
-)
+\method{unnormalised_group_quants}{seaMass_sigma_fit}(fit, groups = NULL,
+  summary = FALSE, dist_lst_mcmc, input = "model1",
+  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
 }
 \arguments{
 \item{sigma_fits}{A list of \link{seaMass_sigma_fit} objects, as returned by seaMass-Σ.}
