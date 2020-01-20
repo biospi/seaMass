@@ -52,9 +52,11 @@ dea_MCMCglmm <- function(
   if (!is.null(DT.design$nMeasurement)) DT.design[, nMeasurement := NULL]
 
   if (type == "group.quants") {
-    DTs <- batch_split(normalised_group_quants(fit, input = input, summary = T, as.data.table = T), "Group", 64)
+    type <- "Group"
+    DTs <- batch_split(normalised_group_quants(fit, input = input, summary = T, as.data.table = T), type, 64)
   } else {
-    DTs <- batch_split(component_deviations(fit, input = input, summary = T, as.data.table = T), "Component", 64)
+    type <- c("Group", "Component")
+    DTs <- batch_split(component_deviations(fit, input = input, summary = T, as.data.table = T), type, 64)
   }
 
   # loop over all chains and all groups/components
@@ -65,10 +67,10 @@ dea_MCMCglmm <- function(
     message(paste0("[", Sys.time(), "]   chain ", chain ,"/", ctrl$model.nchain, "..."))
 
     DT.de.index <- rbindlist(parallel_lapply(DTs, function(item, fit, input, output, DT.design, type, emmeans.args, ctrl, chain, fixed, random, rcov, start, prior, tune, pedigree, nodes, scale, nitt, pr, pl, DIC, saveX, saveZ, saveXL, slice, ginverse, trunc) {
-      batch <- lapply(split(item, by = "Group", drop = T), function(DT) {
+      batch <- lapply(split(item, by = type, drop = T), function(DT) {
         model <- list()
-        if (type != "group.quants") component <- DT[1, Component]
         group <- DT[1, Group]
+        if ("Component" %in% type) component <- DT[1, Component]
 
         # have to keep all.y assays in even if NA otherwise MCMCglmm will get confused over its priors
         DT <- droplevels(merge(DT, DT.design, all.y = T, by = "Assay"))
@@ -77,10 +79,11 @@ dea_MCMCglmm <- function(
           set.seed(ctrl$random.seed + chain)
           # try a few times as MCMCglmm can moan about priors not being strong enough
           success <- F
-          attempt <- 1
-          while(success == F && attempt <= 16) {
+          attempt <- 0
+          while(success == F) {
             attempt <- attempt + 1
-            try({
+            if (attempt > 1) print(attempt)
+            tryCatch({
               # run MCMCglmm
               model$MCMCglmm <- MCMCglmm::MCMCglmm(
                 fixed = fixed,
@@ -157,18 +160,18 @@ dea_MCMCglmm <- function(
 
               model$DT.de[, Effect := factor(Effect, levels = unique(Effect))]
               model$DT.de[, Group := group]
-              if (type != "group.quants") model$DT.de[, Component := component]
+              if ("Component" %in% type)  model$DT.de[, Component := component]
               model$DT.de[, chainID := chain]
-              if (type == "group.quants") {
-                setcolorder(model$DT.de, c("Model", "Effect", "Group", "chainID", "mcmcID"))
-              } else {
+              if ("Component" %in% type)  {
                 setcolorder(model$DT.de, c("Model", "Effect", "Group", "Component", "chainID", "mcmcID"))
+              } else {
+                setcolorder(model$DT.de, c("Model", "Effect", "Group", "chainID", "mcmcID"))
               }
               success <- T
-            })
+            }, error = function(e) if (attempt > 16) stop(paste0("[", Sys.time(), "] ERROR: ", e)))
             prior$R$nu <- prior$R$nu * 2
           }
-          if (success == F) stop(paste0("[", Sys.time(), "]   modelling group ", group, " failed - please email andrew.dowsey@bristol.ac.uk about this."))
+          #if (success == F) stop(paste0("[", Sys.time(), "]   modelling group ", group, " failed - please email andrew.dowsey@bristol.ac.uk about this."))
         }
 
         return(model)
@@ -187,20 +190,25 @@ dea_MCMCglmm <- function(
       }))
 
       if (nrow(DT.batch.de) > 0) {
-        if (type == "group.quants") {
-          setcolorder(DT.batch.de, c("Group", "Effect", "Model", "1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample", "2:nMaxComponent", "2:nMaxMeasurement", "2:nTestSample", "2:nRealSample"))
-          DT.index <- DT.batch.de[, .(file = file.path(output, paste(chain, item[1, BatchID], "fst", sep = ".")), from = first(.I), to = last(.I)), by = Group]
-        } else {
+        if ("Component" %in% type) {
           setcolorder(DT.batch.de, c("Group", "Component", "Effect", "Model", "1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample", "2:nMaxComponent", "2:nMaxMeasurement", "2:nTestSample", "2:nRealSample"))
           DT.index <- DT.batch.de[, .(from = .I[!duplicated(DT.batch.de, by = c("Group", "Component"))], to = .I[!duplicated(DT.batch.de, fromLast = T, by = c("Group", "Component"))])]
           DT.index <- cbind(DT.batch.de[DT.index$from, .(Group, Component)], data.table(file = file.path(output, paste(chain, item[1, BatchID], "fst", sep = "."))), DT.index)
+        } else {
+          setcolorder(DT.batch.de, c("Group", "Effect", "Model", "1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample", "2:nMaxComponent", "2:nMaxMeasurement", "2:nTestSample", "2:nRealSample"))
+          DT.index <- DT.batch.de[, .(from = first(.I), to = last(.I)), by = Group]
+          DT.index[, file := file.path(output, paste(chain, item[1, BatchID], "fst", sep = "."))]
+          setcolorder(DT.index, c("Group", "file"))
         }
         fst::write.fst(DT.batch.de, file.path(fit, output, paste(chain, item[1, BatchID], "fst", sep = ".")))
         return(DT.index)
       } else {
         return(NULL)
       }
-    }, nthread = ctrl$nthread))
+    }, nthread = ctrl$nthread, .packages = c("seaMass", "emmeans")))
+
+    # }, nthread = 1))
+
 
     if (chain == 1 && nrow(DT.de.index) > 0) fst::write.fst(DT.de.index, file.path(fit, paste(output, "index.fst", sep = ".")))
   }

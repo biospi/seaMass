@@ -62,41 +62,45 @@ fdr_ash <- function(
   }
   setcolorder(DT, "Batch")
 
-  DT <- rbindlist(parallel_lapply(split(DT, by = "Batch"), function(item, use.df, mixcompdist) {
-    # run ash, but allowing variable DF
-    if (use.df) {
-      lik_ts = list(
-        name = "t",
-        const = length(unique(item[use.FDR == T, df])) == 1,
-        lcdfFUN = function(x) stats::pt(x, df = item[use.FDR == T, df], log = T),
-        lpdfFUN = function(x) stats::dt(x, df = item[use.FDR == T, df], log = T),
-        etruncFUN = function(a,b) etrunct::e_trunct(a, b, df = item[use.FDR == T, df], r = 1),
-        e2truncFUN = function(a,b) etrunct::e_trunct(a, b, df = item[use.FDR == T, df], r = 2)
-      )
-      fit.fdr <- ashr::ash(item[use.FDR == T, m], item[use.FDR == T, s], mixcompdist, lik = lik_ts)
-    } else {
-      fit.fdr <- ashr::ash(item[use.FDR == T, m], item[use.FDR == T, s], mixcompdist)
-    }
+  DT <- rbindlist(parallel_lapply(split(DT, by = "Batch"), function(item, use.df, mixcompdist, type) {
+    if (nrow(item[use.FDR == T]) > 0) {
+      # run ash, but allowing variable DF
+      if (use.df) {
+        lik_ts = list(
+          name = "t",
+          const = length(unique(item[use.FDR == T, df])) == 1,
+          lcdfFUN = function(x) stats::pt(x, df = item[use.FDR == T, df], log = T),
+          lpdfFUN = function(x) stats::dt(x, df = item[use.FDR == T, df], log = T),
+          etruncFUN = function(a,b) etrunct::e_trunct(a, b, df = item[use.FDR == T, df], r = 1),
+          e2truncFUN = function(a,b) etrunct::e_trunct(a, b, df = item[use.FDR == T, df], r = 2)
+        )
+        fit.fdr <- ashr::ash(item[use.FDR == T, m], item[use.FDR == T, s], mixcompdist, lik = lik_ts)
+      } else {
+        fit.fdr <- ashr::ash(item[use.FDR == T, m], item[use.FDR == T, s], mixcompdist)
+      }
 
-    setDT(fit.fdr$result)
-    fit.fdr$result[, betahat := NULL]
-    fit.fdr$result[, sebetahat := NULL]
-    rmcols <- which(colnames(item) %in% colnames(fit.fdr$result))
-    if (length(rmcols) > 0) item <- item[, -rmcols, with = F]
-    fit.fdr$result[, Batch := item[use.FDR == T, Batch]]
-    fit.fdr$result[, Model := item[use.FDR == T, Model]]
-    fit.fdr$result[, Effect := item[use.FDR == T, Effect]]
-    fit.fdr$result[, Group := item[use.FDR == T, Group]]
-    if (type == "group.quants") {
-      item <- merge(item, fit.fdr$result, all.x = T, by = c("Batch", "Model", "Effect", "Group"))
-    } else {
-      fit.fdr$result[, Component := item[use.FDR == T, Component]]
-      item <- merge(item, fit.fdr$result, all.x = T, by = c("Batch", "Model", "Effect", "Group", "Component"))
-    }
-    item[, use.FDR := NULL]
+      setDT(fit.fdr$result)
+      fit.fdr$result[, betahat := NULL]
+      fit.fdr$result[, sebetahat := NULL]
+      rmcols <- which(colnames(item) %in% colnames(fit.fdr$result))
+      if (length(rmcols) > 0) item <- item[, -rmcols, with = F]
+      fit.fdr$result[, Batch := item[use.FDR == T, Batch]]
+      fit.fdr$result[, Model := item[use.FDR == T, Model]]
+      fit.fdr$result[, Effect := item[use.FDR == T, Effect]]
+      fit.fdr$result[, Group := item[use.FDR == T, Group]]
+      if (type == "group.quants") {
+        item <- merge(item, fit.fdr$result, all.x = T, by = c("Batch", "Model", "Effect", "Group"))
+      } else {
+        fit.fdr$result[, Component := item[use.FDR == T, Component]]
+        item <- merge(item, fit.fdr$result, all.x = T, by = c("Batch", "Model", "Effect", "Group", "Component"))
+      }
+      item[, use.FDR := NULL]
 
-    return(item)
-  }))
+      return(item)
+    } else {
+      return(NULL)
+    }
+  }, nthread = control(fit)$nthread))
 
   if (by.model && by.effect) {
     setorder(DT, Batch, Effect, Model, qvalue, na.last = T)

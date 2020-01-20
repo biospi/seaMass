@@ -18,8 +18,9 @@ plot_pca <- function(
   if (!data.summary.is.data.table) setDT(data.summary)
   DT.design <- as.data.table(data.design)
 
-  # assays with zero variance (pure reference samples) and groups with missing values, to remove later
+  # assays with zero variance (pure reference samples) and groups with missing values, to remove later also
   assays <- data.summary[, .(use = var(m) >= 1e-5), by = Assay][use == T, Assay]
+  assays <- assays[assays %in% DT.design[, Assay]]
   groups <- data.table::dcast(data.summary, Group ~ Assay, value.var = "m")
   groups <- groups[complete.cases(groups), Group]
 
