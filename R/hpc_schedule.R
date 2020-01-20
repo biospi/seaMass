@@ -160,34 +160,31 @@ setMethod("model0", signature(object = "slurm"), function(object)
     #cat("#SBATCH --export=ALL\n")
     #cat(sprintf("#SBATCH --workdir=%s\n",object@fit))
     #cat("#SBATCH --workdir=.\n")
-    cat("#SBATCH --output=slurm-%A_%a.out\n")
     #cat("#SBATCH --requeue\n")
 
+    cat("#SBATCH --job-name=sm.Sigma0\n")
+    cat(sprintf("#SBATCH --partition=%s\n",object@que))
+    cat("#SBATCH --output=slurm-%A_%a.out\n")
     cat(sprintf("#SBATCH --nodes=%d\n",object@node))
-    cat(sprintf("#SBATCH --tasks-per-node=%d\n",object@taskPerNode))
+    cat(sprintf("#SBATCH --ntasks-per-node=%d\n",object@taskPerNode))
     cat(sprintf("#SBATCH --cpus-per-task=%d\n",object@cpuNum))
-    cat(sprintf("#SBATCH --mem=%s\n\n",object@mem))
-
+    cat(sprintf("#SBATCH --mem=%s\n",object@mem))
+    cat(sprintf("#SBATCH --array=0-%d\n",totalJobs))
     if (object@wallTime != "NULL")
     {
       cat(sprintf("#SBATCH --time=%s\n",object@wallTime))
     }
-    cat(sprintf("#SBATCH --partition=%s\n\n",object@que))
-
-    cat("#SBATCH --job-name=sm.Sigma0\n")
     if (object@email != "UserName@email.com"){
-      cat(sprintf("#SBATCH --mail-user=%s\n\n",object@email))
-      cat("#SBATCH --mail-type=FAIL\n\n")
+      cat(sprintf("#SBATCH --mail-user=%s\n",object@email))
+      cat("#SBATCH --mail-type=FAIL\n")
     }
 
-    cat(sprintf("fit=("))
+    cat(sprintf("\nfit=("))
     for(i in seq(1, object@block,1))
     {
       cat(sprintf("%s ",object@fits[i]))
     }
     cat(sprintf(")\n"))
-
-    cat(sprintf("#SBATCH --array=0-%d\n",totalJobs))
 
     cat(sprintf("chain_val=($( seq 1 1 %d ))\n",object@nchain))
     cat(sprintf("block_val=($( seq 1 1 %d ))\n\n",object@block))
@@ -217,34 +214,31 @@ setMethod("model", signature(object = "slurm"), function(object)
     #cat("#SBATCH --export=ALL\n")
     #cat(sprintf("#SBATCH --workdir=%s\n",object@fit))
     #cat("#SBATCH --workdir=.\n")
-    cat("#SBATCH --output=slurm-%A_%a.out\n")
     #cat("#SBATCH --requeue\n")
 
+    cat("#SBATCH --job-name=sm.Sigma0\n")
+    cat(sprintf("#SBATCH --partition=%s\n",object@que))
+    cat("#SBATCH --output=slurm-%A_%a.out\n")
     cat(sprintf("#SBATCH --nodes=%d\n",object@node))
-    cat(sprintf("#SBATCH --tasks-per-node=%d\n",object@taskPerNode))
+    cat(sprintf("#SBATCH --ntasks-per-node=%d\n",object@taskPerNode))
     cat(sprintf("#SBATCH --cpus-per-task=%d\n",object@cpuNum))
-    cat(sprintf("#SBATCH --mem=%s\n\n",object@mem))
-
+    cat(sprintf("#SBATCH --mem=%s\n",object@mem))
+    cat(sprintf("#SBATCH --array=0-%d\n",totalJobs))
     if (object@wallTime != "NULL")
     {
       cat(sprintf("#SBATCH --time=%s\n",object@wallTime))
     }
-    cat(sprintf("#SBATCH --partition=%s\n\n",object@que))
-
-    cat("#SBATCH --job-name=smSigma1\n")
     if (object@email != "UserName@email.com"){
-      cat(sprintf("#SBATCH --mail-user=%s\n\n",object@email))
-      cat("#SBATCH --mail-type=FAIL\n\n")
+      cat(sprintf("#SBATCH --mail-user=%s\n",object@email))
+      cat("#SBATCH --mail-type=FAIL\n")
     }
 
-    cat(sprintf("fit=("))
+    cat(sprintf("\nfit=("))
     for(i in seq(1, object@block,1))
     {
       cat(sprintf("%s ",object@fits[i]))
     }
     cat(sprintf(")\n"))
-
-    cat(sprintf("#SBATCH --array=0-%d\n",totalJobs))
 
     cat(sprintf("chain_val=($( seq 1 1 %d ))\n",object@nchain))
     cat(sprintf("block_val=($( seq 1 1 %d ))\n\n",object@block))
@@ -275,34 +269,32 @@ setMethod("plots", signature(object = "slurm"), function(object)
     #cat("#SBATCH --export=ALL\n")
     #cat(sprintf("#SBATCH --workdir=%s\n",object@fit))
     #cat("#SBATCH --workdir=.\n")
-    cat("#SBATCH --output=slurm-%A_%a.out\n")
     #cat("#SBATCH --requeue\n")
 
+    cat("#SBATCH --job-name=sm.Sigma0\n")
+    cat(sprintf("#SBATCH --partition=%s\n",object@que))
+    cat("#SBATCH --output=slurm-%A_%a.out\n")
     cat(sprintf("#SBATCH --nodes=%d\n",object@node))
-    cat(sprintf("#SBATCH --tasks-per-node=%d\n",object@taskPerNode))
+    cat(sprintf("#SBATCH --ntasks-per-node=%d\n",object@taskPerNode))
     cat(sprintf("#SBATCH --cpus-per-task=%d\n",object@cpuNum))
-    cat(sprintf("#SBATCH --mem=%s\n\n",object@mem))
+    cat(sprintf("#SBATCH --mem=%s\n",object@mem))
+    cat(sprintf("#SBATCH --array=0-%d\n",totalJobs))
 
     if (object@wallTime != "NULL")
     {
       cat(sprintf("#SBATCH --time=%s\n",object@wallTime))
     }
-    cat(sprintf("#SBATCH --partition=%s\n\n",object@que))
-
-    cat("#SBATCH --job-name=bp.plots\n")
     if (object@email != "UserName@email.com"){
       cat(sprintf("#SBATCH --mail-user=%s\n\n",object@email))
-      cat("#SBATCH --mail-type=FAIL\n\n")
+      cat("#SBATCH --mail-type=FAIL\n")
     }
 
-    cat(sprintf("fit=("))
+    cat(sprintf("\nfit=("))
     for(i in seq(1, object@block,1))
     {
       cat(sprintf("%s ",object@fits[i]))
     }
     cat(sprintf(")\n"))
-
-    cat(sprintf("#SBATCH --array=1-%d\n",totalJobs))
 
     cat(sprintf("chain_val=($( seq 1 1 %d ))\n",object@nchain))
     cat(sprintf("block_val=($( seq 1 1 %d ))\n\n",object@block))
@@ -579,8 +571,8 @@ setMethod("model0", signature(object = "sge"), function(object)
     cat("#!/bin/bash\n\n")
 
     #cat("#$ -o model0\n")
-    cat("#$ -cwd -V\n")
     cat("#$ -N sm.Sigma0\n")
+    cat("#$ -cwd -V\n")
     cat("#$ -j oe\n")
     cat("#$ -r y\n\n")
 
@@ -632,8 +624,8 @@ setMethod("model", signature(object = "sge"), function(object)
     cat("#!/bin/bash\n\n")
 
     #cat("#$ -o model\n")
-    cat("#$ -cwd -V\n")
     cat("#$ -N sm.Sigma\n")
+    cat("#$ -cwd -V\n")
     cat("#$ -j oe\n")
     cat("#$ -r y\n\n")
 
@@ -687,8 +679,8 @@ setMethod("plots", signature(object = "sge"), function(object)
     cat("#!/bin/bash\n\n")
 
     #cat("#$ -o plots\n")
-    cat("#$ -cwd -V\n")
     cat("#$ -N sm.Plots\n")
+    cat("#$ -cwd -V\n")
     cat("#$ -j oe\n")
     cat("#$ -r y\n\n")
 

@@ -4,7 +4,7 @@
 \alias{new_hpcschedule}
 \title{HPC parameters for executing seaMass Bayesian model on HPC clusters}
 \usage{
-new_hpcschedule(que = "cpu", mem = "6000m", node = 1,
+new_hpcschedule(que = "cpu", mem = "6000M", node = 1,
   taskPerNode = 1, output = "NULL", wallTime = "NULL",
   compress = TRUE, email = "UserName@email.com")
 }

@@ -368,7 +368,7 @@ new_sigma_control <- function(
 #' @export
 new_hpcschedule <- function(
     que = "cpu",
-    mem = '6000m',
+    mem = '6000M',
     node = 1,
     taskPerNode = 1,
     output = "NULL",
