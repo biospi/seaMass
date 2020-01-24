@@ -371,7 +371,7 @@ new_sigma_control <- function(
 #' @return hpc.schedule object to pass to \link{seaMass}
 #' @export
 new_hpc_schedule <- function(
-    que = "cpu",
+    que = "NULL",
     mem = '6000M',
     node = 1,
     taskPerNode = 1,

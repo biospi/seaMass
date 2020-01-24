@@ -558,18 +558,21 @@ setMethod("model0", signature(object = "sge"), function(object)
     #cat("#$ -o model0\n")
     cat("#$ -N sm.Sigma0\n")
     cat("#$ -cwd -V\n")
-    cat("#$ -j oe\n")
-    cat("#$ -r y\n\n")
+    cat("#$ -r y\n")
 
     #cat(sprintf("#$ -l nodes=%d:ppn=%d\n",object@node,object@cpuNum))
     cat(sprintf("#$ -pe smp %d",object@cpuNum))
-    cat(sprintf("#$ -l mem=%s\n\n",object@mem))
+    cat(sprintf("#$ -l mem=%s\n",object@mem))
+    cat(sprintf("#$ -t 1-%d\n",totalJobs))
 
     if (object@wallTime != "NULL")
     {
       cat(sprintf("#$ -l walltime=%s\n",object@wallTime))
     }
-    cat(sprintf("#$ -q %s\n\n",object@que))
+    if (object@que != "NULL")
+    {
+      cat(sprintf("#$ -q %s\n\n",object@que))
+    }
 
     if (object@email != "UserName@email.com"){
       cat(sprintf("#$ -M %s\n\n",object@email))
@@ -582,7 +585,6 @@ setMethod("model0", signature(object = "sge"), function(object)
     }
     cat(sprintf(")\n"))
 
-    cat(sprintf("#$ -t 1-%d\n",totalJobs))
 
     cat(sprintf("chain_val=($( seq 1 1 %d ))\n",object@nchain))
     cat(sprintf("block_val=($( seq 1 1 %d ))\n\n",object@block))
@@ -592,7 +594,7 @@ setMethod("model0", signature(object = "sge"), function(object)
     cat("taskNumber=$(( taskNumber / ${#chain_val[@]} ))\n")
     cat("block=${block_val[$(( taskNumber % ${#block_val[@]} ))]}\n\n")
 
-    cat("Rscript model0_hpc.R ${fit[$block-1]} $chain \n")
+    cat("Rscript model0_hpc.R ${fit[$block]} $chain \n")
     sink()
 
     #system(paste("chmod u+x",file.path(object@path,"model0.sge")))
@@ -611,18 +613,21 @@ setMethod("model", signature(object = "sge"), function(object)
     #cat("#$ -o model\n")
     cat("#$ -N sm.Sigma\n")
     cat("#$ -cwd -V\n")
-    cat("#$ -j oe\n")
     cat("#$ -r y\n\n")
 
     #cat(sprintf("#$ -l nodes=%d:ppn=%d\n",object@node,object@cpuNum))
     cat(sprintf("#$ -pe smp %d",object@cpuNum))
-    cat(sprintf("#$ -l mem=%s\n\n",object@mem))
+    cat(sprintf("#$ -l mem=%s\n",object@mem))
+    cat(sprintf("#$ -t 1-%d\n",totalJobs))
 
     if (object@wallTime != "NULL")
     {
       cat(sprintf("#$ -l walltime=%s\n",object@wallTime))
     }
-    cat(sprintf("#$ -q %s\n\n",object@que))
+    if (object@que != "NULL")
+    {
+      cat(sprintf("#$ -q %s\n\n",object@que))
+    }
 
     if (object@email != "UserName@email.com"){
       cat(sprintf("#$ -M %s\n\n",object@email))
@@ -635,7 +640,6 @@ setMethod("model", signature(object = "sge"), function(object)
     }
     cat(sprintf(")\n"))
 
-    cat(sprintf("#$ -t 1-%d\n",totalJobs))
 
     cat(sprintf("chain_val=($( seq 1 1 %d ))\n",object@nchain))
     cat(sprintf("block_val=($( seq 1 1 %d ))\n\n",object@block))
@@ -646,7 +650,7 @@ setMethod("model", signature(object = "sge"), function(object)
     cat("block=${block_val[$(( taskNumber % ${#block_val[@]} ))]}\n\n")
 
     #cat(sprintf("srun Rscript model_hpc.R %s $block $chain \n",object@fit))
-    cat("Rscript model_hpc.R ${fit[$block-1]} $chain \n")
+    cat("Rscript model_hpc.R ${fit[$block]} $chain \n")
     sink()
 
     #system(paste("chmod u+x",file.path(object@path,"model.sge")))
@@ -666,18 +670,21 @@ setMethod("plots", signature(object = "sge"), function(object)
     #cat("#$ -o plots\n")
     cat("#$ -N sm.Plots\n")
     cat("#$ -cwd -V\n")
-    cat("#$ -j oe\n")
     cat("#$ -r y\n\n")
 
     #cat(sprintf("#$ -l nodes=%d:ppn=%d\n",object@node,object@cpuNum))
     cat(sprintf("#$ -pe smp %d",object@cpuNum))
-    cat(sprintf("#$ -l mem=%s\n\n",object@mem))
+    cat(sprintf("#$ -l mem=%s\n",object@mem))
+    cat(sprintf("#$ -t 1-%d\n",totalJobs))
 
     if (object@wallTime != "NULL")
     {
       cat(sprintf("#$ -l walltime=%s\n",object@wallTime))
     }
-    cat(sprintf("#$ -q %s\n\n",object@que))
+    if (object@que != "NULL")
+    {
+      cat(sprintf("#$ -q %s\n",object@que))
+    }
 
     if (object@email != "UserName@email.com"){
       cat(sprintf("#$ -M %s\n\n",object@email))
@@ -690,7 +697,6 @@ setMethod("plots", signature(object = "sge"), function(object)
     }
     cat(sprintf(")\n"))
 
-    cat(sprintf("#$ -t 1-%d\n",totalJobs))
 
     cat(sprintf("chain_val=($( seq 1 1 %d ))\n",object@nchain))
     cat(sprintf("block_val=($( seq 1 1 %d ))\n\n",object@block))
@@ -701,7 +707,7 @@ setMethod("plots", signature(object = "sge"), function(object)
     cat("block=${block_val[$(( taskNumber % ${#block_val[@]} ))]}\n\n")
 
     #cat(sprintf("srun Rscript plots_hpc.R %s $SLURM_ARRAY_TASK_ID\n\n",object@fit))
-    cat("Rscript plots_hpc.R ${fit[$block-1]} $chain \n")
+    cat("Rscript plots_hpc.R ${fit[$block]} $chain \n")
 
     sink()
 
