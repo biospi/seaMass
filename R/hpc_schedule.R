@@ -551,7 +551,7 @@ setMethod("model0", signature(object = "sge"), function(object)
     # Create Rscript for SLURM submit.
     gen_model0(object@path)
 
-    totalJobs = object@block * object@nchain - 1
+    totalJobs = object@block * object@nchain
     sink(file.path(object@path,"model0.sge"))
     cat("#!/bin/bash\n\n")
 
@@ -606,7 +606,7 @@ setMethod("model", signature(object = "sge"), function(object)
     # Create Rscript for SLURM submit.
     gen_model(object@path)
 
-    totalJobs = object@block * object@nchain - 1
+    totalJobs = object@block * object@nchain
     sink(file.path(object@path,"model.sge"))
     cat("#!/bin/bash\n\n")
 
@@ -663,7 +663,7 @@ setMethod("plots", signature(object = "sge"), function(object)
     # Create Rscript for SLURM submit.
     gen_plots(object@path)
 
-    totalJobs = object@block * object@nchain - 1
+    totalJobs = object@block * object@nchain
     sink(file.path(object@path,"plots.sge"))
     cat("#!/bin/bash\n\n")
 
