@@ -561,8 +561,8 @@ setMethod("model0", signature(object = "sge"), function(object)
     cat("#$ -r y\n")
 
     #cat(sprintf("#$ -l nodes=%d:ppn=%d\n",object@node,object@cpuNum))
-    cat(sprintf("#$ -pe smp %d",object@cpuNum))
-    cat(sprintf("#$ -l mem=%s\n",object@mem))
+    cat(sprintf("#$ -pe smp.pe %d\n",object@cpuNum))
+    cat(sprintf("#$ -l %s\n",object@mem))
     cat(sprintf("#$ -t 1-%d\n",totalJobs))
 
     if (object@wallTime != "NULL")
@@ -616,8 +616,8 @@ setMethod("model", signature(object = "sge"), function(object)
     cat("#$ -r y\n\n")
 
     #cat(sprintf("#$ -l nodes=%d:ppn=%d\n",object@node,object@cpuNum))
-    cat(sprintf("#$ -pe smp %d",object@cpuNum))
-    cat(sprintf("#$ -l mem=%s\n",object@mem))
+    cat(sprintf("#$ -pe smp.pe %d\n",object@cpuNum))
+    cat(sprintf("#$ -l %s\n",object@mem))
     cat(sprintf("#$ -t 1-%d\n",totalJobs))
 
     if (object@wallTime != "NULL")
@@ -673,8 +673,8 @@ setMethod("plots", signature(object = "sge"), function(object)
     cat("#$ -r y\n\n")
 
     #cat(sprintf("#$ -l nodes=%d:ppn=%d\n",object@node,object@cpuNum))
-    cat(sprintf("#$ -pe smp %d",object@cpuNum))
-    cat(sprintf("#$ -l mem=%s\n",object@mem))
+    cat(sprintf("#$ -pe smp %d\n",object@cpuNum))
+    cat(sprintf("#$ -l %s\n",object@mem))
     cat(sprintf("#$ -t 1-%d\n",totalJobs))
 
     if (object@wallTime != "NULL")
