@@ -589,12 +589,12 @@ setMethod("model0", signature(object = "sge"), function(object)
     cat(sprintf("chain_val=($( seq 1 1 %d ))\n",object@nchain))
     cat(sprintf("block_val=($( seq 1 1 %d ))\n\n",object@block))
 
-    cat("taskNumber=${SGE_TASK_ID}\n")
+    cat("taskNumber=$(expr $SGE_TASK_ID -1)\n")
     cat("chain=${chain_val[$(( taskNumber % ${#chain_val[@]} ))]}\n")
     cat("taskNumber=$(( taskNumber / ${#chain_val[@]} ))\n")
     cat("block=${block_val[$(( taskNumber % ${#block_val[@]} ))]}\n\n")
 
-    cat("Rscript model0_hpc.R ${fit[$block]} $chain \n")
+    cat("Rscript model0_hpc.R ${fit[$block-1]} $chain \n")
     sink()
 
     #system(paste("chmod u+x",file.path(object@path,"model0.sge")))
@@ -644,13 +644,13 @@ setMethod("model", signature(object = "sge"), function(object)
     cat(sprintf("chain_val=($( seq 1 1 %d ))\n",object@nchain))
     cat(sprintf("block_val=($( seq 1 1 %d ))\n\n",object@block))
 
-    cat("taskNumber=${SGE_TASK_ID}\n")
+    cat("taskNumber=$(expr $SGE_TASK_ID -1)\n")
     cat("chain=${chain_val[$(( taskNumber % ${#chain_val[@]} ))]}\n")
     cat("taskNumber=$(( taskNumber / ${#chain_val[@]} ))\n")
     cat("block=${block_val[$(( taskNumber % ${#block_val[@]} ))]}\n\n")
 
     #cat(sprintf("srun Rscript model_hpc.R %s $block $chain \n",object@fit))
-    cat("Rscript model_hpc.R ${fit[$block]} $chain \n")
+    cat("Rscript model_hpc.R ${fit[$block-1]} $chain \n")
     sink()
 
     #system(paste("chmod u+x",file.path(object@path,"model.sge")))
@@ -701,13 +701,13 @@ setMethod("plots", signature(object = "sge"), function(object)
     cat(sprintf("chain_val=($( seq 1 1 %d ))\n",object@nchain))
     cat(sprintf("block_val=($( seq 1 1 %d ))\n\n",object@block))
 
-    cat("taskNumber=${SLURM_ARRAY_TASK_ID}\n")
+    cat("taskNumber=$(expr $SGE_TASK_ID -1)\n")
     cat("chain=${chain_val[$(( taskNumber % ${#chain_val[@]} ))]}\n")
     cat("taskNumber=$(( taskNumber / ${#chain_val[@]} ))\n")
     cat("block=${block_val[$(( taskNumber % ${#block_val[@]} ))]}\n\n")
 
     #cat(sprintf("srun Rscript plots_hpc.R %s $SLURM_ARRAY_TASK_ID\n\n",object@fit))
-    cat("Rscript plots_hpc.R ${fit[$block]} $chain \n")
+    cat("Rscript plots_hpc.R ${fit[$block-1]} $chain \n")
 
     sink()
 
