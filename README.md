@@ -9,7 +9,7 @@ The seaMass suite of tools for quantification and differential expression analys
 https://doi.org/10.2337/db15-0835), [[Xu et al, Nature Comms Biology, 2019]](https://doi.org/10.1038/s42003-018-0254-9) and [[Kassab et al, Molecular Metabolism, 2019]](	
 https://doi.org/10.1016/j.molmet.2019.08.003).
 
-- **mzMLb**: A future-proof binary HDF5 encoding of the [mzML](http://www.psidev.info/mzML) standard interchange format for raw mass spectrometry data flexibly providing best-in-class compression or best-in-class random access speeds. The code is implemented in ProteoWizard [here](https://github.com/biospi/mzmlb) and is moving towards approval by the [Proteomics Standards Intiative](http://www.psidev.info/).  
+- **mzMLb**: A future-proof binary HDF5 encoding of the [mzML](http://www.psidev.info/mzML) standard interchange format for raw mass spectrometry data flexibly providing best-in-class compression or best-in-class random access speeds. The code is implemented in ProteoWizard [here](https://github.com/biospi/pwiz) and is moving towards approval by the [Proteomics Standards Intiative](http://www.psidev.info/).  
 
 ## Requirements
 
