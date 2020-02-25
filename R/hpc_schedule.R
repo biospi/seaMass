@@ -127,23 +127,32 @@ gen_model0 <- function(path)
   sink()
 }
 
-gen_model <- function(path)
+gen_model <- function(path,nchain)
 {
   sink(file.path(path,"model_hpc.R"))
   cat("library(seaMass)\n")
   cat("fits <- commandArgs(T)[1]\n")
   cat("class(fits) <- \"seaMass_sigma_fit\"\n")
-  cat("sigma_process1(fits, as.integer(commandArgs(T)[2]))\n")
+  cat("chain <- as.integer(commandArgs(T)[2])\n")
+  cat("sigma_process1(fits, chain)\n")
+  cat("if(!file.exists(\"plots_hpc.R\")) {\n")
+  cat(sprintf("  if (all(sapply(1:%d, function(chain) file.exists(file.path(fits, \"model1\", paste(\".complete\", chain, sep = \".\")))))) {\n",nchain))
+  cat("    write.table(data.frame(), file.path(fits, \".complete\"), col.names = F) } }\n")
+
   sink()
 }
 
-gen_plots <- function(path)
+gen_plots <- function(path,nchain)
 {
   sink(file.path(path,"plots_hpc.R"))
   cat("library(seaMass)\n")
   cat("fits <- commandArgs(T)[1]\n")
   cat("class(fits) <- \"seaMass_sigma_fit\"\n")
-  cat("sigma_plots(fits, as.integer(commandArgs(T)[2]))\n")
+  cat("chain <- as.integer(commandArgs(T)[2])\n")
+  cat("sigma_plots(fits, chain)\n")
+  cat(sprintf("if (all(sapply(1:%d, function(chain) file.exists(file.path(fits, \"output\", paste(\".complete\", chain, sep = \".\")))))) {\n",nchain))
+  cat("  write.table(data.frame(), file.path(fits, \".complete\"), col.names = F) }\n")
+
   sink()
 }
 
@@ -200,7 +209,7 @@ setMethod("model0", signature(object = "slurm"), function(object)
 setMethod("model", signature(object = "slurm"), function(object)
   {
     # Create Rscript for SLURM submit.
-    gen_model(object@path)
+    gen_model(object@path,object@nchain)
 
     totalJobs = object@block * object@nchain - 1
     sink(file.path(object@path,"model.slurm"))
@@ -250,7 +259,7 @@ setMethod("model", signature(object = "slurm"), function(object)
 setMethod("plots", signature(object = "slurm"), function(object)
   {
     # Create Rscript for SLURM submit.
-    gen_plots(object@path)
+    gen_plots(object@path,object@nchain)
 
     totalJobs = object@block * object@nchain - 1
     sink(file.path(object@path,"plots.slurm"))
@@ -604,7 +613,7 @@ setMethod("model0", signature(object = "sge"), function(object)
 setMethod("model", signature(object = "sge"), function(object)
   {
     # Create Rscript for SLURM submit.
-    gen_model(object@path)
+    gen_model(object@path,object@nchain)
 
     totalJobs = object@block * object@nchain
     sink(file.path(object@path,"model.sge"))
@@ -661,7 +670,7 @@ setMethod("model", signature(object = "sge"), function(object)
 setMethod("plots", signature(object = "sge"), function(object)
   {
     # Create Rscript for SLURM submit.
-    gen_plots(object@path)
+    gen_plots(object@path,object@nchain)
 
     totalJobs = object@block * object@nchain
     sink(file.path(object@path,"plots.sge"))
