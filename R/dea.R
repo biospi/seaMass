@@ -12,12 +12,20 @@ dea_MCMCglmm <- function(
   output = "de",
   data.design = assay_design(fit),
   type = "group.quants",
-  emmeans.args = list(pairwise ~ Condition),
+  emmeans.args = list(revpairwise ~ Condition),
   fixed = ~ Condition,
-  random = NULL,
-  rcov = ~ idh(Condition):Sample,
+  random = ~ idh(Condition):Sample,
+  rcov = ~ units,
   start = NULL,
-  prior = list(R = list(V = diag(nlevels(factor(data.design$Condition))), nu = 2e-4)),
+  prior = list(
+    G = list(G1 = list(
+      V = diag(nlevels(factor(data.design$Condition))),
+      nu = nlevels(factor(data.design$Condition)),
+      alpha.mu = rep(0, nlevels(factor(data.design$Condition))),
+      alpha.V = diag(25^2, nlevels(factor(data.design$Condition))))
+    ),
+    R = list(V = 1, nu = 2e-4)
+  ),
   tune = NULL,
   pedigree = NULL,
   nodes = "ALL",
@@ -45,6 +53,14 @@ dea_MCMCglmm <- function(
   ctrl <- control(fit)
   fixed <- as.formula(sub("^.*~", "m ~", deparse(fixed)))
   nitt <- ctrl$dea.nwarmup + (ctrl$model.nsample * ctrl$dea.thin) / ctrl$model.nchain
+
+  # if default random effect but Samples and Assays the same, move random effect specification to rcov
+  if (is.null(random)) {
+    prior$G <- NULL
+  } else if (random == ~ idh(Condition):Sample && setequal(as.character(unique(data.design$Assay)), unique(as.character(data.design$Sample)))) {
+    random <- NULL
+    prior <- list(R = list(V = nlevels(factor(data.design$Condition)), nu = 2e-4))
+  }
 
   # prepare design
   DT.design <- as.data.table(data.design)[!is.na(Condition)]

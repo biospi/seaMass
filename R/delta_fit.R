@@ -134,7 +134,7 @@ normalised_group_quants.seaMass_delta_fit <- function(
   as.data.table = FALSE
 ) {
   if (!dir.exists(file.path(fit, input))) {
-    DT <- unnormalised_group_quants(fit, groups, summary.func, chains, as.data.table = T)
+    DT <- unnormalised_group_quants(fit, groups, summary, chains = chains, as.data.table = T)
     DT[, exposure := 0]
   } else {
     if(is.null(summary) || summary == F) summary <- NULL

@@ -4,8 +4,11 @@
 \alias{standardise_component_deviations}
 \title{Standardise component deviations}
 \usage{
-standardise_component_deviations(fit,
-  output = "standardised.component.deviations", ...)
+standardise_component_deviations(
+  fit,
+  output = "standardised.component.deviations",
+  ...
+)
 }
 \description{
 Make component deviations comparable between blocks.

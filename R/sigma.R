@@ -127,10 +127,22 @@ seaMass_sigma <- function(
     DT[, Assay := NULL]
 
     # censoring model
-    if (control$missingness.model == "measurement") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = MeasurementID]
-    if (control$missingness.model == "censored") DT[, Count1 := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = MeasurementID]
-    if (control$missingness.model == "censored" | control$missingness.model == "zero") DT[is.na(Count), Count := 0.0]
-    if (control$missingness.model == "censored" & all(DT$Count == DT$Count1)) DT[, Count1 := NULL]
+    if (is.null(control$missingness.model)) {
+      DT <- DT[complete.cases(DT)]
+    } else {
+      if (control$missingness.model == "measurement") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = MeasurementID]
+      if (control$missingness.model == "censored") DT[, Count1 := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = MeasurementID]
+      if (control$missingness.model == "censored" | control$missingness.model == "zero") DT[is.na(Count), Count := 0.0]
+      if (control$missingness.model == "censored2") DT[, Count1 := ifelse(is.na(Count), 2 * min(Count, na.rm = T), Count), by = MeasurementID]
+      if (control$missingness.model == "censored2") DT[, Count := ifelse(is.na(Count), 0 * min(Count, na.rm = T), Count), by = MeasurementID]
+      if (control$missingness.model == "censored3") DT[, Count1 := ifelse(is.na(Count), 1.5 * min(Count, na.rm = T), Count), by = MeasurementID]
+      if (control$missingness.model == "censored3") DT[, Count := ifelse(is.na(Count), 0.5 * min(Count, na.rm = T), Count), by = MeasurementID]
+      if (control$missingness.model == "censored4") DT[, Count1 := ifelse(is.na(Count), 2 * min(Count, na.rm = T), Count), by = MeasurementID]
+      if (control$missingness.model == "censored4") DT[, Count := ifelse(is.na(Count), 0.5 * min(Count, na.rm = T), Count), by = MeasurementID]
+      if (control$missingness.model == "censored5") DT[, Count1 := ifelse(is.na(Count), 1 * min(Count, na.rm = T), Count), by = MeasurementID]
+      if (control$missingness.model == "censored5") DT[, Count := ifelse(is.na(Count), 0.5 * min(Count, na.rm = T), Count), by = MeasurementID]
+      if ((control$missingness.model == "censored" | control$missingness.model == "censored2") & all(DT$Count == DT$Count1)) DT[, Count1 := NULL]
+    }
 
     # set ordering for indexing
     setorder(DT, GroupID, ComponentID, MeasurementID, AssayID)
@@ -298,7 +310,7 @@ seaMass_sigma <- function(
 #'   or \code{component} (per-assay independent random effects across components; default)
 #' @param assay.eb.min Minimum number of assays per group group to use for computing Empirical Bayes priors
 #' @param error.model Either \code{lognormal} or \code{poisson} (default)
-#' @param missingness.model Either \code{zero} (NAs set to 0), \code{measurement} (NAs set to lowest quant of that measurement) or
+#' @param missingness.model Either \code{NULL} (NAs removed, \code{zero} (NAs set to 0), \code{measurement} (NAs set to lowest quant of that measurement) or
 #'   \code{censored} (NAs modelled as censored between 0 and lowest quant of that measurement; default)
 #' @param missingness.threshold All measurement quants equal to or below this are treated as missing (default = 0)
 #' @param random.seed Random number seed
@@ -343,15 +355,16 @@ new_sigma_control <- function(
   if (!is.null(assay.model) && assay.model != "measurement" && assay.model != "component") {
     stop("'assay.model' needs to be either NULL, 'measurement' or 'component' (default)")
   }
-  if (!is.null(missingness.model) && missingness.model != "measurement" && missingness.model != "censored") {
-    stop("'missingness.model' needs to be either 'zero', 'measurement' or 'censored' (default)")
-  }
+  #if (!is.null(missingness.model) && missingness.model != "zero" && missingness.model != "measurement" && missingness.model != "censored" && missingness.model != "censored2" && missingness.model != "censored3") {
+  #  stop("'missingness.model' needs to be either NULL, 'zero', 'measurement', 'censored' or 'censored2' (default)")
+  #}
   if (model.nchain == 1) {
     message("WARNING: You are specifying only a single MCMC chain, convergence diagnostics will be unavailable. It is recommended to specify model.nchain=4 or more in 'control' for publishable results.")
   }
 
   # create control object
   control <- as.list(environment())
+
   class(control) <- "seaMass_sigma_control"
 
   return(control)

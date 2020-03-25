@@ -4,9 +4,16 @@
 \alias{new_hpc_schedule}
 \title{HPC parameters for executing seaMass Bayesian model on HPC clusters}
 \usage{
-new_hpc_schedule(que = "cpu", mem = "6000M", node = 1,
-  taskPerNode = 1, output = "NULL", wallTime = "NULL",
-  compress = TRUE, email = "UserName@email.com")
+new_hpc_schedule(
+  que = "NULL",
+  mem = "6000M",
+  node = 1,
+  taskPerNode = 1,
+  output = "NULL",
+  wallTime = "NULL",
+  compress = TRUE,
+  email = "UserName@email.com"
+)
 }
 \arguments{
 \item{que}{Name of the que on the HPC to submit the jobs to. Different ques are tailered and have different requirements.}

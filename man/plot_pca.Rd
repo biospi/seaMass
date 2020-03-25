@@ -2,18 +2,33 @@
 % Please edit documentation in R/plot.R
 \name{plot_pca}
 \alias{plot_pca}
-\title{Add together two numbers.}
+\title{Robust PCA plot}
 \usage{
-plot_pca(fit, data = normalised_group_quants(fit),
+plot_pca(
+  fit,
+  data = normalised_group_quants(fit),
   data.summary = normalised_group_quants(fit, summary = T),
-  data.design = assay_design(fit), contours = 1:2, robust = TRUE)
+  data.design = assay_design(fit),
+  contours = 1:2,
+  robust = TRUE
+)
 }
 \arguments{
-\item{datafile}{A number.}
+\item{fit}{.}
+
+\item{data}{.}
+
+\item{data.summary}{.}
+
+\item{data.design}{.}
+
+\item{contours}{.}
+
+\item{robust}{.}
 }
 \value{
-The sum of \code{x} and \code{y}.
+A ggplot2 object.
 }
 \description{
-Add together two numbers.
+Robust PCA plot
 }

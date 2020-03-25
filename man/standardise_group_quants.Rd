@@ -4,8 +4,12 @@
 \alias{standardise_group_quants}
 \title{Standardise group quants}
 \usage{
-standardise_group_quants(fit, output = "standardised",
-  data.design = assay_design(fit), ...)
+standardise_group_quants(
+  fit,
+  output = "standardised",
+  data.design = assay_design(fit),
+  ...
+)
 }
 \description{
 Make unnormalised group quants across blocks comparable by standardising using RefWeights as the denominator.

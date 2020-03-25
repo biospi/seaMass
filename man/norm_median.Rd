@@ -4,8 +4,13 @@
 \alias{norm_median}
 \title{Median normalisation}
 \usage{
-norm_median(fit, input = "standardised", output = "normalised",
-  norm.groups = ".*", ...)
+norm_median(
+  fit,
+  input = "standardised",
+  output = "normalised",
+  norm.groups = ".*",
+  ...
+)
 }
 \description{
 A Bayesian version of median normalisation.

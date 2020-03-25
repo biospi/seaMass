@@ -4,14 +4,26 @@
 \alias{new_sigma_control}
 \title{Control parameters for seaMass-Σ}
 \usage{
-new_sigma_control(measurement.model = "independent",
-  measurement.eb.min = 2, component.model = "independent",
-  component.eb.min = 3, assay.model = "component", assay.eb.min = 3,
-  assay.eb.nsample = 16, error.model = "poisson",
-  missingness.model = "censored", missingness.threshold = 0,
-  model.nchain = 4, model.nwarmup = 256, model.thin = 4,
-  model.nsample = 1024, eb.max = 1024, random.seed = 0,
-  nthread = parallel::detectCores()\%/\%2, hpc = NULL)
+new_sigma_control(
+  measurement.model = "independent",
+  measurement.eb.min = 2,
+  component.model = "independent",
+  component.eb.min = 3,
+  assay.model = "component",
+  assay.eb.min = 3,
+  assay.eb.nsample = 16,
+  error.model = "poisson",
+  missingness.model = "censored",
+  missingness.threshold = 0,
+  model.nchain = 4,
+  model.nwarmup = 256,
+  model.thin = 4,
+  model.nsample = 1024,
+  eb.max = 1024,
+  random.seed = 0,
+  nthread = parallel::detectCores()\%/\%2,
+  hpc = NULL
+)
 }
 \arguments{
 \item{measurement.model}{Either \code{single} (single residual) or \code{independent} (per-measurement independent residuals; default)}
@@ -30,7 +42,7 @@ or \code{component} (per-assay independent random effects across components; def
 
 \item{error.model}{Either \code{lognormal} or \code{poisson} (default)}
 
-\item{missingness.model}{Either \code{zero} (NAs set to 0), \code{measurement} (NAs set to lowest quant of that measurement) or
+\item{missingness.model}{Either \code{NULL} (NAs removed, \code{zero} (NAs set to 0), \code{measurement} (NAs set to lowest quant of that measurement) or
 \code{censored} (NAs modelled as censored between 0 and lowest quant of that measurement; default)}
 
 \item{missingness.threshold}{All measurement quants equal to or below this are treated as missing (default = 0)}

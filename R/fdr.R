@@ -11,7 +11,7 @@ fdr_ash <- function(
   type = "group.quants",
   by.effect = TRUE,
   by.model = TRUE,
-  use.df = TRUE,
+  use.df = FALSE,
   min.components = 1,
   min.components.per.condition = 0,
   min.measurements = 1,
@@ -20,7 +20,7 @@ fdr_ash <- function(
   min.test.samples.per.condition = 2,
   min.real.samples = 1,
   min.real.samples.per.condition = 0,
-  mixcompdist = "halfuniform",
+  mixcompdist = "halfnormal",
   ...
 ) {
   # this is needed to stop foreach massive memory leak!!!

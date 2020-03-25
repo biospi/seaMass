@@ -19,9 +19,15 @@
 \alias{assay_deviations.seaMass_sigma_fit}
 \title{seaMass-Σ}
 \usage{
-seaMass_sigma(data, data.design = new_assay_design(data),
-  summaries = FALSE, plots = FALSE, name = "fit",
-  control = new_sigma_control(), hpc.schedule = new_hpc_schedule())
+seaMass_sigma(
+  data,
+  data.design = new_assay_design(data),
+  summaries = FALSE,
+  plots = FALSE,
+  name = "fit",
+  control = new_sigma_control(),
+  hpc.schedule = new_hpc_schedule()
+)
 
 open_sigma_fits(names, quiet = FALSE, force = FALSE)
 
@@ -41,28 +47,53 @@ open_sigma_fits(names, quiet = FALSE, force = FALSE)
 
 \method{summary}{seaMass_sigma_fit}(fit, group, input = "model1")
 
-\method{timings}{seaMass_sigma_fit}(fit, input = "model1",
-  as.data.table = FALSE)
+\method{timings}{seaMass_sigma_fit}(fit, input = "model1", as.data.table = FALSE)
 
-\method{measurement_vars}{seaMass_sigma_fit}(fit, measurements = NULL,
-  summary = FALSE, input = "model1",
-  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
+\method{measurement_vars}{seaMass_sigma_fit}(
+  fit,
+  measurements = NULL,
+  summary = FALSE,
+  input = "model1",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+)
 
-\method{component_vars}{seaMass_sigma_fit}(fit, components = NULL,
-  summary = FALSE, input = "model1",
-  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
+\method{component_vars}{seaMass_sigma_fit}(
+  fit,
+  components = NULL,
+  summary = FALSE,
+  input = "model1",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+)
 
-\method{assay_vars}{seaMass_sigma_fit}(fit, groups = NULL,
-  summary = FALSE, input = "model1",
-  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
+\method{assay_vars}{seaMass_sigma_fit}(
+  fit,
+  groups = NULL,
+  summary = FALSE,
+  input = "model1",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+)
 
-\method{component_deviations}{seaMass_sigma_fit}(fit, components = NULL,
-  summary = FALSE, input = "model1",
-  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
+\method{component_deviations}{seaMass_sigma_fit}(
+  fit,
+  components = NULL,
+  summary = FALSE,
+  input = "model1",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+)
 
-\method{assay_deviations}{seaMass_sigma_fit}(fit, measurements = NULL,
-  components = NULL, summary = FALSE, input = "model1",
-  chains = 1:control(fit)$model.nchain, as.data.table = FALSE)
+\method{assay_deviations}{seaMass_sigma_fit}(
+  fit,
+  measurements = NULL,
+  components = NULL,
+  summary = FALSE,
+  input = "model1",
+  chains = 1:control(fit)$model.nchain,
+  as.data.table = FALSE
+)
 }
 \arguments{
 \item{data}{A \link{data.frame} of input data as returned by \link{import_ProteinPilot}, \link{import_ProteinPilot},

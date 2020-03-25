@@ -4,8 +4,13 @@
 \alias{norm_theta}
 \title{seaMass-Θ normalisation}
 \usage{
-norm_theta(fit, input = "standardised", output = "normalised",
-  norm.groups = ".*", ...)
+norm_theta(
+  fit,
+  input = "standardised",
+  output = "normalised",
+  norm.groups = ".*",
+  ...
+)
 }
 \description{
 Normalisation through a Bayesian linear regression with per-group variance components.

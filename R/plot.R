@@ -1,7 +1,12 @@
-#' Add together two numbers.
+#' Robust PCA plot
 #'
-#' @param datafile A number.
-#' @return The sum of \code{x} and \code{y}.
+#' @param fit .
+#' @param data .
+#' @param data.summary .
+#' @param data.design .
+#' @param contours .
+#' @param robust .
+#' @return A ggplot2 object.
 #' @import data.table
 #' @export
 plot_pca <- function(
@@ -125,6 +130,179 @@ plot_pca <- function(
 
   return(g)
 }
+
+
+#' Precision-Recall plot
+#'
+#' @param data.fdr .
+#' @param ymax .
+#' @return A ggplot2 object.
+#' @import data.table
+#' @export
+plot_pr <- function(
+  data.fdr,
+  plot.fdr = T,
+  ymax = NULL
+) {
+  if (is.data.frame(data.fdr)) {
+    DTs.pr <- list(unknown = data.fdr)
+  } else {
+    if (is.null(names(data.fdr))) stop("if data is a list, it needs to be a named list of data.frames")
+    if (any(duplicated(names(data.fdr)))) stop("if data is a named list, none of the names should be duplicates")
+    DTs.pr <- data.fdr
+  }
+
+  for (method in names(DTs.pr)) {
+    DT.pr <- setDT(DTs.pr[[method]])
+    if (is.null(DT.pr$qvalue.lower)) DT.pr[, qvalue.lower := qvalue]
+    if (is.null(DT.pr$qvalue.upper)) DT.pr[, qvalue.upper := qvalue]
+    DT.pr <- DT.pr[, .(qvalue.lower, qvalue, qvalue.upper, FD = ifelse(truth == 0, 1, 0))]
+    DT.pr[, Discoveries := 1:nrow(DT.pr)]
+    DT.pr[, TrueDiscoveries := cumsum(1 - FD)]
+    DT.pr[, FDP := cumsum(FD) / Discoveries]
+    DT.pr[, FDP := rev(cummin(rev(FDP)))]
+    DT.pr[, Method := method]
+    DTs.pr[[method]] <- DT.pr
+  }
+  DTs.pr <- rbindlist(DTs.pr)
+  DTs.pr[, Method := factor(Method, levels = unique(Method))]
+
+  ylabels <- function() function(x) format(x, digits = 2)
+
+  pi <- 1.0 - max(DTs.pr$TrueDiscoveries) / max(DTs.pr$Discoveries)
+  if (is.null(ymax)) ymax <- pi
+
+  g <- ggplot2::ggplot(DTs.pr, ggplot2::aes(x = TrueDiscoveries, y = FDP, colour = Method, fill = Method, linetype = Method))
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype = "dotted")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype = "dotted")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype = "dotted")
+  g <- g + ggplot2::geom_ribbon(ggplot2::aes(ymin = qvalue.lower, ymax = qvalue.upper), colour = NA, alpha = 0.3)
+  if (plot.fdr) g <- g + ggplot2::geom_line(ggplot2::aes(y = qvalue), lty = "dashed")
+  g <- g + ggplot2::geom_step(direction = "vh")
+  g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
+  g <- g + ggplot2::scale_y_reverse(breaks = c(0.0, 0.01, 0.05, 0.1, 0.2, 0.5), labels = ylabels(), expand = c(0.001, 0.001))
+  g <- g + ggplot2::coord_cartesian(xlim = c(0, max(DTs.pr$TrueDiscoveries)), ylim = c(ymax, 0))
+  g <- g + ggplot2::xlab(paste0("True Discoveries [ Sensitivity x ", max(DTs.pr$TrueDiscoveries), " ] from ", max(DTs.pr$Discoveries), " total groups"))
+  g <- g + ggplot2::ylab("Solid Line: False Discovery Proportion [ 1 - Precision ], Dashed Line: FDR")
+  g <- g + ggplot2::scale_linetype_manual(values = rep("solid", length(levels(DTs.pr$Method))))
+
+  if (is.data.frame(data.fdr)) {
+    g + ggplot2::theme(legend.position = "none")
+  } else {
+    g + ggplot2::theme(legend.position = "top")
+  }
+}
+
+
+#' Volcano plot
+#'
+#' @param data.fdr .
+#' @return A ggplot2 object.
+#' @import data.table
+#' @export
+plot_volcano <- function(
+  data.fdr,
+  contours = 1:2,
+  plt.fdp = F
+) {
+  if ("truth" %in% colnames(data.fdr)) {
+    DT.fdr <- as.data.table(data.fdr)[, .(m, truth, y = qvalue)]
+
+    if (plt.fdp) {
+      # compute FDP
+      DT.fdr[, FD := ifelse(truth == 0 | m * truth < 0, 1, 0)]
+      DT.fdr[, Discoveries := 1:nrow(DT.fdr)]
+      DT.fdr[, TrueDiscoveries := cumsum(1 - FD)]
+      DT.fdr[, y := (0.5 + cumsum(FD)) / Discoveries]
+      DT.fdr[, y := rev(cummin(rev(y)))]
+    }
+  } else {
+    DT.fdr <- as.data.table(data.fdr)[, .(m, y = qvalue)]
+    DT.fdr[, truth := 0]
+  }
+  DT.fdr <- DT.fdr[complete.cases(DT.fdr)]
+  DT.fdr[, Group := factor(truth)]
+  DT.meta <- DT.fdr[, .(median = median(m, na.rm = T)), by = truth]
+
+  # transform y
+  DT.fdr[, y := -log10(y)]
+
+  # bandwidth from all data
+  H <- ks::Hpi(cbind(DT.fdr[, m], DT.fdr[, y]))
+  min.lim <- c(1.1 * min(DT.fdr[, m]), 0)
+  max.lim <- c(1.1 * max(DT.fdr[, m]), 1.1 * max(DT.fdr[, y]))
+  # generate density contour line
+  DT.density <- DT.fdr[, {
+    DT <- NULL
+    try({
+      #dens <- ks::kde(cbind(m, get(yvar)), H, xmin = min.lim, xmax = max.lim)
+      #dens <- ks::kde.boundary(cbind(m, y), H, xmin = min.lim, xmax = max.lim)
+      dens <- ks::kde.boundary(cbind(m, y), H)
+      DT <- data.table(
+        expand.grid(x = dens$eval.points[[1]], y = dens$eval.points[[2]]),
+        z1 = as.vector(dens$estimate) / dens$cont["32%"],
+        z2 = as.vector(dens$estimate) / dens$cont["5%"],
+        z3 = as.vector(dens$estimate) / dens$cont["1%"]
+      )
+    })
+  }, by = Group]
+
+  # plot
+  #ymax <- max(DT.fdr[, get(yvar)])
+  g <- ggplot2::ggplot(DT.fdr, ggplot2::aes(x = m, y = y), colour = Group)
+  g <- g + ggplot2::geom_vline(xintercept = 0)
+  if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z1, colour = Group), breaks = 1, alpha = 1)
+  if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z2, colour = Group), breaks = 1, alpha = 0.5)
+  if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z3, colour = Group), breaks = 1, alpha = 0.25)
+  g <- g + ggplot2::geom_vline(aes(color = factor(truth), xintercept = truth), DT.meta)
+  g <- g + ggplot2::geom_vline(aes(color = factor(truth), xintercept = median), DT.meta, lty = "longdash")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype = "dotted")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype = "dotted")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype = "dotted")
+  g <- g + ggplot2::geom_point(aes(color = factor(truth)), size = 1, alpha = 0.5)
+  #g <- g + ggplot2::scale_y_continuous(expand = expansion(mult = c(0, 0.05), add = c(0, 0)))
+  #g <- g + ggplot2::scale_y_reverse(limits = c(ymax, 0))
+  #g <- g + ggplot2::theme(legend.position = "none")
+  g <- g + ggplot2::xlab("Fold Change")
+  g <- g + ggplot2::ylab(paste0("-log10()"))
+  g
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #' Add together two numbers.
@@ -310,7 +488,7 @@ plot_fdr <- function(data, ymax = 0.2) {
 
 #' @import data.table
 #' @export
-plot_volcano <- function(data, data.design, data.meta = NULL, data.truth = NULL, xaxis = "identity", yaxis = "t-test.p", xlim = NULL, ylim = NULL) {
+plot_volcano2 <- function(data, data.design, data.meta = NULL, data.truth = NULL, xaxis = "identity", yaxis = "t-test.p", xlim = NULL, ylim = NULL) {
   # debug stuff
   if (!exists("data.meta")) data.meta <- NULL
   if (!exists("data.truth")) data.truth <- NULL
@@ -520,65 +698,7 @@ plot_volcano <- function(data, data.design, data.meta = NULL, data.truth = NULL,
 }
 
 
-#' @import data.table
-#' @export
-plot_pr <- function(data, ymax = NULL) {
-  if (is.data.frame(data)) {
-    DTs.pr <- list(unknown = data)
-  } else {
-    if (is.null(names(data))) stop("if data is a list, it needs to be a named list of data.frames")
-    DTs.pr <- data
-  }
 
-  for (method in names(DTs.pr)) {
-    DT.pr <- setDT(DTs.pr[[method]])
-    if (is.null(DT.pr$qvalue.lower)) DT.pr[, qvalue.lower := qvalue]
-    if (is.null(DT.pr$qvalue.upper)) DT.pr[, qvalue.upper := qvalue]
-    DT.pr <- DT.pr[, .(qvalue.lower, qvalue, qvalue.upper, FD = ifelse(truth == 0, 1, 0))]
-    DT.pr[, Discoveries := 1:nrow(DT.pr)]
-    DT.pr[, TrueDiscoveries := cumsum(1 - FD)]
-    DT.pr[, FDP := cumsum(FD) / Discoveries]
-    DT.pr[, FDP := rev(cummin(rev(FDP)))]
-    DT.pr[, Method := method]
-    DTs.pr[[method]] <- DT.pr
-  }
-  DTs.pr <- rbindlist(DTs.pr)
-  DTs.pr[, Method := factor(Method, levels = unique(Method))]
-
-  ylabels <- function() function(x) format(x, digits = 2)
-
-  pi <- 1.0 - max(DTs.pr$TrueDiscoveries) / max(DTs.pr$Discoveries)
-  if (is.null(ymax)) ymax <- pi
-
-  #rev_sqrt_trans <- function() {
-  #  scales::trans_new(
-  #    name = "rev_sqrt",
-  #    transform = function(x) -sqrt(abs(x)),
-  #    inverse = function(x) x^2
-  #  );
-  #}
-
-  g <- ggplot2::ggplot(DTs.pr, ggplot2::aes(x = TrueDiscoveries, y = FDP, colour = Method, fill = Method, linetype = Method))
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype = "dotted")
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype = "dotted")
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype = "dotted")
-  g <- g + ggplot2::geom_ribbon(ggplot2::aes(ymin = qvalue.lower, ymax = qvalue.upper), colour = NA, alpha = 0.3)
-  g <- g + ggplot2::geom_line(ggplot2::aes(y = qvalue), lty = "dashed")
-  g <- g + ggplot2::geom_step(direction = "vh")
-  g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
-  #g <- g + ggplot2::scale_y_continuous(trans = rev_sqrt_trans(), breaks = c(0.0, 0.01, 0.05, 0.1, 0.2, 0.5, pi, 1.0), labels = ylabels(), expand = c(0.001, 0.001))
-  g <- g + ggplot2::scale_y_reverse(breaks = c(0.0, 0.01, 0.05, 0.1, 0.2), labels = ylabels(), expand = c(0.001, 0.001))
-  g <- g + ggplot2::coord_cartesian(xlim = c(0, max(DTs.pr$TrueDiscoveries)), ylim = c(ymax, 0))
-  g <- g + ggplot2::xlab(paste0("True Discoveries [ Sensitivity x ", max(DTs.pr$TrueDiscoveries), " ] from ", max(DTs.pr$Discoveries), " total groups"))
-  g <- g + ggplot2::ylab("Solid Line: False Discovery Proportion [ 1 - Precision ], Dashed Line: FDR")
-  g <- g + ggplot2::scale_linetype_manual(values = rep("solid", length(levels(DTs.pr$Method))))
-
-  if (is.data.frame(data)) {
-    g + ggplot2::theme(legend.position = "none")
-  } else {
-    g + ggplot2::theme(legend.position = "top")
-  }
-}
 
 
 #' @import data.table

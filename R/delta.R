@@ -220,7 +220,7 @@ new_delta_control <- function(
   norm.thin = 1,
   dea.model = "MCMCglmm",
   dea.nwarmup = 4096,
-  dea.thin = 64,
+  dea.thin = 256,
   fdr.model = "ash",
   random.seed = 0,
   nthread = parallel::detectCores() %/% 2

@@ -4,8 +4,12 @@
 \alias{import_OpenSWATH}
 \title{Import OpenSWATH data}
 \usage{
-import_OpenSWATH(file = NULL, shared = FALSE, m_score.cutoff = 0.05,
-  data = NULL)
+import_OpenSWATH(
+  file = NULL,
+  shared = FALSE,
+  m_score.cutoff = 0.05,
+  data = NULL
+)
 }
 \arguments{
 \item{m_score.cutoff}{Include only measurements with PyProphet m_score >= than this?}
