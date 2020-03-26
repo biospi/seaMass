@@ -185,6 +185,25 @@ sigma_model <- function(fit, dir, chain = 1) {
           fixed, random, rcov, family, data = DT, prior = prior,
           nitt = nitt, burnin = ctrl$model.nwarmup, thin = ctrl$model.thin, pr = T, verbose = F
         ))
+
+        model <- MCMCglmm::MCMCglmm(
+          Count ~ MeasurementID:trait - 1 + QuantID:trait,
+          random = ~idh(AssayID1:trait):MeasurementID + idh(AssayID2:trait):MeasurementID +
+            idh(AssayID3:trait):MeasurementID + idh(AssayID4:trait):MeasurementID +
+            idh(AssayID5:trait):MeasurementID + idh(AssayID6:trait):MeasurementID +
+            idh(AssayID7:trait):MeasurementID + idh(AssayID8:trait):MeasurementID,
+          rcov = ~idh(trait:ComponentID.MeasurementID):units,
+          family = "hupoisson",
+          data = DT,
+          prior = list(G = lapply(1:nlevels(DT$AssayID), function(k) list(V = diag(2), nu = 2, alpha.mu = c(0,0), alpha.V = diag(25^2, 2 ))), R = list(V = diag(2*nM), nu = 0.02)),
+          nitt = nitt,
+          burnin = ctrl$model.nwarmup,
+          thin = ctrl$model.thin,
+          pr = T,
+          verbose = F
+        )
+
+
         output$DT.timings <- data.table(GroupID = DT[1, GroupID], chainID = chain, as.data.table(t(as.matrix(output$DT.timings))))
         options(max.print = 99999)
         output$DT.summaries <- data.table(GroupID = DT[1, GroupID], chainID = chain, Summary = paste(c(output$DT.summaries, capture.output(print(summary(model))), as.character(Sys.time())), collapse = "\n"))

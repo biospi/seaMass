@@ -135,12 +135,12 @@ seaMass_sigma <- function(
       if (control$missingness.model == "censored" | control$missingness.model == "zero") DT[is.na(Count), Count := 0.0]
       if (control$missingness.model == "censored2") DT[, Count1 := ifelse(is.na(Count), 2 * min(Count, na.rm = T), Count), by = MeasurementID]
       if (control$missingness.model == "censored2") DT[, Count := ifelse(is.na(Count), 0 * min(Count, na.rm = T), Count), by = MeasurementID]
-      if (control$missingness.model == "censored3") DT[, Count1 := ifelse(is.na(Count), 1.5 * min(Count, na.rm = T), Count), by = MeasurementID]
-      if (control$missingness.model == "censored3") DT[, Count := ifelse(is.na(Count), 0.5 * min(Count, na.rm = T), Count), by = MeasurementID]
+      if (control$missingness.model == "censored3") DT[, Count1 := ifelse(is.na(Count), round(1.5 * min(Count, na.rm = T)), Count), by = MeasurementID]
+      if (control$missingness.model == "censored3") DT[, Count := ifelse(is.na(Count), round(0.5 * min(Count, na.rm = T)), Count), by = MeasurementID]
       if (control$missingness.model == "censored4") DT[, Count1 := ifelse(is.na(Count), 2 * min(Count, na.rm = T), Count), by = MeasurementID]
-      if (control$missingness.model == "censored4") DT[, Count := ifelse(is.na(Count), 0.5 * min(Count, na.rm = T), Count), by = MeasurementID]
+      if (control$missingness.model == "censored4") DT[, Count := ifelse(is.na(Count), round(0.5 * min(Count, na.rm = T)), Count), by = MeasurementID]
       if (control$missingness.model == "censored5") DT[, Count1 := ifelse(is.na(Count), 1 * min(Count, na.rm = T), Count), by = MeasurementID]
-      if (control$missingness.model == "censored5") DT[, Count := ifelse(is.na(Count), 0.5 * min(Count, na.rm = T), Count), by = MeasurementID]
+      if (control$missingness.model == "censored5") DT[, Count := ifelse(is.na(Count), round(0.5 * min(Count, na.rm = T)), Count), by = MeasurementID]
       if ((control$missingness.model == "censored" | control$missingness.model == "censored2") & all(DT$Count == DT$Count1)) DT[, Count1 := NULL]
     }
 
