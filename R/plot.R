@@ -142,7 +142,8 @@ plot_pca <- function(
 plot_pr <- function(
   data.fdr,
   plot.fdr = T,
-  ymax = NULL
+  ymax = NULL,
+  legend.nrow = 1
 ) {
   if (is.data.frame(data.fdr)) {
     DTs.pr <- list(unknown = data.fdr)
@@ -189,7 +190,7 @@ plot_pr <- function(
   if (is.data.frame(data.fdr)) {
     g + ggplot2::theme(legend.position = "none")
   } else {
-    g + ggplot2::theme(legend.position = "top")
+    g + ggplot2::theme(legend.position = "top") + ggplot2::guides(lty = ggplot2::guide_legend(nrow = legend.nrow))
   }
 }
 
@@ -222,7 +223,7 @@ plot_volcano <- function(
   }
   DT.fdr <- DT.fdr[complete.cases(DT.fdr)]
   DT.fdr[, Group := factor(truth)]
-  DT.meta <- DT.fdr[, .(median = median(m, na.rm = T)), by = truth]
+  DT.meta <- DT.fdr[, .(median = median(m, na.rm = T), .N), by = truth]
 
   # transform y
   DT.fdr[, y := -log10(y)]
@@ -234,16 +235,16 @@ plot_volcano <- function(
   # generate density contour line
   DT.density <- DT.fdr[, {
     DT <- NULL
-    try({
-      #dens <- ks::kde(cbind(m, get(yvar)), H, xmin = min.lim, xmax = max.lim)
-      #dens <- ks::kde.boundary(cbind(m, y), H, xmin = min.lim, xmax = max.lim)
-      dens <- ks::kde.boundary(cbind(m, y), H)
-      DT <- data.table(
-        expand.grid(x = dens$eval.points[[1]], y = dens$eval.points[[2]]),
-        z1 = as.vector(dens$estimate) / dens$cont["32%"],
-        z2 = as.vector(dens$estimate) / dens$cont["5%"],
-        z3 = as.vector(dens$estimate) / dens$cont["1%"]
-      )
+    try(if (length(y) >= 3) {
+        #dens <- ks::kde(cbind(m, get(yvar)), H, xmin = min.lim, xmax = max.lim)
+        #dens <- ks::kde.boundary(cbind(m, y), H, xmin = min.lim, xmax = max.lim)
+        dens <- ks::kde.boundary(cbind(m, y), H)
+        DT <- data.table(
+          expand.grid(x = dens$eval.points[[1]], y = dens$eval.points[[2]]),
+          z1 = as.vector(dens$estimate) / dens$cont["32%"],
+          z2 = as.vector(dens$estimate) / dens$cont["5%"],
+          z3 = as.vector(dens$estimate) / dens$cont["1%"]
+        )
     })
   }, by = Group]
 
@@ -254,17 +255,17 @@ plot_volcano <- function(
   if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z1, colour = Group), breaks = 1, alpha = 1)
   if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z2, colour = Group), breaks = 1, alpha = 0.5)
   if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z3, colour = Group), breaks = 1, alpha = 0.25)
-  g <- g + ggplot2::geom_vline(aes(color = factor(truth), xintercept = truth), DT.meta)
-  g <- g + ggplot2::geom_vline(aes(color = factor(truth), xintercept = median), DT.meta, lty = "longdash")
+  g <- g + ggplot2::geom_vline(aes(color = factor(truth), xintercept = truth), DT.meta[N >= 3])
+  g <- g + ggplot2::geom_vline(aes(color = factor(truth), xintercept = median), DT.meta[N >= 3], lty = "longdash")
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype = "dotted")
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype = "dotted")
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype = "dotted")
   g <- g + ggplot2::geom_point(aes(color = factor(truth)), size = 1, alpha = 0.5)
   #g <- g + ggplot2::scale_y_continuous(expand = expansion(mult = c(0, 0.05), add = c(0, 0)))
   #g <- g + ggplot2::scale_y_reverse(limits = c(ymax, 0))
-  #g <- g + ggplot2::theme(legend.position = "none")
+  g <- g + ggplot2::theme(legend.position = "top")
   g <- g + ggplot2::xlab("Fold Change")
-  g <- g + ggplot2::ylab(paste0("-log10()"))
+  g <- g + ggplot2::ylab(paste0("-log10(qvalue)"))
   g
 }
 

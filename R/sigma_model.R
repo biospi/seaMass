@@ -163,7 +163,7 @@ sigma_model <- function(fit, dir, chain = 1) {
         }
 
         # family
-        if (ctrl$error.model == "lognormal") {
+        if (ctrl$error.model == "l" || ctrl$error.model == "lognormal") {
           DT$Count <- log(DT$Count)
           if(is.null(DT$Count1)) {
             family <- "gaussian"
@@ -180,31 +180,31 @@ sigma_model <- function(fit, dir, chain = 1) {
         }
 
         ### RUN MODEL
-        output$DT.summaries <- as.character(Sys.time())
-        output$DT.timings <- system.time(model <- MCMCglmm::MCMCglmm(
-          fixed, random, rcov, family, data = DT, prior = prior,
-          nitt = nitt, burnin = ctrl$model.nwarmup, thin = ctrl$model.thin, pr = T, verbose = F
-        ))
+        # MCMCglmm can very rarely fail on a dataset, try again with slightly perturbed values
+        model <- NULL
+        attempt <- 1
+        while (is.null(model) && attempt <= 10) {
+          if (attempt != 1) {
+            if (family == "poisson" || family == "cenpoisson") {
+              DT$Count <- DT$Count + 1
+              if (!is.null(DT$Count1)) DT$Count1 <- DT$Count1 + 1
+            } else {
+              rn <- rnorm(length(DT$Count), sd = 1e-5)
+              DT$Count <- DT$Count + rn
+              if (!is.null(DT$Count1)) DT$Count1 <- DT$Count1 + rn
+            }
+          }
 
-        model <- MCMCglmm::MCMCglmm(
-          Count ~ MeasurementID:trait - 1 + QuantID:trait,
-          random = ~idh(AssayID1:trait):MeasurementID + idh(AssayID2:trait):MeasurementID +
-            idh(AssayID3:trait):MeasurementID + idh(AssayID4:trait):MeasurementID +
-            idh(AssayID5:trait):MeasurementID + idh(AssayID6:trait):MeasurementID +
-            idh(AssayID7:trait):MeasurementID + idh(AssayID8:trait):MeasurementID,
-          rcov = ~idh(trait:ComponentID.MeasurementID):units,
-          family = "hupoisson",
-          data = DT,
-          prior = list(G = lapply(1:nlevels(DT$AssayID), function(k) list(V = diag(2), nu = 2, alpha.mu = c(0,0), alpha.V = diag(25^2, 2 ))), R = list(V = diag(2*nM), nu = 0.02)),
-          nitt = nitt,
-          burnin = ctrl$model.nwarmup,
-          thin = ctrl$model.thin,
-          pr = T,
-          verbose = F
-        )
+          try(output$DT.timings <- system.time(model <- MCMCglmm::MCMCglmm(
+            fixed, random, rcov, family, data = DT, prior = prior,
+            nitt = nitt, burnin = ctrl$model.nwarmup, thin = ctrl$model.thin, pr = T, verbose = F
+          )))
 
-
+          attempt <- attempt + 1
+        }
+        if (is.null(model)) step("ERROR: MCMCglmm failed more than 10 times")
         output$DT.timings <- data.table(GroupID = DT[1, GroupID], chainID = chain, as.data.table(t(as.matrix(output$DT.timings))))
+
         options(max.print = 99999)
         output$DT.summaries <- data.table(GroupID = DT[1, GroupID], chainID = chain, Summary = paste(c(output$DT.summaries, capture.output(print(summary(model))), as.character(Sys.time())), collapse = "\n"))
 
@@ -491,7 +491,7 @@ sigma_model <- function(fit, dir, chain = 1) {
             fst::write.fst(output$DT.component.vars, file.path(fit, dir, filename))
 
             if (chain == 1) {
-            # construct index
+              # construct index
               output$DT.component.vars.index <- output$DT.component.vars[, .(
                 from = .I[!duplicated(output$DT.component.vars, by = c("GroupID", "ComponentID"))],
                 to = .I[!duplicated(output$DT.component.vars, fromLast = T, by = c("GroupID", "ComponentID"))]

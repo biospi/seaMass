@@ -4,7 +4,7 @@
 \alias{plot_pr}
 \title{Precision-Recall plot}
 \usage{
-plot_pr(data.fdr, plot.fdr = T, ymax = NULL)
+plot_pr(data.fdr, plot.fdr = T, ymax = NULL, legend.nrow = 1)
 }
 \arguments{
 \item{data.fdr}{.}

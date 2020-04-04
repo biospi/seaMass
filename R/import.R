@@ -691,10 +691,13 @@ import_MaxQuant_evidence0 <- function(
 #' @return A \link{data.frame} for input into \link{bayesprot}.
 #' @import data.table
 #' @export
-import_MaxQuant_evidence <- function(
+import_MaxQuant <- function(
   proteinGroups.file = NULL,
   evidence.file = NULL,
-  shared = FALSE,
+  filter.shared.peptides = TRUE,
+  filter.only.identified.by.site = TRUE,
+  filter.reverse = TRUE,
+  filter.potential.contaminant = TRUE,
   proteinGroups.data = NULL,
   evidence.data = NULL
 ) {
@@ -707,9 +710,10 @@ import_MaxQuant_evidence <- function(
   }
 
   # filter groups
-  #DT.groups <- DT.groups[`Only identified by site` != "+",]
-  DT.groups <- DT.groups[`Reverse` != "+",]
-  DT.groups <- DT.groups[`Potential contaminant` != "+",]
+  if (filter.only.identified.by.site) DT.groups <- DT.groups[`Only identified by site` != "+",]
+  if (filter.reverse) DT.groups <- DT.groups[`Reverse` != "+",]
+  if (filter.potential.contaminant) DT.groups <- DT.groups[`Potential contaminant` != "+",]
+
   DT.groups <- DT.groups[, .(Group = `Protein IDs`, GroupInfo = `Fasta headers`, GroupID = id)]
 
   # load wide raw
@@ -732,7 +736,7 @@ import_MaxQuant_evidence <- function(
   )]
 
   # remove or expand out rows with shared features
-  if (shared == F) {
+  if (filter.shared.peptides) {
     DT <- DT[!grepl(";", GroupID),]
     DT[, GroupID := as.integer(GroupID)]
   } else {
@@ -782,22 +786,70 @@ import_MaxQuant_evidence <- function(
 #' @return A \link{data.frame} for input into \link{bayesprot}.
 #' @import data.table
 #' @export
-import_MSnbase <- function(
+import_MSqRob <- function(
   fData,
   exprs,
-  log2 = TRUE
+  evidence.file = NULL,
+  is.log2 = TRUE,
+  evidence.data = NULL
 ) {
-  DT <- setDT(cbind(fData[, c("Proteins", "Sequence")], exprs))
-  DT <- melt(DT, variable.name = "Run", value.name = "Count", id.vars = c("Proteins", "Sequence"))
-  setnames(DT, c("Proteins", "Sequence"), c("Group", "Measurement"))
-  DT[, Group := factor(Group)]
-  DT[, GroupInfo := ""]
-  DT[, Component := Group]
-  DT[, Measurement := factor(Measurement)]
-  DT[, Channel := factor("")]
-  if (log2) DT[, Count := 2^Count]
-  setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run"))
+  if (is.null(evidence.file) & is.null(evidence.data)) {
+    DT <- setDT(cbind(fData[, c("Proteins", "Sequence")], exprs))
+    DT <- melt(DT, variable.name = "Run", value.name = "Count", id.vars = c("Proteins", "Sequence"))
+    setnames(DT, c("Proteins", "Sequence"), c("Group", "Measurement"))
+    DT[, Group := factor(Group)]
+    DT[, GroupInfo := ""]
+    DT[, Component := Group]
+    DT[, Measurement := factor(Measurement)]
+    DT[, Channel := factor("")]
+    if (is.log2) DT[, Count := 2^Count]
+  } else {
+    # if MaxQuant evidence file supply, convert from two to three stage hierarchy
+    DT <- setDT(fData[, c("Proteins", "Sequence","Evidence.IDs")])
+    setnames(DT, "Proteins", "Group")
+    DT <- DT[, {
+      id = strsplit(as.character(Evidence.IDs), ";")
+      list(Group = rep(Group, sapply(id, length)), Sequence = rep(Sequence, sapply(id, length)), id = as.integer(unlist(id)))
+    }]
 
+    if (!is.null(evidence.file) | is.null(evidence.data)) {
+      if (is.null(evidence.file)) {
+        DT.evidence <- setDT(evidence.data)
+      } else {
+        DT.evidence <- fread(file = evidence.file, showProgress = T)
+      }
+    }
+
+    DT.evidence <- DT.evidence[, .(
+      id,
+      GroupInfo = "",
+      Component = `Modified sequence`,
+      Measurement = paste0(`Modified sequence`, ",", Charge, "+"),
+      Fraction,
+      Run = Experiment,
+      Channel = "",
+      Count = Intensity
+    )]
+
+    DT <- droplevels(merge(DT, DT.evidence, by = "id")[, !"id"])
+
+    # create wide data table (summing up multiple features per measurement)
+    DT <- dcast(DT, Group + GroupInfo + Component + Measurement + Fraction ~ Run, fun.aggregate = sum, value.var = "Count")
+
+    # melt to long data table and convert zeros to NA
+    DT <- melt(DT, variable.name = "Run", value.name = "Count", id.vars = c("Group", "GroupInfo", "Component", "Measurement", "Fraction"))
+    DT$Count[DT$Count == 0] <- NA
+    DT[, GroupInfo := factor(GroupInfo)]
+    DT[, Group := factor(Group)]
+    DT[, Component := factor(Component)]
+    DT[, Measurement := factor(Measurement)]
+    DT[, Fraction := factor(Fraction)]
+    DT[, Run := factor(Run)]
+    DT[, Channel := factor("")]
+    DT[, Count := as.double(Count)]
+  }
+
+  setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run"))
   setDF(DT)
   return(DT)
 }

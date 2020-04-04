@@ -22,7 +22,9 @@ new_sigma_control(
   eb.max = 1024,
   random.seed = 0,
   nthread = parallel::detectCores()\%/\%2,
-  hpc = NULL
+  hpc = NULL,
+  hpc.zip = FALSE,
+  hpc.schedule = new_hpc_control()
 )
 }
 \arguments{

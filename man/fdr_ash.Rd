@@ -20,7 +20,7 @@ fdr_ash(
   min.test.samples.per.condition = 2,
   min.real.samples = 1,
   min.real.samples.per.condition = 0,
-  mixcompdist = "halfgaussian",
+  mixcompdist = "halfnormal",
   ...
 )
 }

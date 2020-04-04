@@ -25,8 +25,7 @@ seaMass_sigma(
   summaries = FALSE,
   plots = FALSE,
   name = "fit",
-  control = new_sigma_control(),
-  hpc.schedule = new_hpc_schedule()
+  control = new_sigma_control()
 )
 
 open_sigma_fits(names, quiet = FALSE, force = FALSE)
@@ -110,7 +109,7 @@ assay names and block design.}
 
 \item{control}{A control object created with \link{new_sigma_control} specifying control parameters for the model.}
 
-\item{hpc.schedule}{A hpc object created with \link{new_hpc_schedule} specifying hpc parameters for the type of HPC system seaMass will be deployed on.}
+\item{hpc.schedule}{A hpc object created with \link{new_hpc_control} specifying hpc parameters for the type of HPC system seaMass will be deployed on.}
 }
 \value{
 A \code{seaMass_sigma_fits} object, which is a list of \code{seaMass_sigma_fit} objects that can be interrogated

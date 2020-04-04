@@ -23,12 +23,12 @@ seaMass_delta <- function(
   # check for finished output and return that
   fit <- open_delta_fit(name, T)
   if (!is.null(fit)) {
-    message(paste0("returning completed seaMass-", utf8::utf8_encode("\U00000394"), " fit object - if this wasn't your intention, supply a different 'output' directory or delete it with 'seaMass::del'"))
+    message(paste0("returning completed seaMass-delta fit object - if this wasn't your intention, supply a different 'output' directory or delete it with 'seaMass::del'"))
     return(fit)
   }
 
   ### INIT
-  message(paste0("[", Sys.time(), "] seaMass-", utf8::utf8_encode("\U00000394"), " started."))
+  message(paste0("[", Sys.time(), "] seaMass-delta started."))
   data.table::setDTthreads(control$nthread)
   fst::threads_fst(control$nthread)
   set.seed(control$random.seed)
@@ -192,7 +192,7 @@ seaMass_delta <- function(
 
   # return fit object
   write.table(data.frame(), file.path(fit, ".complete"), col.names = F)
-  message(paste0("[", Sys.time(), "] seaMass-", utf8::utf8_encode("\U00000394"), " finished!"))
+  message(paste0("[", Sys.time(), "] seaMass-delta finished!"))
   return(fit)
 }
 
