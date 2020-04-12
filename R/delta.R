@@ -15,42 +15,41 @@ seaMass_delta <- function(
   sigma_fits,
   data.design = assay_design(sigma_fits),
   norm.groups = ".*",
-  component.deviations = FALSE,
-  name = sub("^(.*)\\..*\\.seaMass-sigma", "\\1", basename(sigma_fits[[1]])),
-  control = new_delta_control(),
+  name = sub("^.*\\/(.*)\\.seaMass", "\\1", dirname(as.character(sigma_fits[[1]]))),
+  control = delta_control(),
   ...
 ) {
   # check for finished output and return that
-  fit <- open_delta_fit(name, T)
+  fit <- open_delta_fit(sigma_fits, name, T)
   if (!is.null(fit)) {
     message(paste0("returning completed seaMass-delta fit object - if this wasn't your intention, supply a different 'output' directory or delete it with 'seaMass::del'"))
-    return(fit)
+    return(invisible(fit))
   }
 
   ### INIT
   message(paste0("[", Sys.time(), "] seaMass-delta started."))
-  data.table::setDTthreads(control$nthread)
-  fst::threads_fst(control$nthread)
-  set.seed(control$random.seed)
+  data.table::setDTthreads(control@nthread)
+  fst::threads_fst(control@nthread)
+  set.seed(control@random.seed)
 
   # create fit and output directories
-  fit <- paste(name, "seaMass-delta", sep = ".")
+  fit <- file.path(dirname(as.character(sigma_fits[[1]])), paste0("delta.", name))
   if (file.exists(fit)) unlink(fit, recursive = T)
   dir.create(fit)
   dir.create(file.path(fit, "meta"))
   dir.create(file.path(fit, "output"))
-  fit <- normalizePath(fit)
   class(fit) <- "seaMass_delta_fit"
 
   # check and save control
-  control$model.nchain <- unique(sapply(sigma_fits, function(fit) seaMass::control(fit)$model.nchain))
-  if (length(control$model.nchain) != 1) stop("ERROR: Blocks must have same number of MCMC chains")
-  control$model.nsample <- unique(sapply(sigma_fits, function(fit) seaMass::control(fit)$model.nsample))
-  if (length(control$model.nsample) != 1) stop("ERROR: Blocks must have same number of MCMC samples")
-  control$name <- name
-  control$sigma_fits <- sigma_fits
-  control$norm.groups <- norm.groups
-  control$version <- packageVersion("seaMass")
+  control@model.nchain <- unique(sapply(sigma_fits, function(fit) seaMass::control(fit)@model.nchain))
+  if (length(control@model.nchain) != 1) stop("ERROR: Blocks must have same number of MCMC chains")
+  control@model.nsample <- unique(sapply(sigma_fits, function(fit) seaMass::control(fit)@model.nsample))
+  if (length(control@model.nsample) != 1) stop("ERROR: Blocks must have same number of MCMC samples")
+  control@norm.groups <- as.character(norm.groups)
+  control@name <- as.character(name)
+  control@sigma_fits <- sigma_fits
+  control@version <- as.character(packageVersion("seaMass"))
+  validObject(control)
   saveRDS(control, file.path(fit, "meta", "control.rds"))
 
   # merged design
@@ -84,17 +83,17 @@ seaMass_delta <- function(
 
   # standardise quants using reference weights
   standardise_group_quants(fit)
-  component.model <- control(sigma_fits(fit)[[1]])$component.model
-  if (component.deviations == T && !is.null(component.model) && component.model == "independent") standardise_component_deviations(fit)
+  component.model <- control(sigma_fits(fit)[[1]])@component.model
+  if (control@component.deviations == T && component.model == "independent") standardise_component_deviations(fit)
 
   # normalise quants by norm.groups
-  if (!is.null(control$norm.model)) {
-    do.call(paste("norm", control$norm.model, sep = "_"), list(fit = fit, norm.groups = norm.groups))
+  if (length(control@norm.model) > 0) {
+    do.call(paste("norm", control@norm.model, sep = "_"), list(fit = fit, norm.groups = control@norm.groups))
   }
 
   # group quants
   message("[", paste0(Sys.time(), "]  normalised group quants..."))
-  set.seed(control$random.seed)
+  set.seed(control@random.seed)
   DT.group.quants <- normalised_group_quants(fit, summary = T, as.data.table = T)
   DT.group.quants <- dcast(DT.group.quants, Group ~ Assay, drop = F, value.var = colnames(DT.group.quants)[5:ncol(DT.group.quants)])
   DT.group.quants <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants, by = "Group")
@@ -102,9 +101,9 @@ seaMass_delta <- function(
   rm(DT.group.quants)
 
   # component deviations
-  if (component.deviations == T && !is.null(component.model) && component.model == "independent") {
+  if (control@component.deviations == T && component.model == "independent") {
     message("[", paste0(Sys.time(), "]  component deviations..."))
-    set.seed(control$random.seed)
+    set.seed(control@random.seed)
     DT.component.deviations <- component_deviations(fit, summary = T, as.data.table = T)
     DT.component.deviations[, GroupComponent := paste(Group, Component, sep = "_seaMass_")]
     setcolorder(DT.component.deviations, "GroupComponent")
@@ -120,7 +119,7 @@ seaMass_delta <- function(
 
   # plot PCA and assay exposures
   message("[", paste0(Sys.time(), "]  plotting PCA and assay exposures..."))
-  if (component.deviations == T && !is.null(component.model) && component.model == "independent") {
+  if (control@component.deviations == T && component.model == "independent") {
     DT <- component_deviations(fit, as.data.table = T)
     DT[, Group := interaction(Group, Component, sep = " : ", lex.order = T, drop = T)]
     DT.summary <- component_deviations(fit, summary = T, as.data.table = T)
@@ -134,15 +133,15 @@ seaMass_delta <- function(
   ggplot2::ggsave(file.path(fit, "output", "log2_assay_exposures.pdf"), width = 8, height = 0.5 + 1 * nlevels(DT.design$Assay), limitsize = F)
 
   # differential expression analysis and false discovery rate correction
-  if (!is.null(control$dea.model) && !all(is.na(DT.design$Condition))) {
+  if (control@dea.model != "" && !all(is.na(DT.design$Condition))) {
     params <- list(...)
     params$fit <- fit
 
     # group quants
-    do.call(paste("dea", control$dea.model, sep = "_"), params)
+    do.call(paste("dea", control@dea.model, sep = "_"), params)
     if (file.exists(file.path(fit, "de.index.fst"))) {
-      if (!is.null(control$fdr.model)) {
-        do.call(paste("fdr", control$fdr.model, sep = "_"), params)
+      if (control@fdr.model != "") {
+        do.call(paste("fdr", control@fdr.model, sep = "_"), params)
         DTs.fdr <- split(group_fdr(fit, as.data.table = T), drop = T, by = "Batch")
         for (name in names(DTs.fdr)) {
           # save pretty version
@@ -161,16 +160,16 @@ seaMass_delta <- function(
     }
 
     # component deviations
-    if (component.deviations == T && !is.null(component.model) && component.model == "independent") {
+    if (control@component.deviations == T && component.model == "independent") {
       params$input <- "standardised.component.deviations"
       params$output <- "de.component.deviations"
       params$type <- "component.deviations"
-      do.call(paste("dea", control$dea.model, sep = "_"), params)
+      do.call(paste("dea", control@dea.model, sep = "_"), params)
       if (file.exists(file.path(fit, "de.component.deviations.index.fst"))) {
-        if (!is.null(control$fdr.model)) {
+        if (control@fdr.model != "") {
           params$input <- "de.component.deviations"
           params$output <- "fdr.component.deviations"
-          do.call(paste("fdr", control$fdr.model, sep = "_"), params)
+          do.call(paste("fdr", control@fdr.model, sep = "_"), params)
           DTs.fdr <- split(component_deviations_fdr(fit, as.data.table = T), drop = T, by = "Batch")
           for (name in names(DTs.fdr)) {
             # save pretty version
@@ -193,7 +192,7 @@ seaMass_delta <- function(
   # return fit object
   write.table(data.frame(), file.path(fit, ".complete"), col.names = F)
   message(paste0("[", Sys.time(), "] seaMass-delta finished!"))
-  return(fit)
+  return(invisible(fit))
 }
 
 
@@ -201,20 +200,40 @@ seaMass_delta <- function(
 #'
 #' Define advanced control parameters for the seaMass-Σ Bayesian model.
 #'
-#' @param norm.model Either 'median' normalisation or NULL (none)
-#' @param dea.model Either 'MCMCglmm' differential expression analysis or NULL (none)
-#' @param fdr.model Either 'ash' false discovery rate control or NULL (none)
+setClass("delta_control", slots = c(
+  component.deviations = "logical",
+  norm.model = "character",
+  norm.nwarmup = "integer",
+  norm.thin = "integer",
+  dea.model = "character",
+  dea.nwarmup = "integer",
+  dea.thin = "integer",
+  fdr.model = "character",
+  random.seed = "integer",
+  nthread = "integer",
+  name = "character",
+  version = "character",
+  norm.groups = "character",
+  model.nchain = "integer",
+  model.nsample = "integer",
+  sigma_fits = "ANY"
+))
+
+
+#' @describeIn delta_control Generator function
+#' @param component.deviations Set this to \code{TRUE} to do differential expression analysis on the component deviations as well as the group quants.
+#' @param norm.model Either \code{NULL} (no normalisation), \code{"median"}, \code{"quantile"} or \code{"theta"} (seaMass-theta Bayesian normalisation)
+#' @param norm.nwarmup Number of MCMC warmup iterations to run for each chain with seaMass-theta Bayesian normalisation.
+#' @param norm.thin MCMC thinning factor with seaMass-theta Bayesian normalisation.
+#' @param dea.model Either \code{NULL} (no differential expression analysis) or \code{"MCMCglmm"} (MCMCglmm differential expression analysis)
+#' @param dea.nwarmup Number of MCMC warmup iterations to run for each chain with MCMCglmm differential expression analysis.
+#' @param dea.thin MCMC thinning factor with MCMCglmm differential expression analysis.
+#' @param fdr.model Either \code{NULL} (no false discovery rate correction) or \code{"ash"} (ash false discovery rate correction)
 #' @param random.seed Random number seed
-#' @param model.nchain Number of MCMC chains to run
-#' @param model.nwarmup Number of MCMC warmup iterations to run for each chain
-#' @param model.thin MCMC thinning factor
-#' @param model.nsample Total number of MCMC samples to deliver downstream
-#' @param dea.thin MCMC thinning factor for dea_MCMCglmm input
-#' @param hpc Either \code{NULL} (execute locally), \code{pbs}, \code{sge} or \code{slurm} (submit to HPC cluster) [TODO]
 #' @param nthread Number of CPU threads to employ
-#' @return \code{seaMass_sigma_control} object to pass to \link{sigma}
-#' @export
-new_delta_control <- function(
+#' @export delta_control
+delta_control <- function(
+  component.deviations = FALSE,
   norm.model = "theta",
   norm.nwarmup = 256,
   norm.thin = 1,
@@ -225,9 +244,33 @@ new_delta_control <- function(
   random.seed = 0,
   nthread = parallel::detectCores() %/% 2
 ) {
-  # create control object
-  control <- as.list(environment())
-  class(control) <- "seaMass_delta_control"
+  params <- list("delta_control")
 
-  return(control)
+  params$component.deviations <- as.logical(component.deviations)
+  if (!is.null(norm.model)) params$norm.model <- norm.model else params$norm.model <- ""
+  params$norm.nwarmup <- as.integer(norm.nwarmup)
+  params$norm.thin <- as.integer(norm.thin)
+  if (!is.null(dea.model)) params$dea.model <- dea.model else params$dea.model <- ""
+  params$dea.nwarmup <- as.integer(dea.nwarmup)
+  params$dea.thin <- as.integer(dea.thin)
+  if (!is.null(fdr.model)) params$fdr.model <- fdr.model else params$fdr.model <- ""
+  params$random.seed <- as.integer(random.seed)
+  params$nthread <- as.integer(nthread)
+
+  return(do.call(new, params))
 }
+
+
+setValidity("delta_control", function(object) {
+  if (length(object@norm.model) != 1 || !(object@norm.model %in% c("median", "quantile", "theta"))) return("'norm.model' is not valid!")
+  if (length(object@norm.nwarmup) != 1 || object@norm.nwarmup < 0) return("'norm.nwarmup' must be non-negative!")
+  if (length(object@norm.thin) != 1 || object@norm.thin <= 0) return("'norm.thin' must be positive!")
+  if (length(object@dea.model) != 1 || !(object@dea.model %in% c("MCMCglmm"))) return("'dea.model' is not valid!")
+  if (length(object@dea.nwarmup) != 1 || object@dea.nwarmup < 0) return("'dea.nwarmup' must be non-negative!")
+  if (length(object@dea.thin) != 1 || object@dea.thin <= 0) return("'dea.thin' must be positive!")
+  if (length(object@fdr.model) != 1 || !(object@fdr.model %in% c("ash"))) return("'fdr.model' is not valid!")
+  if (length(object@nthread) != 1 || object@nthread <= 0) return("'nthread' must be positive!")
+
+  return(T)
+})
+

@@ -52,7 +52,7 @@ dea_MCMCglmm <- function(
   # process parameters
   ctrl <- control(fit)
   fixed <- as.formula(sub("^.*~", "m ~", deparse(fixed)))
-  nitt <- ctrl$dea.nwarmup + (ctrl$model.nsample * ctrl$dea.thin) / ctrl$model.nchain
+  nitt <- ctrl@dea.nwarmup + (ctrl@model.nsample * ctrl@dea.thin) / ctrl@model.nchain
 
   # if default random effect but Samples and Assays the same, move random effect specification to rcov
   if (is.null(random)) {
@@ -79,8 +79,8 @@ dea_MCMCglmm <- function(
   message(paste0("[", Sys.time(), "]  running model..."))
   if (file.exists(file.path(fit, paste(output, "fst", sep = ".")))) file.remove(file.path(fit, paste(output, "fst", sep = ".")))
   dir.create(file.path(fit, output), showWarnings = F)
-  for (chain in 1:ctrl$model.nchain) {
-    message(paste0("[", Sys.time(), "]   chain ", chain ,"/", ctrl$model.nchain, "..."))
+  for (chain in 1:ctrl@model.nchain) {
+    message(paste0("[", Sys.time(), "]   chain ", chain ,"/", ctrl@model.nchain, "..."))
 
     DT.de.index <- rbindlist(parallel_lapply(DTs, function(item, fit, input, output, DT.design, type, emmeans.args, ctrl, chain, fixed, random, rcov, start, prior, tune, pedigree, nodes, scale, nitt, pr, pl, DIC, saveX, saveZ, saveXL, slice, ginverse, trunc) {
       batch <- lapply(split(item, by = type, drop = T), function(DT) {
@@ -92,7 +92,7 @@ dea_MCMCglmm <- function(
         DT <- droplevels(merge(DT, DT.design, all.y = T, by = "Assay"))
         if (any(!is.na(DT[, m]))) {
 
-          set.seed(ctrl$random.seed + chain)
+          set.seed(ctrl@random.seed + chain)
           # try a few times as MCMCglmm can moan about priors not being strong enough
           success <- F
           attempt <- 0
@@ -115,8 +115,8 @@ dea_MCMCglmm <- function(
                 nodes = nodes,
                 scale = scale,
                 nitt = nitt,
-                thin = ctrl$dea.thin,
-                burnin = ctrl$dea.nwarmup,
+                thin = ctrl@dea.thin,
+                burnin = ctrl@dea.nwarmup,
                 pr = pr,
                 pl = pl,
                 verbose = F,
@@ -221,7 +221,7 @@ dea_MCMCglmm <- function(
       } else {
         return(NULL)
       }
-    }, nthread = ctrl$nthread, .packages = c("seaMass", "emmeans")))
+    }, nthread = ctrl@nthread, .packages = c("seaMass", "emmeans")))
 
     # }, nthread = 1))
 
@@ -260,7 +260,7 @@ dea_MCMCglmm_experimental <- function(
   # process parameters
   ctrl <- control(fit)
   fixed <- as.formula(sub("^.*~", "value ~", deparse(fixed)))
-  nitt <- ctrl$dea.nwarmup + (ctrl$model.nsample * ctrl$dea.thin) / ctrl$model.nchain
+  nitt <- ctrl@dea.nwarmup + (ctrl@model.nsample * ctrl@dea.thin) / ctrl@model.nchain
 
   # tidy em.func
   if (!is.list(em.func)) em.func <- list(em.func)
@@ -279,15 +279,15 @@ dea_MCMCglmm_experimental <- function(
   # loop over all chains and all groups
   if (file.exists(file.path(fit, paste(output, "fst", sep = ".")))) file.remove(file.path(fit, paste(output, "fst", sep = ".")))
   dir.create(file.path(fit, output), showWarnings = F)
-  for (chain in 1:ctrl$model.nchain) {
-    message(paste0("[", Sys.time(), "]   chain ", chain ,"/", ctrl$model.nchain, "..."))
+  for (chain in 1:ctrl@model.nchain) {
+    message(paste0("[", Sys.time(), "]   chain ", chain ,"/", ctrl@model.nchain, "..."))
 
     DT.de.index <- rbindlist(parallel_lapply(batch_split(groups(fit, as.data.table = T), "Group", 64), function(item, fit, input, chain, ctrl, DT.design, prior, fixed, random, nitt, em.func, output) {
       DT.batch <- normalised_group_quants(fit, input = input, groups = item$Group, chain = chain, as.data.table = T)
       batch <- lapply(split(DT.batch, by = "Group", drop = T), function(DT) {
         model <- list()
         group <- DT[1, Group]
-        #DT <- DT[mcmcID %% ctrl$dea.thin == 0]
+        #DT <- DT[mcmcID %% ctrl@dea.thin == 0]
 
         # have to keep all.y assays in even if NA otherwise MCMCglmm will get confused over its priors
         DT <- droplevels(merge(DT, DT.design, all.y = T, by = "Assay"))
@@ -298,7 +298,7 @@ dea_MCMCglmm_experimental <- function(
           prior.MCMCglmm$R <- list(V = diag(nlevels(DT$Assay)), nu = 2e-2)
 
           # run MCMCglmm
-          set.seed(ctrl$random.seed + chain)
+          set.seed(ctrl@random.seed + chain)
           model$MCMCglmm <- MCMCglmm::MCMCglmm(
             fixed = fixed,
             random = random,
@@ -306,8 +306,8 @@ dea_MCMCglmm_experimental <- function(
             data = DT,
             prior = prior.MCMCglmm,
             nitt = nitt,
-            burnin = ctrl$dea.nwarmup,
-            thin = ctrl$dea.thin,
+            burnin = ctrl@dea.nwarmup,
+            thin = ctrl@dea.thin,
             singular.ok = T,
             verbose = F
           )
@@ -385,7 +385,7 @@ dea_MCMCglmm_experimental <- function(
       } else {
         return(NULL)
       }
-    }, nthread = ctrl$nthread))
+    }, nthread = ctrl@nthread))
 
     if (chain == 1 && nrow(DT.de.index) > 0) fst::write.fst(DT.de.index, file.path(fit, paste(output, "index.fst", sep = ".")))
   }

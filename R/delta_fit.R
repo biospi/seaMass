@@ -2,11 +2,12 @@
 #' @import data.table
 #' @export
 open_delta_fit <- function(
+  sigma_fits,
   name,
   quiet = FALSE,
   force = FALSE
 ) {
-  name <- file.path(dirname(name), paste(basename(name), "seaMass-delta", sep = "."))
+  name <- file.path(dirname(as.character(sigma_fits[[1]])), paste0("delta.", name))
   if(force || file.exists(file.path(name, ".complete"))) {
     delta_fit <- normalizePath(name)
     class(delta_fit) <- "seaMass_delta_fit"
@@ -36,17 +37,12 @@ control.seaMass_delta_fit <- function(fit) {
 }
 
 
-#' @export
-sigma_fits <- function(fit, ...) {
-  return(UseMethod("sigma_fits", fit))
-}
-
 
 #' @describeIn seaMass_delta Returns the differential expression from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 #' @import data.table
 #' @export
 sigma_fits.seaMass_delta_fit <- function(fit) {
-  return(control(fit)$sigma_fits)
+  return(control(fit)@sigma_fits)
 }
 
 
@@ -102,7 +98,7 @@ unnormalised_group_quants.seaMass_delta_fit <- function(
   groups = NULL,
   summary = FALSE,
   input = "standardised",
-  chains = 1:control(fit)$model.nchain,
+  chains = 1:control(fit)@model.nchain,
   as.data.table = FALSE
 ) {
   if(is.null(summary) || summary == F) summary <- NULL
@@ -116,12 +112,6 @@ unnormalised_group_quants.seaMass_delta_fit <- function(
 }
 
 
-#' @export
-normalised_group_quants <- function(fit, ...) {
-  return(UseMethod("normalised_group_quants", fit))
-}
-
-
 #' @describeIn seaMass_delta Returns the normalised group quantifications from an open \code{seaMass_delta_fit} object as a \code{data.frame}.
 #' @import data.table
 #' @export
@@ -130,7 +120,7 @@ normalised_group_quants.seaMass_delta_fit <- function(
   groups = NULL,
   summary = FALSE,
   input = "normalised",
-  chains = 1:control(fit)$model.nchain,
+  chains = 1:control(fit)@model.nchain,
   as.data.table = FALSE
 ) {
   if (!dir.exists(file.path(fit, input))) {
@@ -157,7 +147,7 @@ component_deviations.seaMass_delta_fit <- function(
   components = NULL,
   summary = FALSE,
   input = "standardised.component.deviations",
-  chains = 1:control(fit)$model.nchain,
+  chains = 1:control(fit)@model.nchain,
   as.data.table = FALSE
 ) {
   if(is.null(summary) || summary == F) summary <- NULL
@@ -171,11 +161,6 @@ component_deviations.seaMass_delta_fit <- function(
 }
 
 
-#' @export
-group_vars <- function(fit, ...) {
-  return(UseMethod("group_vars", fit))
-}
-
 
 #' @describeIn seaMass_delta Returns the differential expression from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 #' @import data.table
@@ -185,7 +170,7 @@ group_vars.seaMass_delta_fit <- function(
   groups = NULL,
   summary = FALSE,
   input = "normalised.group.vars",
-  chains = 1:control(fit)$model.nchain,
+  chains = 1:control(fit)@model.nchain,
   as.data.table = FALSE
 ) {
   if(is.null(summary) || summary == F) summary <- NULL
@@ -199,12 +184,6 @@ group_vars.seaMass_delta_fit <- function(
 }
 
 
-#' @export
-group_de <- function(fit, ...) {
-  return(UseMethod("group_de", fit))
-}
-
-
 #' @describeIn seaMass_delta Returns the differential expression from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 #' @import data.table
 #' @export
@@ -213,7 +192,7 @@ group_de.seaMass_delta_fit <- function(
   groups = NULL,
   summary = FALSE,
   input = "de",
-  chains = 1:control(fit)$model.nchain,
+  chains = 1:control(fit)@model.nchain,
   as.data.table = FALSE
 ) {
   if(is.null(summary) || summary == F) summary <- NULL
@@ -227,12 +206,6 @@ group_de.seaMass_delta_fit <- function(
 }
 
 
-#' @export
-component_deviations_de <- function(fit, ...) {
-  return(UseMethod("component_deviations_de", fit))
-}
-
-
 #' @describeIn seaMass_delta Returns the differential expression from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 #' @import data.table
 #' @export
@@ -241,7 +214,7 @@ component_deviations_de.seaMass_delta_fit <- function(
   components = NULL,
   summary = FALSE,
   input = "de.component.deviations",
-  chains = 1:control(fit)$model.nchain,
+  chains = 1:control(fit)@model.nchain,
   as.data.table = FALSE
 ) {
   if(is.null(summary) || summary == F) summary <- NULL
@@ -252,12 +225,6 @@ component_deviations_de.seaMass_delta_fit <- function(
   if (!as.data.table) setDF(DT)
   else DT[]
   return(DT)
-}
-
-
-#' @export
-group_fdr <- function(fit, ...) {
-  return(UseMethod("group_fdr", fit))
 }
 
 
@@ -277,12 +244,6 @@ group_fdr.seaMass_delta_fit <- function(
 }
 
 
-#' @export
-component_deviations_fdr <- function(fit, ...) {
-  return(UseMethod("component_deviations_fdr", fit))
-}
-
-
 #' @describeIn seaMass_delta Returns the false discovery rate correct differential expression from an open \code{seaMass_sigma_fit} object as a \code{data.frame}.
 #' @import data.table
 #' @export
@@ -297,4 +258,6 @@ component_deviations_fdr.seaMass_delta_fit <- function(
     return(component_deviations_de(fit, summary = T, as.data.table = as.data.table))
   }
 }
+
+
 

@@ -82,9 +82,8 @@ Next, run the seaMass-Σ model. Specifying TRUE for summaries will generate csv 
 sigma_fits <- seaMass_sigma(
   data,
   data.design,
-  summaries = TRUE,
   name = "Tutorial",
-  control = new_sigma_control(nthread = 4)
+  control = sigma_control(nthread = 4)
 )
 ```
 
@@ -119,7 +118,7 @@ Finally, run seaMass-Δ. Internal control parameters can be specified through a 
 delta_fit <- seaMass_delta(
   sigma_fits,
   data.design,
-  control = new_delta_control(nthread = 4)
+  control = delta_control(nthread = 4)
 )
 ```
 
@@ -128,6 +127,6 @@ Since we know the ground truth, lets visualise our performance with a Precision-
 ```
 # set ground truth and plot
 data.fdr <- group_fdr(delta_fit)
-data.fdr$truth <- ifelse(grepl("_RAT$", data.fdr$Group), 0, 1)
-plot_pr(data.fdr, 0.5)
+data.fdr$truth <- ifelse(grepl("_RAT$", data.fdr$Group), 0, log2(1.6))
+plot_pr(data.fdr)
 ```

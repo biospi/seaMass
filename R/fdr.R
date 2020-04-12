@@ -100,7 +100,7 @@ fdr_ash <- function(
     } else {
       return(NULL)
     }
-  }, nthread = control(fit)$nthread))
+  }, nthread = control(fit)@nthread))
 
   if (by.model && by.effect) {
     setorder(DT, Batch, Effect, Model, qvalue, na.last = T)

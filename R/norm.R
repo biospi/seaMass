@@ -16,8 +16,8 @@ standardise_group_quants <- function(
   DT.refweights <- as.data.table(data.design)[, .(Assay, RefWeight)]
   if (file.exists(file.path(fit, paste(output, "fst", sep = ".")))) file.remove(file.path(fit, paste(output, "fst", sep = ".")))
   dir.create(file.path(fit, output), showWarnings = F)
-  parallel_lapply(as.list(1:ctrl$model.nchain), function(item, fit, output, ctrl, DT.refweights) {
-    DT <- rbindlist(lapply(ctrl$sigma_fits, function(ft) {
+  parallel_lapply(as.list(1:ctrl@model.nchain), function(item, fit, output, ctrl, DT.refweights) {
+    DT <- rbindlist(lapply(ctrl@sigma_fits, function(ft) {
       DT1 <- unnormalised_group_quants(ft, chain = item, as.data.table = T)
       DT1 <- merge(DT1, DT.refweights[, .(Assay, RefWeight)], by = "Assay")
       DT1[, value := value - {
@@ -36,7 +36,7 @@ standardise_group_quants <- function(
     fst::write.fst(DT, file.path(fit, output, paste(item, "fst", sep = ".")))
     if (item == 1) fst::write.fst(DT[, .(file = file.path(output, "1.fst"), from = first(.I), to = last(.I)), by = Group], file.path(fit, paste(output, "index.fst", sep = ".")))
     return(NULL)
-  }, nthread = ctrl$nthread)
+  }, nthread = ctrl@nthread)
 
   return(fit)
 }
@@ -58,8 +58,8 @@ standardise_component_deviations <- function(
   ctrl <- control(fit)
   if (file.exists(file.path(fit, paste(output, "fst", sep = ".")))) file.remove(file.path(fit, paste(output, "fst", sep = ".")))
   dir.create(file.path(fit, output), showWarnings = F)
-  parallel_lapply(as.list(1:ctrl$model.nchain), function(item, fit, output, ctrl) {
-    DT <- rbindlist(lapply(ctrl$sigma_fits, function(ft) component_deviations(ft, chain = item, as.data.table = T)))
+  parallel_lapply(as.list(1:ctrl@model.nchain), function(item, fit, output, ctrl) {
+    DT <- rbindlist(lapply(ctrl@sigma_fits, function(ft) component_deviations(ft, chain = item, as.data.table = T)))
 
     # average MCMC samples if assay was used in multiple blocks
     DT <- DT[, .(value = mean(value), nComponent = max(nComponent), nMeasurement = max(nMeasurement)), by = .(Assay, Group, Component, chainID, mcmcID)]
@@ -75,7 +75,7 @@ standardise_component_deviations <- function(
     }
 
     return(NULL)
-  }, nthread = ctrl$nthread)
+  }, nthread = ctrl@nthread)
 
   return(fit)
 }
@@ -105,20 +105,20 @@ norm_theta <- function(
   DT <- unnormalised_group_quants(fit, groups[grep(norm.groups, groups)], summary = T, input = input, as.data.table = T)
 
   message(paste0("[", Sys.time(), "]  seaMass-Θ normalisation..."))
-  parallel_lapply(as.list(1:ctrl$model.nchain), function(item, fit, ctrl, input, output, DT) {
+  parallel_lapply(as.list(1:ctrl@model.nchain), function(item, fit, ctrl, input, output, DT) {
     DT <- droplevels(merge(DT, unique(assay_design(fit, as.data.table = T)[, .(Assay, Sample)]), by = "Assay"))
 
     # seaMass-Θ Bayesian model
-    set.seed(ctrl$random.seed + item)
+    set.seed(ctrl@random.seed + item)
     system.time(model <- MCMCglmm::MCMCglmm(
       m ~ Assay - 1,
       mev = DT[, s]^2,
       rcov = ~ idh(Group):units,
       data = DT,
       prior = list(R = list(V = diag(nlevels(DT[, Group])), nu = 2e-4)),
-      burnin = ctrl$norm.nwarmup,
-      nitt = ctrl$norm.nwarmup + (ctrl$model.nsample * ctrl$norm.thin) / ctrl$model.nchain,
-      thin = ctrl$norm.thin,
+      burnin = ctrl@norm.nwarmup,
+      nitt = ctrl@norm.nwarmup + (ctrl@model.nsample * ctrl@norm.thin) / ctrl@model.nchain,
+      thin = ctrl@norm.thin,
       verbose = F
     ))
 
@@ -153,7 +153,7 @@ norm_theta <- function(
     if (item == 1) fst::write.fst(DT[, .(file = file.path(output, "1.fst"), from = first(.I), to = last(.I)), by = Group], file.path(fit, paste(output, "index.fst", sep = ".")))
 
     return(NULL)
-  }, nthread = ctrl$nthread)
+  }, nthread = ctrl@nthread)
 
   return(fit)
 }
@@ -180,9 +180,9 @@ norm_theta_experimental <- function(
 
   if (file.exists(file.path(fit, paste(output, "fst", sep = ".")))) file.remove(file.path(fit, paste(output, "fst", sep = ".")))
   dir.create(file.path(fit, output), showWarnings = F)
-  parallel_lapply(as.list(1:ctrl$model.nchain), function(item, fit, ctrl, groups, input, output) {
+  parallel_lapply(as.list(1:ctrl@model.nchain), function(item, fit, ctrl, groups, input, output) {
     DT <- unnormalised_group_quants(fit, groups, input = input, chain = item, as.data.table = T)
-    #DT <- DT[mcmcID %% (control(fit)$model.nsample / 256) == 0] # TODO: FIGURE OUT SMALLEST NUMBER OF SAMPLES
+    #DT <- DT[mcmcID %% (control(fit)@model.nsample / 256) == 0] # TODO: FIGURE OUT SMALLEST NUMBER OF SAMPLES
 
     # our Bayesian model
     DT[, GroupAssay := interaction(Group, Assay, drop = T, lex.order = T)]
@@ -199,9 +199,9 @@ norm_theta_experimental <- function(
         G = list(list(V = diag(nG), nu = nG, alpha.mu = rep(0, nG), alpha.V = diag(25^2, nG))),
         R = list(V = diag(nGA), nu = 2e-4)
       ),
-      burnin = ctrl$norm.nwarmup,
-      nitt = ctrl$norm.nwarmup + (ctrl$model.nsample * ctrl$norm.thin) / ctrl$model.nchain,
-      thin = ctrl$norm.thin,
+      burnin = ctrl@norm.nwarmup,
+      nitt = ctrl@norm.nwarmup + (ctrl@model.nsample * ctrl@norm.thin) / ctrl@model.nchain,
+      thin = ctrl@norm.thin,
       verbose = F
     )
 
@@ -222,7 +222,7 @@ norm_theta_experimental <- function(
     fst::write.fst(DT, file.path(fit, output, paste(item, "fst", sep = ".")))
     if (item == 1) fst::write.fst(DT[, .(file = file.path(output, "1.fst"), from = first(.I), to = last(.I)), by = Group], file.path(fit, paste(output, "index.fst", sep = ".")))
     return(NULL)
-  }, nthread = control(fit)$nthread)
+  }, nthread = control(fit)@nthread)
 
   return(fit)
 }
@@ -245,7 +245,7 @@ norm_median <- function(
 
   if (file.exists(file.path(fit, paste(output, "fst", sep = ".")))) file.remove(file.path(fit, paste(output, "fst", sep = ".")))
   dir.create(file.path(fit, output), showWarnings = F)
-  parallel_lapply(as.list(1:control(fit)$model.nchain), function(item, fit, norm.groups, input, output) {
+  parallel_lapply(as.list(1:control(fit)@model.nchain), function(item, fit, norm.groups, input, output) {
     DT <- unnormalised_group_quants(fit, input = input, chain = item, as.data.table = T)
     DT[, exposure := median(value[grep(norm.groups, Group)]), by = .(Assay, chainID, mcmcID)]
     DT[, value := value - exposure]
@@ -254,7 +254,7 @@ norm_median <- function(
     fst::write.fst(DT, file.path(fit, output, paste(item, "fst", sep = ".")))
     if (item == 1) fst::write.fst(DT[, .(file = file.path(output, "1.fst"), from = first(.I), to = last(.I)), by = Group], file.path(fit, paste(output, "index.fst", sep = ".")))
     return(NULL)
-  }, nthread = control(fit)$nthread)
+  }, nthread = control(fit)@nthread)
 
   return(fit)
 }
@@ -276,7 +276,7 @@ norm_quantile <- function(
 
   if (file.exists(file.path(fit, paste(output, "fst", sep = ".")))) file.remove(file.path(fit, paste(output, "fst", sep = ".")))
   dir.create(file.path(fit, output), showWarnings = F)
-  parallel_lapply(as.list(1:control(fit)$model.nchain), function(item, fit, input, output) {
+  parallel_lapply(as.list(1:control(fit)@model.nchain), function(item, fit, input, output) {
     DT <- unnormalised_group_quants(fit, input = input, chain = item, as.data.table = T)
 
     # quantile normalisation
@@ -297,7 +297,7 @@ norm_quantile <- function(
     fst::write.fst(DT, file.path(fit, output, paste(item, "fst", sep = ".")))
     if (item == 1) fst::write.fst(DT[, .(file = file.path(output, "1.fst"), from = first(.I), to = last(.I)), by = Group], file.path(fit, paste(output, "index.fst", sep = ".")))
     return(NULL)
-}, nthread = control(fit)$nthread)
+}, nthread = control(fit)@nthread)
 
   return(fit)
 }

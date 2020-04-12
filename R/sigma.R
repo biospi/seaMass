@@ -1,53 +1,55 @@
 #' seaMass-Σ
 #'
-#' Fit the seaMass-Σ Bayesian group-level quantification model.
+#' Fits the seaMass-Σ Bayesian group-level quantification model to imported data.
 #'
-#' @param data A \link{data.frame} of input data as returned by \link{import_ProteinPilot}, \link{import_ProteinPilot},
-#'   \link{import_ProteomeDiscovery}, \link{import_Progenesis} or \link{import_OpenSWATH}.
-#' @param data.design Optionally, a \link{data.frame} created by \link{new_design} and then customised, which specifies
+#' @include sigma_control.R
+setClass("seaMass_sigma", slots = c(
+  path = "character"
+))
+
+
+#' @describeIn seaMass_sigma-class Runs seaMass-Σ.
+#' @param data A \link{data.frame} of input data as returned by \link{import_MaxQuant}, \link{import_OpenSWATH},
+#'   \link{import_ProteinPilot} or \link{import_ProteomeDiscoverer}, .
+#' @param data.design A \link{data.frame} created by \link{new_assay_design} and then customised, which specifies
 #'   assay names and block design.
-#' @param summaries Generate all summaries.
-#' @param plots Generate all plots.
-#' @param name Name of folder prefix on disk where all intermediate and output data will be stored; default is \code{"fit"}.
-#' @param control A control object created with \link{new_sigma_control} specifying control parameters for the model.
-#' @param hpc.schedule A hpc object created with \link{new_hpc_control} specifying hpc parameters for the type of HPC system seaMass will be deployed on.
-#' @return A \code{seaMass_sigma_fits} object, which is a list of \code{seaMass_sigma_fit} objects that can be interrogated
-#'   for various metadata and results.
+#' @param run Run seaMass-Σ now, or just prepare it for later execution?
+#' @param zip Zip output directory? \code{run=FALSE} and \code{zip=TRUE} are useful in combination when you want
+#'   to run seaMass-Σ remotely such as on a HPC cluster.
+#' @param control A control object created with \link{sigma_control} specifying control parameters for the model.
+#' @param name Name of folder prefix on disk where all intermediate and output data will be stored.
+
+#' @return A \code{seaMass_sigma} object, which allows access to each block's \link{sigma_fit} object to access
+#'   various metadata and results.
 #' @import data.table
-#' @export
+#' @export seaMass_sigma
 seaMass_sigma <- function(
   data,
   data.design = new_assay_design(data),
-  summaries = FALSE,
-  plots = FALSE,
-  name = "fit",
-  control = new_sigma_control()
+  name = "fits",
+  run = TRUE,
+  zip = FALSE,
+  delta = NULL,
+  control = sigma_control()
 ) {
+  data.is.data.table <- is.data.table(data)
+
   # check for finished output and return that
-  fits <- open_sigma_fits(name, T)
-  if (!is.null(fits)) {
+  object <- open_seaMass_sigma(paste0(name, ".seaMass"), quiet = T)
+  if (!is.null(object)) {
     message("returning list of completed seaMass-sigma fit objects - if this wasn't your intention, supply a different 'name' or delete it with 'seaMass::del'")
-    return(fits)
+    return(object)
   }
 
   ### INIT
-  if (is.null(control$hpc)) {
-    message(paste0("[", Sys.time(), "] seaMass-sigma started."))
-  } else {
-    message(paste0("[", Sys.time(), "] seaMass-sigma HPC submission package creation started."))
-  }
+  message(paste0("[", Sys.time(), "] seaMass-sigma v", control@version))
+  path <- ifelse(zip, file.path(tempfile("seaMass_"), paste0(name, ".seaMass")), file.path(getwd(), paste0(name, ".seaMass")))
+  if (file.exists(path)) unlink(path, recursive = T)
+  dir.create(path, recursive = T)
+  path <- normalizePath(path)
 
-  if (control$hpc.zip) {
-    out.dir <- file.path(tempfile("seaMass_"), paste0(name, ".seaMass"))
-  } else {
-    out.dir <- file.path(getwd(), paste0(name, ".seaMass"))
-  }
-  if (file.exists(out.dir)) unlink(out.dir, recursive = T)
-  dir.create(out.dir, recursive = T)
-
-  data.table::setDTthreads(control$nthread)
-  fst::threads_fst(control$nthread)
-  data.is.data.table <- is.data.table(data)
+  data.table::setDTthreads(control@nthread)
+  fst::threads_fst(control@nthread)
   DT.all <- setDT(data)
   DT.design.all <- as.data.table(data.design)[!is.na(Assay)]
   if (!is.factor(DT.design.all$Assay)) DT.design.all[, Assay := factor(Assay, levels = unique(Assay))]
@@ -55,8 +57,7 @@ seaMass_sigma <- function(
   # process each block independently
   block.cols <- colnames(DT.design.all)[grep("^Block\\.(.*)$", colnames(DT.design.all))]
   blocks <- sub("^Block\\.(.*)$", "\\1", block.cols)
-  fits <- vector("list", length(block.cols))
-  for(i in 1:length(fits)) {
+  for(i in 1:length(blocks)) {
     # extract input data for this block
     # remove measurements that have no non-missing values
     DT <- droplevels(DT.all)
@@ -69,7 +70,7 @@ seaMass_sigma <- function(
     DT[, Channel := NULL]
     # missingness.threshold
     setnames(DT, "Count", "RawCount")
-    DT[, Count := ifelse(RawCount <= control$missingness.threshold, NA, RawCount)]
+    DT[, Count := ifelse(RawCount <= control@missingness.threshold, NA, RawCount)]
     # remove measurements with no non-NA measurements
     DT[, notNA := sum(!is.na(Count)), by = .(Measurement)]
     DT <- DT[notNA > 0]
@@ -140,35 +141,30 @@ seaMass_sigma <- function(
     DT[, Assay := NULL]
 
     # censoring model
-    if (is.null(control$missingness.model)) {
-      DT <- DT[complete.cases(DT)]
-    } else {
-      if (control$missingness.model == 1 || control$missingness.model == "1") DT[is.na(Count), Count := 1.0]
-      if (control$missingness.model == "m" || control$missingness.model == "minimum") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = MeasurementID]
-      if (substr(control$missingness.model, 1, 1) == "c") DT[, Count1 := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = MeasurementID]
-      if (control$missingness.model == "c0" || control$missingness.model == "censored0") DT[is.na(Count), Count := min(1.0, Count1)]
-      if (control$missingness.model == "c1" || control$missingness.model == "censored1") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^1, Count), by = MeasurementID]
-      if (control$missingness.model == "c2" || control$missingness.model == "censored2") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^2, Count), by = MeasurementID]
-      if (control$missingness.model == "c3" || control$missingness.model == "censored3") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^3, Count), by = MeasurementID]
-      if (control$missingness.model == "c4" || control$missingness.model == "censored4") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^4, Count), by = MeasurementID]
-      if (control$missingness.model == "c8" || control$missingness.model == "censored8") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^8, Count), by = MeasurementID]
-      if (control$missingness.model == "c12" || control$missingness.model == "censored12") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^12, Count), by = MeasurementID]
-      if (control$missingness.model == "c16" || control$missingness.model == "censored16") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^16, Count), by = MeasurementID]
-      if (control$missingness.model == "c2_1" || control$missingness.model == "censored2_1") DT[, Count1 := ifelse(is.na(Count), min(Count, na.rm = T) * 2^1, Count), by = MeasurementID]
-      if (control$missingness.model == "c2_1" || control$missingness.model == "censored2_1") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^2, Count), by = MeasurementID]
-      if (control$missingness.model == "c2_2" || control$missingness.model == "censored2_2") DT[, Count1 := ifelse(is.na(Count), min(Count, na.rm = T) * 2^2, Count), by = MeasurementID]
-      if (control$missingness.model == "c2_2" || control$missingness.model == "censored2_2") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^2, Count), by = MeasurementID]
-    }
+    if (control@missingness.model == "") DT <- DT[complete.cases(DT)]
+    if (control@missingness.model == "one") DT[is.na(Count), Count := 1.0]
+    if (control@missingness.model == "minimum") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = MeasurementID]
+    if (substr(control@missingness.model, 1, 8) == "censored") DT[, Count1 := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = MeasurementID]
+    if (control@missingness.model == "censored0") DT[is.na(Count), Count := min(1.0, Count1)]
+    if (control@missingness.model == "censored1") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^1, Count), by = MeasurementID]
+    if (control@missingness.model == "censored2") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^2, Count), by = MeasurementID]
+    if (control@missingness.model == "censored3") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^3, Count), by = MeasurementID]
+    if (control@missingness.model == "censored4" || control@missingness.model == "censored") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^4, Count), by = MeasurementID]
+    if (control@missingness.model == "censored5") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^5, Count), by = MeasurementID]
+    if (control@missingness.model == "censored6") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^6, Count), by = MeasurementID]
+    if (control@missingness.model == "censored7") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^7, Count), by = MeasurementID]
+    if (control@missingness.model == "censored8") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^8, Count), by = MeasurementID]
+    if (control@missingness.model == "censored9") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^9, Count), by = MeasurementID]
 
     # if poission model only integers are allowed, and remove Count1 if all equal to Count
     if (!is.null(DT$Count1)) {
       if (identical(DT$Count, DT$Count1)) {
         DT[, Count1 := NULL]
       } else {
-        if (control$error.model == "p" || control$error.model == "poisson") DT[, Count1 := round(Count1)]
+        if (control@error.model == "poisson") DT[, Count1 := round(Count1)]
       }
     }
-    if (control$error.model == "p" || control$error.model == "poisson") DT[, Count := round(Count)]
+    if (control@error.model == "poisson") DT[, Count := round(Count)]
 
     # set ordering for indexing
     setorder(DT, GroupID, ComponentID, MeasurementID, AssayID)
@@ -177,12 +173,12 @@ seaMass_sigma <- function(
     # filter DT for Empirical Bayes model
     DT0 <- unique(DT[, .(GroupID, ComponentID, MeasurementID)])
     DT0[, nMeasurement := .N, by = .(GroupID, ComponentID)]
-    DT0 <- DT0[nMeasurement >= control$measurement.eb.min]
+    DT0 <- DT0[nMeasurement >= control@measurement.eb.min]
     DT0[, nMeasurement := NULL]
 
     DT0.components <- unique(DT0[, .(GroupID, ComponentID)])
     DT0.components[, nComponent := .N, by = GroupID]
-    DT0.components <- DT0.components[nComponent >= control$component.eb.min]
+    DT0.components <- DT0.components[nComponent >= control@component.eb.min]
     DT0.components[, nComponent := NULL]
     DT0 <- merge(DT0, DT0.components, by = c("GroupID", "ComponentID"))
 
@@ -190,195 +186,145 @@ seaMass_sigma <- function(
 
     DT0.assays <- unique(DT0[, .(GroupID, AssayID)])
     DT0.assays[, nAssay := .N, by = GroupID]
-    DT0.assays <- DT0.assays[nAssay >= control$assay.eb.min]
+    DT0.assays <- DT0.assays[nAssay >= control@assay.eb.min]
     DT0.assays[, nAssay := NULL]
     DT0 <- merge(DT0, DT0.assays, by = c("GroupID", "AssayID"))
 
     setorder(DT0, GroupID, ComponentID, MeasurementID, AssayID)
-    if (is.null(control$component.model)) {
-      DT0 <- DT0[GroupID <= DT0[which.max(DT0[as.integer(factor(DT0$MeasurementID)) <= control$eb.max, MeasurementID]), GroupID]]
+    if (control@component.model == "") {
+      DT0 <- DT0[GroupID <= DT0[which.max(DT0[as.integer(factor(DT0$MeasurementID)) <= control@eb.max, MeasurementID]), GroupID]]
     } else {
-      DT0 <- DT0[GroupID <= DT0[which.max(DT0[as.integer(factor(DT0$ComponentID)) <= control$eb.max, ComponentID]), GroupID]]
+      DT0 <- DT0[GroupID <= DT0[which.max(DT0[as.integer(factor(DT0$ComponentID)) <= control@eb.max, ComponentID]), GroupID]]
     }
 
     # create output directory
-    fits[[i]] <- paste("sigma", blocks[i], sep = ".")
-    dir.create(file.path(out.dir, fits[[i]]))
-    fits[[i]] <- normalizePath(file.path(out.dir, fits[[i]]))
-    class(fits[[i]]) <- "seaMass_sigma_fit"
+    block <- file.path(path, paste0("sigma.", blocks[i]))
+    dir.create(file.path(block))
 
     # save data with random access indices
-    dir.create(file.path(fits[[i]], "model0"))
-    fst::write.fst(DT0, file.path(fits[[i]], "model0", "data.fst"))
+    dir.create(file.path(block, "model0"))
+    fst::write.fst(DT0, file.path(block, "model0", "data.fst"))
     DT0.index <- DT0[, .(GroupID = unique(GroupID), file = "data.fst", from = .I[!duplicated(GroupID)], to = .I[rev(!duplicated(rev(GroupID)))])]
-    fst::write.fst(DT0.index, file.path(fits[[i]], "model0", "data.index.fst"))
+    fst::write.fst(DT0.index, file.path(block, "model0", "data.index.fst"))
 
-    dir.create(file.path(fits[[i]], "model1"))
-    fst::write.fst(DT, file.path(fits[[i]], "model1", "data.fst"))
+    dir.create(file.path(block, "model1"))
+    fst::write.fst(DT, file.path(block, "model1", "data.fst"))
     DT.index <- DT[, .(GroupID = unique(GroupID), file = "data.fst", from = .I[!duplicated(GroupID)], to = .I[rev(!duplicated(rev(GroupID)))])]
-    fst::write.fst(DT.index, file.path(fits[[i]], "model1", "data.index.fst"))
+    fst::write.fst(DT.index, file.path(block, "model1", "data.index.fst"))
 
     # save metadata
-    dir.create(file.path(fits[[i]], "meta"))
+    dir.create(file.path(block, "meta"))
+    fst::write.fst(DT.groups, file.path(block, "meta", "groups.fst"))
+    fst::write.fst(DT.components, file.path(block, "meta", "components.fst"))
+    fst::write.fst(DT.measurements, file.path(block, "meta", "measurements.fst"))
+    fst::write.fst(DT.design, file.path(block, "meta", "design.fst"))
 
-    control$summaries <- summaries
-    control$plots <- plots
-    control$name <- name
-    control$version <- packageVersion("seaMass")
-    saveRDS(control, file.path(fits[[i]], "meta", "control.rds"))
-
-    fst::write.fst(DT.groups, file.path(fits[[i]], "meta", "groups.fst"))
-    fst::write.fst(DT.components, file.path(fits[[i]], "meta", "components.fst"))
-    fst::write.fst(DT.measurements, file.path(fits[[i]], "meta", "measurements.fst"))
-    fst::write.fst(DT.design, file.path(fits[[i]], "meta", "design.fst"))
-
-    dir.create(file.path(fits[[i]], "output"))
+    dir.create(file.path(block, "output"))
   }
-  names(fits) <- blocks
-  class(fits) <- "seaMass_sigma_fits"
+  saveRDS(control, file.path(path, "sigma.control.rds"))
 
   ### RUN
-  # number of parallel compute nodes that can be used
-  nnode <- length(block.cols) * control$model.nchain
-  if (is.null(control$hpc)) {
-    for (fit in fits) {
-      # run empirical bayes model0
-      for (chain in 1:control$model.nchain) sigma_process0(fit, chain)
+  object <- new("seaMass_sigma", path = path)
+  prepare(control@schedule, object)
+  if (run) run(control@schedule, object)
 
-      # run full model1
-      for (chain in 1:control$model.nchain) sigma_process1(fit, chain)
+  if (zip) {
+    # zip
+    wd <- getwd()
+    setwd(dirname(path))
+    zip(file.path(wd, paste0(name, ".seaMass.zip")), ".", flags="-r9Xq")
+    setwd(wd)
 
-      # run plots if you want
-      if (plots) for (chain in 1:control$model.nchain) sigma_plots(fit, chain)
-
-      write.table(data.frame(), file.path(fit, ".complete"), col.names = F)
-    }
+    # clean up
+    unlink(path, recursive = T)
+    object@path <- file.path(normalizePath(getwd()), paste0(name, ".seaMass"))
+    if (!run) message(paste0("[", Sys.time(), "]  please unzip '", name, ".seaMass.zip' on your HPC submit node and execute '", name, ".seaMass/submit.sh' to submit"))
   } else {
-    # submit to hpc directly here
-    hpc.args <- list(
-      Class = control$hpc,
-      queue = control$hpc.schedule$queue,
-      mem = control$hpc.schedule$mem,
-      wallTime = control$hpc.schedule$wallTime,
-      cpuNum = control$nthread,
-      node = control$hpc.schedule$node,
-      taskPerNode = control$hpc.schedule$taskPerNode,
-      email = control$hpc.schedule$email,
-      path = dirname(as.character(fits[[1]])),
-      fits = basename(as.character(fits)),
-      nchain = control$model.nchain
-    )
-    clusterHPC <- do.call(new, hpc.args[lengths(hpc.args) != 0])
-
-    # Model0
-    process0(clusterHPC)
-    # Model:
-    process(clusterHPC)
-    # Plots:
-    if (control$plots) plots(clusterHPC)
-    # Submit Script
-    submit(clusterHPC)
-
-    if (control$hpc.zip) {
-      # zip
-      wd <- getwd()
-      setwd(dirname(out.dir))
-      zip(file.path(wd, paste0(name, ".seaMass.zip")), ".", flags="-r9Xq")
-      setwd(wd)
-
-      # clean up
-      unlink(out.dir, recursive = T)
-    }
+    if (!run) message(paste0("[", Sys.time(), "]  please call 'run(object)' to run"))
   }
 
   ### TIDY UP
   if (!data.is.data.table) setDF(data)
-  if (is.null(control$hpc)) {
-    message(paste0("[", Sys.time(), "] seaMass-sigma finished!"))
+
+  return(invisible(object))
+}
+
+
+#' @describeIn seaMass_sigma-class Open a complete \code{seaMass_sigma} run from the supplied \code{path}.
+#' @export
+open_seaMass_sigma <- function(
+  path = "fits.seaMass",
+  quiet = FALSE,
+  force = FALSE
+) {
+  blocks <- list.dirs(path, full.names = F, recursive = F)
+  blocks <- blocks[grep("^sigma\\.", blocks)]
+
+  if(length(blocks) > 0 && (force || all(file.exists(file.path(path, blocks, ".complete"))))) {
+     return(new("seaMass_sigma", path = normalizePath(path)))
   } else {
-    if (control$hpc.zip) {
-      message(paste0("[", Sys.time(), "] seaMass-sigma HPC submission package creation finished, please unzip '", name, ".seaMass.zip' on your HPC submit node and execute '", name, ".seaMass/slurm.sh' to submit!"))
+    if (quiet) {
+      return(NULL)
     } else {
-      message(paste0("[", Sys.time(), "] seaMass-sigma HPC submission package creation finished, please execute '", name, ".seaMass/slurm.sh' to submit!"))
+      if (force) stop("'", path, "' does not contain a full set of completed seaMass-Σ blocks")
+      else stop("'", path, "' does not contain seaMass-Σ blocks")
     }
   }
-
-  # return fit objects
-  invisible(fits)
 }
 
 
-#' Control parameters for seaMass-Σ
-#'
-#' Define advanced control parameters for the seaMass-Σ Bayesian model.
-#'
-#' @param measurement.model Either \code{single} (single residual) or \code{independent} (per-measurement independent residuals; default)
-#' @param measurement.eb.min Minimum number of measurements per component to use for computing Empirical Bayes priors
-#' @param component.model Either \code{NULL} (no component model; default), \code{single} (single random effect) or \code{independent}
-#'   (per-component independent random effects)
-#' @param component.eb.min Minimum number of components per group to use for computing Empirical Bayes priors
-#' @param assay.model Either \code{NULL} (no assay model), \code{measurement} (per-assay independent random effects across measurements)
-#'   or \code{component} (per-assay independent random effects across components; default)
-#' @param assay.eb.min Minimum number of assays per group group to use for computing Empirical Bayes priors
-#' @param error.model Either \code{lognormal} or \code{poisson} (default)
-#' @param missingness.model Either \code{NULL} (NAs removed, \code{zero} (NAs set to 0), \code{measurement} (NAs set to lowest quant of that measurement) or
-#'   \code{censored} (NAs modelled as censored between 0 and lowest quant of that measurement; default)
-#' @param missingness.threshold All measurement quants equal to or below this are treated as missing (default = 0)
-#' @param random.seed Random number seed
-#' @param model.nchain Number of MCMC chains to run
-#' @param model.nwarmup Number of MCMC warmup iterations to run for each chain
-#' @param model.thin MCMC thinning factor
-#' @param model.nsample Total number of MCMC samples to deliver downstream
-#' @param hpc Either \code{NULL} (execute locally), \code{pbs}, \code{sge} or \code{slurm} (submit to HPC cluster) [TODO]
-#' @param nthread Number of CPU threads to employ
-#' @return \code{seaMass_sigma_control} object to pass to the \code{control} parameters of \link{seaMass_sigma}
+#' @describeIn seaMass_sigma-class Delete the \code{seaMass_sigma} run from disk.
 #' @export
-new_sigma_control <- function(
-  measurement.model = "independent",
-  measurement.eb.min = 2,
-  component.model = "independent",
-  component.eb.min = 3,
-  assay.model = "component",
-  assay.eb.min = 3,
-  assay.eb.nsample = 16,
-  error.model = "poisson",
-  missingness.model = "censored",
-  missingness.threshold = 0,
-  model.nchain = 4,
-  model.nwarmup = 256,
-  model.thin = 4,
-  model.nsample = 1024,
-  eb.max = 1024,
-  random.seed = 0,
-  nthread = parallel::detectCores() %/% 2,
-  hpc = NULL,
-  hpc.zip = FALSE,
-  hpc.schedule = new_hpc_control()
-) {
-  # validate parameters
-  if (!is.null(hpc) && hpc != "pbs" && hpc != "sge" && hpc != "slurm" && hpc != "remote") {
-    stop("'hpc' needs to be either 'pbs', 'sge', 'slurm', 'remote' or NULL (default)")
-  }
-  if (!is.null(measurement.model) && measurement.model != "single" && measurement.model != "independent") {
-    stop("'measurement.model' needs to be either 'single' or 'independent' (default)")
-  }
-  if (!is.null(component.model) && component.model != "single" && component.model != "independent") {
-    stop("'component.model' needs to be either NULL, 'single' or 'independent' (default)")
-  }
-  if (!is.null(assay.model) && assay.model != "measurement" && assay.model != "component") {
-    stop("'assay.model' needs to be either NULL, 'measurement' or 'component' (default)")
-  }
-  #if (!is.null(missingness.model) && missingness.model != "zero" && missingness.model != "measurement" && missingness.model != "censored" && missingness.model != "censored2" && missingness.model != "censored3") {
-  #  stop("'missingness.model' needs to be either NULL, 'zero', 'measurement', 'censored' or 'censored2' (default)")
-  #}
-  if (model.nchain == 1) {
-    message("WARNING: You are specifying only a single MCMC chain, convergence diagnostics will be unavailable. It is recommended to specify model.nchain=4 or more in 'control' for publishable results.")
-  }
+setMethod("del", "seaMass_sigma", function(object) {
+  return(unlink(sigma_fits@path, recursive = T))
+})
 
-  # create control object
-  control <- as.list(environment())
 
-  class(control) <- "seaMass_sigma_control"
+#' @describeIn seaMass_sigma-class Run.
+#' @export
+setMethod("run", "seaMass_sigma", function(object) {
+  run(control(object)@schedule, object)
+  return(invisible(object))
+})
 
-  return(control)
-}
+
+#' @describeIn seaMass_sigma-class Get the \link{sigma_control}.
+#' @export
+setMethod("control", "seaMass_sigma", function(object) {
+  if (!file.exists(file.path(object@path, "sigma.control.rds")))
+    stop(paste0("seaMass-Σ output '", sub("\\.seaMass$", "", basename(object@path)), "' is missing or zipped"))
+
+  return(readRDS(file.path(object@path, "sigma.control.rds")))
+})
+
+
+#' @describeIn seaMass_sigma-class Get the list of \link{sigma_fit} obejcts for the blocks.
+#' @export
+setMethod("fits", "seaMass_sigma", function(object) {
+  blocks <- list.dirs(object@path, full.names = F, recursive = F)
+  if (length(blocks) == 0)
+    stop(paste0("seaMass-Σ output '", sub("\\.seaMass$", "", basename(object@path)), "' is missing or zipped"))
+
+  blocks <- blocks[grep("^sigma\\.", blocks)]
+  fits <- lapply(blocks, function(block) new("sigma_fit", path = normalizePath(file.path(object@path, block))))
+  names(fits) <- sub("^.*\\.(.*)$", "\\1", blocks)
+  return(fits)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the study design for all blocks as a \code{data.frame}.
+#' @import data.table
+#' @export
+setMethod("assay_design", "seaMass_sigma", function(object, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(fits(object), function(fit) assay_design(fit, as.data.table = T)), idcol = "Block")
+  DT[, Block := factor(Block, levels = unique(Block))]
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+
+
+

@@ -36,3 +36,25 @@ Imports:
     robust (>= 0.4-18.1),
     utf8 (>= 1.1.4)
 RoxygenNote: 7.1.0
+Collate: 
+    'dea.R'
+    'delta.R'
+    'delta_fit.R'
+    'design.R'
+    'dist.R'
+    'fdr.R'
+    'generics.R'
+    'hpc_schedule.R'
+    'import.R'
+    'logydensity.R'
+    'norm.R'
+    'plot.R'
+    'seaMass.R'
+    'sigma_control.R'
+    'sigma.R'
+    'sigma_fit.R'
+    'sigma_model.R'
+    'sigma_plots.R'
+    'sigma_process.R'
+    'sigma_process0.R'
+    'utils.R'

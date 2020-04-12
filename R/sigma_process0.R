@@ -1,0 +1,89 @@
+hpc_process0 <- function(task) {
+  sigma_fits <- open_seaMass_sigma(".", force = T)
+  nchain <- control(sigma_fits)@model.nchain
+  process0(fits(sigma_fits)[[task %/% nchain + 1]], task %% nchain + 1)
+}
+
+
+#' @import data.table
+setMethod("process0", "sigma_fit", function(object, chain) {
+  # EXECUTE MODEL
+  model(object, "model0", chain)
+
+  ctrl <- control(object)
+  if (all(sapply(1:ctrl@model.nchain, function(chain) file.exists(file.path(object@path, "model0", paste(".complete", chain, sep = ".")))))) {
+    # PROCESS OUTPUT
+    message(paste0("[", Sys.time(), "]  OUTPUT0 block=", sub("^.*sigma\\.(.*)$", "\\1", object@path)))
+
+    # Measurement EB prior
+    message(paste0("[", Sys.time(), "]   measurement prior..."))
+    set.seed(ctrl@random.seed)
+    DT.priors <- data.table(Effect = "Measurements", measurement_vars(object, input = "model0", summary = T, as.data.table = T)[, squeeze_var(v, df)])
+
+    # Component EB prior
+    if(!is.null(ctrl@component.model)) {
+      message(paste0("[", Sys.time(), "]   component prior..."))
+      set.seed(ctrl@random.seed)
+      DT.priors <- rbind(DT.priors, data.table(Effect = "Components", component_vars(object, input = "model0", summary = T, as.data.table = T)[, squeeze_var(v, df)]))
+    }
+
+    # Assay EB priors
+    if(ctrl@assay.model != "") {
+      message(paste0("[", Sys.time(), "]   assay prior..."))
+      items <- assay_deviations(object, input = "model0", as.data.table = T)
+      items <- items[mcmcID %% (ctrl@model.nsample / ctrl@assay.eb.nsample) == 0]
+      if ("Measurement" %in% colnames(items)) setnames(items, "Measurement", "Item")
+      if ("Component" %in% colnames(items)) setnames(items, "Component", "Item")
+      items <- rbindlist(lapply(1:ctrl@model.nchain, function(i) {
+        DT <- copy(items)
+        DT[, chainID := i]
+        return(DT)
+      }))
+      items <- split(items, by = c("Assay", "chainID"))
+
+      message(paste0("[", Sys.time(), "]    modelling assay quality..."))
+      DT.assay.prior <- rbindlist(parallel_lapply(items, function(item, ctrl) {
+        item <- droplevels(item)
+
+        # our Bayesian model
+        set.seed(ctrl@random.seed + item[, chainID])
+        model <- MCMCglmm::MCMCglmm(
+          value ~ 1,
+          random = ~ Item,
+          rcov = ~ idh(Item):units,
+          data = item,
+          prior = list(
+            B = list(mu = 0, V = 1e-20),
+            G = list(list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2)),
+            R = list(V = diag(nlevels(item$Item)), nu = 2e-4)
+          ),
+          burnin = ctrl@model.nwarmup,
+          nitt = ctrl@model.nwarmup + (ctrl@model.nsample * ctrl@model.thin) / ctrl@model.nchain,
+          thin = ctrl@model.thin,
+          verbose = F
+        )
+
+        return(data.table(Assay = item[1, Assay], chainID = item[1, chainID], mcmcID = 1:nrow(model$VCV), value = model$VCV[, "Item"]))
+      }, nthread = ctrl@nthread))
+
+      DT.assay.prior <- DT.assay.prior[, dist_invchisq_mcmc(chainID, mcmcID, value), by = Assay]
+      DT.assay.prior <- merge(DT.assay.prior, fst::read.fst(file.path(object@path, "meta", "design.fst"), as.data.table = T)[, .(AssayID, Assay)], by = "Assay")
+      DT.assay.prior[, Effect := paste("Assay", Assay)]
+      DT.assay.prior[, Assay := NULL]
+      DT.priors <- rbind(DT.priors, DT.assay.prior, use.names = T, fill = T)
+    }
+
+    # SAVE PRIORS
+    fst::write.fst(DT.priors, file.path(object@path, "model1", "priors.fst"))
+    fwrite(DT.priors, file.path(object@path, "output", "model_priors.csv"))
+
+    # PLOT PRIORS
+    plot_priors(DT.priors, by = "Effect", xlab = "log2 Standard Deviation", trans = sqrt, inv.trans = function(x) x^2)
+    suppressWarnings(ggplot2::ggsave(file.path(object@path, "output", "qc_stdevs.pdf"), width = 4, height = 0.5 + 1 * nrow(DT.priors), limitsize = F))
+
+    # delete if not in 'keep'
+    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@path, "model0*"), recursive = T)
+  }
+})
+
+
