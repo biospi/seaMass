@@ -25,9 +25,9 @@ setMethod("prepare_delta", "schedule_local", function(object, delta) {
 
 
 setMethod("run", "schedule_local", function(object, sigma) {
-  message(paste0("[", Sys.time(), "] seaMass-sigma v", control@version, "name=", name(sigma)))
-
   ctrl <- control(sigma)
+  message(paste0("[", Sys.time(), "]  running sigma for name=", name(sigma), "..."))
+
   for (fit in fits(sigma)) {
     # run empirical bayes model0
     for (chain in 1:ctrl@model.nchain) process0(fit, chain)
@@ -54,9 +54,9 @@ setMethod("run", "schedule_local", function(object, sigma) {
 #' @export schedule_slurm
 setClass("schedule_slurm", contains = "schedule", slots = c(
   partition = "character",
-  time = "character",
+  cpus_per_task = "integer",
   mem = "character",
-  nthread = "integer",
+  time = "character",
   email = "character"
 ))
 
@@ -69,16 +69,16 @@ setClass("schedule_slurm", contains = "schedule", slots = c(
 #' @param email .
 #' @export schedule_slurm
 schedule_slurm <- function(
-  nthread,
   partition = NULL,
-  time = NULL,
+  cpus_per_task = NULL,
   mem = NULL,
+  time = NULL,
   email = NULL
 ) {
   params <- list("schedule_slurm")
 
-  params$nthread <- as.integer(nthread)
   if (is.null(partition)) params$partition <- NA_character_ else params$partition <- as.character(partition)
+  if (is.null(cpus_per_task)) params$cpus_per_task <- NA_integer_ else params$cpus_per_task <- as.integer(cpus_per_task)
   if (is.null(time)) params$time <- NA_character_ else params$time <- as.character(time)
   if (is.null(mem)) params$mem <- NA_character_ else params$mem <- as.character(mem)
   if (is.null(email)) params$email <- NA_character_ else params$email <- as.character(email)
@@ -88,7 +88,7 @@ schedule_slurm <- function(
 
 
 setValidity("schedule_slurm", function(object) {
-  if (length(object@nthread) != 1 || object@nthread <= 0) return("'nthread' must be a positive scalar!")
+  if (!(length(object@cpus_per_task) == 1 &&  (is.na(object@cpus_per_task) || object@cpus_per_task > 0))) return("'cpus_per_task' must be a positive scalar!")
   if (length(object@partition) != 1) return("'partition' must be a string!")
   if (length(object@time) != 1) return("'time' must be a string!")
   if (length(object@mem) != 1) return("'mem' must be a string!")
@@ -98,20 +98,20 @@ setValidity("schedule_slurm", function(object) {
 })
 
 
-setMethod("slurm_config", "schedule_slurm", function(object, prefix, name, n) {
+setMethod("slurm_config", "schedule_slurm", function(object, prefix, name, n, email) {
   return(paste0(
     "#!/bin/bash\n",
     paste0("#SBATCH --job-name=sM", prefix, ".", name, "\n"),
     paste0("#SBATCH --output=sM", prefix, ".", name, "-%A_%a.out\n"),
     paste0("#SBATCH --array=0-", n, "\n"),
     ifelse(is.na(object@partition), "", paste0("#SBATCH --partition=", object@partition, "\n")),
-    ifelse(is.na(object@time), "", paste0("#SBATCH --time=", object@time, "\n")),
-    ifelse(is.na(object@mem), "", paste0("#SBATCH --mem=", object@mem, "\n")),
     "#SBATCH --nodes=1\n",
     "#SBATCH --ntasks-per-node=1\n",
-    ifelse(is.na(object@nthread), "", paste0("#SBATCH --cpus-per-task=", object@nthread, "\n")),
-    ifelse(is.na(object@email), "", paste0("#SBATCH --mail-user=", object@email, "\n")),
-    ifelse(is.na(object@email), "", "#SBATCH --mail-type=END,FAIL\n")
+    ifelse(is.na(object@cpus_per_task), "", paste0("#SBATCH --cpus-per-task=", object@cpus_per_task, "\n")),
+    ifelse(is.na(object@mem), "", paste0("#SBATCH --mem=", object@mem, "\n")),
+    ifelse(is.na(object@time), "", paste0("#SBATCH --time=", object@time, "\n")),
+    ifelse(email & !is.na(object@email), paste0("#SBATCH --mail-user=", object@email, "\n"), ""),
+    ifelse(email & !is.na(object@email), "#SBATCH --mail-type=END,FAIL\n", "")
   ))
 })
 
@@ -123,18 +123,18 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
   n <- length(sigma_fits) * ctrl@model.nchain - 1
 
   sink(file.path(sigma@path, "slurm.process0"))
-  cat(slurm_config(object, "0", name, n))
+  cat(slurm_config(object, "0", name, n, F))
   cat("srun Rscript -e seaMass:::hpc_process0\\(${SLURM_ARRAY_TASK_ID}\\)\n")
   sink()
 
   sink(file.path(sigma@path, "slurm.process1"))
-  cat(slurm_config(object, "1", name, n))
+  cat(slurm_config(object, "1", name, n, length(ctrl@plot) == 0))
   cat("srun Rscript -e seaMass:::hpc_process1\\(${SLURM_ARRAY_TASK_ID}\\)\n")
   sink()
 
   if (length(ctrl@plot) > 0) {
     sink(file.path(sigma@path, "slurm.plots"))
-    cat(slurm_config(object, "p", name, n))
+    cat(slurm_config(object, "p", name, n, T))
     cat("srun Rscript -e seaMass:::hpc_plots\\(${SLURM_ARRAY_TASK_ID}\\)\n")
     sink()
   }
@@ -190,7 +190,7 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
 
 setMethod("prepare_delta", "schedule_slurm", function(object, delta) {
   sink(file.path(delta@sigma@path, "slurm.delta"))
-  cat(slurm_config(object, "d", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T))))
+  cat(slurm_config(object, "d", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), T))
   cat("srun Rscript -e seaMass:::hpc_delta\\(${SLURM_ARRAY_TASK_ID}\\)\n")
   sink()
 

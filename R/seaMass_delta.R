@@ -41,12 +41,12 @@ seaMass_delta <- function(
   # check for finished output and return that
   object <- open_seaMass_delta(sigma, name, quiet = T)
   if (!is.null(object)) {
-    message(paste0("returning completed seaMass-delta object - if this wasn't your intention, supply a different 'name' or delete the folder for the returned object with 'del(object)'"))
+    message(paste0(" returning completed seaMass-delta object - if this wasn't your intention, supply a different 'name' or delete the folder for the returned object with 'del(object)'"))
     return(object)
   }
 
   ### INIT
-  message(paste0("[", Sys.time(), "] initialising..."))
+  message(paste0("[", Sys.time(), "] seaMass-delta v", control@version))
   control@model.nchain <- control(sigma)@model.nchain
   control@model.nsample <- control(sigma)@model.nsample
   control@nthread <- control(sigma)@nthread
@@ -132,12 +132,15 @@ open_seaMass_delta <- function(sigma, name = "fit", quiet = FALSE, force = FALSE
 #' @describeIn seaMass_delta-class Run.
 #' @export
 setMethod("run", "seaMass_delta", function(object) {
-  message(paste0("[", Sys.time(), "] seaMass-delta v", control@version, "name=", name(object)))
+  ctrl <- control(object)
+  if (ctrl@version != as.character(packageVersion("seaMass")))
+      stop(paste0("version mismatch - 'object' was created with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
 
   DT.design <- assay_design(object, as.data.table = T)
-  ctrl <- control(object)
   ellipsis <- ctrl@ellipsis
   ellipsis$object <- object
+
+  message(paste0("[", Sys.time(), "]  running delta for name=", name(object), "..."))
 
   # standardise quants using reference weights
   standardise_group_quants(object)
@@ -148,7 +151,7 @@ setMethod("run", "seaMass_delta", function(object) {
   if (ctrl@norm.model != "") do.call(paste("norm", ctrl@norm.model, sep = "_"), ellipsis)
 
   # group quants
-  message("[", paste0(Sys.time(), "]  summarising normalised group quants..."))
+  message("[", paste0(Sys.time(), "]   summarising normalised group quants..."))
   set.seed(ctrl@random.seed)
   DT.groups <- groups(object, as.data.table = T)
   DT.group.quants <- normalised_group_quants(object, summary = T, as.data.table = T)
@@ -159,7 +162,7 @@ setMethod("run", "seaMass_delta", function(object) {
 
   # component deviations
   if (ctrl@component.deviations == T && component.model == "independent") {
-    message("[", paste0(Sys.time(), "]  component deviations..."))
+    message("[", paste0(Sys.time(), "]   component deviations..."))
     set.seed(ctrl@random.seed)
     DT.component.deviations <- component_deviations(object, summary = T, as.data.table = T)
     DT.component.deviations[, GroupComponent := paste(Group, Component, sep = "_seaMass_")]
@@ -176,7 +179,7 @@ setMethod("run", "seaMass_delta", function(object) {
   }
 
   # plot PCA and assay exposures
-  message("[", paste0(Sys.time(), "]  plotting PCA and assay exposures..."))
+  message("[", paste0(Sys.time(), "]   plotting PCA and assay exposures..."))
   if (ctrl@component.deviations == T && component.model == "independent") {
     DT <- component_deviations(object, as.data.table = T)
     DT[, Group := interaction(Group, Component, sep = " : ", lex.order = T, drop = T)]
@@ -441,7 +444,5 @@ setMethod("component_deviations_fdr", "seaMass_delta", function(object, input = 
 
 
 hpc_delta <- function(task) {
-  sigma_fits <- open_seaMass_sigma(".", force = T)
-  nchain <- control(sigma_fits)@model.nchain
-  plots(fits(sigma_fits)[[task %/% nchain + 1]], task %% nchain + 1)
+  run(open_seaMass_deltas(open_seaMass_sigma(".", force = T), force = T)[[task + 1]])
 }

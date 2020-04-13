@@ -68,7 +68,7 @@ import_ProteinPilot <- function(
   DT[, Group := factor(Group)]
   DT[, Component := factor(Component)]
   DT[, Measurement := factor(Measurement)]
-  DT[, Run := factor("")]
+  DT[, Run := factor("0")]
   DT[, Injection := factor(Injection)]
   DT <- melt(DT, variable.name = "Channel", value.name = "Count", measure.vars = colnames(DT)[grep("^Channel\\.", colnames(DT))])
   levels(DT$Channel) <- sub("^Channel\\.", "", levels(DT$Channel))
@@ -164,7 +164,7 @@ import_ProteomeDiscoverer <- function(
   DT[, Component := factor(Component)]
   DT[, Measurement := factor(Measurement)]
   DT[, Injection := factor(Injection)]
-  DT[, Run := factor("")]
+  DT[, Run := factor("0")]
   DT <- melt(DT, variable.name = "Channel", value.name = "Count", measure.vars = colnames(DT)[grep("^Channel\\.", colnames(DT))])
   levels(DT$Channel) <- sub("^Channel\\.", "", levels(DT$Channel))
 
@@ -246,7 +246,7 @@ import_Progenesis <- function(
   DT[, Measurement := factor(Measurement)]
   DT <- melt(DT, variable.name = "Run", value.name = "Count", measure.vars = colnames(DT)[grep("^Raw abundance ", colnames(DT))])
   levels(DT$Run) <- sub("^Raw abundance ", "", levels(DT$Run))
-  DT[, Channel := factor("")]
+  DT[, Channel := factor("0")]
   DT[, Injection := Run]
   DT[, Count := as.numeric(Count)]
 
@@ -328,7 +328,7 @@ import_OpenSWATH <- function(
   DT[, Measurement := factor(Measurement)]
   DT <- melt(DT, variable.name = "Run", value.name = "Count", measure.vars = assays)
   DT[, Injection := Run]
-  DT[, Channel := factor("")]
+  DT[, Channel := factor("0")]
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Injection", "Channel"))
 
   setDF(DT)
@@ -440,7 +440,7 @@ import_MaxQuant_peptides <- function(
   DT[, Component := factor(Component)]
   DT[, Measurement := factor(Measurement)]
   DT[, Run := factor(Run)]
-  DT[, Channel := factor("")]
+  DT[, Channel := factor("0")]
   DT[, Injection := Run]
   DT[, Count := as.double(Count)]
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Channel", "Injection"))
@@ -565,7 +565,7 @@ import_MaxQuant_evidence0 <- function(
   DT[, Measurement := factor(Measurement)]
   DT <- melt(DT, variable.name = "Run", value.name = "Count", measure.vars = assays)
   DT[, Injection := Run]
-  DT[, Channel := factor("")]
+  DT[, Channel := factor("0")]
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Injection", "Channel"))
 
   setDF(DT)
@@ -660,7 +660,7 @@ import_MaxQuant <- function(
   DT[, Injection := factor(paste(Run, Fraction, sep = ","))]
   DT[, Fraction := factor(Fraction)]
   DT[, Run := factor(Run)]
-  DT[, Channel := factor("")]
+  DT[, Channel := factor("0")]
   DT[, Count := as.double(Count)]
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Channel", "Injection"))
 
@@ -696,7 +696,7 @@ import_MSqRob <- function(
     DT[, GroupInfo := ""]
     DT[, Component := Group]
     DT[, Measurement := factor(Measurement)]
-    DT[, Channel := factor("")]
+    DT[, Channel := factor("0")]
     if (is.log2) DT[, Count := 2^Count]
   } else {
     # if MaxQuant evidence file supply, convert from two to three stage hierarchy
@@ -740,7 +740,7 @@ import_MSqRob <- function(
     DT[, Measurement := factor(Measurement)]
     DT[, Fraction := factor(Fraction)]
     DT[, Run := factor(Run)]
-    DT[, Channel := factor("")]
+    DT[, Channel := factor("0")]
     DT[, Count := as.double(Count)]
   }
 

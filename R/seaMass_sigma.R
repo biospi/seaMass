@@ -48,7 +48,7 @@ seaMass_sigma <- function(
   }
 
   ### INIT
-  message(paste0("[", Sys.time(), "] initialising..."))
+  message(paste0("[", Sys.time(), "] seaMass-sigma v", control@version))
   path <- file.path(getwd(), paste0(name, ".seaMass"))
   if (file.exists(path)) unlink(path, recursive = T)
   dir.create(path, recursive = T)
@@ -57,21 +57,22 @@ seaMass_sigma <- function(
   data.table::setDTthreads(control@nthread)
   fst::threads_fst(control@nthread)
   DT.all <- setDT(data)
+
+  # validate design
   DT.design.all <- as.data.table(data.design)[!is.na(Assay)]
-  if (!is.factor(DT.design.all$Assay)) DT.design.all[, Assay := factor(Assay, levels = unique(Assay))]
+  if (!is.factor(DT.design.all$Run)) DT.design.all[, Run := factor(as.character(Run), levels = levels(DT.all$Run))]
+  if (!is.factor(DT.design.all$Channel)) DT.design.all[, Channel := factor(as.character(Channel), levels = levels(DT.all$Channel))]
+  if ("RefWeight" %in% colnames(DT.design.all)) DT.design.all[, RefWeight := as.numeric(RefWeight)]
+  if ("Sample" %in% colnames(DT.design.all) && !is.factor(DT.design.all$Sample)) DT.design.all[, Run := factor(as.character(Run), levels = unique(as.character(Run)))]
+  if ("Condition" %in% colnames(DT.design.all) && !is.factor(DT.design.all$Condition)) DT.design.all[, Condition := factor(as.character(Condition), levels = unique(as.character(Condition)))]
 
   # process each block independently
   block.cols <- colnames(DT.design.all)[grep("^Block\\.(.*)$", colnames(DT.design.all))]
   blocks <- sub("^Block\\.(.*)$", "\\1", block.cols)
   for(i in 1:length(blocks)) {
+    message(paste0("[", Sys.time(), "]  preparing block=", blocks[i], "..."))
     # extract input data for this block
-    # remove measurements that have no non-missing values
-    DT <- droplevels(DT.all)
-    if ("RefWeight" %in% colnames(DT)) DT[, RefWeight := NULL]
-    if ("Sample" %in% colnames(DT)) DT[, Sample := NULL]
-    if ("Condition" %in% colnames(DT)) DT[, Condition := NULL]
-    DT <- merge(DT, DT.design.all[get(block.cols[i]) == T, .(Run, Channel, Assay)], by = c("Run", "Channel"))
-    if ("Injection" %in% colnames(DT)) DT[, Injection := NULL]
+    DT <- merge(DT.all, DT.design.all[get(block.cols[i]) == T, .(Run, Channel, Assay)], by = c("Run", "Channel"))
     DT[, Run := NULL]
     DT[, Channel := NULL]
     # missingness.threshold
@@ -81,6 +82,7 @@ seaMass_sigma <- function(
     DT[, notNA := sum(!is.na(Count)), by = .(Measurement)]
     DT <- DT[notNA > 0]
     DT[, notNA := NULL]
+    DT <- droplevels(DT)
 
     # build Group index
     DT.groups <- DT[, .(
@@ -236,7 +238,7 @@ seaMass_sigma <- function(
   if (run) {
     run(control@schedule, object)
   } else {
-    message("call 'run(object)' on the returned object to run seaMass-sigma")
+    message(" call 'run(object)' on the returned object to run seaMass-sigma")
   }
 
   ### TIDY UP
@@ -306,7 +308,6 @@ setMethod("run", "seaMass_sigma", function(object) {
   run(control(object)@schedule, object)
   return(invisible(object))
 })
-
 
 
 #' @describeIn seaMass_sigma-class Get the \link{sigma_control}.

@@ -3,6 +3,10 @@ setGeneric("plots", function(object, ...) standardGeneric("plots"))
 
 #' @import data.table
 setMethod("plots", "sigma_fit", function(object, chain) {
+  ctrl <- control(object)
+  if (ctrl@version != as.character(packageVersion("seaMass")))
+      stop(paste0("version mismatch - 'object' was created with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
+
   # ctrl <- ctrl(object)
   # message(paste0("[", Sys.time(), "] PLOTS set=", i, "/", ctrl@assay.nblock * ctrl@model.nchain))
   #

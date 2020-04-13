@@ -7,23 +7,23 @@
 \title{Schedule seaMass to run on SLURM}
 \usage{
 schedule_slurm(
-  nthread,
   partition = NULL,
-  time = NULL,
+  cpus_per_task = NULL,
   mem = NULL,
+  time = NULL,
   email = NULL
 )
 }
 \arguments{
-\item{nthread}{.}
-
 \item{partition}{.}
-
-\item{time}{.}
 
 \item{mem}{.}
 
+\item{time}{.}
+
 \item{email}{.}
+
+\item{nthread}{.}
 }
 \description{
 Schedule seaMass to run on SLURM
