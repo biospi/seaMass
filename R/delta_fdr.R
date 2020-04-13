@@ -1,11 +1,12 @@
-#' False Discovery Rate correction with ash
-#'
-#'
+setGeneric("fdr_ash", function(object, ...) standardGeneric("fdr_ash"))
+setGeneric("fdr_BH", function(object, ...) standardGeneric("fdr_BH"))
+
+
+#' @include seaMass_delta.R
 #' @import data.table
-#' @import doRNG
 #' @export
-fdr_ash <- function(
-  fit,
+setMethod("fdr_ash", "seaMass_delta", function(
+  object,
   input = "de",
   output = "fdr",
   type = "group.quants",
@@ -33,12 +34,12 @@ fdr_ash <- function(
   options(warn = 1)
 
   message(paste0("[", Sys.time(), "]  ash false discovery rate correction..."))
-  dir.create(file.path(fit, output), showWarnings = F)
+  dir.create(file.path(path(object), output), showWarnings = F)
 
   if (type == "group.quants") {
-    DT <- group_de(fit, input = input, summary = "lst_mcmc_ash", as.data.table = T)
+    DT <- group_de(object, input = input, summary = "lst_mcmc_ash", as.data.table = T)
   } else {
-    DT <- component_deviations_de(fit, input = input, summary = "lst_mcmc_ash", as.data.table = T)
+    DT <- component_deviations_de(object, input = input, summary = "lst_mcmc_ash", as.data.table = T)
   }
 
   DT[, use.FDR :=
@@ -100,7 +101,7 @@ fdr_ash <- function(
     } else {
       return(NULL)
     }
-  }, nthread = control(fit)@nthread))
+  }, nthread = control(object)@nthread))
 
   if (by.model && by.effect) {
     setorder(DT, Batch, Effect, Model, qvalue, na.last = T)
@@ -112,23 +113,20 @@ fdr_ash <- function(
     setorder(DT, Batch, qvalue, na.last = T)
   }
 
-  fst::write.fst(DT, file.path(fit, paste(output, "fst", sep = ".")))
+  fst::write.fst(DT, file.path(path(object), paste(output, "fst", sep = ".")))
 
   options(warn = warn)
 
-  return(fit)
-}
+  return(invisible(object))
+})
 
 
-#' False Discovery Rate correction with the Benjamini-Hochberg method
-#'
-#'
+#' @include seaMass_delta.R
 #' @import data.table
-#' @import foreach
 #' @export
-fdr_BH <- function(
-  fit,
-  data = group_de(fit),
+setMethod("fdr_BH", "seaMass_delta", function(
+  object,
+  data = group_de(object),
   by.effect = T,
   by.model = T,
   min.components = 1,
@@ -172,5 +170,5 @@ fdr_BH <- function(
   else if (by.effect) setorder(DT, Effect, qvalue, pvalue, na.last = T)
   else setorder(DT, qvalue, pvalue, na.last = T)
 
-  return(fit)
-}
+  return(invisible(object))
+})

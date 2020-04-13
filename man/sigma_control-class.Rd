@@ -8,7 +8,7 @@
 \usage{
 sigma_control(
   summarise = NULL,
-  keep = c("model0", "measurement.vars", "component.vars", "component.deviations",
+  keep = c("measurement.vars", "component.vars", "component.deviations",
     "unnormalised.group.quants"),
   plot = NULL,
   measurement.model = "independent",
@@ -36,7 +36,7 @@ sigma_control(
 \code{c("measurement.vars", "component.vars", "component.deviations", "assay.deviations", "unnormalised.group.quants")}}
 
 \item{keep}{Outputs to keep MCMC samples for, \code{NULL} or a subset of
-\code{c("model0", "measurement.vars", "component.vars", "component.deviations", "assay.deviations", "unnormalised.group.quants")}
+\code{c("measurement.vars", "component.vars", "component.deviations", "assay.deviations", "unnormalised.group.quants")}
 Note, you must keep \code{"unnormalised.group.quants"} if you want to run seaMass-Δ!}
 
 \item{plot}{Outputs to plot [TODO]}

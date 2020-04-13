@@ -4,6 +4,7 @@
 \name{sigma_fit-class}
 \alias{sigma_fit-class}
 \alias{sigma_fit}
+\alias{path,sigma_fit-method}
 \alias{control,sigma_fit-method}
 \alias{assay_design,sigma_fit-method}
 \alias{measurements,sigma_fit-method}
@@ -18,6 +19,8 @@
 \alias{unnormalised_group_quants,sigma_fit-method}
 \title{seaMass-Σ fit}
 \usage{
+\S4method{path}{sigma_fit}(object)
+
 \S4method{control}{sigma_fit}(object)
 
 \S4method{assay_design}{sigma_fit}(object, as.data.table = FALSE)
@@ -83,6 +86,8 @@ The results of a seaMass-Σ fit to a single block, returned by /link{seaMass_sig
 }
 \section{Methods (by generic)}{
 \itemize{
+\item \code{path}: Get the path.
+
 \item \code{control}: Get the \link{sigma_control} object for this fit.
 
 \item \code{assay_design}: Get the study design for this block as a \link{data.frame}.

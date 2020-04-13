@@ -1,8 +1,4 @@
-hpc_plots <- function(task) {
-  sigma_fits <- open_seaMass_sigma(".", force = T)
-  nchain <- control(sigma_fits)@model.nchain
-  plots(fits(sigma_fits)[[task %/% nchain + 1]], task %% nchain + 1)
-}
+setGeneric("plots", function(object, ...) standardGeneric("plots"))
 
 
 #' @import data.table
@@ -32,3 +28,9 @@ setMethod("plots", "sigma_fit", function(object, chain) {
   # setTxtProgressBar(pb, length(pids))
 })
 
+
+hpc_plots <- function(task) {
+  sigma_fits <- open_seaMass_sigma(".", force = T)
+  nchain <- control(sigma_fits)@model.nchain
+  plots(fits(sigma_fits)[[task %/% nchain + 1]], task %% nchain + 1)
+}

@@ -1,6 +1,10 @@
+setGeneric("plot_pca", function(object, ...) standardGeneric("plot_pca"))
+setGeneric("plot_assay_exposures", function(object, ...) standardGeneric("plot_assay_exposures"))
+
+
 #' Robust PCA plot
 #'
-#' @param fit .
+#' @param object .
 #' @param data .
 #' @param data.summary .
 #' @param data.design .
@@ -9,11 +13,11 @@
 #' @return A ggplot2 object.
 #' @import data.table
 #' @export
-plot_pca <- function(
-  fit,
-  data = normalised_group_quants(fit),
-  data.summary = normalised_group_quants(fit, summary = T),
-  data.design = assay_design(fit),
+setMethod("plot_pca", "seaMass_delta", function(
+  object,
+  data = normalised_group_quants(object),
+  data.summary = normalised_group_quants(object, summary = T),
+  data.design = assay_design(object),
   contours = 1:2,
   robust = TRUE
 ) {
@@ -129,7 +133,103 @@ plot_pca <- function(
   if (!data.summary.is.data.table) setDF(data.summary)
 
   return(g)
+})
+
+
+#' Add together two numbers.
+#'
+#' @param datafile A number.
+#' @return The sum of \code{x} and \code{y}.
+#' @import data.table
+#' @export
+#'
+setMethod("plot_assay_exposures", "seaMass_delta", function(object, data = normalised_group_quants(object), data.design = assay_design(object)) {
+  DT <- as.data.table(data)
+  DT.design <- as.data.table(data.design)
+
+  DT.assay.exposures <- DT[, head(.SD, 1), by = .(Assay, chainID, mcmcID)][, .(Assay, chainID, mcmcID, value = exposure)]
+  # add minute amount of noise so that stdev > 0
+  DT.assay.exposures[, value := rnorm(.N, value, 1e-10)]
+
+  assay.exposures.meta <- function(x) {
+    m = median(x)
+    data.table(median = m, fc = paste0("  ", ifelse(m < 0, format(-2^-m, digits = 3), format(2^m, digits = 3)), "fc"))
+  }
+  DT.assay.exposures.meta <- DT.assay.exposures[, as.list(assay.exposures.meta(value)), by = Assay]
+
+  assay.exposures.density <- function(x) {
+    as.data.table(density(x, n = 4096)[c("x","y")])
+  }
+  DT.assay.exposures.density <- DT.assay.exposures[, as.list(assay.exposures.density(value)), by = Assay]
+
+  x.max <- max(0.5, max(abs(DT.assay.exposures.density$x)))
+  g <- ggplot2::ggplot(DT.assay.exposures.density, ggplot2::aes(x = x, y = y))
+  g <- g + ggplot2::theme_bw()
+  g <- g + ggplot2::theme(panel.border = ggplot2::element_rect(colour = "black", size = 1),
+                          panel.grid.major = ggplot2::element_line(size = 0.5),
+                          axis.ticks = ggplot2::element_blank(),
+                          axis.text.y = ggplot2::element_blank(),
+                          plot.title = ggplot2::element_text(size = 10),
+                          strip.background = ggplot2::element_blank(),
+                          strip.text.y = ggplot2::element_text(angle = 0))
+  g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
+  g <- g + ggplot2::scale_y_continuous(expand = c(0, 0))
+  g <- g + ggplot2::coord_cartesian(xlim = c(-x.max, x.max) * 1.1, ylim = c(0, max(DT.assay.exposures.density$y) * 1.35))
+  g <- g + ggplot2::facet_grid(Assay ~ .)
+  g <- g + ggplot2::xlab(expression('Log2 Ratio'))
+  g <- g + ggplot2::ylab("Probability Density")
+  g <- g + ggplot2::geom_vline(xintercept = 0,size = 1/2, colour = "darkgrey")
+  g <- g + ggplot2::geom_ribbon(data = DT.assay.exposures.density, ggplot2::aes(x = x, ymax = y), ymin = 0, size = 1/2, alpha = 0.3)
+  g <- g + ggplot2::geom_line(data = DT.assay.exposures.density, ggplot2::aes(x = x,y = y), size = 1/2)
+  g <- g + ggplot2::geom_vline(data = DT.assay.exposures.meta, ggplot2::aes(xintercept = median), size = 1/2)
+  g <- g + ggplot2::geom_text(data = DT.assay.exposures.meta, ggplot2::aes(x = median, label = fc), y = max(DT.assay.exposures.density$y) * 1.25, hjust = 0, vjust = 1, size = 3)
+})
+
+
+#' Add together two numbers.
+#'
+#' @param datafile A number.
+#' @return The sum of \code{x} and \code{y}.
+#' @import data.table
+#' @export
+plot_fdr <- function(data, ymax = 0.2) {
+  DT <- as.data.table(data)
+  DT <- DT[!is.na(qvalue)]
+
+  if (is.null(DT$mcmcID)) {
+    DT[, mcmcID := "NA"]
+    DT[, chainID := "NA"]
+    alpha <- 1
+  } else {
+    alpha <- 0.01
+  }
+
+  DT[, Discoveries := 1:.N, by = .(mcmcID, chainID)]
+
+  xmax <- max(DT[qvalue <= ymax, Discoveries])
+  ylabels <- function() function(x) format(x, digits = 2)
+
+  rev_sqrt_trans <- function() {
+    scales::trans_new(
+      name = "rev_sqrt",
+      transform = function(x) -sqrt(abs(x)),
+      inverse = function(x) x^2
+    );
+  }
+
+  g <- ggplot2::ggplot(DT, ggplot2::aes(x = Discoveries, y = qvalue, group = mcmcID))
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype = "dotted")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype = "dotted")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype = "dotted")
+  g <- g + ggplot2::geom_step(direction = "vh", alpha = alpha)
+  g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
+  g <- g + ggplot2::scale_y_continuous(trans = rev_sqrt_trans(), breaks = c(0.0, 0.01, 0.05, 0.1, 0.2, 0.5), labels = ylabels(), expand = c(0.001, 0.001))
+  g <- g + ggplot2::coord_cartesian(xlim = c(0, xmax), ylim = c(0, ymax))
+  g <- g + ggplot2::xlab("Number of Discoveries")
+  g <- g + ggplot2::ylab("False Discovery Rate")
+  g
 }
+
 
 
 #' Precision-Recall plot
@@ -270,42 +370,6 @@ plot_volcano <- function(
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #' Add together two numbers.
 #'
 #' @param datafile A number.
@@ -389,101 +453,6 @@ plot_priors <- function(data.fits = NULL, ci = c(0.05, 0.95), by = NULL, xlab = 
   if (!is.null(by)) g <- g + ggplot2::facet_wrap(as.formula(paste("~", by)), ncol = 1, scales = "free_y")
 
   return(g)
-}
-
-
-#' Add together two numbers.
-#'
-#' @param datafile A number.
-#' @return The sum of \code{x} and \code{y}.
-#' @import data.table
-#' @export
-plot_assay_exposures <- function(fit, data = normalised_group_quants(fit), data.design = assay_design(fit)) {
-  DT <- as.data.table(data)
-  DT.design <- as.data.table(data.design)
-
-  DT.assay.exposures <- DT[, head(.SD, 1), by = .(Assay, chainID, mcmcID)][, .(Assay, chainID, mcmcID, value = exposure)]
-  # add minute amount of noise so that stdev > 0
-  DT.assay.exposures[, value := rnorm(.N, value, 1e-10)]
-
-  assay.exposures.meta <- function(x) {
-    m = median(x)
-    data.table(median = m, fc = paste0("  ", ifelse(m < 0, format(-2^-m, digits = 3), format(2^m, digits = 3)), "fc"))
-  }
-  DT.assay.exposures.meta <- DT.assay.exposures[, as.list(assay.exposures.meta(value)), by = Assay]
-
-  assay.exposures.density <- function(x) {
-    as.data.table(density(x, n = 4096)[c("x","y")])
-  }
-  DT.assay.exposures.density <- DT.assay.exposures[, as.list(assay.exposures.density(value)), by = Assay]
-
-  x.max <- max(0.5, max(abs(DT.assay.exposures.density$x)))
-  g <- ggplot2::ggplot(DT.assay.exposures.density, ggplot2::aes(x = x, y = y))
-  g <- g + ggplot2::theme_bw()
-  g <- g + ggplot2::theme(panel.border = ggplot2::element_rect(colour = "black", size = 1),
-                          panel.grid.major = ggplot2::element_line(size = 0.5),
-                          axis.ticks = ggplot2::element_blank(),
-                          axis.text.y = ggplot2::element_blank(),
-                          plot.title = ggplot2::element_text(size = 10),
-                          strip.background = ggplot2::element_blank(),
-                          strip.text.y = ggplot2::element_text(angle = 0))
-  g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
-  g <- g + ggplot2::scale_y_continuous(expand = c(0, 0))
-  g <- g + ggplot2::coord_cartesian(xlim = c(-x.max, x.max) * 1.1, ylim = c(0, max(DT.assay.exposures.density$y) * 1.35))
-  g <- g + ggplot2::facet_grid(Assay ~ .)
-  g <- g + ggplot2::xlab(expression('Log2 Ratio'))
-  g <- g + ggplot2::ylab("Probability Density")
-  g <- g + ggplot2::geom_vline(xintercept = 0,size = 1/2, colour = "darkgrey")
-  g <- g + ggplot2::geom_ribbon(data = DT.assay.exposures.density, ggplot2::aes(x = x, ymax = y), ymin = 0, size = 1/2, alpha = 0.3)
-  g <- g + ggplot2::geom_line(data = DT.assay.exposures.density, ggplot2::aes(x = x,y = y), size = 1/2)
-  g <- g + ggplot2::geom_vline(data = DT.assay.exposures.meta, ggplot2::aes(xintercept = median), size = 1/2)
-  g <- g + ggplot2::geom_text(data = DT.assay.exposures.meta, ggplot2::aes(x = median, label = fc), y = max(DT.assay.exposures.density$y) * 1.25, hjust = 0, vjust = 1, size = 3)
-}
-
-
-#' Add together two numbers.
-#'
-#' @param datafile A number.
-#' @return The sum of \code{x} and \code{y}.
-#' @import data.table
-#' @export
-
-plot_fdr <- function(data, ymax = 0.2) {
-  DT <- as.data.table(data)
-  DT <- DT[!is.na(qvalue)]
-
-  if (is.null(DT$mcmcID)) {
-    DT[, mcmcID := "NA"]
-    DT[, chainID := "NA"]
-    alpha <- 1
-  } else {
-    alpha <- 0.01
-  }
-
-  DT[, Discoveries := 1:.N, by = .(mcmcID, chainID)]
-
-  xmax <- max(DT[qvalue <= ymax, Discoveries])
-  ylabels <- function() function(x) format(x, digits = 2)
-
-  rev_sqrt_trans <- function() {
-    scales::trans_new(
-      name = "rev_sqrt",
-      transform = function(x) -sqrt(abs(x)),
-      inverse = function(x) x^2
-    );
-  }
-
-  g <- ggplot2::ggplot(DT, ggplot2::aes(x = Discoveries, y = qvalue, group = mcmcID))
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype = "dotted")
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype = "dotted")
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype = "dotted")
-  g <- g + ggplot2::geom_step(direction = "vh", alpha = alpha)
-  g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
-  g <- g + ggplot2::scale_y_continuous(trans = rev_sqrt_trans(), breaks = c(0.0, 0.01, 0.05, 0.1, 0.2, 0.5), labels = ylabels(), expand = c(0.001, 0.001))
-  g <- g + ggplot2::coord_cartesian(xlim = c(0, xmax), ylim = c(0, ymax))
-  g <- g + ggplot2::xlab("Number of Discoveries")
-  g <- g + ggplot2::ylab("False Discovery Rate")
-  g
 }
 
 
@@ -696,296 +665,5 @@ plot_volcano2 <- function(data, data.design, data.meta = NULL, data.truth = NULL
   g <- g + ggplot2::xlab("log2 Fold Change")
   g <- g + ggplot2::ylab(ylab)
   g
-}
-
-
-
-
-
-#' @import data.table
-#' @export
-plot_group_quants <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(fit), group = NULL) {
-  if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
-
-  DT.group.quants <- group_quants(fit, groupID, group, summary = F, as.data.table = T)
-  DT.group.quants <- merge(DT.group.quants, assay_design(fit, as.data.table = T)[, .(AssayID, Assay)], by = "AssayID")
-  DT.group.quants.meta <- DT.group.quants[, .(lower = quantile(value, 0.025), median = median(value), upper = quantile(value, 0.975)), by = Assay]
-  DT.group.quants.meta <- merge(DT.group.quants.meta, data.design, by = "Assay")
-  DT.group.quants.meta[, SampleAssay := factor(paste0("[", Sample, "] ", Assay))]
-  DT.group.quants <- merge(DT.group.quants, DT.group.quants.meta, by = "Assay")
-  DT.group.quants <- DT.group.quants[value >= lower & value <= upper]
-  setnames(DT.group.quants.meta, "median", "value")
-
-  if (is.null(log2FC.lim))
-  {
-    log2FC.lim <- max(max(-min(DT.group.quants.meta$lower), max(DT.group.quants.meta$upper)), 1)
-    log2FC.lim <- c(-log2FC.lim, log2FC.lim)
-  }
-
-  g <- ggplot2::ggplot(DT.group.quants.meta, ggplot2::aes(x = SampleAssay, y = value))
-  g <- g + ggplot2::geom_hline(yintercept = 0, size = 1/2, colour = "darkgrey")
-  if (is.null(DT.group.quants.meta$Condition)) {
-    g <- g + ggplot2::geom_violin(data = DT.group.quants, scale = "width", width = 0.5)
-  } else {
-    g <- g + ggplot2::geom_violin(ggplot2::aes(fill = Condition), DT.group.quants, scale = "width", width = 0.5)
-  }
-  g <- g + ggplot2::geom_segment(ggplot2::aes(x = as.integer(SampleAssay) - 0.4, xend = as.integer(SampleAssay) + 0.4, yend = value),size = 1/2)
-  g <- g + ggplot2::coord_cartesian(ylim = log2FC.lim)
-  g <- g + ggplot2::xlab("[Sample] Assay")
-  g <- g + ggplot2::ylab(expression('Log'[2]*' Ratio'))
-
-  return(list(
-    g = g,
-    log2FC.lim = log2FC.lim,
-    width = 1.0 + 0.75 * nlevels(DT.group.quants.meta$Assay),
-    height = 3
-  ))
-}
-
-
-#' @import data.table
-#' @export
-plot_component_deviations <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(fit), group = NULL) {
-  if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
-
-  DT.component.deviations <- component_deviations(fit, groupID, group, summary = F, as.data.table = T)
-  DT.component.deviations <- merge(DT.component.deviations, components(fit, as.data.table = T)[, .(ComponentID, Component)], by = "ComponentID")
-  DT.component.deviations <- merge(DT.component.deviations, assay_design(fit, as.data.table = T)[, .(SampleID, Sample)], by = "SampleID")
-  DT.component.deviations.meta <- DT.component.deviations[, .(lower = quantile(value, 0.025), median = median(value), upper = quantile(value, 0.975)), by = .(Component, Sample)]
-  DT.component.deviations.meta <- merge(DT.component.deviations.meta, data.design, by = c("Sample"))
-  DT.component.deviations <- merge(DT.component.deviations, DT.component.deviations.meta, by = c("Component", "Sample"))
-  DT.component.deviations <- DT.component.deviations[value >= lower & value <= upper]
-  setnames(DT.component.deviations.meta, "median", "value")
-
-  if (is.null(log2FC.lim))
-  {
-    log2FC.lim <- max(max(-min(DT.component.deviations.meta$lower), max(DT.component.deviations.meta$upper)), 1)
-    log2FC.lim <- c(-log2FC.lim, log2FC.lim)
-  }
-
-  g <- ggplot2::ggplot(DT.component.deviations.meta, ggplot2::aes(x = Sample, y = value))
-  g <- g + ggplot2::facet_wrap(~ Component, ncol = 1)
-  g <- g + ggplot2::geom_hline(yintercept = 0, size = 1/2, colour = "darkgrey")
-  if (is.null(DT.component.deviations.meta$Condition)) {
-    g <- g + ggplot2::geom_violin(data = DT.component.deviations, scale = "width", width = 0.5)
-  } else {
-    g <- g + ggplot2::geom_violin(ggplot2::aes(fill = Condition), DT.component.deviations, scale = "width", width = 0.5)
-  }
-  g <- g + ggplot2::geom_segment(ggplot2::aes(x = as.integer(Sample) - 0.4, xend = as.integer(Sample) + 0.4, yend = value),size = 1/2)
-  g <- g + ggplot2::coord_cartesian(ylim = log2FC.lim)
-  g <- g + ggplot2::ylab(expression('Log'[2]*' Ratio'))
-
-  return(list(
-    g = g,
-    log2FC.lim = log2FC.lim,
-    width = 1.0 + 0.75 * nlevels(DT.component.deviations.meta$Sample),
-    height = 0.5 + 1.5 * nlevels(DT.component.deviations.meta$Component)
-  ))
-}
-
-
-#' @import data.table
-#' @export
-plot_component_stdevs <- function(fit, groupID = NULL, log2SD.lim = NULL, data.design = assay_design(fit), group = NULL) {
-  if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
-
-  DT.component.stdevs <- component_stdevs(fit, groupID, group, summary = F, as.data.table = T)
-  DT.component.stdevs.meta <- DT.component.stdevs[, .(lower = quantile(value, 0.025), median = median(value), upper = quantile(value, 0.975)), by = ComponentID]
-  DT.component.stdevs <- merge(DT.component.stdevs, DT.component.stdevs.meta, by = "ComponentID")
-  DT.component.stdevs <- DT.component.stdevs[value >= lower & value <= upper]
-  setnames(DT.component.stdevs.meta, "median", "value")
-
-  DT.component.stdevs[, all := factor("all")]
-  DT.component.stdevs.meta[, all := factor("all")]
-
-  if (is.null(log2SD.lim))
-  {
-    log2SD.lim <- max(max(DT.component.stdevs.meta$upper), 1)
-  }
-
-  g <- ggplot2::ggplot(DT.component.stdevs.meta, ggplot2::aes(x = all, y = value, colour = ComponentID))
-  g <- g + ggplot2::facet_wrap(~ ComponentID, ncol = 1)
-  g <- g + stat_logydensity(data = DT.component.stdevs)
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept = value), size = 1/2)
-  g <- g + ggplot2::ylab(expression('Log'[2]*' Standard Deviation'))
-  g <- g + ggplot2::scale_y_continuous(expand = c(0,0))
-  g <- g + ggplot2::xlab("ComponentID")
-  g <- g + ggplot2::coord_flip(ylim = c(0, log2SD.lim))
-  g <- g + ggplot2::theme(legend.position = "hidden", axis.text.y = ggplot2::element_blank(), axis.ticks.y = ggplot2::element_blank())
-
-  return(list(
-    g = g,
-    log2SD.lim = log2SD.lim,
-    width = 2.5,
-    height = 0.5 + 1.5 * nlevels(DT.component.stdevs.meta$ComponentID)
-  ))
-}
-
-
-#' @import data.table
-#' @export
-plot_measurement_stdevs <- function(fit, groupID = NULL, log2SD.lim = NULL, data.design = assay_design(fit), group = NULL) {
-  if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
-
-  DT.measurement.stdevs <- measurement_stdevs(fit, groupID, group, summary = F, as.data.table = T)
-  setorder(DT.measurement.stdevs, ComponentID, MeasurementID)
-  DT.measurement.stdevs[, ComponentIDMeasurementID := factor(paste0("[", ComponentID, "] ", MeasurementID), levels = unique(paste0("[", ComponentID, "] ", MeasurementID)))]
-  DT.measurement.stdevs.meta <- DT.measurement.stdevs[, .(lower = quantile(value, 0.025), median = median(value), upper = quantile(value, 0.975)), by = ComponentIDMeasurementID]
-  DT.measurement.stdevs <- merge(DT.measurement.stdevs, DT.measurement.stdevs.meta, by = "ComponentIDMeasurementID")
-  DT.measurement.stdevs <- DT.measurement.stdevs[value >= lower & value <= upper]
-  setnames(DT.measurement.stdevs.meta, "median", "value")
-
-  DT.measurement.stdevs[, all := factor("all")]
-  DT.measurement.stdevs.meta[, all := factor("all")]
-
-  if (is.null(log2SD.lim))
-  {
-    log2SD.lim <- max(max(DT.measurement.stdevs.meta$upper), 1)
-  }
-
-  g <- ggplot2::ggplot(DT.measurement.stdevs.meta, ggplot2::aes(x = all, y = value, colour = ComponentID))
-  g <- g + ggplot2::facet_wrap(~ ComponentIDMeasurementID, ncol = 1)
-  g <- g + stat_logydensity(data = DT.measurement.stdevs)
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept = value), size = 1/2)
-  g <- g + ggplot2::ylab(expression('Log'[2]*' Standard Deviation'))
-  g <- g + ggplot2::scale_y_continuous(expand = c(0, 0))
-  g <- g + ggplot2::xlab("[ComponentID] MeasurementID")
-  g <- g + ggplot2::coord_flip(ylim = c(0, log2SD.lim))
-  g <- g + ggplot2::theme(legend.position = "hidden", axis.text.y = ggplot2::element_blank(), axis.ticks.y = ggplot2::element_blank())
-
-  return(list(
-    g = g,
-    log2SD.lim = log2SD.lim,
-    width = 2.5,
-    height = 0.5 + 1.5 * nlevels(DT.measurement.stdevs.meta$ComponentIDMeasurementID)
-  ))
-}
-
-
-#' @import data.table
-#' @export
-plot_raw_quants <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(fit), group = NULL) {
-  if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
-
-  DT.groups <- groups(fit, as.data.table = T)
-  if (is.null(groupID)) {
-    groupID <- DT.groups[Group == group, GroupID]
-  }
-
-  DT <- fst::read.fst(file.path(fit, "input", "input.fst"), as.data.table = T, from = DT.groups[GroupID == groupID, from], to = DT.groups[GroupID == groupID, to])
-  conf.int <- lapply(round(DT$Count), function(x) poisson.test(x)$conf.int)
-  DT[, lower := sapply(conf.int, function(x) x[1])]
-  DT[, upper := sapply(conf.int, function(x) x[2])]
-  DT <- merge(DT, components(fit, as.data.table = T)[, .(ComponentID, Component)], by = "ComponentID")
-  DT <- merge(DT, measurements(fit, as.data.table = T)[, .(MeasurementID, Measurement)], by = "MeasurementID")
-  DT <- merge(DT, assay_design(fit, as.data.table = T)[, .(AssayID, Assay)], by = "AssayID")
-  DT <- merge(DT, data.design, by = "Assay")
-  DT[, SampleAssay := factor(paste0("[", Sample, "] ", Assay))]
-  DT <- droplevels(DT)
-  setorder(DT, ComponentID, MeasurementID)
-  DT[, ComponentMeasurement := factor(paste0("[", Component, "] ", Measurement), levels = unique(paste0("[", Component, "] ", Measurement)))]
-
-  if (is.null(log2FC.lim))
-  {
-    log2FC.lim <- max(max(-min(DT$lower), max(DT$upper)), 1)
-    log2FC.lim <- c(-log2FC.lim, log2FC.lim)
-  }
-
-  g <- ggplot2::ggplot(DT, ggplot2::aes(x = SampleAssay, y = Count))
-  g <- g + ggplot2::facet_wrap(~ ComponentMeasurement, ncol = 1)
-  if (is.null(DT$Condition)) {
-    g <- g + ggplot2::geom_point()
-    g <- g + ggplot2::geom_errorbar(ggplot2::aes(ymin = lower, ymax = upper), width = 0.8)
-  } else {
-    g <- g + ggplot2::geom_point(ggplot2::aes(colour = Condition))
-    g <- g + ggplot2::geom_errorbar(ggplot2::aes(colour = Condition, ymin = lower, ymax = upper), width = 0.8)
-  }
-  g <- g + ggplot2::scale_y_continuous(trans = "log2")
-  g <- g + ggplot2::xlab("[Sample] Assay")
-  g <- g + ggplot2::ylab(expression('Log'[2]*' Intensity'))
-
-  return(list(
-    g = g,
-    log2FC.lim = log2FC.lim,
-    width = 1.0 + 0.75 * nlevels(DT$Assay),
-    height = 0.5 + 1.5 * nlevels(DT$ComponentMeasurement)
-  ))
-}
-
-
-#' @import data.table
-#' @import ggplot2
-#' @export
-plot_components <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(fit), group = NULL) {
-  if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
-
-  DT.groups <- groups(fit, as.data.table = T)
-  if (is.null(groupID)) {
-    groupID <- DT.groups[Group == group, GroupID]
-  }
-
-  g.groupID.title <- grid::textGrob(paste("GroupID:", groupID))
-  g.group.title <- grid::textGrob(DT.groups[GroupID == groupID, Group])
-
-  plt.group.quants <- plot_group_quants(fit, groupID, log2FC.lim, data.design, group)
-  g.legend <- ggplot2::ggplot_gtable(ggplot2::ggplot_build(plt.group.quants$g))
-  g.legend <- g.legend$grobs[[which(sapply(g.legend$grobs, function(x) x$name) == "guide-box")]]
-  plt.group.quants$g <- plt.group.quants$g + ggplot2::theme(legend.position = "hidden", plot.title = ggplot2::element_text(hjust = 0.5))
-
-  plt.component.stdevs <- plot_component_stdevs(fit, groupID, max(plt.group.quants$log2FC.lim), data.design, group)
-
-  plt.component.deviations <- plot_component_deviations(fit, groupID, plt.group.quants$log2FC.lim, data.design, group)
-  plt.component.deviations$g <- plt.component.deviations$g + ggplot2::theme(legend.position = "hidden")
-
-  widths <- c(plt.component.stdevs$width, plt.group.quants$width)
-  heights <- c(0.5, plt.group.quants$height, plt.component.stdevs$height)
-  g <- gridExtra::grid.arrange(ncol = 2, widths = widths, heights = heights,
-                               g.groupID.title,    g.group.title,
-                               g.legend,             plt.group.quants$g,
-                               plt.component.stdevs$g, plt.component.deviations$g)
-  return(list(
-    g = g,
-    width = sum(widths),
-    height = sum(heights)
-  ))
-}
-
-
-#' @import data.table
-#' @import ggplot2
-#' @export
-plot_measurements <- function(fit, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(fit), group = NULL) {
-  if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
-
-  DT.groups <- groups(fit, as.data.table = T)
-  if (is.null(groupID)) {
-    groupID <- DT.groups[Group == group, GroupID]
-  } else if (is.numeric(groupID)) {
-    groupID <- DT.groups[as.numeric(GroupID) == groupID, GroupID]
-  }
-  g.groupID.title <- grid::textGrob(paste("GroupID:", groupID))
-  g.group.title <- grid::textGrob(DT.groups[GroupID == groupID, Group])
-
-  plt.group.quants <- plot_group_quants(fit, groupID, log2FC.lim, data.design, group)
-  g.legend <- ggplot2::ggplot_gtable(ggplot2::ggplot_build(plt.group.quants$g))
-  g.legend <- g.legend$grobs[[which(sapply(g.legend$grobs, function(x) x$name) == "guide-box")]]
-  plt.group.quants$g <- plt.group.quants$g + ggplot2::theme(legend.position = "hidden", plot.title = ggplot2::element_text(hjust = 0.5))
-
-  plt.measurement.stdevs <- plot_measurement_stdevs(fit, groupID, max(plt.group.quants$log2FC.lim), data.design, group)
-
-  plt.raw.quants <- plot_raw_quants(fit, groupID, NULL, data.design, group)
-  plt.raw.quants$g <- plt.raw.quants$g + ggplot2::theme(legend.position = "hidden")
-
-  widths <- c(plt.measurement.stdevs$width, plt.group.quants$width)
-  heights <- c(0.5, plt.group.quants$height, plt.raw.quants$height)
-  g <- gridExtra::grid.arrange(ncol = 2, widths = widths, heights = heights,
-                               g.groupID.title,    g.group.title,
-                               g.legend,             plt.group.quants$g,
-                               plt.measurement.stdevs$g, plt.raw.quants$g)
-  return(list(
-    g = g,
-    width = sum(widths),
-    height = sum(heights)
-  ))
 }
 

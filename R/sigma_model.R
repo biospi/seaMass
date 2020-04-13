@@ -1,3 +1,6 @@
+setGeneric("model", function(object, ...) standardGeneric("model"))
+
+
 #' @import data.table
 setMethod("model", "sigma_fit", function(object, input, chain = 1) {
   ctrl <- control(object)

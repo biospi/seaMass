@@ -1,8 +1,4 @@
-hpc_process0 <- function(task) {
-  sigma_fits <- open_seaMass_sigma(".", force = T)
-  nchain <- control(sigma_fits)@model.nchain
-  process0(fits(sigma_fits)[[task %/% nchain + 1]], task %% nchain + 1)
-}
+setGeneric("process0", function(object, ...) standardGeneric("process0"))
 
 
 #' @import data.table
@@ -80,10 +76,13 @@ setMethod("process0", "sigma_fit", function(object, chain) {
     # PLOT PRIORS
     plot_priors(DT.priors, by = "Effect", xlab = "log2 Standard Deviation", trans = sqrt, inv.trans = function(x) x^2)
     suppressWarnings(ggplot2::ggsave(file.path(object@path, "output", "qc_stdevs.pdf"), width = 4, height = 0.5 + 1 * nrow(DT.priors), limitsize = F))
-
-    # delete if not in 'keep'
-    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@path, "model0*"), recursive = T)
   }
 })
 
+
+hpc_process0 <- function(task) {
+  sigma_fits <- open_seaMass_sigma(".", force = T)
+  nchain <- control(sigma_fits)@model.nchain
+  process0(fits(sigma_fits)[[task %/% nchain + 1]], task %% nchain + 1)
+}
 

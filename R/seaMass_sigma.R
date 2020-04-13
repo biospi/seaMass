@@ -1,8 +1,18 @@
+setGeneric("del", function(object, ...) standardGeneric("del"))
+setGeneric("name", function(object, ...) standardGeneric("name"))
+setGeneric("path", function(object, ...) standardGeneric("path"))
+setGeneric("run", function(object, ...) standardGeneric("run"))
+setGeneric("control", function(object, ...) standardGeneric("control"))
+setGeneric("fits", function(object, ...) standardGeneric("fits"))
+setGeneric("assay_design", function(object, ...) standardGeneric("assay_design"))
+setGeneric("completed", function(object, ...) standardGeneric("completed"))
+setGeneric("open_seaMass_deltas", function(object, ...) standardGeneric("open_seaMass_deltas"))
+
+
 #' seaMass-Σ
 #'
 #' Fits the seaMass-Σ Bayesian group-level quantification model to imported data.
 #'
-#' @include sigma_control.R
 setClass("seaMass_sigma", slots = c(
   path = "character"
 ))
@@ -13,9 +23,7 @@ setClass("seaMass_sigma", slots = c(
 #'   \link{import_ProteinPilot} or \link{import_ProteomeDiscoverer}, .
 #' @param data.design A \link{data.frame} created by \link{new_assay_design} and then customised, which specifies
 #'   assay names and block design.
-#' @param run Run seaMass-Σ now, or just prepare it for later execution?
-#' @param zip Zip output directory? \code{run=FALSE} and \code{zip=TRUE} are useful in combination when you want
-#'   to run seaMass-Σ remotely such as on a HPC cluster.
+#' @param run Run seaMass-Σ now, or just prepare it for later execution on e.g. a HPC cluster?
 #' @param control A control object created with \link{sigma_control} specifying control parameters for the model.
 #' @param name Name of folder prefix on disk where all intermediate and output data will be stored.
 
@@ -28,8 +36,6 @@ seaMass_sigma <- function(
   data.design = new_assay_design(data),
   name = "fits",
   run = TRUE,
-  zip = FALSE,
-  delta = NULL,
   control = sigma_control()
 ) {
   data.is.data.table <- is.data.table(data)
@@ -37,13 +43,13 @@ seaMass_sigma <- function(
   # check for finished output and return that
   object <- open_seaMass_sigma(paste0(name, ".seaMass"), quiet = T)
   if (!is.null(object)) {
-    message("returning list of completed seaMass-sigma fit objects - if this wasn't your intention, supply a different 'name' or delete it with 'seaMass::del'")
+    message(paste0("returning completed seaMass-sigma object - if this wasn't your intention, supply a different 'name' or delete the folder for the returned object with 'del(object)'"))
     return(object)
   }
 
   ### INIT
-  message(paste0("[", Sys.time(), "] seaMass-sigma v", control@version))
-  path <- ifelse(zip, file.path(tempfile("seaMass_"), paste0(name, ".seaMass")), file.path(getwd(), paste0(name, ".seaMass")))
+  message(paste0("[", Sys.time(), "] initialising..."))
+  path <- file.path(getwd(), paste0(name, ".seaMass"))
   if (file.exists(path)) unlink(path, recursive = T)
   dir.create(path, recursive = T)
   path <- normalizePath(path)
@@ -225,22 +231,12 @@ seaMass_sigma <- function(
 
   ### RUN
   object <- new("seaMass_sigma", path = path)
-  prepare(control@schedule, object)
-  if (run) run(control@schedule, object)
+  prepare_sigma(control@schedule, object)
 
-  if (zip) {
-    # zip
-    wd <- getwd()
-    setwd(dirname(path))
-    zip(file.path(wd, paste0(name, ".seaMass.zip")), ".", flags="-r9Xq")
-    setwd(wd)
-
-    # clean up
-    unlink(path, recursive = T)
-    object@path <- file.path(normalizePath(getwd()), paste0(name, ".seaMass"))
-    if (!run) message(paste0("[", Sys.time(), "]  please unzip '", name, ".seaMass.zip' on your HPC submit node and execute '", name, ".seaMass/submit.sh' to submit"))
+  if (run) {
+    run(control@schedule, object)
   } else {
-    if (!run) message(paste0("[", Sys.time(), "]  please call 'run(object)' to run"))
+    message("call 'run(object)' on the returned object to run seaMass-sigma")
   }
 
   ### TIDY UP
@@ -273,10 +269,34 @@ open_seaMass_sigma <- function(
 }
 
 
+#' @describeIn seaMass_sigma-class Is completed?
+#' @export
+setMethod("completed", "seaMass_sigma", function(object) {
+  blocks <- list.dirs(path(object), full.names = F, recursive = F)
+  blocks <- blocks[grep("^sigma\\.", blocks)]
+
+  return(all(file.exists(file.path(path(object), blocks, ".complete"))))
+})
+
+
 #' @describeIn seaMass_sigma-class Delete the \code{seaMass_sigma} run from disk.
 #' @export
 setMethod("del", "seaMass_sigma", function(object) {
   return(unlink(sigma_fits@path, recursive = T))
+})
+
+
+#' @describeIn seaMass_sigma-class Get name.
+#' @export
+setMethod("name", "seaMass_sigma", function(object) {
+  return(sub("\\.seaMass$", "", basename(object@path)))
+})
+
+
+#' @describeIn seaMass_sigma-class Get path.
+#' @export
+setMethod("path", "seaMass_sigma", function(object) {
+  return(object@path)
 })
 
 
@@ -286,6 +306,7 @@ setMethod("run", "seaMass_sigma", function(object) {
   run(control(object)@schedule, object)
   return(invisible(object))
 })
+
 
 
 #' @describeIn seaMass_sigma-class Get the \link{sigma_control}.
@@ -325,6 +346,8 @@ setMethod("assay_design", "seaMass_sigma", function(object, as.data.table = FALS
 })
 
 
-
-
-
+#' @describeIn seaMass_sigma-class Open the list of \link{seaMass_delta} objects.
+#' @export
+setMethod("open_seaMass_deltas", "seaMass_sigma", function(object, quiet = FALSE, force = FALSE) {
+  return(lapply(sub("^delta\\.", "", list.files(path(object), "^delta\\.*")), function(name) open_seaMass_delta(object, name, quiet, force)))
+})

@@ -1,8 +1,4 @@
-hpc_process1 <- function(task) {
-  sigma_fits <- open_seaMass_sigma(".", force = T)
-  nchain <- control(sigma_fits)@model.nchain
-  process1(fits(sigma_fits)[[task %/% nchain + 1]], task %% nchain + 1)
-}
+setGeneric("process1", function(object, ...) standardGeneric("process1"))
 
 
 #' @import data.table
@@ -116,3 +112,10 @@ setMethod("process1", "sigma_fit", function(object, chain) {
     if (!("unnormalised.group.quants" %in% ctrl@keep)) unlink(file.path(object@path, "model1", "group.quants*"), recursive = T)
   }
 })
+
+
+hpc_process1 <- function(task) {
+  sigma_fits <- open_seaMass_sigma(".", force = T)
+  nchain <- control(sigma_fits)@model.nchain
+  process1(fits(sigma_fits)[[task %/% nchain + 1]], task %% nchain + 1)
+}

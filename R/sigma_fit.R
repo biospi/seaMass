@@ -1,3 +1,11 @@
+setGeneric("measurements", function(object, ...) standardGeneric("measurements"))
+setGeneric("summary", function(object, ...) standardGeneric("summary"))
+setGeneric("timings", function(object, ...) standardGeneric("timings"))
+setGeneric("measurement_vars", function(object, ...) standardGeneric("measurement_vars"))
+setGeneric("component_vars", function(object, ...) standardGeneric("component_vars"))
+setGeneric("assay_deviations", function(object, ...) standardGeneric("assay_deviations"))
+
+
 #' seaMass-Σ fit
 #'
 #' The results of a seaMass-Σ fit to a single block, returned by /link{seaMass_sigma} /code{fits()} function
@@ -5,6 +13,13 @@
 sigma_fit <- setClass("sigma_fit", slots = c(
   path = "character"
 ))
+
+
+#' @describeIn sigma_fit Get the path.
+#' @export
+setMethod("path", "sigma_fit", function(object) {
+  return(object@path)
+})
 
 
 #' @describeIn sigma_fit Get the \link{sigma_control} object for this fit.
@@ -51,7 +66,7 @@ setMethod("measurements", "sigma_fit", function(object, as.data.table = FALSE) {
 #' @import data.table
 #' @export
 setMethod("components", "sigma_fit", function(object, as.data.table = FALSE) {
-  if (file.exists(file.path(object@path, "meta", "components.fst")))
+  if (!file.exists(file.path(object@path, "meta", "components.fst")))
     stop(paste0("seaMass-Σ block '", sub("^sigma\\.", "", basename(object@path)), "' is missing or zipped"))
 
   DT <- fst::read.fst(file.path(object@path, "meta", "components.fst"), as.data.table = T)
@@ -290,17 +305,16 @@ setMethod("unnormalised_group_quants", "sigma_fit", function(object, groups = NU
 })
 
 
-# private read MCMC method
 #' @import data.table
-setMethod("read_mcmc", "sigma_fit", function(object, effect.name, columnID, batchIDs, summaryIDs, itemIDs, input, chains, summary) {
-  if (!is.null(summary)) filename <- file.path(file.path(object@path, input, paste(summary, effect.name, "fst", sep = ".")))
+read_mcmc <- function(object, effect.name, columnID, batchIDs, summaryIDs, itemIDs, input, chains, summary) {
+  if (!is.null(summary)) filename <- file.path(file.path(path(object), input, paste(summary, effect.name, "fst", sep = ".")))
   if (!is.null(summary) && file.exists(filename)) {
     # load and filter from cache
     DT <- fst::read.fst(filename, as.data.table = T)
     if (!is.null(itemIDs)) DT <- DT[get(columnID) %in% itemIDs]
   } else {
     # load and filter index
-    filename.index <- file.path(object@path, input, paste(effect.name, "index.fst", sep = "."))
+    filename.index <- file.path(path(object), input, paste(effect.name, "index.fst", sep = "."))
     if (!file.exists(filename.index)) return(NULL)
     DT.index <- fst::read.fst(filename.index, as.data.table = T)
     if (!is.null(itemIDs)) DT.index <- DT.index[get(columnID) %in% itemIDs]
@@ -332,7 +346,7 @@ setMethod("read_mcmc", "sigma_fit", function(object, effect.name, columnID, batc
           DT1 <- NULL
           try({
             DT1 <- fst::read.fst(
-              file.path(object@path, input, dirname(item[i, file]), sub("^([0-9]+)", chain, basename(item[i, file]))),
+              file.path(path(object), input, dirname(item[i, file]), sub("^([0-9]+)", chain, basename(item[i, file]))),
               from = item[i, from],
               to = item[i, to],
               as.data.table = T
@@ -362,4 +376,4 @@ setMethod("read_mcmc", "sigma_fit", function(object, effect.name, columnID, batc
   }
 
   return(DT)
-})
+}
