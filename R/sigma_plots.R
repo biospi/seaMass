@@ -36,5 +36,5 @@ setMethod("plots", "sigma_fit", function(object, chain) {
 hpc_plots <- function(task) {
   sigma_fits <- open_seaMass_sigma(".", force = T)
   nchain <- control(sigma_fits)@model.nchain
-  plots(fits(sigma_fits)[[task %/% nchain + 1]], task %% nchain + 1)
+  plots(fits(sigma_fits)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
 }

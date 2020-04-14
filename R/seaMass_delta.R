@@ -448,5 +448,5 @@ setMethod("component_deviations_fdr", "seaMass_delta", function(object, input = 
 
 
 hpc_delta <- function(task) {
-  run(open_seaMass_deltas(open_seaMass_sigma(".", force = T), force = T)[[task + 1]])
+  run(open_seaMass_deltas(open_seaMass_sigma(".", force = T), force = T)[[task]])
 }

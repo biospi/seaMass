@@ -103,7 +103,7 @@ setMethod("config", "schedule_slurm", function(object, prefix, name, n, email, f
     "#!/bin/bash\n",
     paste0("#SBATCH --job-name=s", prefix, ".", name, "\n"),
     paste0("#SBATCH --output=s", prefix, ".", name, "-%A_%a.out\n"),
-    paste0("#SBATCH --array=0-", n-1, "\n"),
+    paste0("#SBATCH --array=1-", n, "\n"),
     ifelse(is.na(object@partition), "", paste0("#SBATCH --partition=", object@partition, "\n")),
     "#SBATCH --nodes=1\n",
     "#SBATCH --ntasks-per-node=1\n",
@@ -240,17 +240,17 @@ setValidity("schedule_pbs", function(object) {
 
 setMethod("config", "schedule_pbs", function(object, prefix, name, n, email, func) {
   return(paste0(
-    "#!/bin/bash\n",
-    paste0("#pbs -N sm", prefix, ".", name, "\n"),
-    "#pbs -o .\n",
-    "#pbs -j oe\n",
-    "#pbs -r y\n",
-    paste0("#pbs -t 1-", n, "\n"),
-    ifelse(is.na(object@q), "", paste0("#pbs -q ", object@q, "\n")),
-    ifelse(is.na(object@ppn), "", paste0("#pbs -l nodes=1:ppn=", object@ppn, "\n")),
-    ifelse(is.na(object@mem), "", paste0("#pbs -l mem=", object@mem, "\n")),
-    ifelse(is.na(object@walltime), "", paste0("#pbs -l walltime=", object@walltime, "\n")),
-    ifelse(email & !is.na(object@M), paste0("#pbs -M ", object@M, "\n"), ""),
+    paste0("#PBS -N sm", prefix, ".", name, "\n"),
+    "#PBS -o .\n",
+    "#PBS -j oe\n",
+    "#PBS -r y\n",
+    paste0("#PBS -t 1-", n, "\n"),
+    ifelse(is.na(object@q), "", paste0("#PBS -q ", object@q, "\n")),
+    ifelse(is.na(object@ppn), "", paste0("#PBS -l nodes=1:ppn=", object@ppn, "\n")),
+    ifelse(is.na(object@mem), "", paste0("#PBS -l mem=", object@mem, "\n")),
+    ifelse(is.na(object@walltime), "", paste0("#PBS -l walltime=", object@walltime, "\n")),
+    ifelse(email & !is.na(object@M), paste0("#PBS -M ", object@M, "\n"), ""),
+    "cd $PBS_O_WORKDIR",
     paste0("Rscript --vanilla -e seaMass:::", func, "\\(${PBS_ARRAYID}\\)\n")
   ))
 })

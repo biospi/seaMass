@@ -86,6 +86,6 @@ setMethod("process0", "sigma_fit", function(object, chain) {
 hpc_process0 <- function(task) {
   sigma_fits <- open_seaMass_sigma(".", force = T)
   nchain <- control(sigma_fits)@model.nchain
-  process0(fits(sigma_fits)[[task %/% nchain + 1]], task %% nchain + 1)
+  process0(fits(sigma_fits)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
 }
 
