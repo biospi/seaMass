@@ -122,8 +122,7 @@ setMethod("config", "schedule_slurm", function(object, prefix, name, n, email, f
 setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
   name <- name(sigma)
   ctrl <- control(sigma)
-  sigma <- fits(sigma)
-  n <- length(sigma) * ctrl@model.nchain
+  n <- length(fits(sigma)) * ctrl@model.nchain
 
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "submit.process0"))
   cat(config(object, "1", name, n, length(ctrl@plot) == 0, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
@@ -259,8 +258,7 @@ setMethod("config", "schedule_pbs", function(object, prefix, name, n, email, fun
 setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
   name <- name(sigma)
   ctrl <- control(sigma)
-  sigma <- fits(sigma)
-  n <- length(sigma) * ctrl@model.nchain
+  n <- length(fits(sigma)) * ctrl@model.nchain
 
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "submit.process0"))
   cat(config(object, "1", name, n, length(ctrl@plot) == 0, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
@@ -296,12 +294,12 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
     "\n",
     "# clean up\n",
     "if [[ $EXITCODE != 0 ]]; then\n",
-    "  scancel $PROCESS0 $PROCESS1 $DELTA $PLOTS \n",
+    "  qdel $PROCESS0 $PROCESS1 $DELTA $PLOTS \n",
     "  echo Failed to submit jobs!\n",
     "else\n",
     "  echo Submitted jobs! To cancel execute $DIR/cancel.sh\n",
     "  echo '#!/bin/bash' > $DIR/cancel.sh\n",
-    "  echo scancel $PROCESS0 $PROCESS1 $DELTA $PLOTS >> $DIR/cancel.sh\n",
+    "  echo qdel $PROCESS0 $PROCESS1 $DELTA $PLOTS >> $DIR/cancel.sh\n",
     "  chmod u+x $DIR/cancel.sh\n",
     "fi\n",
     "\n",
