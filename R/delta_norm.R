@@ -7,7 +7,7 @@ setGeneric("norm_quantile", function(object, ...) standardGeneric("norm_quantile
 
 #' @include seaMass_delta.R
 setMethod("standardise_group_quants", "seaMass_delta", function(object, data.design = assay_design(object), output = "standardised") {
-  message(paste0("[", Sys.time(), "]  standardising unnormalised group quants..."))
+  cat(paste0("[", Sys.time(), "]  standardising unnormalised group quants..."))
 
   ctrl <- control(object)
   DT.refweights <- as.data.table(data.design)[, .(Assay, RefWeight)]
@@ -41,7 +41,7 @@ setMethod("standardise_group_quants", "seaMass_delta", function(object, data.des
 
 #' @include seaMass_delta.R
 setMethod("standardise_component_deviations", "seaMass_delta", function(object, output = "standardised.component.deviations") {
-  message(paste0("[", Sys.time(), "]  standardising component deviations..."))
+  cat(paste0("[", Sys.time(), "]  standardising component deviations..."))
 
   ctrl <- control(object)
   if (file.exists(file.path(path(object), paste(output, "fst", sep = ".")))) file.remove(file.path(path(object), paste(output, "fst", sep = ".")))
@@ -77,12 +77,12 @@ setMethod("norm_theta", "seaMass_delta", function(object, input = "standardised"
   if (file.exists(file.path(path(object), paste(output2, "fst", sep = ".")))) file.remove(file.path(path(object), paste(output2, "fst", sep = ".")))
   dir.create(file.path(path(object), output2), showWarnings = F)
 
-  message(paste0("[", Sys.time(), "]  summarising standardised group quants..."))
+  cat(paste0("[", Sys.time(), "]  summarising standardised group quants..."))
   groups <- groups(object, as.data.table = T)[, Group]
   ctrl <- control(object)
   DT <- unnormalised_group_quants(object, groups[grep(norm.groups, groups)], summary = T, input = input, as.data.table = T)
 
-  message(paste0("[", Sys.time(), "]  seaMass-Θ normalisation..."))
+  cat(paste0("[", Sys.time(), "]  seaMass-Θ normalisation..."))
   parallel_lapply(as.list(1:ctrl@model.nchain), function(item, object, ctrl, input, output, DT) {
     DT <- droplevels(merge(DT, unique(assay_design(object, as.data.table = T)[, .(Assay, Sample)]), by = "Assay"))
 
@@ -139,7 +139,7 @@ setMethod("norm_theta", "seaMass_delta", function(object, input = "standardised"
 
 #' @include seaMass_delta.R
 setMethod("norm_median", "seaMass_delta", function(object, input = "standardised", output = "normalised", norm.groups = ".*", ...) {
-  message(paste0("[", Sys.time(), "]  median normalisation..."))
+  cat(paste0("[", Sys.time(), "]  median normalisation..."))
 
   if (file.exists(file.path(path(object), paste(output, "fst", sep = ".")))) file.remove(file.path(path(object), paste(output, "fst", sep = ".")))
   dir.create(file.path(path(object), output), showWarnings = F)
@@ -160,7 +160,7 @@ setMethod("norm_median", "seaMass_delta", function(object, input = "standardised
 
 #' @include seaMass_delta.R
 setMethod("norm_quantile", "seaMass_delta", function(object, input = "standardised", output = "normalised", norm.groups = ".*", ...) {
-  message(paste0("[", Sys.time(), "]  quantile normalisation..."))
+  cat(paste0("[", Sys.time(), "]  quantile normalisation..."))
 
   if (file.exists(file.path(path(object), paste(output, "fst", sep = ".")))) file.remove(file.path(path(object), paste(output, "fst", sep = ".")))
   dir.create(file.path(path(object), output), showWarnings = F)

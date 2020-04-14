@@ -33,7 +33,7 @@ setMethod("fdr_ash", "seaMass_delta", function(
   warn <- getOption("warn")
   options(warn = 1)
 
-  message(paste0("[", Sys.time(), "]  ash false discovery rate correction..."))
+  cat(paste0("[", Sys.time(), "]  ash false discovery rate correction..."))
   dir.create(file.path(path(object), output), showWarnings = F)
 
   if (type == "group.quants") {

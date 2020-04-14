@@ -12,23 +12,23 @@ setMethod("process0", "sigma_fit", function(object, chain) {
 
   if (all(sapply(1:ctrl@model.nchain, function(chain) file.exists(file.path(object@path, "model0", paste(".complete", chain, sep = ".")))))) {
     # PROCESS OUTPUT
-    message(paste0("[", Sys.time(), "]   OUTPUT0 block=", sub("^.*sigma\\.(.*)$", "\\1", object@path)))
+    cat(paste0("[", Sys.time(), "]   OUTPUT0 block=", sub("^.*sigma\\.(.*)$", "\\1", object@path)))
 
     # Measurement EB prior
-    message(paste0("[", Sys.time(), "]    measurement prior..."))
+    cat(paste0("[", Sys.time(), "]    measurement prior..."))
     set.seed(ctrl@random.seed)
     DT.priors <- data.table(Effect = "Measurements", measurement_vars(object, input = "model0", summary = T, as.data.table = T)[, squeeze_var(v, df)])
 
     # Component EB prior
     if(!is.null(ctrl@component.model)) {
-      message(paste0("[", Sys.time(), "]    component prior..."))
+      cat(paste0("[", Sys.time(), "]    component prior..."))
       set.seed(ctrl@random.seed)
       DT.priors <- rbind(DT.priors, data.table(Effect = "Components", component_vars(object, input = "model0", summary = T, as.data.table = T)[, squeeze_var(v, df)]))
     }
 
     # Assay EB priors
     if(ctrl@assay.model != "") {
-      message(paste0("[", Sys.time(), "]    assay prior..."))
+      cat(paste0("[", Sys.time(), "]    assay prior..."))
       items <- assay_deviations(object, input = "model0", as.data.table = T)
       items <- items[mcmcID %% (ctrl@model.nsample / ctrl@assay.eb.nsample) == 0]
       if ("Measurement" %in% colnames(items)) setnames(items, "Measurement", "Item")
@@ -40,7 +40,7 @@ setMethod("process0", "sigma_fit", function(object, chain) {
       }))
       items <- split(items, by = c("Assay", "chainID"))
 
-      message(paste0("[", Sys.time(), "]     modelling assay quality..."))
+      cat(paste0("[", Sys.time(), "]     modelling assay quality..."))
       DT.assay.prior <- rbindlist(parallel_lapply(items, function(item, ctrl) {
         item <- droplevels(item)
 
