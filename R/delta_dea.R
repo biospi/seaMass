@@ -44,7 +44,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
   warn <- getOption("warn")
   options(warn = 1)
 
-  cat(paste0("[", Sys.time(), "]  MCMCglmm differential expression analysis for ", type, "..."))
+  cat(paste0("[", Sys.time(), "]  MCMCglmm differential expression analysis for ", type, "...\n"))
 
   # process parameters
   ctrl <- control(object)
@@ -73,11 +73,11 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
   }
 
   # loop over all chains and all groups/components
-  cat(paste0("[", Sys.time(), "]  running model..."))
+  cat(paste0("[", Sys.time(), "]  running model...\n"))
   if (file.exists(file.path(path(object), paste(output, "fst", sep = ".")))) file.remove(file.path(path(object), paste(output, "fst", sep = ".")))
   dir.create(file.path(path(object), output), showWarnings = F)
   for (chain in 1:ctrl@model.nchain) {
-    cat(paste0("[", Sys.time(), "]   chain ", chain ,"/", ctrl@model.nchain, "..."))
+    cat(paste0("[", Sys.time(), "]   chain ", chain ,"/", ctrl@model.nchain, "...\n"))
 
     DT.de.index <- rbindlist(parallel_lapply(DTs, function(item, object, input, output, DT.design, type, emmeans.args, ctrl, chain, fixed, random, rcov, start, prior, tune, pedigree, nodes, scale, nitt, pr, pl, DIC, saveX, saveZ, saveXL, slice, ginverse, trunc) {
       batch <- lapply(split(item, by = type, drop = T), function(DT) {

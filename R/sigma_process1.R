@@ -5,14 +5,14 @@ setGeneric("process1", function(object, ...) standardGeneric("process1"))
 setMethod("process1", "sigma_fit", function(object, chain) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))
-      stop(paste0("version mismatch - 'object' was created with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
+      stop(paste0("version mismatch - 'object' was created with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass"), "\n"))
 
   # EXECUTE MODEL
   model(object, "model1", chain)
 
   if (all(sapply(1:ctrl@model.nchain, function(chain) file.exists(file.path(object@path, "model1", paste(".complete", chain, sep = ".")))))) {
     # PROCESS OUTPUT
-    cat(paste0("[", Sys.time(), "]   OUTPUT1 block=", sub("^.*sigma\\.(.*)$", "\\1", object@path)))
+    cat(paste0("[", Sys.time(), "]   OUTPUT1 block=", sub("^.*sigma\\.(.*)$", "\\1", object@path), "\n"))
 
     # load parameters
     DT.design <- fst::read.fst(file.path(object@path, "meta", "design.fst"), as.data.table = T)
@@ -31,7 +31,7 @@ setMethod("process1", "sigma_fit", function(object, chain) {
     # measurement var summary
     if ("measurement.variances" %in% ctrl@summarise) {
       # measurement variances
-      cat("[", paste0(Sys.time(), "]    summarising measurement variances..."))
+      cat("[", paste0(Sys.time(), "]    summarising measurement variances...\n"))
       set.seed(ctrl@random.seed)
       DT.measurement.variances <- measurement_vars(object, summary = T, as.data.table = T)
       setcolorder(DT.measurement.variances, c("Group", "Component"))
@@ -43,7 +43,7 @@ setMethod("process1", "sigma_fit", function(object, chain) {
 
     # component variances summary
     if("component.variances" %in% ctrl@summarise && !is.null(ctrl@component.model)) {
-      cat("[", paste0(Sys.time(), "]    summarising component variances..."))
+      cat("[", paste0(Sys.time(), "]    summarising component variances...\n"))
       set.seed(ctrl@random.seed)
       DT.component.variances <- component_vars(object, summary = T, as.data.table = T)
       setcolorder(DT.component.variances, "Group")
@@ -55,7 +55,7 @@ setMethod("process1", "sigma_fit", function(object, chain) {
 
     # component deviations summary
     if("component.deviations" %in% ctrl@summarise && !is.null(ctrl@component.model) && ctrl@component.model == "independent") {
-      cat("[", paste0(Sys.time(), "]    summarising component deviations..."))
+      cat("[", paste0(Sys.time(), "]    summarising component deviations...\n"))
       set.seed(ctrl@random.seed)
       DT.component.deviations <- component_deviations(object, summary = T, as.data.table = T)
       DT.component.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.component.deviations, by = "Group")
@@ -79,7 +79,7 @@ setMethod("process1", "sigma_fit", function(object, chain) {
 
     # assay deviations summary
     if("assay.deviations" %in% ctrl@summarise && !is.null(ctrl@assay.model) && ctrl@assay.model == "component") {
-      cat("[", paste0(Sys.time(), "]    summarising assay deviations..."))
+      cat("[", paste0(Sys.time(), "]    summarising assay deviations...\n"))
       set.seed(ctrl@random.seed)
       DT.assay.deviations <- assay_deviations(object, summary = T, as.data.table = T)
       DT.assay.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.assay.deviations, by = "Group")
@@ -103,7 +103,7 @@ setMethod("process1", "sigma_fit", function(object, chain) {
 
     # unnoramlised group quants summary
     if ("unnormalised.group.quants" %in% ctrl@summarise) {
-      cat("[", paste0(Sys.time(), "]    summarising unnormalised group quants..."))
+      cat("[", paste0(Sys.time(), "]    summarising unnormalised group quants...\n"))
       set.seed(ctrl@random.seed)
       DT.group.quants <- unnormalised_group_quants(object, summary = T, as.data.table = T)
       DT.group.quants <- dcast(DT.group.quants, Group ~ Assay, drop = F, value.var = colnames(DT.group.quants)[6:ncol(DT.group.quants)])

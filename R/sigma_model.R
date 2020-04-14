@@ -5,7 +5,7 @@ setGeneric("model", function(object, ...) standardGeneric("model"))
 setMethod("model", "sigma_fit", function(object, input, chain = 1) {
   ctrl <- control(object)
   set.seed(ctrl@random.seed + chain-1)
-  cat(paste0("[", Sys.time(), "]   ", toupper(input), " block=", sub("^.*sigma\\.(.*)$", "\\1", object@path), " chain=", chain, "/", ctrl@model.nchain))
+  cat(paste0("[", Sys.time(), "]   ", toupper(input), " block=", sub("^.*sigma\\.(.*)$", "\\1", object@path), " chain=", chain, "/", ctrl@model.nchain, "\n"))
 
   # load metadata
   DT.design <- fst::read.fst(file.path(object@path, "meta", "design.fst"), as.data.table = T)
@@ -28,7 +28,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
   dir.create(file.path(object@path, input, "timings"), showWarnings = F)
 
   if (nrow(DT.index) > 0) {
-    cat(paste0("[", Sys.time(), "]    modelling ngroup=", nrow(DT.index), " nitt=", nitt, "..."))
+    cat(paste0("[", Sys.time(), "]    modelling ngroup=", nrow(DT.index), " nitt=", nitt, "...\n"))
 
     # run model
     DT.index <- merge(DT.index, DT.groups[, .(GroupID, timing)], by = "GroupID")

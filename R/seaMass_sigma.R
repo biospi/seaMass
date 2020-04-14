@@ -43,12 +43,12 @@ seaMass_sigma <- function(
   # check for finished output and return that
   object <- open_seaMass_sigma(paste0(name, ".seaMass"), quiet = T)
   if (!is.null(object)) {
-    cat(paste0("returning completed seaMass-sigma object - if this wasn't your intention, supply a different 'name' or delete the folder for the returned object with 'del(object)'"))
+    cat(paste0("returning completed seaMass-sigma object - if this wasn't your intention, supply a different 'name' or delete the folder for the returned object with 'del(object)'\n"))
     return(object)
   }
 
   ### INIT
-  cat(paste0("[", Sys.time(), "] seaMass-sigma v", control@version))
+  cat(paste0("[", Sys.time(), "] seaMass-sigma v", control@version, "\n"))
   path <- file.path(getwd(), paste0(name, ".seaMass"))
   if (file.exists(path)) unlink(path, recursive = T)
   dir.create(path, recursive = T)
@@ -76,7 +76,7 @@ seaMass_sigma <- function(
   block.cols <- colnames(DT.design.all)[grep("^Block\\.(.*)$", colnames(DT.design.all))]
   blocks <- sub("^Block\\.(.*)$", "\\1", block.cols)
   for(i in 1:length(blocks)) {
-    cat(paste0("[", Sys.time(), "]  preparing block=", blocks[i], "..."))
+    cat(paste0("[", Sys.time(), "]  preparing block=", blocks[i], "...\n"))
     # extract input data for this block
     DT <- merge(DT.all, DT.design.all[as.logical(get(block.cols[i])) == T, .(Run, Channel, Assay)], by = c("Run", "Channel"))
     DT[, Run := NULL]
@@ -244,7 +244,7 @@ seaMass_sigma <- function(
   if (run) {
     run(control@schedule, object)
   } else {
-    cat(" call 'run(object)' on the returned object to run seaMass-sigma")
+    cat(" call 'run(object)' on the returned object to run seaMass-sigma\n")
   }
 
   ### TIDY UP

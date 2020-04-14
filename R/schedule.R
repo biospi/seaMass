@@ -27,7 +27,7 @@ setMethod("prepare_delta", "schedule_local", function(object, delta) {
 setMethod("run", "schedule_local", function(object, sigma) {
   ctrl <- control(sigma)
 
-  cat(paste0("[", Sys.time(), "]  running name=", name(sigma), "..."))
+  cat(paste0("[", Sys.time(), "]  running name=", name(sigma), "...\n"))
 
   for (fit in fits(sigma)) {
     # run empirical bayes process0
@@ -43,7 +43,7 @@ setMethod("run", "schedule_local", function(object, sigma) {
   # run delta if they exist
   for (delta in open_seaMass_deltas(sigma, force = T)) run(delta)
 
-  cat(paste0("[", Sys.time(), "] complete!"))
+  cat(paste0("[", Sys.time(), "] complete!\n"))
 
   return(invisible(object))
 })
@@ -183,7 +183,7 @@ setMethod("prepare_delta", "schedule_slurm", function(object, delta) {
 
 
 setMethod("run", "schedule_slurm", function(object, sigma) {
-  cat(paste0("[", Sys.time(), "]  submitting to SLURM..."))
+  cat(paste0("[", Sys.time(), "]  submitting to SLURM...\n"))
   system(file.path(sigma@path, "submit.sh"))
   return(invisible(object))
 })
@@ -319,7 +319,7 @@ setMethod("prepare_delta", "schedule_pbs", function(object, delta) {
 
 
 setMethod("run", "schedule_pbs", function(object, sigma) {
-  cat(paste0("[", Sys.time(), "]  submitting to PBS..."))
+  cat(paste0("[", Sys.time(), "]  submitting to PBS...\n"))
   system(file.path(sigma@path, "submit.sh"))
   return(invisible(object))
 })
@@ -403,7 +403,7 @@ setMethod("prepare_delta", "schedule_sge", function(object, delta) {
 
 
 setMethod("run", "schedule_sge", function(object, sigma) {
-  cat(paste0("[", Sys.time(), "]  submitting to SGE..."))
+  cat(paste0("[", Sys.time(), "]  submitting to SGE...\n"))
   system(file.path(sigma@path, "submit.sh"))
   return(invisible(object))
 })
@@ -412,10 +412,10 @@ setMethod("run", "schedule_sge", function(object, sigma) {
 hpc_process0 <- function(task) {
   sigma <- open_seaMass_sigma(".", force = T)
   nchain <- control(sigma)@model.nchain
-  cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(sigma)@version))
-  cat(paste0("[", Sys.time(), "]  running process0 for name=", name(sigma), "..."))
+  cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(sigma)@version, "\n"))
+  cat(paste0("[", Sys.time(), "]  running process0 for name=", name(sigma), "...\n"))
   process0(fits(sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
-  cat(paste0("[", Sys.time(), "] complete!"))
+  cat(paste0("[", Sys.time(), "] complete!\n"))
   return(invisible(0))
 }
 
@@ -423,10 +423,10 @@ hpc_process0 <- function(task) {
 hpc_process1 <- function(task) {
   sigma <- open_seaMass_sigma(".", force = T)
   nchain <- control(sigma)@model.nchain
-  cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(sigma)@version))
-  cat(paste0("[", Sys.time(), "]  running process1 for name=", name(sigma), "..."))
+  cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(sigma)@version, "\n"))
+  cat(paste0("[", Sys.time(), "]  running process1 for name=", name(sigma), "...\n"))
   process1(fits(sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
-  cat(paste0("[", Sys.time(), "] complete!"))
+  cat(paste0("[", Sys.time(), "] complete!\n"))
   return(invisible(0))
 }
 
@@ -434,19 +434,19 @@ hpc_process1 <- function(task) {
 hpc_plots <- function(task) {
   sigma <- open_seaMass_sigma(".", force = T)
   nchain <- control(sigma)@model.nchain
-  cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(sigma)@version))
-  cat(paste0("[", Sys.time(), "]  running plots for name=", name(sigma), "..."))
+  cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(sigma)@version, "\n"))
+  cat(paste0("[", Sys.time(), "]  running plots for name=", name(sigma), "...\n"))
   plots(fits(sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
-  cat(paste0("[", Sys.time(), "] complete!"))
+  cat(paste0("[", Sys.time(), "] complete!\n"))
   return(invisible(0))
 }
 
 
 hpc_delta <- function(task) {
   delta <- open_seaMass_deltas(open_seaMass_sigma(".", force = T), force = T)[[task]]
-  cat(paste0("[", Sys.time(), "] seaMass-delta v", control(delta)@version))
-  cat(paste0("[", Sys.time(), "]  running name=", name(delta), "..."))
+  cat(paste0("[", Sys.time(), "] seaMass-delta v", control(delta)@version, "\n"))
+  cat(paste0("[", Sys.time(), "]  running name=", name(delta), "...\n"))
   run(delta)
-  cat(paste0("[", Sys.time(), "] complete!"))
+  cat(paste0("[", Sys.time(), "] complete!\n"))
   return(invisible(0))
 }

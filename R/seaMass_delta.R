@@ -41,12 +41,12 @@ seaMass_delta <- function(
   # check for finished output and return that
   object <- open_seaMass_delta(sigma, name, quiet = T)
   if (!is.null(object)) {
-    cat(paste0(" returning completed seaMass-delta object - if this wasn't your intention, supply a different 'name' or delete the folder for the returned object with 'del(object)'"))
+    cat(paste0(" returning completed seaMass-delta object - if this wasn't your intention, supply a different 'name' or delete the folder for the returned object with 'del(object)'\n"))
     return(object)
   }
 
   ### INIT
-  cat(paste0("[", Sys.time(), "] seaMass-delta v", control@version))
+  cat(paste0("[", Sys.time(), "] seaMass-delta v", control@version, "\n"))
   control@model.nchain <- control(sigma)@model.nchain
   control@model.nsample <- control(sigma)@model.nsample
   control@nthread <- control(sigma)@nthread
@@ -107,7 +107,7 @@ seaMass_delta <- function(
   if (completed(sigma)) {
     run(object)
   } else {
-    cat(" seaMass-delta will be run when 'run(sigma)' is run")
+    cat(" seaMass-delta will be run when 'run(sigma)' is run\n")
   }
 
   return(invisible(object))
@@ -144,7 +144,7 @@ setMethod("run", "seaMass_delta", function(object) {
   ellipsis <- ctrl@ellipsis
   ellipsis$object <- object
 
-  cat(paste0("[", Sys.time(), "]  running delta for name=", name(object), "..."))
+  cat(paste0("[", Sys.time(), "]  running delta for name=", name(object), "...\n"))
 
   # standardise quants using reference weights
   standardise_group_quants(object)
@@ -155,7 +155,7 @@ setMethod("run", "seaMass_delta", function(object) {
   if (ctrl@norm.model != "") do.call(paste("norm", ctrl@norm.model, sep = "_"), ellipsis)
 
   # group quants
-  cat("[", paste0(Sys.time(), "]   summarising normalised group quants..."))
+  cat("[", paste0(Sys.time(), "]   summarising normalised group quants...\n"))
   set.seed(ctrl@random.seed)
   DT.groups <- groups(object, as.data.table = T)
   DT.group.quants <- normalised_group_quants(object, summary = T, as.data.table = T)
@@ -166,7 +166,7 @@ setMethod("run", "seaMass_delta", function(object) {
 
   # component deviations
   if (ctrl@component.deviations == T && component.model == "independent") {
-    cat("[", paste0(Sys.time(), "]   component deviations..."))
+    cat("[", paste0(Sys.time(), "]   component deviations...\n"))
     set.seed(ctrl@random.seed)
     DT.component.deviations <- component_deviations(object, summary = T, as.data.table = T)
     DT.component.deviations[, GroupComponent := paste(Group, Component, sep = "_seaMass_")]
@@ -183,7 +183,7 @@ setMethod("run", "seaMass_delta", function(object) {
   }
 
   # plot PCA and assay exposures
-  cat("[", paste0(Sys.time(), "]   plotting PCA and assay exposures..."))
+  cat("[", paste0(Sys.time(), "]   plotting PCA and assay exposures...\n"))
   if (ctrl@component.deviations == T && component.model == "independent") {
     DT <- component_deviations(object, as.data.table = T)
     DT[, Group := interaction(Group, Component, sep = " : ", lex.order = T, drop = T)]
