@@ -113,12 +113,9 @@ setMethod("process1", "sigma_fit", function(object, chain) {
     }
     # delete if not in 'keep'
     if (!("unnormalised.group.quants" %in% ctrl@keep)) unlink(file.path(object@path, "model1", "group.quants*"), recursive = T)
+
+    # set complete
+    write.table(data.frame(), file.path(object@path, "complete"), col.names = F)
   }
 })
 
-
-hpc_process1 <- function(task) {
-  sigma_fits <- open_seaMass_sigma(".", force = T)
-  nchain <- control(sigma_fits)@model.nchain
-  process1(fits(sigma_fits)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
-}

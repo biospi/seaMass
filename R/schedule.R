@@ -26,7 +26,8 @@ setMethod("prepare_delta", "schedule_local", function(object, delta) {
 
 setMethod("run", "schedule_local", function(object, sigma) {
   ctrl <- control(sigma)
-  message(paste0("[", Sys.time(), "]  running sigma for name=", name(sigma), "..."))
+
+  message(paste0("[", Sys.time(), "]  running name=", name(sigma), "..."))
 
   for (fit in fits(sigma)) {
     # run empirical bayes process0
@@ -37,12 +38,12 @@ setMethod("run", "schedule_local", function(object, sigma) {
 
     # run plots if you want
     if (length(ctrl@plot) > 0) for (chain in 1:ctrl@model.nchain) plots(fit, chain)
-
-    write.table(data.frame(), file.path(fit@path, ".complete"), col.names = F)
   }
 
   # run delta if they exist
   for (delta in open_seaMass_deltas(sigma, force = T)) run(delta)
+
+  message(paste0("[", Sys.time(), "] complete!"))
 
   return(invisible(object))
 })
@@ -103,6 +104,7 @@ setMethod("config", "schedule_slurm", function(object, prefix, name, n, email, f
     "#!/bin/bash\n",
     paste0("#SBATCH --job-name=sm", prefix, ".", name, "\n"),
     paste0("#SBATCH --output=sm", prefix, ".", name, "-%A_%a.out\n"),
+    paste0("#SBATCH --error=sm", prefix, ".", name, "-%A_%a.err\n"),
     paste0("#SBATCH --array=1-", n, "\n"),
     ifelse(is.na(object@partition), "", paste0("#SBATCH --partition=", object@partition, "\n")),
     "#SBATCH --nodes=1\n",
@@ -110,8 +112,8 @@ setMethod("config", "schedule_slurm", function(object, prefix, name, n, email, f
     ifelse(is.na(object@cpus_per_task), "", paste0("#SBATCH --cpus-per-task=", object@cpus_per_task, "\n")),
     ifelse(is.na(object@mem), "", paste0("#SBATCH --mem=", object@mem, "\n")),
     ifelse(is.na(object@time), "", paste0("#SBATCH --time=", object@time, "\n")),
-    ifelse(email & !is.na(object@mail_user), paste0("#SBATCH --mail-user=", object@mail_user, "\n"), ""),
-    ifelse(email & !is.na(object@mail_user), "#SBATCH --mail-type=END,FAIL\n", ""),
+    ifelse(is.na(object@mail_user), "", paste0("#SBATCH --mail-user=", object@mail_user, "\n")),
+    ifelse(email, "#SBATCH --mail-type=END,FAIL\n", "#SBATCH --mail-type=FAIL\n"),
     paste0("srun Rscript --vanilla -e seaMass:::", func, "\\(${SLURM_ARRAY_TASK_ID}\\)\n")
   ))
 })
@@ -120,8 +122,8 @@ setMethod("config", "schedule_slurm", function(object, prefix, name, n, email, f
 setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
   name <- name(sigma)
   ctrl <- control(sigma)
-  sigma_fits <- fits(sigma)
-  n <- length(sigma_fits) * ctrl@model.nchain
+  sigma <- fits(sigma)
+  n <- length(sigma) * ctrl@model.nchain
 
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "submit.process0"))
   cat(config(object, "1", name, n, length(ctrl@plot) == 0, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
@@ -241,13 +243,13 @@ setValidity("schedule_pbs", function(object) {
 setMethod("config", "schedule_pbs", function(object, prefix, name, n, email, func) {
   return(paste0(
     paste0("#PBS -N sm", prefix, ".", name, "\n"),
-    "#PBS -j oe\n",
     paste0("#PBS -t 1-", n, "\n"),
     ifelse(is.na(object@q), "", paste0("#PBS -q ", object@q, "\n")),
     ifelse(is.na(object@ppn), "", paste0("#PBS -l nodes=1:ppn=", object@ppn, "\n")),
     ifelse(is.na(object@mem), "", paste0("#PBS -l mem=", object@mem, "\n")),
     ifelse(is.na(object@walltime), "", paste0("#PBS -l walltime=", object@walltime, "\n")),
-    ifelse(email & !is.na(object@M), paste0("#PBS -M ", object@M, "\n"), ""),
+    ifelse(is.na(object@M), "", paste0("#PBS -M ", object@M, "\n")),
+    ifelse(email, paste0("#PBS -m ae\n"), paste0("#PBS -m a\n")),
     "cd $PBS_O_WORKDIR\n",
     paste0("Rscript --vanilla -e seaMass:::", func, "\\(${PBS_ARRAYID}\\)\n")
   ))
@@ -257,8 +259,8 @@ setMethod("config", "schedule_pbs", function(object, prefix, name, n, email, fun
 setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
   name <- name(sigma)
   ctrl <- control(sigma)
-  sigma_fits <- fits(sigma)
-  n <- length(sigma_fits) * ctrl@model.nchain
+  sigma <- fits(sigma)
+  n <- length(sigma) * ctrl@model.nchain
 
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "submit.process0"))
   cat(config(object, "1", name, n, length(ctrl@plot) == 0, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
@@ -407,3 +409,46 @@ setMethod("run", "schedule_sge", function(object, sigma) {
   system(file.path(sigma@path, "submit.sh"))
   return(invisible(object))
 })
+
+
+hpc_process0 <- function(task) {
+  sigma <- open_seaMass_sigma(".", force = T)
+  nchain <- control(sigma)@model.nchain
+  message(paste0("[", Sys.time(), "] seaMass-sigma v", control(sigma)@version))
+  message(paste0("[", Sys.time(), "]  running process0 for name=", name(sigma), "..."))
+  process0(fits(sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
+  message(paste0("[", Sys.time(), "] complete!"))
+  return(inivisible(0))
+}
+
+
+hpc_process1 <- function(task) {
+  sigma <- open_seaMass_sigma(".", force = T)
+  nchain <- control(sigma)@model.nchain
+  message(paste0("[", Sys.time(), "] seaMass-sigma v", control(sigma)@version))
+  message(paste0("[", Sys.time(), "]  running process1 for name=", name(sigma), "..."))
+  process1(fits(sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
+  message(paste0("[", Sys.time(), "] complete!"))
+  return(inivisible(0))
+}
+
+
+hpc_plots <- function(task) {
+  sigma <- open_seaMass_sigma(".", force = T)
+  nchain <- control(sigma)@model.nchain
+  message(paste0("[", Sys.time(), "] seaMass-sigma v", control(sigma)@version))
+  message(paste0("[", Sys.time(), "]  running plots for name=", name(sigma), "..."))
+  plots(fits(sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
+  message(paste0("[", Sys.time(), "] complete!"))
+  return(inivisible(0))
+}
+
+
+hpc_delta <- function(task) {
+  delta <- open_seaMass_deltas(open_seaMass_sigma(".", force = T), force = T)[[task]]
+  message(paste0("[", Sys.time(), "] seaMass-delta v", control(delta)@version))
+  message(paste0("[", Sys.time(), "]  running name=", name(delta), "..."))
+  run(delta)
+  message(paste0("[", Sys.time(), "] complete!"))
+  return(inivisible(0))
+}

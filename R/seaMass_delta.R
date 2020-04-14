@@ -119,7 +119,7 @@ seaMass_delta <- function(
 open_seaMass_delta <- function(sigma, name = "fit", quiet = FALSE, force = FALSE) {
   path <- file.path(path(sigma), paste0("delta.", name))
 
-  if(force || file.exists(file.path(path, ".complete"))) {
+  if(force || file.exists(file.path(path, "complete"))) {
     object <- new("seaMass_delta", sigma = sigma, name = paste0("delta.", name))
     return(object)
   } else {
@@ -251,8 +251,8 @@ setMethod("run", "seaMass_delta", function(object) {
     }
   }
 
-  # return fit object
-  write.table(data.frame(), file.path(path(object), ".complete"), col.names = F)
+  # set complete
+  write.table(data.frame(), file.path(path(object), "complete"), col.names = F)
 
   return(object@name)
 })
@@ -447,6 +447,3 @@ setMethod("component_deviations_fdr", "seaMass_delta", function(object, input = 
 })
 
 
-hpc_delta <- function(task) {
-  run(open_seaMass_deltas(open_seaMass_sigma(".", force = T), force = T)[[task]])
-}

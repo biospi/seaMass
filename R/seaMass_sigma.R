@@ -264,7 +264,7 @@ open_seaMass_sigma <- function(
   blocks <- list.dirs(path, full.names = F, recursive = F)
   blocks <- blocks[grep("^sigma\\.", blocks)]
 
-  if(length(blocks) > 0 && (force || all(file.exists(file.path(path, blocks, ".complete"))))) {
+  if(length(blocks) > 0 && (force || all(file.exists(file.path(path, blocks, "complete"))))) {
      return(new("seaMass_sigma", path = normalizePath(path)))
   } else {
     if (quiet) {
@@ -283,7 +283,7 @@ setMethod("completed", "seaMass_sigma", function(object) {
   blocks <- list.dirs(path(object), full.names = F, recursive = F)
   blocks <- blocks[grep("^sigma\\.", blocks)]
 
-  return(all(file.exists(file.path(path(object), blocks, ".complete"))))
+  return(all(file.exists(file.path(path(object), blocks, "complete"))))
 })
 
 
