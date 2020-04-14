@@ -101,8 +101,8 @@ setValidity("schedule_slurm", function(object) {
 setMethod("config", "schedule_slurm", function(object, prefix, name, n, email, func) {
   return(paste0(
     "#!/bin/bash\n",
-    paste0("#SBATCH --job-name=s", prefix, ".", name, "\n"),
-    paste0("#SBATCH --output=s", prefix, ".", name, "-%A_%a.out\n"),
+    paste0("#SBATCH --job-name=sm", prefix, ".", name, "\n"),
+    paste0("#SBATCH --output=sm", prefix, ".", name, "-%A_%a.out\n"),
     paste0("#SBATCH --array=1-", n, "\n"),
     ifelse(is.na(object@partition), "", paste0("#SBATCH --partition=", object@partition, "\n")),
     "#SBATCH --nodes=1\n",
@@ -143,16 +143,16 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
     "EXITCODE=$?\n",
     "PROCESS1=$JOBID\n",
     "\n",
-    "if [ -e \"slurm.delta\" ]; then\n",
-    "  JOBID=$(sbatch --parsable --dependency=afterok:$JOBID slurm.delta)\n",
-    "  EXITCODE=$?\n",
-    "  DELTA=$JOBID\n",
-    "fi\n",
-    "\n",
     "if [ -e \"slurm.plots\" ]; then\n",
     "  JOBID=$(sbatch --parsable --dependency=afterok:$JOBID slurm.plots)\n",
     "  EXITCODE=$?\n",
     "  PLOTS=$JOBID\n",
+    "fi\n",
+    "\n",
+    "if [ -e \"slurm.delta\" ]; then\n",
+    "  JOBID=$(sbatch --parsable --dependency=afterok:$JOBID slurm.delta)\n",
+    "  EXITCODE=$?\n",
+    "  DELTA=$JOBID\n",
     "fi\n",
     "\n",
     "# clean up\n",
@@ -241,16 +241,14 @@ setValidity("schedule_pbs", function(object) {
 setMethod("config", "schedule_pbs", function(object, prefix, name, n, email, func) {
   return(paste0(
     paste0("#PBS -N sm", prefix, ".", name, "\n"),
-    "#PBS -o .\n",
     "#PBS -j oe\n",
-    "#PBS -r y\n",
     paste0("#PBS -t 1-", n, "\n"),
     ifelse(is.na(object@q), "", paste0("#PBS -q ", object@q, "\n")),
     ifelse(is.na(object@ppn), "", paste0("#PBS -l nodes=1:ppn=", object@ppn, "\n")),
     ifelse(is.na(object@mem), "", paste0("#PBS -l mem=", object@mem, "\n")),
     ifelse(is.na(object@walltime), "", paste0("#PBS -l walltime=", object@walltime, "\n")),
     ifelse(email & !is.na(object@M), paste0("#PBS -M ", object@M, "\n"), ""),
-    "cd $PBS_O_WORKDIR",
+    "cd $PBS_O_WORKDIR\n",
     paste0("Rscript --vanilla -e seaMass:::", func, "\\(${PBS_ARRAYID}\\)\n")
   ))
 })
@@ -277,18 +275,31 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
     "JOBID=$(qsub pbs.process0)\n",
     "EXITCODE=$?\n",
     "PROCESS0=$JOBID\n",
+    "\n",
     "JOBID=$(qsub -W depend=afterokarray:$JOBID pbs.process1)\n",
     "EXITCODE=$?\n",
     "PROCESS1=$JOBID\n",
     "\n",
+    "if [ -e \"slurm.plots\" ]; then\n",
+    "  JOBID=$(qsub -W depend=afterokarray:$JOBID pbs.plots)\n",
+    "  EXITCODE=$?\n",
+    "  PLOTS=$JOBID\n",
+    "fi\n",
+    "\n",
+    "if [ -e \"slurm.delta\" ]; then\n",
+    "  JOBID=$(qsub -W depend=afterokarray:$JOBID pbs.delta)\n",
+    "  EXITCODE=$?\n",
+    "  DELTA=$JOBID\n",
+    "fi\n",
+    "\n",
     "# clean up\n",
     "if [[ $EXITCODE != 0 ]]; then\n",
-    "  qdel $PROCESS0 $PROCESS1 $DELTA $PLOTS \n",
+    "  scancel $PROCESS0 $PROCESS1 $DELTA $PLOTS \n",
     "  echo Failed to submit jobs!\n",
     "else\n",
     "  echo Submitted jobs! To cancel execute $DIR/cancel.sh\n",
     "  echo '#!/bin/bash' > $DIR/cancel.sh\n",
-    "  echo qdel $PROCESS0 $PROCESS1 $DELTA $PLOTS >> $DIR/cancel.sh\n",
+    "  echo scancel $PROCESS0 $PROCESS1 $DELTA $PLOTS >> $DIR/cancel.sh\n",
     "  chmod u+x $DIR/cancel.sh\n",
     "fi\n",
     "\n",
@@ -364,25 +375,23 @@ setValidity("schedule_sge", function(object) {
 })
 
 
-setMethod("config", "schedule_sge", function(object, prefix, name, n, email) {
+setMethod("config", "schedule_sge", function(object, prefix, name, n, email, func) {
   return(paste0(
-    "#!/bin/bash\n",
-    paste0("#sge -N sm", prefix, ".", name, "\n"),
-    "#sge -o .\n",
-    "#sge -j oe\n",
-    "#sge -r y\n",
-    paste0("#sge -t 1-", n, "\n"),
-    ifelse(is.na(object@q), "", paste0("#sge -q ", object@q, "\n")),
-    ifelse(is.na(object@ppn), "", paste0("#sge -l nodes=1:ppn=", object@ppn, "\n")),
-    ifelse(is.na(object@mem), "", paste0("#sge -l mem=", object@mem, "\n")),
-    ifelse(is.na(object@walltime), "", paste0("#sge -l walltime=", object@walltime, "\n")),
-    ifelse(email & !is.na(object@M), paste0("#sge -M ", object@M), "")
+    paste0("#$ -N sm", prefix, ".", name, "\n"),
+    "#$ -j oe\n",
+    paste0("#$ -t 1-", n, "\n"),
+    ifelse(is.na(object@q), "", paste0("#$ -q ", object@q, "\n")),
+    ifelse(is.na(object@ppn), "", paste0("#$ -l nodes=1:ppn=", object@ppn, "\n")),
+    ifelse(is.na(object@mem), "", paste0("#$ -l mem=", object@mem, "\n")),
+    ifelse(is.na(object@walltime), "", paste0("#$ -l walltime=", object@walltime, "\n")),
+    ifelse(email & !is.na(object@M), paste0("#$ -M ", object@M, "\n"), ""),
+    paste0("Rscript --vanilla -e seaMass:::", func, "\\(${SGE_TASK_ID}\\)\n")
   ))
 })
 
 
 setMethod("prepare_sigma", "schedule_sge", function(object, sigma) {
-
+  stop("not implemented yet")
   return(invisible(object))
 })
 
