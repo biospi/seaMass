@@ -123,10 +123,10 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
   sigma_fits <- fits(sigma)
   n <- length(sigma_fits) * ctrl@model.nchain
 
-  cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "slurm.process0"))
-  cat(config(object, "1", name, n, length(ctrl@plot) == 0, "hpc_process1"), file = file.path(sigma@path, "slurm.process1"))
+  cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "submit.process0"))
+  cat(config(object, "1", name, n, length(ctrl@plot) == 0, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
   if (length(ctrl@plot) > 0)
-    cat(config(object, "P", name, n, T, "hpc_plots"), file = file.path(sigma@path, "slurm.plots", "hpc_plots"))
+    cat(config(object, "P", name, n, T, "hpc_plots"), file = file.path(sigma@path, "submit.plots", "hpc_plots"))
 
   # submit script
   cat(paste0(
@@ -135,22 +135,22 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
     "pushd $DIR > /dev/null\n",
     "\n",
     "# job chain\n",
-    "JOBID=$(sbatch --parsable slurm.process0)\n",
+    "JOBID=$(sbatch --parsable submit.process0)\n",
     "EXITCODE=$?\n",
     "PROCESS0=$JOBID\n",
     "\n",
-    "JOBID=$(sbatch --parsable --dependency=afterok:$JOBID slurm.process1)\n",
+    "JOBID=$(sbatch --parsable --dependency=afterok:$JOBID submit.process1)\n",
     "EXITCODE=$?\n",
     "PROCESS1=$JOBID\n",
     "\n",
-    "if [ -e \"slurm.plots\" ]; then\n",
-    "  JOBID=$(sbatch --parsable --dependency=afterok:$JOBID slurm.plots)\n",
+    "if [ -e \"submit.plots\" ]; then\n",
+    "  JOBID=$(sbatch --parsable --dependency=afterok:$JOBID submit.plots)\n",
     "  EXITCODE=$?\n",
     "  PLOTS=$JOBID\n",
     "fi\n",
     "\n",
-    "if [ -e \"slurm.delta\" ]; then\n",
-    "  JOBID=$(sbatch --parsable --dependency=afterok:$JOBID slurm.delta)\n",
+    "if [ -e \"submit.delta\" ]; then\n",
+    "  JOBID=$(sbatch --parsable --dependency=afterok:$JOBID submit.delta)\n",
     "  EXITCODE=$?\n",
     "  DELTA=$JOBID\n",
     "fi\n",
@@ -176,7 +176,7 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
 
 
 setMethod("prepare_delta", "schedule_slurm", function(object, delta) {
-  cat(config(object, "D", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), T, "hpc_delta"), file = file.path(delta@sigma@path, "slurm.delta"))
+  cat(config(object, "D", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), T, "hpc_delta"), file = file.path(delta@sigma@path, "submit.delta"))
   return(invisible(object))
 })
 
@@ -260,10 +260,10 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
   sigma_fits <- fits(sigma)
   n <- length(sigma_fits) * ctrl@model.nchain
 
-  cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "pbs.process0"))
-  cat(config(object, "1", name, n, length(ctrl@plot) == 0, "hpc_process1"), file = file.path(sigma@path, "pbs.process1"))
+  cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "submit.process0"))
+  cat(config(object, "1", name, n, length(ctrl@plot) == 0, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
   if (length(ctrl@plot) > 0)
-    cat(config(object, "P", name, n, T, "hpc_plots"), file = file.path(sigma@path, "pbs.plots", "hpc_plots"))
+    cat(config(object, "P", name, n, T, "hpc_plots"), file = file.path(sigma@path, "submit.plots", "hpc_plots"))
 
   # submit script
   cat(paste0(
@@ -272,22 +272,22 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
     "pushd $DIR > /dev/null\n",
     "\n",
     "# job chain\n",
-    "JOBID=$(qsub pbs.process0)\n",
+    "JOBID=$(qsub submit.process0)\n",
     "EXITCODE=$?\n",
     "PROCESS0=$JOBID\n",
     "\n",
-    "JOBID=$(qsub -W depend=afterokarray:$JOBID pbs.process1)\n",
+    "JOBID=$(qsub -W depend=afterokarray:$JOBID submit.process1)\n",
     "EXITCODE=$?\n",
     "PROCESS1=$JOBID\n",
     "\n",
-    "if [ -e \"slurm.plots\" ]; then\n",
-    "  JOBID=$(qsub -W depend=afterokarray:$JOBID pbs.plots)\n",
+    "if [ -e \"submit.plots\" ]; then\n",
+    "  JOBID=$(qsub -W depend=afterokarray:$JOBID submit.plots)\n",
     "  EXITCODE=$?\n",
     "  PLOTS=$JOBID\n",
     "fi\n",
     "\n",
-    "if [ -e \"slurm.delta\" ]; then\n",
-    "  JOBID=$(qsub -W depend=afterokarray:$JOBID pbs.delta)\n",
+    "if [ -e \"submit.delta\" ]; then\n",
+    "  JOBID=$(qsub -W depend=afterokarray:$JOBID submit.delta)\n",
     "  EXITCODE=$?\n",
     "  DELTA=$JOBID\n",
     "fi\n",
@@ -313,7 +313,7 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
 
 
 setMethod("prepare_delta", "schedule_pbs", function(object, delta) {
-  cat(config(object, "D", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), T, "hpc_delta"), file = file.path(delta@sigma@path, "pbs.delta"))
+  cat(config(object, "D", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), T, "hpc_delta"), file = file.path(delta@sigma@path, "submit.delta"))
   return(invisible(object))
 })
 
