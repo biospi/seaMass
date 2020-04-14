@@ -29,10 +29,10 @@ setMethod("run", "schedule_local", function(object, sigma) {
   message(paste0("[", Sys.time(), "]  running sigma for name=", name(sigma), "..."))
 
   for (fit in fits(sigma)) {
-    # run empirical bayes model0
+    # run empirical bayes process0
     for (chain in 1:ctrl@model.nchain) process0(fit, chain)
 
-    # run full model1
+    # run full process1
     for (chain in 1:ctrl@model.nchain) process1(fit, chain)
 
     # run plots if you want
@@ -101,8 +101,8 @@ setValidity("schedule_slurm", function(object) {
 setMethod("config", "schedule_slurm", function(object, prefix, name, n, email, func) {
   return(paste0(
     "#!/bin/bash\n",
-    paste0("#SBATCH --job-name=sM", prefix, ".", name, "\n"),
-    paste0("#SBATCH --output=sM", prefix, ".", name, "-%A_%a.out\n"),
+    paste0("#SBATCH --job-name=s", prefix, ".", name, "\n"),
+    paste0("#SBATCH --output=s", prefix, ".", name, "-%A_%a.out\n"),
     paste0("#SBATCH --array=0-", n-1, "\n"),
     ifelse(is.na(object@partition), "", paste0("#SBATCH --partition=", object@partition, "\n")),
     "#SBATCH --nodes=1\n",
@@ -126,7 +126,7 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "slurm.process0"))
   cat(config(object, "1", name, n, length(ctrl@plot) == 0, "hpc_process1"), file = file.path(sigma@path, "slurm.process1"))
   if (length(ctrl@plot) > 0)
-    cat(config(object, "p", name, n, T, "hpc_plots"), file = file.path(sigma@path, "slurm.plots", "hpc_plots"))
+    cat(config(object, "P", name, n, T, "hpc_plots"), file = file.path(sigma@path, "slurm.plots", "hpc_plots"))
 
   # submit script
   cat(paste0(
@@ -176,7 +176,7 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
 
 
 setMethod("prepare_delta", "schedule_slurm", function(object, delta) {
-  cat(config(object, "d", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), T, "hpc_delta"), file = file.path(delta@sigma@path, "slurm.delta"))
+  cat(config(object, "D", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), T, "hpc_delta"), file = file.path(delta@sigma@path, "slurm.delta"))
   return(invisible(object))
 })
 
@@ -241,7 +241,7 @@ setValidity("schedule_pbs", function(object) {
 setMethod("config", "schedule_pbs", function(object, prefix, name, n, email, func) {
   return(paste0(
     "#!/bin/bash\n",
-    paste0("#pbs -N sM", prefix, ".", name, "\n"),
+    paste0("#pbs -N sm", prefix, ".", name, "\n"),
     "#pbs -o .\n",
     "#pbs -j oe\n",
     "#pbs -r y\n",
@@ -250,7 +250,7 @@ setMethod("config", "schedule_pbs", function(object, prefix, name, n, email, fun
     ifelse(is.na(object@ppn), "", paste0("#pbs -l nodes=1:ppn=", object@ppn, "\n")),
     ifelse(is.na(object@mem), "", paste0("#pbs -l mem=", object@mem, "\n")),
     ifelse(is.na(object@walltime), "", paste0("#pbs -l walltime=", object@walltime, "\n")),
-    ifelse(email & !is.na(object@M), paste0("#pbs -M ", object@M), ""),
+    ifelse(email & !is.na(object@M), paste0("#pbs -M ", object@M, "\n"), ""),
     paste0("Rscript --vanilla -e seaMass:::", func, "\\(${PBS_ARRAYID}\\)\n")
   ))
 })
@@ -265,7 +265,7 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "pbs.process0"))
   cat(config(object, "1", name, n, length(ctrl@plot) == 0, "hpc_process1"), file = file.path(sigma@path, "pbs.process1"))
   if (length(ctrl@plot) > 0)
-    cat(config(object, "p", name, n, T, "hpc_plots"), file = file.path(sigma@path, "pbs.plots", "hpc_plots"))
+    cat(config(object, "P", name, n, T, "hpc_plots"), file = file.path(sigma@path, "pbs.plots", "hpc_plots"))
 
   # submit script
   cat(paste0(
@@ -274,10 +274,10 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
     "pushd $DIR > /dev/null\n",
     "\n",
     "# job chain\n",
-    "JOBID=$(qsub pbs.model0)\n",
+    "JOBID=$(qsub pbs.process0)\n",
     "EXITCODE=$?\n",
     "PROCESS0=$JOBID\n",
-    "JOBID=$(qsub -W depend=afterokarray:$JOBID pbs.model)\n",
+    "JOBID=$(qsub -W depend=afterokarray:$JOBID pbs.process1)\n",
     "EXITCODE=$?\n",
     "PROCESS1=$JOBID\n",
     "\n",
@@ -302,7 +302,7 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
 
 
 setMethod("prepare_delta", "schedule_pbs", function(object, delta) {
-  cat(config(object, "d", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), T, "hpc_delta"), file = file.path(delta@sigma@path, "pbs.delta"))
+  cat(config(object, "D", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), T, "hpc_delta"), file = file.path(delta@sigma@path, "pbs.delta"))
   return(invisible(object))
 })
 
@@ -367,7 +367,7 @@ setValidity("schedule_sge", function(object) {
 setMethod("config", "schedule_sge", function(object, prefix, name, n, email) {
   return(paste0(
     "#!/bin/bash\n",
-    paste0("#sge -N sM", prefix, ".", name, "\n"),
+    paste0("#sge -N sm", prefix, ".", name, "\n"),
     "#sge -o .\n",
     "#sge -j oe\n",
     "#sge -r y\n",
