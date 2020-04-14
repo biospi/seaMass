@@ -1,5 +1,5 @@
 setGeneric("standardise_group_quants", function(object, ...) standardGeneric("standardise_group_quants"))
-setGeneric("standardise_component_quants", function(object, ...) standardGeneric("standardise_component_quants"))
+setGeneric("standardise_component_deviations", function(object, ...) standardGeneric("standardise_component_deviations"))
 setGeneric("norm_theta", function(object, ...) standardGeneric("norm_theta"))
 setGeneric("norm_median", function(object, ...) standardGeneric("norm_median"))
 setGeneric("norm_quantile", function(object, ...) standardGeneric("norm_quantile"))
@@ -40,7 +40,7 @@ setMethod("standardise_group_quants", "seaMass_delta", function(object, data.des
 
 
 #' @include seaMass_delta.R
-setMethod("standardise_component_quants", "seaMass_delta", function(object, output = "standardised.component.deviations") {
+setMethod("standardise_component_deviations", "seaMass_delta", function(object, output = "standardised.component.deviations") {
   message(paste0("[", Sys.time(), "]  standardising component deviations..."))
 
   ctrl <- control(object)

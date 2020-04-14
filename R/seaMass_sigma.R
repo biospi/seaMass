@@ -58,13 +58,13 @@ seaMass_sigma <- function(
   fst::threads_fst(control@nthread)
   DT.all <- setDT(data)
 
-  # validate design
+  # get design into the format we need
   DT.design.all <- as.data.table(data.design)[!is.na(Assay)]
+  if (!is.factor(DT.design.all$Assay)) DT.design.all[, Assay := factor(as.character(Assay), levels = unique(as.character(Assay)))]
+  if (all(is.na(DT.design.all$Run))) DT.design.all[, Run := "0"]
   if (!is.factor(DT.design.all$Run)) DT.design.all[, Run := factor(as.character(Run), levels = levels(DT.all$Run))]
+  if (all(is.na(DT.design.all$Channel))) DT.design.all[, Channel := "0"]
   if (!is.factor(DT.design.all$Channel)) DT.design.all[, Channel := factor(as.character(Channel), levels = levels(DT.all$Channel))]
-  if ("RefWeight" %in% colnames(DT.design.all)) DT.design.all[, RefWeight := as.numeric(RefWeight)]
-  if ("Sample" %in% colnames(DT.design.all) && !is.factor(DT.design.all$Sample)) DT.design.all[, Run := factor(as.character(Run), levels = unique(as.character(Run)))]
-  if ("Condition" %in% colnames(DT.design.all) && !is.factor(DT.design.all$Condition)) DT.design.all[, Condition := factor(as.character(Condition), levels = unique(as.character(Condition)))]
 
   # process each block independently
   block.cols <- colnames(DT.design.all)[grep("^Block\\.(.*)$", colnames(DT.design.all))]
@@ -72,7 +72,7 @@ seaMass_sigma <- function(
   for(i in 1:length(blocks)) {
     message(paste0("[", Sys.time(), "]  preparing block=", blocks[i], "..."))
     # extract input data for this block
-    DT <- merge(DT.all, DT.design.all[get(block.cols[i]) == T, .(Run, Channel, Assay)], by = c("Run", "Channel"))
+    DT <- merge(DT.all, DT.design.all[as.logical(get(block.cols[i])) == T, .(Run, Channel, Assay)], by = c("Run", "Channel"))
     DT[, Run := NULL]
     DT[, Channel := NULL]
     # missingness.threshold

@@ -70,6 +70,10 @@ seaMass_delta <- function(
 
   # merged design
   DT.design <- unique(as.data.table(data.design)[!is.na(Assay)], by = "Assay")
+
+  # get design into the format we need
+  DT.design <- as.data.table(data.design)[!is.na(Assay)]
+  if (!is.factor(DT.design$Assay)) DT.design[, Assay := factor(as.character(Assay), levels = levels(assay_design(sigma)$Assay))]
   if ("nGroup" %in% colnames(DT.design)) DT.design[, nGroup := NULL]
   if ("nComponent" %in% colnames(DT.design)) DT.design[, nComponent := NULL]
   if ("nMeasurement" %in% colnames(DT.design)) DT.design[, nMeasurement := NULL]
