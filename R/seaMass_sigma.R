@@ -61,9 +61,15 @@ seaMass_sigma <- function(
   # get design into the format we need
   DT.design.all <- as.data.table(data.design)[!is.na(Assay)]
   if (!is.factor(DT.design.all$Assay)) DT.design.all[, Assay := factor(as.character(Assay), levels = unique(as.character(Assay)))]
-  if (all(is.na(DT.design.all$Run))) DT.design.all[, Run := "0"]
+  if (all(is.na(DT.design.all$Run))) {
+    DT.design.all[, Run := NULL]
+    DT.design.all[, Run := "0"]
+  }
   if (!is.factor(DT.design.all$Run)) DT.design.all[, Run := factor(as.character(Run), levels = levels(DT.all$Run))]
-  if (all(is.na(DT.design.all$Channel))) DT.design.all[, Channel := "0"]
+  if (all(is.na(DT.design.all$Channel))) {
+    DT.design.all[, Channel := NULL]
+    DT.design.all[, Channel := "0"]
+  }
   if (!is.factor(DT.design.all$Channel)) DT.design.all[, Channel := factor(as.character(Channel), levels = levels(DT.all$Channel))]
 
   # process each block independently
