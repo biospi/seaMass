@@ -63,12 +63,12 @@ seaMass_sigma <- function(
   if (!is.factor(DT.design.all$Assay)) DT.design.all[, Assay := factor(as.character(Assay), levels = unique(as.character(Assay)))]
   if (all(is.na(DT.design.all$Run))) {
     DT.design.all[, Run := NULL]
-    DT.design.all[, Run := "0"]
+    DT.design.all[, Run := "1"]
   }
   if (!is.factor(DT.design.all$Run)) DT.design.all[, Run := factor(as.character(Run), levels = levels(DT.all$Run))]
   if (all(is.na(DT.design.all$Channel))) {
     DT.design.all[, Channel := NULL]
-    DT.design.all[, Channel := "0"]
+    DT.design.all[, Channel := "1"]
   }
   if (!is.factor(DT.design.all$Channel)) DT.design.all[, Channel := factor(as.character(Channel), levels = levels(DT.all$Channel))]
 

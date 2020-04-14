@@ -54,9 +54,14 @@ new_assay_design <- function(data) {
   data.is.data.table <- is.data.table(data)
   setDT(data)
 
-  DT.design <- data[, .(Assay = paste(Run, Channel, sep = ",")), keyby = .(Run, Channel)]
-  DT.design[, Assay := sub("^0,", "", Assay)]
-  DT.design[, Assay := sub(",0$", "", Assay)]
+  DT.design <- data[, .(Run_ = Run, Channel_ = Channel), keyby = .(Run, Channel)]
+  if (length(unique(DT.design$Run_)) == 1) DT.design[, Run_ := ""]
+  if (length(unique(DT.design$Channel_)) == 1) DT.design[, Channel_ := ""]
+  DT.design[, Assay := paste(Run_, Channel_, sep = ",")]
+  DT.design[, Assay := sub("^,", "", Assay)]
+  DT.design[, Assay := sub(",$", "", Assay)]
+  DT.design[, Run_ := NULL]
+  DT.design[, Channel_ := NULL]
 
   # autodetect blocks
   Block. <- merge(DT.design[, .(Run, Channel, Assay)], data[, .(Run, Channel, Measurement)], by = c("Run", "Channel"))
