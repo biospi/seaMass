@@ -11,7 +11,7 @@ schedule_slurm(
   cpus_per_task = NULL,
   mem = NULL,
   time = NULL,
-  email = NULL
+  mail_user = NULL
 )
 }
 \arguments{
@@ -21,7 +21,7 @@ schedule_slurm(
 
 \item{time}{.}
 
-\item{email}{.}
+\item{mail_user}{.}
 
 \item{nthread}{.}
 }
