@@ -6,17 +6,9 @@
 \alias{schedule_sge}
 \title{Schedule seaMass to run on SGE}
 \usage{
-schedule_sge(
-  destination = NULL,
-  ppn = NULL,
-  mem = NULL,
-  walltime = NULL,
-  mail_options = NULL
-)
+schedule_sge(q = NULL, ppn = NULL, mem = NULL, walltime = NULL, M = NULL)
 }
 \arguments{
-\item{destination}{.}
-
 \item{ppn}{.}
 
 \item{mem}{.}
@@ -24,6 +16,8 @@ schedule_sge(
 \item{walltime}{.}
 
 \item{M}{.}
+
+\item{destination}{.}
 }
 \description{
 Schedule seaMass to run on SGE

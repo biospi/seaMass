@@ -125,9 +125,9 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
   n <- length(fits(sigma)) * ctrl@model.nchain
 
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "submit.process0"))
-  cat(config(object, "1", name, n, length(ctrl@plot) == 0, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
-  if (length(ctrl@plot) > 0)
-    cat(config(object, "P", name, n, T, "hpc_plots"), file = file.path(sigma@path, "submit.plots", "hpc_plots"))
+  cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
+  if (length(ctrl@plot) > 0) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(sigma@path, "submit.plots", "hpc_plots"))
+  cat(config(object, "seaMass", name, 1, T, "hpc_finalise"), file = file.path(sigma@path, "submit.finalise"))
 
   # submit script
   cat(paste0(
@@ -155,6 +155,10 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
     "  EXITCODE=$?\n",
     "  DELTA=$JOBID\n",
     "fi\n",
+    "\n",
+    "JOBID=$(sbatch --parsable --dependency=afterok:$JOBID submit.finalise)\n",
+    "EXITCODE=$?\n",
+    "COMPLETE=$JOBID\n",
     "\n",
     "# clean up\n",
     "if [[ $EXITCODE != 0 ]]; then\n",
@@ -210,30 +214,30 @@ setClass("schedule_pbs", contains = "schedule", slots = c(
 #' @param M .
 #' @export schedule_pbs
 schedule_pbs <- function(
-  destination = NULL,
+  q = NULL,
   ppn = NULL,
   mem = NULL,
   walltime = NULL,
-  mail_options = NULL
+  M = NULL
 ) {
   params <- list("schedule_pbs")
 
-  if (is.null(destination)) params$destination <- NA_character_ else params$destination <- as.character(destination)
+  if (is.null(q)) params$q <- NA_character_ else params$q <- as.character(q)
   if (is.null(ppn)) params$ppn <- NA_integer_ else params$ppn <- as.integer(ppn)
   if (is.null(walltime)) params$walltime <- NA_character_ else params$walltime <- as.character(walltime)
   if (is.null(mem)) params$mem <- NA_character_ else params$mem <- as.character(mem)
-  if (is.null(mail_options)) params$mail_options <- NA_character_ else params$mail_options <- as.character(mail_options)
+  if (is.null(M)) params$M <- NA_character_ else params$M <- as.character(M)
 
   return(do.call(new, params))
 }
 
 
 setValidity("schedule_pbs", function(object) {
-  if (length(object@destination) != 1) return("'destination' must be a string!")
+  if (length(object@q) != 1) return("'q' must be a string!")
   if (!(length(object@ppn) == 1 &&  (is.na(object@ppn) || object@ppn > 0))) return("'ppn' must be a positive scalar!")
   if (length(object@mem) != 1) return("'mem' must be a string!")
   if (length(object@walltime) != 1) return("'walltime' must be a string!")
-  if (length(object@mail_options) != 1) return("'mail_options' must be a string!")
+  if (length(object@M) != 1) return("'M' must be a string!")
 
   return(T)
 })
@@ -247,7 +251,8 @@ setMethod("config", "schedule_pbs", function(object, prefix, name, n, notify, fu
     ifelse(is.na(object@ppn), "", paste0("#PBS -l nodes=1:ppn=", object@ppn, "\n")),
     ifelse(is.na(object@mem), "", paste0("#PBS -l mem=", object@mem, "\n")),
     ifelse(is.na(object@walltime), "", paste0("#PBS -l walltime=", object@walltime, "\n")),
-    ifelse(is.na(object@mail_options), "", paste0("#PBS -m ", ifelse(notify, object@mail_options, paste0("#PBS -m ", gsub("e", "", object@mail_options))), "\n")),
+    ifelse(is.na(object@M), "", paste0("#PBS -M ", object@M, "\n")),
+    ifelse(notify, "#PBS -m ae\n", "#PBS -m a\n"),
     "cd $PBS_O_WORKDIR\n",
     paste0("Rscript --vanilla -e seaMass:::", func, "\\(${PBS_ARRAYID}\\)\n")
   ))
@@ -349,30 +354,30 @@ setClass("schedule_sge", contains = "schedule", slots = c(
 #' @param M .
 #' @export schedule_sge
 schedule_sge <- function(
-  destination = NULL,
+  q = NULL,
   ppn = NULL,
   mem = NULL,
   walltime = NULL,
-  mail_options = NULL
+  M = NULL
 ) {
   params <- list("schedule_sge")
 
-  if (is.null(q)) params$destination <- NA_character_ else params$destination <- as.character(destination)
+  if (is.null(q)) params$q <- NA_character_ else params$q <- as.character(q)
   if (is.null(ppn)) params$ppn <- NA_integer_ else params$ppn <- as.integer(ppn)
   if (is.null(walltime)) params$walltime <- NA_character_ else params$walltime <- as.character(walltime)
   if (is.null(mem)) params$mem <- NA_character_ else params$mem <- as.character(mem)
-  if (is.null(M)) params$mail_options <- NA_character_ else params$mail_options <- as.character(mail_options)
+  if (is.null(M)) params$M <- NA_character_ else params$M <- as.character(mail_options)
 
   return(do.call(new, params))
 }
 
 
 setValidity("schedule_sge", function(object) {
-  if (length(object@destination) != 1) return("'destination' must be a string!")
+  if (length(object@q) != 1) return("'q' must be a string!")
   if (!(length(object@ppn) == 1 &&  (is.na(object@ppn) || object@ppn > 0))) return("'ppn' must be a positive scalar!")
   if (length(object@mem) != 1) return("'mem' must be a string!")
   if (length(object@walltime) != 1) return("'walltime' must be a string!")
-  if (length(object@mail_options) != 1) return("'mail_options' must be a string!")
+  if (length(object@M) != 1) return("'M' must be a string!")
 
   return(T)
 })
