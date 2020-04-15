@@ -198,16 +198,16 @@ setMethod("run", "schedule_slurm", function(object, sigma) {
 #'
 #' @export schedule_pbs
 setClass("schedule_pbs", contains = "schedule", slots = c(
-  destination = "character",
+  q = "character",
   ppn = "integer",
   mem = "character",
   walltime = "character",
-  mail_options = "character"
+  M = "character"
 ))
 
 
 #' @describeIn schedule_pbs-class Generator function
-#' @param destination .
+#' @param q .
 #' @param ppn .
 #' @param mem .
 #' @param walltime .
@@ -247,7 +247,7 @@ setMethod("config", "schedule_pbs", function(object, prefix, name, n, notify, fu
   return(paste0(
     paste0("#PBS -N sm", prefix, ".", name, "\n"),
     paste0("#PBS -t 1-", n, "\n"),
-    ifelse(is.na(object@destination), "", paste0("#PBS -q ", object@destination, "\n")),
+    ifelse(is.na(object@q), "", paste0("#PBS -q ", object@q, "\n")),
     ifelse(is.na(object@ppn), "", paste0("#PBS -l nodes=1:ppn=", object@ppn, "\n")),
     ifelse(is.na(object@mem), "", paste0("#PBS -l mem=", object@mem, "\n")),
     ifelse(is.na(object@walltime), "", paste0("#PBS -l walltime=", object@walltime, "\n")),
@@ -338,16 +338,16 @@ setMethod("run", "schedule_pbs", function(object, sigma) {
 #'
 #' @export schedule_pbs
 setClass("schedule_sge", contains = "schedule", slots = c(
-  destination = "character",
+  q = "character",
   ppn = "integer",
   mem = "character",
   walltime = "character",
-  mail_options = "character"
+  M = "character"
 ))
 
 
 #' @describeIn schedule_sge-class Generator function
-#' @param destination .
+#' @param q .
 #' @param ppn .
 #' @param mem .
 #' @param walltime .

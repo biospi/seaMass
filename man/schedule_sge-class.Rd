@@ -9,6 +9,8 @@
 schedule_sge(q = NULL, ppn = NULL, mem = NULL, walltime = NULL, M = NULL)
 }
 \arguments{
+\item{q}{.}
+
 \item{ppn}{.}
 
 \item{mem}{.}
@@ -16,8 +18,6 @@ schedule_sge(q = NULL, ppn = NULL, mem = NULL, walltime = NULL, M = NULL)
 \item{walltime}{.}
 
 \item{M}{.}
-
-\item{destination}{.}
 }
 \description{
 Schedule seaMass to run on SGE
