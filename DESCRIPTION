@@ -1,7 +1,7 @@
 Package: seaMass
 Type: Package
 Title: Statistical modelling for mass spectrometry omics
-Version: 1.0.1.5
+Version: 1.0.1.6
 Authors@R: as.person(c(
     "Andrew Dowsey <andrew.dowsey@bristol.ac.uk> [aut, cre]",
     "Alexander Phillips <a.m.phillips@liverpool.ac.uk> [ctb]",
@@ -14,7 +14,7 @@ LazyData: true
 Depends: R (>= 3.6.0)
 biocViews:
 Imports: 
-    ashr (>= 2.2-39),
+    ashr (>= 2.2-40),
     data.table (>= 1.12.6),
     doRNG (>= 1.7.1),
     doSNOW (>= 1.0.18),
@@ -35,4 +35,26 @@ Imports:
     R.utils (>= 2.9.0),
     robust (>= 0.4-18.1),
     utf8 (>= 1.1.4)
-RoxygenNote: 7.0.2
+RoxygenNote: 7.1.0
+Collate: 
+    'delta_control.R'
+    'seaMass_sigma.R'
+    'seaMass_delta.R'
+    'delta_dea.R'
+    'delta_fdr.R'
+    'delta_norm.R'
+    'delta_plot.R'
+    'design.R'
+    'dist.R'
+    'import.R'
+    'logydensity.R'
+    'schedule.R'
+    'seaMass.R'
+    'sigma_control.R'
+    'sigma_fit.R'
+    'sigma_model.R'
+    'sigma_plot.R'
+    'sigma_plots.R'
+    'sigma_process0.R'
+    'sigma_process1.R'
+    'utils.R'

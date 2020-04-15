@@ -1,108 +1,3 @@
-#' Imported dataset run information
-#'
-#' Get or set run and block information from a \link{data.frame} returned by an \code{import} routine.
-#' Used to manually add run and block information to imported datasets.
-#'
-#' @param data \link{data.frame} returned by an \code{import} routine.
-#' @import data.table
-#' @export
-runs <- function(data) {
-  data.is.data.table <- is.data.table(data)
-  DT <- setDT(data)
-
-  DT <- DT[, .(Run = first(Run)), keyby = Injection]
-  DT[, Run := as.character(Run)]
-  DT[, Injection := as.character(Injection)]
-
-  if (!data.is.data.table) setDF(data)
-  setDF(DT)
-  return(DT[])
-}
-
-
-#' @rdname runs
-#' @param value Edited \link{data.frame} created by \code{runs}.
-#' @import data.table
-#' @export
-`runs<-` <- function(data, value) {
-  data.is.data.table <- is.data.table(data)
-  DT <- setDT(data)
-
-  DT[, Run := NULL]
-  DT.runs <- as.data.table(value)
-  DT.runs <- DT.runs[complete.cases(DT.runs)]
-  if (!is.factor(DT.runs$Injection)) DT.runs[, Injection := factor(Injection)]
-  if (!is.factor(DT.runs$Run)) DT.runs[, Run := factor(Run)]
-  DT <- merge(DT, DT.runs, by = "Injection")
-
-  if (!data.is.data.table) setDF(data)
-  setDF(DT)
-  return(DT[])
-}
-
-
-#' Specify study design for imported dataset
-#'
-#' Returns a skeleton \link{data.frame} for customising the study design of an imported dataset.
-#'
-#' @param data \link{data.frame} returned by  \link{import_ProteinPilot}, \link{import_ProteinPilot},
-#' \link{import_ProteomeDiscovery}, \link{import_Progenesis} or \link{import_OpenSWATH}.
-#' @return \link{data.frame} that can be edited and passed as parameter \code{data.design} of \link{seaMass_sigma}.
-#' @import data.table
-#' @export
-new_assay_design <- function(data) {
-  data.is.data.table <- is.data.table(data)
-  setDT(data)
-
-  DT.design <- data[, .(Assay = paste(Run, Channel, sep = ",")), keyby = .(Run, Channel)]
-  DT.design[, Assay := sub("^,", "", Assay)]
-  DT.design[, Assay := sub(",$", "", Assay)]
-
-  # autodetect blocks
-  Block. <- merge(DT.design[, .(Run, Channel, Assay)], data[, .(Run, Channel, Measurement)], by = c("Run", "Channel"))
-  Block.[, Run := NULL]
-  Block.[, Channel := NULL]
-  Block.[, N := 1]
-  Block. <- dcast(Block., Measurement ~ Assay, sum, value.var = "N")
-  Block.[, Measurement := NULL]
-  Block. <- as.matrix(Block.)
-  # matrix multiplication distributes assay relationships
-  Block. <- t(Block.) %*% Block.
-  # Block. is recoded first non-zero occurence for each assay
-  Block. <- colnames(Block.)[apply(Block. != 0, 2, which.max)]
-  Block. <- factor(as.integer(factor(Block., levels = unique(Block.))))
-  if (nlevels(Block.) == 1) {
-    DT.design[, paste("Block", levels(Block.), sep = ".")] <- as.logical(as.integer(Block.))
-  } else if (nlevels(Block.) > 1) {
-    Block. <- data.table(model.matrix(~ Block. - 1))
-    DT.design <- cbind(DT.design, mapply(Block., FUN = as.logical))
-  }
-
-  # For seaMass-Δ
-  if ("RefWeight" %in% colnames(data)) {
-    DT.design <- merge(DT.design, unique(data[, .(Run, Channel, RefWeight)]), by = c("Run", "Channel"), sort = F)
-  } else {
-    DT.design[, RefWeight := 1]
-  }
-
-  if ("Sample" %in% colnames(data)) {
-    DT.design <- merge(DT.design, unique(data[, .(Run, Channel, Sample)]), by = c("Run", "Channel"), sort = F)
-  } else {
-    DT.design[, Sample := Assay]
-  }
-
-  if ("Condition" %in% colnames(data)) {
-    DT.design <- merge(DT.design, unique(data[, .(Run, Channel, Condition)]), by = c("Run", "Channel"), sort = F)
-  } else {
-    DT.design[, Condition := NA]
-  }
-
-  if (!data.is.data.table) setDF(data)
-  setDF(DT.design)
-  return(DT.design[])
-}
-
-
 #' Import SCIEX ProteinPilot data
 #'
 #' Reads in a SCIEX ProteinPilot \code{ComponentSummary.txt} file for processing with \link{seaMass_sigma}.
@@ -173,7 +68,7 @@ import_ProteinPilot <- function(
   DT[, Group := factor(Group)]
   DT[, Component := factor(Component)]
   DT[, Measurement := factor(Measurement)]
-  DT[, Run := factor("")]
+  DT[, Run := factor("1")]
   DT[, Injection := factor(Injection)]
   DT <- melt(DT, variable.name = "Channel", value.name = "Count", measure.vars = colnames(DT)[grep("^Channel\\.", colnames(DT))])
   levels(DT$Channel) <- sub("^Channel\\.", "", levels(DT$Channel))
@@ -269,7 +164,7 @@ import_ProteomeDiscoverer <- function(
   DT[, Component := factor(Component)]
   DT[, Measurement := factor(Measurement)]
   DT[, Injection := factor(Injection)]
-  DT[, Run := factor("")]
+  DT[, Run := factor("1")]
   DT <- melt(DT, variable.name = "Channel", value.name = "Count", measure.vars = colnames(DT)[grep("^Channel\\.", colnames(DT))])
   levels(DT$Channel) <- sub("^Channel\\.", "", levels(DT$Channel))
 
@@ -313,7 +208,7 @@ import_Progenesis <- function(
   DT.raw <- DT.raw[4:nrow(DT.raw),]
 
   # column names for different file types
-  if ("Accession" %in% colnames(DT.raw)) {
+  #if ("Accession" %in% colnames(DT.raw)) {
     colname.group <- "Accession"
     colname.groupinfo <- "Description"
     colname.sequence <- "Sequence"
@@ -321,12 +216,12 @@ import_Progenesis <- function(
 
     # only use rows that Progenesis uses for quant
     if (used) DT.raw <- DT.raw[`Use in quantitation` == "True",]
-  } else {
-    colname.group <- colnames(DT.raw)[grep("Best peptide match Group$", colnames(DT.raw))]
-    colname.groupinfo <- colnames(DT.raw)[grep("Best peptide match Description$", colnames(DT.raw))]
-    colname.sequence <- colnames(DT.raw)[grep("Best peptide match Sequence$", colnames(DT.raw))]
-    colname.modifications <- colnames(DT.raw)[grep("Best peptide match Variable modifications \\(\\[position\\] description\\)$", colnames(DT.raw))]
-  }
+  #} else {
+  #  colname.group <- colnames(DT.raw)[grep("Best peptide match Group$", colnames(DT.raw))]
+  #  colname.groupinfo <- colnames(DT.raw)[grep("Best peptide match Description$", colnames(DT.raw))]
+  #  colname.sequence <- colnames(DT.raw)[grep("Best peptide match Sequence$", colnames(DT.raw))]
+  #  colname.modifications <- colnames(DT.raw)[grep("Best peptide match Variable modifications \\(\\[position\\] description\\)$", colnames(DT.raw))]
+  #}
 
   # remove decoys and strange missing Accession
   DT.raw <- DT.raw[get(colname.group) != "",]
@@ -351,6 +246,7 @@ import_Progenesis <- function(
   DT[, Measurement := factor(Measurement)]
   DT <- melt(DT, variable.name = "Run", value.name = "Count", measure.vars = colnames(DT)[grep("^Raw abundance ", colnames(DT))])
   levels(DT$Run) <- sub("^Raw abundance ", "", levels(DT$Run))
+  DT[, Channel := factor("1")]
   DT[, Injection := Run]
   DT[, Count := as.numeric(Count)]
 
@@ -432,7 +328,7 @@ import_OpenSWATH <- function(
   DT[, Measurement := factor(Measurement)]
   DT <- melt(DT, variable.name = "Run", value.name = "Count", measure.vars = assays)
   DT[, Injection := Run]
-  DT[, Channel := factor("")]
+  DT[, Channel := factor("1")]
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Injection", "Channel"))
 
   setDF(DT)
@@ -463,4 +359,392 @@ import_MSstats <- function(data) {
 
   setDF(DT)
   return(DT[])
+}
+
+
+#' Import MaxQuant LF data
+#'
+#' Reads in MaxQuant \code{peptides.txt} and \code{proteinGroups.txt}for processing with \link{bayesprot}.
+#'
+#' @param proteinGroups.file Location of the \code{proteinGroups.txt} file.
+#' @param peptides.file Location of the \code{peptides.txt} file.
+#' @param shared Include shared peptides?
+#' @param data Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
+#'   \link[data.table]{fread} default parameters.
+#' @return A \link{data.frame} for input into \link{bayesprot}.
+#' @import data.table
+#' @export
+import_MaxQuant_peptides <- function(
+  proteinGroups.file = NULL,
+  peptides.file = NULL,
+  shared = FALSE,
+  proteinGroups.data = NULL,
+  peptides.data = NULL
+) {
+  # load groups
+  if (is.null(proteinGroups.file)) {
+    if (is.null(proteinGroups.data)) stop("One of 'proteinGroups.data' or 'proteinGroups.file' needs to be specified.")
+    DT.groups <- setDT(proteinGroups.data)
+  } else {
+    DT.groups <- fread(file = proteinGroups.file, showProgress = T)
+  }
+
+  # filter groups
+  #DT.groups <- DT.groups[`Only identified by site` != "+",]
+  DT.groups <- DT.groups[`Reverse` != "+",]
+  DT.groups <- DT.groups[`Potential contaminant` != "+",]
+  DT.groups <- DT.groups[, .(Group = `Protein IDs`, GroupInfo = `Fasta headers`, GroupID = id)]
+
+  # load wide raw
+  if (is.null(peptides.file)) {
+    if (is.null(peptides.data)) stop("One of 'peptides.data' or 'peptides.file' needs to be specified.")
+    DT.raw <- setDT(peptides.data)
+  } else {
+    DT.raw <- fread(file = peptides.file, showProgress = T)
+  }
+
+  # filter raw
+  DT <- DT.raw[ , .(
+    GroupID = `Protein group IDs`,
+    ComponentID = id,
+    #Component = paste(id, Sequence, sep = ","),
+    Component = `Protein group IDs`,
+    Measurement = paste(id, Sequence, sep = ",")
+  )]
+  DT.raw <- DT.raw[, colnames(DT.raw)[grep("^Intensity ", colnames(DT.raw))], with = F]
+  colnames(DT.raw) <- sub("^Intensity ", "", colnames(DT.raw))
+  DT <- cbind(DT, DT.raw)
+
+  # remove or expand out rows with shared features
+  if (shared == F) {
+    DT <- DT[!grepl(";", GroupID),]
+    DT[, GroupID := as.integer(GroupID)]
+  } else {
+    DT = merge(DT[, !"GroupID"], DT[, {
+      groupID = strsplit(GroupID, ";")
+      list(ComponentID = rep(ComponentID, sapply(groupID, length)), GroupID = as.integer(unlist(groupID)))
+    }], by = "ComponentID")
+  }
+
+  # merge groups and raw
+  DT <- merge(DT.groups, DT, by = "GroupID")
+  DT[, GroupInfo := paste0("[", GroupID, "] ", GroupInfo)]
+  DT[, GroupID := NULL]
+  DT[, ComponentID := NULL]
+
+  # melt to long data table and convert zeros to NA
+  DT <- melt(DT, variable.name = "Run", value.name = "Count", id.vars = c("Group", "GroupInfo", "Component", "Measurement"))
+  DT$Count[DT$Count == 0] <- NA
+  DT[, GroupInfo := factor(GroupInfo)]
+  DT[, Group := factor(Group)]
+  DT[, Component := factor(Component)]
+  DT[, Measurement := factor(Measurement)]
+  DT[, Run := factor(Run)]
+  DT[, Channel := factor("1")]
+  DT[, Injection := Run]
+  DT[, Count := as.double(Count)]
+  setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Channel", "Injection"))
+
+  setDF(DT)
+  return(DT)
+}
+
+
+#' Import MaxQuant LF data
+#'
+#' Reads in MaxQuant \code{evidence.txt} and \code{proteinGroups.txt}for processing with \link{bayesprot}.
+#'
+#' @param proteinGroups.file Location of the \code{proteinGroups.txt} file.
+#' @param evidence.file Location of the \code{evidence.txt} file.
+#' @param shared Include shared peptides?
+#' @param data Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
+#'   \link[data.table]{fread} default parameters.
+#' @return A \link{data.frame} for input into \link{bayesprot}.
+#' @import data.table
+#' @export
+import_MaxQuant_evidence0 <- function(
+  proteinGroups.file = NULL,
+  evidence.file = NULL,
+  shared = F,
+  rollup = "measurement",
+  proteinGroups.data = NULL,
+  evidence.data = NULL
+) {
+
+  suppressWarnings(suppressMessages(library(R.oo)))
+
+  if (is.null(evidence.file) && is.null(evidence.data)) stop("One of 'evidence.data' or 'evidence.file' needs to be specified.")
+  if (!is.null(evidence.data)) evidence.file <- evidence.data
+
+  if (is.null(proteinGroups.file) && is.null(proteinGroups.data)) stop("One of 'proteinGroups.data' or 'proteinGroups.file' needs to be specified.")
+  if (!is.null(proteinGroups.data)) proteinGroups.file <- proteinGroups.data
+
+  #Use proteinGroups.txt and evidence.txt files to match MS/MS IDs to protein groups
+  if (is.null(proteinGroups.file)) {
+    DT.proteins <- setDT(proteinGroups.data)
+  } else {
+    DT.proteins <- fread(file = proteinGroups.file, showProgress = T)
+  }
+
+  #DT.proteins <- DT.proteins[`Only identified by site` != "+",]
+  DT.proteins <- DT.proteins[`Reverse` != "+",]
+  DT.proteins <- DT.proteins[`Potential contaminant` != "+",]
+
+  DT.proteins <- unique(DT.proteins[, c("Protein IDs", "Majority protein IDs", "id")])
+  DT.proteins[, `Protein group IDs` := id]
+  DT.proteins[, id := NULL]
+
+  DT <- rbindlist(lapply(evidence.file, function(f) {
+    if (is.data.frame(f)) {
+      DT.raw <- as.data.file(evidence.data)
+    } else {
+      DT.raw <- fread(file = f, showProgress = T)
+    }
+
+    # remove decoys and > m_score.cutoff
+    #DT.raw <- DT.raw[decoy == 0,]
+    #DT.raw <- DT.raw[m_score <= m_score.cutoff,]
+
+    #DT.raw <- DT.raw[`MS/MS IDs` %in% DT.msms[,`MS/MS IDs`],]
+    #DT.raw <- DT.raw[`MS/MS IDs` != "",]
+    #DT.raw[, `MS/MS IDs` := factor(`MS/MS IDs`)]
+    #DT.raw <- merge(DT.raw, DT.msms, by = "MS/MS IDs")
+    #DT.msms <- NULL
+
+    #MaxQuant labels unmodified peptides as "Unmodified"
+    DT.raw[, Modifications := gsub("Unmodified", "", Modifications)]
+    DT.raw[, Measurement := gsub(" ", "", paste0(Sequence, ",", Modifications, ",", Charge))]
+
+    DT.raw[,Shared := grepl(";", `Protein group IDs`)]
+    pGroupIDs <- unique(DT.raw[, c("Protein group IDs", "Measurement")])[, .(`Protein group IDs` = tstrsplit(`Protein group IDs`, ";", fixed = T)), by = .(Measurement)]
+    DT.raw[, `Protein group IDs` := NULL]
+    DT.raw <- merge(DT.raw, pGroupIDs, by = "Measurement")
+    DT.raw[, `Protein group IDs` := strtoi(`Protein group IDs`)]
+
+    # only use rows that MaxQuant uses for quant
+    if (!shared) DT.raw <- DT.raw[Shared == F,]
+    #if (!used) DT.raw <- DT.raw[`Peptide Quan Usage` == "Use",]
+
+    DT.raw <- merge(DT.raw, DT.proteins, by = "Protein group IDs")
+
+    # create long data table
+    DT <- DT.raw[, .(
+      Group = `Protein IDs`, #From the proteinGroups file
+      Component = gsub(" ", "", paste0(Sequence, ",", Modifications)),
+      Measurement = Measurement,
+      Run = Experiment,
+      Count = Intensity
+    )]
+    #DT <- DT[, lapply(.SD, function(x) unlist(tstrsplit(x, ";bayesprot;", fixed = T)))]
+    DT[, Count := as.numeric(Count)]
+    DT
+
+  }))
+
+  #Do rollup
+  if (rollup == "measurement") {
+    DT[, Count := sum(Count, na.rm = !all(is.na(Count))), by = .(Run, Measurement)]
+    DT <- unique(DT)
+  }
+
+  assays <- unique(DT$Run)
+
+  # create wide data table
+  DT <- dcast(DT, Group + Component + Measurement ~ Run, value.var = "Count")
+
+  # group ambiguous transitions so seaMass-Delta treats them as a single component per group ## UNNECCESARY?
+  DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement)]
+  DT <- unique(DT)
+
+
+  # melt
+  DT[, GroupInfo := factor(Group)]
+  #DT[, Group := factor(sub("^1/", "", Group))]
+  DT[, Group := factor(Group)]
+  DT[, Component := factor(Component)]
+  DT[, Measurement := factor(Measurement)]
+  DT <- melt(DT, variable.name = "Run", value.name = "Count", measure.vars = assays)
+  DT[, Injection := Run]
+  DT[, Channel := factor("1")]
+  setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Injection", "Channel"))
+
+  setDF(DT)
+  return(DT[])
+
+}
+
+
+#' Import MaxQuant LF data
+#'
+#' Reads in MaxQuant \code{evidence.txt} and \code{proteinGroups.txt}for processing with \link{bayesprot}.
+#'
+#' @param proteinGroups.file Location of the \code{proteinGroups.txt} file.
+#' @param evidence.file Location of the \code{evidence.txt} file.
+#' @param shared Include shared peptides?
+#' @param data Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
+#'   \link[data.table]{fread} default parameters.
+#' @return A \link{data.frame} for input into \link{bayesprot}.
+#' @import data.table
+#' @export
+import_MaxQuant <- function(
+  proteinGroups.file = NULL,
+  evidence.file = NULL,
+  filter.shared.peptides = TRUE,
+  filter.only.identified.by.site = TRUE,
+  filter.reverse = TRUE,
+  filter.potential.contaminant = TRUE,
+  proteinGroups.data = NULL,
+  evidence.data = NULL
+) {
+  # load groups
+  if (is.null(proteinGroups.file)) {
+    if (is.null(proteinGroups.data)) stop("One of 'proteinGroups.data' or 'proteinGroups.file' needs to be specified.")
+    DT.groups <- setDT(proteinGroups.data)
+  } else {
+    DT.groups <- fread(file = proteinGroups.file, showProgress = T)
+  }
+
+  # filter groups
+  if (filter.only.identified.by.site) DT.groups <- DT.groups[`Only identified by site` != "+",]
+  if (filter.reverse) DT.groups <- DT.groups[`Reverse` != "+",]
+  if (filter.potential.contaminant) DT.groups <- DT.groups[`Potential contaminant` != "+",]
+
+  DT.groups <- DT.groups[, .(Group = `Protein IDs`, GroupInfo = `Fasta headers`, GroupID = id)]
+
+  # load wide raw
+  if (is.null(evidence.file)) {
+    if (is.null(evidence.data)) stop("One of 'evidence.data' or 'evidence.file' needs to be specified.")
+    DT.raw <- setDT(evidence.data)
+  } else {
+    DT.raw <- fread(file = evidence.file, showProgress = T)
+  }
+
+  # filter raw
+  DT <- DT.raw[, .(
+    GroupID = `Protein group IDs`,
+    MeasurementID = id,
+    Component = `Modified sequence`,
+    Measurement = paste0(`Modified sequence`, ",", Charge, "+"),
+    Fraction,
+    Run = Experiment,
+    Count = Intensity
+  )]
+
+  # remove or expand out rows with shared features
+  if (filter.shared.peptides) {
+    DT <- DT[!grepl(";", GroupID),]
+    DT[, GroupID := as.integer(GroupID)]
+  } else {
+    DT = merge(DT[, !"GroupID"], DT[, {
+      groupID = strsplit(GroupID, ";")
+      list(MeasurementID = rep(MeasurementID, sapply(groupID, length)), GroupID = as.integer(unlist(groupID)))
+    }], by = "MeasurementID")
+  }
+
+  # merge groups and raw
+  DT <- merge(DT.groups, DT, by = "GroupID")
+  DT[, GroupInfo := paste0("[", GroupID, "] ", GroupInfo)]
+  DT[, GroupID := NULL]
+  DT[, MeasurementID := NULL]
+
+  # create wide data table (summing up multiple features per measurement)
+  DT <- dcast(DT, Group + GroupInfo + Component + Measurement + Fraction ~ Run, fun.aggregate = sum, value.var = "Count")
+
+  # melt to long data table and convert zeros to NA
+  DT <- melt(DT, variable.name = "Run", value.name = "Count", id.vars = c("Group", "GroupInfo", "Component", "Measurement", "Fraction"))
+  DT$Count[DT$Count == 0] <- NA
+  DT[, GroupInfo := factor(GroupInfo)]
+  DT[, Group := factor(Group)]
+  DT[, Component := factor(Component)]
+  DT[, Measurement := factor(Measurement)]
+  DT[, Injection := factor(paste(Run, Fraction, sep = ","))]
+  DT[, Fraction := factor(Fraction)]
+  DT[, Run := factor(Run)]
+  DT[, Channel := factor("1")]
+  DT[, Count := as.double(Count)]
+  setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Channel", "Injection"))
+
+  setDF(DT)
+  return(DT)
+}
+
+
+#' Import MaxQuant LF data
+#'
+#' Reads in MaxQuant \code{evidence.txt} and \code{proteinGroups.txt}for processing with \link{bayesprot}.
+#'
+#' @param proteinGroups.file Location of the \code{proteinGroups.txt} file.
+#' @param evidence.file Location of the \code{evidence.txt} file.
+#' @param shared Include shared peptides?
+#' @param data Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
+#'   \link[data.table]{fread} default parameters.
+#' @return A \link{data.frame} for input into \link{bayesprot}.
+#' @import data.table
+#' @export
+import_MSqRob <- function(
+  fData,
+  exprs,
+  evidence.file = NULL,
+  is.log2 = TRUE,
+  evidence.data = NULL
+) {
+  if (is.null(evidence.file) & is.null(evidence.data)) {
+    DT <- setDT(cbind(fData[, c("Proteins", "Sequence")], exprs))
+    DT <- melt(DT, variable.name = "Run", value.name = "Count", id.vars = c("Proteins", "Sequence"))
+    setnames(DT, c("Proteins", "Sequence"), c("Group", "Measurement"))
+    DT[, Group := factor(Group)]
+    DT[, GroupInfo := ""]
+    DT[, Component := Group]
+    DT[, Measurement := factor(Measurement)]
+    DT[, Channel := factor("1")]
+    if (is.log2) DT[, Count := 2^Count]
+  } else {
+    # if MaxQuant evidence file supply, convert from two to three stage hierarchy
+    DT <- setDT(fData[, c("Proteins", "Sequence","Evidence.IDs")])
+    setnames(DT, "Proteins", "Group")
+    DT <- DT[, {
+      id = strsplit(as.character(Evidence.IDs), ";")
+      list(Group = rep(Group, sapply(id, length)), Sequence = rep(Sequence, sapply(id, length)), id = as.integer(unlist(id)))
+    }]
+
+    if (!is.null(evidence.file) | is.null(evidence.data)) {
+      if (is.null(evidence.file)) {
+        DT.evidence <- setDT(evidence.data)
+      } else {
+        DT.evidence <- fread(file = evidence.file, showProgress = T)
+      }
+    }
+
+    DT.evidence <- DT.evidence[, .(
+      id,
+      GroupInfo = "",
+      Component = `Modified sequence`,
+      Measurement = paste0(`Modified sequence`, ",", Charge, "+"),
+      Fraction,
+      Run = Experiment,
+      Channel = "",
+      Count = Intensity
+    )]
+
+    DT <- droplevels(merge(DT, DT.evidence, by = "id")[, !"id"])
+
+    # create wide data table (summing up multiple features per measurement)
+    DT <- dcast(DT, Group + GroupInfo + Component + Measurement + Fraction ~ Run, fun.aggregate = sum, value.var = "Count")
+
+    # melt to long data table and convert zeros to NA
+    DT <- melt(DT, variable.name = "Run", value.name = "Count", id.vars = c("Group", "GroupInfo", "Component", "Measurement", "Fraction"))
+    DT$Count[DT$Count == 0] <- NA
+    DT[, GroupInfo := factor(GroupInfo)]
+    DT[, Group := factor(Group)]
+    DT[, Component := factor(Component)]
+    DT[, Measurement := factor(Measurement)]
+    DT[, Fraction := factor(Fraction)]
+    DT[, Run := factor(Run)]
+    DT[, Channel := factor("1")]
+    DT[, Count := as.double(Count)]
+  }
+
+  setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run"))
+  setDF(DT)
+  return(DT)
 }

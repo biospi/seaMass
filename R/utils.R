@@ -1,20 +1,11 @@
-# get_by_key <- function(obj, key = 1) {
-#   if (is.null(obj) || is.null(key) || key == 0) {
-#     return(list(index = 0, key = "NULL", value = NULL))
-#   } else {
-#     if (is.character(key)) key <- match(key, names(obj))
-#     i = (key - 1) %% length(obj) + 1
-#     return(list(index = i, key = names(obj)[i], value = obj[[i]]))
-#   }
-# }
-
-
+#' @import data.table
 rbindlists <- function(l) {
   for (j in names(l[[1]])) l[[1]][[j]] <- rbindlist(lapply(1:length(l), function(i) l[[i]][[j]]))
   return(l[[1]])
 }
 
 
+#' @import data.table
 batch_split <- function(DT, columns, n) {
   DT.t <- DT[, mget(columns)]
   DT.t[, BatchID := do.call(function(...) paste(..., sep = "."), .SD)]
@@ -27,13 +18,9 @@ batch_split <- function(DT, columns, n) {
 }
 
 
-parallel_lapply <- function(
-  items,
-  func,
-  nthread = 0,
-  pred = rep(1, length(items)),
-  .packages = "seaMass"
-) {
+#' @import foreach
+#' @import doRNG
+parallel_lapply <- function(items, func, nthread = 0, pred = rep(1, length(items)),.packages = "seaMass") {
   # retreive function arguments from the parent environment
   func.args <- sapply(names(formals(func)), function(arg) as.name(arg), simplify = F, USE.NAMES = T)
   for(n in names(func.args)) if (n != "item") assign(n, get(n, parent.frame(n = 1)))
