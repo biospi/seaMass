@@ -6,10 +6,16 @@
 \alias{schedule_pbs}
 \title{Schedule seaMass to run on PBS}
 \usage{
-schedule_pbs(q = NULL, ppn = NULL, mem = NULL, walltime = NULL, M = NULL)
+schedule_pbs(
+  destination = NULL,
+  ppn = NULL,
+  mem = NULL,
+  walltime = NULL,
+  mail_options = NULL
+)
 }
 \arguments{
-\item{q}{.}
+\item{destination}{.}
 
 \item{ppn}{.}
 

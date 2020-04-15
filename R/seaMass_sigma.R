@@ -43,7 +43,7 @@ seaMass_sigma <- function(
   # check for finished output and return that
   object <- open_seaMass_sigma(paste0(name, ".seaMass"), quiet = T)
   if (!is.null(object)) {
-    cat(paste0("returning completed seaMass-sigma object - if this wasn't your intention, supply a different 'name' or delete the folder for the returned object with 'del(object)'\n"))
+    message(paste0("returning completed seaMass-sigma object - if this wasn't your intention, supply a different 'name' or delete the folder for the returned object with 'del(object)'"))
     return(object)
   }
 
@@ -244,7 +244,7 @@ seaMass_sigma <- function(
   if (run) {
     run(control@schedule, object)
   } else {
-    cat(" call 'run(object)' on the returned object to run seaMass-sigma\n")
+    message("call 'run(object)' on the returned object to run seaMass-sigma")
   }
 
   ### TIDY UP

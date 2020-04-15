@@ -41,7 +41,7 @@ seaMass_delta <- function(
   # check for finished output and return that
   object <- open_seaMass_delta(sigma, name, quiet = T)
   if (!is.null(object)) {
-    cat(paste0(" returning completed seaMass-delta object - if this wasn't your intention, supply a different 'name' or delete the folder for the returned object with 'del(object)'\n"))
+    message(paste0("returning completed seaMass-delta object - if this wasn't your intention, supply a different 'name' or delete the folder for the returned object with 'del(object)'"))
     return(object)
   }
 
@@ -107,7 +107,7 @@ seaMass_delta <- function(
   if (completed(sigma)) {
     run(object)
   } else {
-    cat(" seaMass-delta will be run when 'run(sigma)' is run\n")
+    message("seaMass-delta will be run when 'run(sigma)' is run")
   }
 
   return(invisible(object))

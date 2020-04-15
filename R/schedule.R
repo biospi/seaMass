@@ -99,7 +99,7 @@ setValidity("schedule_slurm", function(object) {
 })
 
 
-setMethod("config", "schedule_slurm", function(object, prefix, name, n, email, func) {
+setMethod("config", "schedule_slurm", function(object, prefix, name, n, notify, func) {
   return(paste0(
     "#!/bin/bash\n",
     paste0("#SBATCH --job-name=sm", prefix, ".", name, "\n"),
@@ -113,7 +113,7 @@ setMethod("config", "schedule_slurm", function(object, prefix, name, n, email, f
     ifelse(is.na(object@mem), "", paste0("#SBATCH --mem=", object@mem, "\n")),
     ifelse(is.na(object@time), "", paste0("#SBATCH --time=", object@time, "\n")),
     ifelse(is.na(object@mail_user), "", paste0("#SBATCH --mail-user=", object@mail_user, "\n")),
-    ifelse(email, "#SBATCH --mail-type=END,FAIL\n", "#SBATCH --mail-type=FAIL\n"),
+    ifelse(notify, "#SBATCH --mail-type=END,FAIL\n", "#SBATCH --mail-type=FAIL\n"),
     paste0("srun Rscript --vanilla -e seaMass:::", func, "\\(${SLURM_ARRAY_TASK_ID}\\)\n")
   ))
 })
@@ -194,61 +194,60 @@ setMethod("run", "schedule_slurm", function(object, sigma) {
 #'
 #' @export schedule_pbs
 setClass("schedule_pbs", contains = "schedule", slots = c(
-  q = "character",
+  destination = "character",
   ppn = "integer",
   mem = "character",
   walltime = "character",
-  M = "character"
+  mail_options = "character"
 ))
 
 
 #' @describeIn schedule_pbs-class Generator function
-#' @param q .
+#' @param destination .
 #' @param ppn .
 #' @param mem .
 #' @param walltime .
 #' @param M .
 #' @export schedule_pbs
 schedule_pbs <- function(
-  q = NULL,
+  destination = NULL,
   ppn = NULL,
   mem = NULL,
   walltime = NULL,
-  M = NULL
+  mail_options = NULL
 ) {
   params <- list("schedule_pbs")
 
-  if (is.null(q)) params$q <- NA_character_ else params$q <- as.character(q)
+  if (is.null(destination)) params$destination <- NA_character_ else params$destination <- as.character(destination)
   if (is.null(ppn)) params$ppn <- NA_integer_ else params$ppn <- as.integer(ppn)
   if (is.null(walltime)) params$walltime <- NA_character_ else params$walltime <- as.character(walltime)
   if (is.null(mem)) params$mem <- NA_character_ else params$mem <- as.character(mem)
-  if (is.null(M)) params$M <- NA_character_ else params$M <- as.character(M)
+  if (is.null(mail_options)) params$mail_options <- NA_character_ else params$mail_options <- as.character(mail_options)
 
   return(do.call(new, params))
 }
 
 
 setValidity("schedule_pbs", function(object) {
+  if (length(object@destination) != 1) return("'destination' must be a string!")
   if (!(length(object@ppn) == 1 &&  (is.na(object@ppn) || object@ppn > 0))) return("'ppn' must be a positive scalar!")
-  if (length(object@q) != 1) return("'q' must be a string!")
-  if (length(object@walltime) != 1) return("'walltime' must be a string!")
   if (length(object@mem) != 1) return("'mem' must be a string!")
-  if (length(object@M) != 1) return("'M' must be a string!")
+  if (length(object@walltime) != 1) return("'walltime' must be a string!")
+  if (length(object@mail_options) != 1) return("'mail_options' must be a string!")
 
   return(T)
 })
 
 
-setMethod("config", "schedule_pbs", function(object, prefix, name, n, email, func) {
+setMethod("config", "schedule_pbs", function(object, prefix, name, n, notify, func) {
   return(paste0(
     paste0("#PBS -N sm", prefix, ".", name, "\n"),
     paste0("#PBS -t 1-", n, "\n"),
-    ifelse(is.na(object@q), "", paste0("#PBS -q ", object@q, "\n")),
+    ifelse(is.na(object@destination), "", paste0("#PBS -q ", object@destination, "\n")),
     ifelse(is.na(object@ppn), "", paste0("#PBS -l nodes=1:ppn=", object@ppn, "\n")),
     ifelse(is.na(object@mem), "", paste0("#PBS -l mem=", object@mem, "\n")),
     ifelse(is.na(object@walltime), "", paste0("#PBS -l walltime=", object@walltime, "\n")),
-    ifelse(is.na(object@M), "", paste0("#PBS -M ", object@M, "\n")),
-    ifelse(email, paste0("#PBS -m ae\n"), paste0("#PBS -m a\n")),
+    ifelse(is.na(object@mail_options), "", paste0("#PBS -m ", ifelse(notify, object@mail_options, paste0("#PBS -m ", gsub("e", "", object@mail_options))), "\n")),
     "cd $PBS_O_WORKDIR\n",
     paste0("Rscript --vanilla -e seaMass:::", func, "\\(${PBS_ARRAYID}\\)\n")
   ))
@@ -261,9 +260,9 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
   n <- length(fits(sigma)) * ctrl@model.nchain
 
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "submit.process0"))
-  cat(config(object, "1", name, n, length(ctrl@plot) == 0, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
-  if (length(ctrl@plot) > 0)
-    cat(config(object, "P", name, n, T, "hpc_plots"), file = file.path(sigma@path, "submit.plots", "hpc_plots"))
+  cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
+  if (length(ctrl@plot) > 0) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(sigma@path, "submit.plots"))
+  cat(config(object, "seaMass", name, 1, T, "hpc_finalise"), file = file.path(sigma@path, "submit.finalise"))
 
   # submit script
   cat(paste0(
@@ -292,14 +291,18 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
     "  DELTA=$JOBID\n",
     "fi\n",
     "\n",
+    "JOBID=$(qsub -W depend=afterokarray:$JOBID submit.finalise)\n",
+    "EXITCODE=$?\n",
+    "COMPLETE=$JOBID\n",
+    "\n",
     "# clean up\n",
     "if [[ $EXITCODE != 0 ]]; then\n",
-    "  qdel $PROCESS0 $PROCESS1 $DELTA $PLOTS \n",
+    "  qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $COMPLETE \n",
     "  echo Failed to submit jobs!\n",
     "else\n",
     "  echo Submitted jobs! To cancel execute $DIR/cancel.sh\n",
     "  echo '#!/bin/bash' > $DIR/cancel.sh\n",
-    "  echo qdel $PROCESS0 $PROCESS1 $DELTA $PLOTS >> $DIR/cancel.sh\n",
+    "  echo qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $COMPLETE >> $DIR/cancel.sh\n",
     "  chmod u+x $DIR/cancel.sh\n",
     "fi\n",
     "\n",
@@ -328,64 +331,56 @@ setMethod("run", "schedule_pbs", function(object, sigma) {
 ### SCHEDULE SGE CLASS
 #' Schedule seaMass to run on SGE
 #'
-#' @export schedule_sge
+#' @export schedule_pbs
 setClass("schedule_sge", contains = "schedule", slots = c(
-  q = "character",
+  destination = "character",
   ppn = "integer",
   mem = "character",
   walltime = "character",
-  M = "character"
+  mail_options = "character"
 ))
 
 
 #' @describeIn schedule_sge-class Generator function
-#' @param q .
+#' @param destination .
 #' @param ppn .
 #' @param mem .
 #' @param walltime .
 #' @param M .
 #' @export schedule_sge
 schedule_sge <- function(
-  q = NULL,
+  destination = NULL,
   ppn = NULL,
   mem = NULL,
   walltime = NULL,
-  M = NULL
+  mail_options = NULL
 ) {
   params <- list("schedule_sge")
 
-  if (is.null(q)) params$q <- NA_character_ else params$q <- as.character(q)
+  if (is.null(q)) params$destination <- NA_character_ else params$destination <- as.character(destination)
   if (is.null(ppn)) params$ppn <- NA_integer_ else params$ppn <- as.integer(ppn)
   if (is.null(walltime)) params$walltime <- NA_character_ else params$walltime <- as.character(walltime)
   if (is.null(mem)) params$mem <- NA_character_ else params$mem <- as.character(mem)
-  if (is.null(M)) params$M <- NA_character_ else params$M <- as.character(M)
+  if (is.null(M)) params$mail_options <- NA_character_ else params$mail_options <- as.character(mail_options)
 
   return(do.call(new, params))
 }
 
 
 setValidity("schedule_sge", function(object) {
+  if (length(object@destination) != 1) return("'destination' must be a string!")
   if (!(length(object@ppn) == 1 &&  (is.na(object@ppn) || object@ppn > 0))) return("'ppn' must be a positive scalar!")
-  if (length(object@q) != 1) return("'q' must be a string!")
-  if (length(object@walltime) != 1) return("'walltime' must be a string!")
   if (length(object@mem) != 1) return("'mem' must be a string!")
-  if (length(object@M) != 1) return("'M' must be a string!")
+  if (length(object@walltime) != 1) return("'walltime' must be a string!")
+  if (length(object@mail_options) != 1) return("'mail_options' must be a string!")
 
   return(T)
 })
 
 
-setMethod("config", "schedule_sge", function(object, prefix, name, n, email, func) {
+setMethod("config", "schedule_sge", function(object, prefix, name, n, notify, func) {
   return(paste0(
-    paste0("#$ -N sm", prefix, ".", name, "\n"),
-    "#$ -j oe\n",
-    paste0("#$ -t 1-", n, "\n"),
-    ifelse(is.na(object@q), "", paste0("#$ -q ", object@q, "\n")),
-    ifelse(is.na(object@ppn), "", paste0("#$ -l nodes=1:ppn=", object@ppn, "\n")),
-    ifelse(is.na(object@mem), "", paste0("#$ -l mem=", object@mem, "\n")),
-    ifelse(is.na(object@walltime), "", paste0("#$ -l walltime=", object@walltime, "\n")),
-    ifelse(email & !is.na(object@M), paste0("#$ -M ", object@M, "\n"), ""),
-    paste0("Rscript --vanilla -e seaMass:::", func, "\\(${SGE_TASK_ID}\\)\n")
+    ""
   ))
 })
 
@@ -416,6 +411,7 @@ hpc_process0 <- function(task) {
   cat(paste0("[", Sys.time(), "]  running process0 for name=", name(sigma), "...\n"))
   process0(fits(sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
   cat(paste0("[", Sys.time(), "] complete!\n"))
+  warnings(file = stderr())
   return(invisible(0))
 }
 
@@ -427,6 +423,7 @@ hpc_process1 <- function(task) {
   cat(paste0("[", Sys.time(), "]  running process1 for name=", name(sigma), "...\n"))
   process1(fits(sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
   cat(paste0("[", Sys.time(), "] complete!\n"))
+  warnings(file = stderr())
   return(invisible(0))
 }
 
@@ -438,6 +435,7 @@ hpc_plots <- function(task) {
   cat(paste0("[", Sys.time(), "]  running plots for name=", name(sigma), "...\n"))
   plots(fits(sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
   cat(paste0("[", Sys.time(), "] complete!\n"))
+  warnings(file = stderr())
   return(invisible(0))
 }
 
@@ -448,5 +446,19 @@ hpc_delta <- function(task) {
   cat(paste0("[", Sys.time(), "]  running name=", name(delta), "...\n"))
   run(delta)
   cat(paste0("[", Sys.time(), "] complete!\n"))
+  warnings(file = stderr())
   return(invisible(0))
 }
+
+
+hpc_finalise <- function(task) {
+  sigma <- open_seaMass_sigma(".", force = T)
+  cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(sigma)@version, "\n"))
+  cat(paste0("[", Sys.time(), "]  finalising..."))
+  # currently doesn't do anything except allow the cluster manager to send a single email, which is ridiculous!
+  cat(paste0("[", Sys.time(), "] complete!\n"))
+  warnings(file = stderr())
+  return(invisible(0))
+}
+
+
