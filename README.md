@@ -9,7 +9,7 @@ The seaMass suite of tools for quantification and differential expression analys
 https://doi.org/10.2337/db15-0835), [[Xu et al, Nature Comms Biology, 2019]](https://doi.org/10.1038/s42003-018-0254-9) and [[Kassab et al, Molecular Metabolism, 2019]](	
 https://doi.org/10.1016/j.molmet.2019.08.003).
 
-- **mzMLb**: A future-proof binary HDF5 encoding of the [mzML](http://www.psidev.info/mzML) standard interchange format for raw mass spectrometry data flexibly providing best-in-class compression or best-in-class random access speeds [[Bhamber et al., bioRxiv]](https://doi.org/10.1101/2020.02.13.947218). The code is implemented in ProteoWizard [here](https://github.com/biospi/pwiz) and is moving towards approval by the [Proteomics Standards Intiative](http://www.psidev.info/).  
+- **mzMLb**: A future-proof binary HDF5 encoding of the [mzML](http://www.psidev.info/mzML) standard interchange format for raw mass spectrometry data flexibly providing best-in-class compression or best-in-class random access speeds [[Bhamber et al., bioRxiv, 2020]](https://doi.org/10.1101/2020.02.13.947218). The code is implemented in ProteoWizard [here](https://github.com/biospi/pwiz) and is moving towards approval by the [Proteomics Standards Intiative](http://www.psidev.info/).  
 
 ## Requirements
 
@@ -31,7 +31,7 @@ devtools::install_github("biospi/seaMass", dependencies = TRUE)
 
 To upgrade to the latest version of seaMass, simply run this line again.
 
-## seaMass-Σ
+## seaMass-Σ and seaMass-Δ
 
 Firstly, you need to use an *import* function to convert from an upstream tool format to seaMass' standardised *data.frame* format. Then you can assign injections to runs if you've used fractionation, and specify a block structure to your assays if this is a large study (TMT/iTraq studies are blocked automatically). Finally, you use the *seaMass-sigma* function to fit the model and generate unnormalised group-level quants.
 
@@ -155,7 +155,7 @@ delta <- seaMass_delta(
   data.design
 )
 
-# runs seaMass-Σ and then seaMass-Δ
+# run seaMass-Σ and then seaMass-Δ
 run(sigma)
 ```
 
