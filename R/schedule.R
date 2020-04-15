@@ -158,16 +158,16 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
     "\n",
     "JOBID=$(sbatch --parsable --dependency=afterok:$JOBID submit.finalise)\n",
     "EXITCODE=$?\n",
-    "COMPLETE=$JOBID\n",
+    "FINALISE=$JOBID\n",
     "\n",
     "# clean up\n",
     "if [[ $EXITCODE != 0 ]]; then\n",
-    "  scancel $PROCESS0 $PROCESS1 $DELTA $PLOTS \n",
+    "  scancel $PROCESS0 $PROCESS1 $PLOTS $DELTA $FINALISE \n",
     "  echo Failed to submit jobs!\n",
     "else\n",
     "  echo Submitted jobs! To cancel execute $DIR/cancel.sh\n",
     "  echo '#!/bin/bash' > $DIR/cancel.sh\n",
-    "  echo scancel $PROCESS0 $PROCESS1 $DELTA $PLOTS >> $DIR/cancel.sh\n",
+    "  echo scancel $PROCESS0 $PROCESS1 $PLOTS $DELTA $FINALISE >> $DIR/cancel.sh\n",
     "  chmod u+x $DIR/cancel.sh\n",
     "fi\n",
     "\n",
@@ -298,16 +298,16 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
     "\n",
     "JOBID=$(qsub -W depend=afterokarray:$JOBID submit.finalise)\n",
     "EXITCODE=$?\n",
-    "COMPLETE=$JOBID\n",
+    "FINALISE=$JOBID\n",
     "\n",
     "# clean up\n",
     "if [[ $EXITCODE != 0 ]]; then\n",
-    "  qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $COMPLETE \n",
+    "  qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $FINALISE \n",
     "  echo Failed to submit jobs!\n",
     "else\n",
     "  echo Submitted jobs! To cancel execute $DIR/cancel.sh\n",
     "  echo '#!/bin/bash' > $DIR/cancel.sh\n",
-    "  echo qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $COMPLETE >> $DIR/cancel.sh\n",
+    "  echo qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $FINALISE >> $DIR/cancel.sh\n",
     "  chmod u+x $DIR/cancel.sh\n",
     "fi\n",
     "\n",
@@ -463,7 +463,6 @@ hpc_finalise <- function(task) {
   # currently doesn't do anything except allow the cluster manager to send a single email, which is ridiculous!
   cat(paste0("[", Sys.time(), "] complete!\n"))
   print(warnings(file = stderr()))
-  warning("test warning")
   return(invisible(0))
 }
 

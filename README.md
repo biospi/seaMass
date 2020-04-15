@@ -9,11 +9,11 @@ The seaMass suite of tools for quantification and differential expression analys
 https://doi.org/10.2337/db15-0835), [[Xu et al, Nature Comms Biology, 2019]](https://doi.org/10.1038/s42003-018-0254-9) and [[Kassab et al, Molecular Metabolism, 2019]](	
 https://doi.org/10.1016/j.molmet.2019.08.003).
 
-- **mzMLb**: A future-proof binary HDF5 encoding of the [mzML](http://www.psidev.info/mzML) standard interchange format for raw mass spectrometry data flexibly providing best-in-class compression or best-in-class random access speeds. The code is implemented in ProteoWizard [here](https://github.com/biospi/mzmlb) and is moving towards approval by the [Proteomics Standards Intiative](http://www.psidev.info/).  
+- **mzMLb**: A future-proof binary HDF5 encoding of the [mzML](http://www.psidev.info/mzML) standard interchange format for raw mass spectrometry data flexibly providing best-in-class compression or best-in-class random access speeds [[Bhamber et al., bioRxiv]](https://doi.org/10.1101/2020.02.13.947218). The code is implemented in ProteoWizard [here](https://github.com/biospi/pwiz) and is moving towards approval by the [Proteomics Standards Intiative](http://www.psidev.info/).  
 
 ## Requirements
 
-seaMass is an R package that works on Windows, MacOS and Linux. Small studies (n=4 vs n=4) will take about one to two hours to process with default control parameters. Large studies (e.g. 100 samples) could take overnight or longer. Memory requirements are dependent on the amount of data in the largest block of assays (Each iTraq/TMT run is a separate block, whereas in label-free/SILAC/DIA the blocks are user-preference). Typically 16-32Gb of memory is required. To reduce memory usage at the expense of speed, reduce the number of CPU threads via the 'nthread' parameter of the seaMass 'control' objects (see tutorial below).
+seaMass is an R package that works on Windows, MacOS and Linux, and supports local processing as well as on SGE, PBS and SLURM High Performance Computing (HPC) clusters. Small studies (n=4 vs n=4) will take about one to two hours to process with default control parameters. Large studies (e.g. 100 samples) could take overnight or longer unless run on HPC. Memory requirements are dependent on the amount of data in the largest block of assays (Each iTraq/TMT run is a separate block, whereas in label-free/SILAC/DIA the blocks are user-defined). Typically 16-32Gb of memory is required. To reduce memory usage at the expense of speed, reduce the number of CPU threads via the 'nthread' parameter of the *sigma_control* object (see tutorial below).
 
 ## Installation
 
@@ -35,7 +35,7 @@ To upgrade to the latest version of seaMass, simply run this line again.
 
 Firstly, you need to use an *import* function to convert from an upstream tool format to seaMass' standardised *data.frame* format. Then you can assign injections to runs if you've used fractionation, and specify a block structure to your assays if this is a large study (TMT/iTraq studies are blocked automatically). Finally, you use the *seaMass-sigma* function to fit the model and generate unnormalised group-level quants.
 
-### Tutorial
+### Tutorial (local processing)
 
 Load the included ProteinPilot iTraq dataset (note this is a small subset of proteins from our spike-in study and as such is not useful for anything else than this tutorial).
 
@@ -79,7 +79,7 @@ Next, run the seaMass-Σ model. Specifying TRUE for summaries will generate csv 
 
 ```
 # run seaMass-Σ
-sigma_fits <- seaMass_sigma(
+sigma <- seaMass_sigma(
   data,
   data.design,
   name = "Tutorial",
@@ -115,10 +115,10 @@ Finally, run seaMass-Δ. Internal control parameters can be specified through a 
 
 ```
 # run seaMass-Δ
-delta_fit <- seaMass_delta(
-  sigma_fits,
+delta <- seaMass_delta(
+  sigma,
   data.design,
-  control = delta_control(nthread = 4)
+  control = delta_control(random.seed = 0)
 )
 ```
 
@@ -126,7 +126,37 @@ Since we know the ground truth, lets visualise our performance with a Precision-
 
 ```
 # set ground truth and plot
-data.fdr <- group_fdr(delta_fit)
+data.fdr <- group_fdr(delta)
 data.fdr$truth <- ifelse(grepl("_RAT$", data.fdr$Group), 0, log2(1.6))
 plot_pr(data.fdr)
 ```
+
+### Tutorial (HPC)
+
+To run seaMass on a HPC cluster, add a *schedule_slurm*, *schedule_pbs* or *schedule_sge* object to *sigma_control* e.g.
+
+```
+# prepare seaMass-Σ
+sigma <- seaMass_sigma(
+  data,
+  data.design,
+  name = "Tutorial_SLURM",
+  run = FALSE,
+  control = sigma_control(schedule = schedule_slurm(cpus_per_task = 14, mem = "64000m", mail_user = "username@domain.com"))
+)
+```
+
+Note above we also set set *run = FALSE* which prepares but does not run seaMass-Σ. This gives you the opportunity to add one or more seaMass-Δ runs so that everything can be run in one go later.
+
+```
+# prepare seaMass-Δ
+delta <- seaMass_delta(
+  sigma,
+  data.design
+)
+
+# runs seaMass-Σ and then seaMass-Δ
+run(sigma)
+```
+
+Note, if you are not doing this from the HPC submit node, instead of *run(sigma)* you can copy the output folder *Tutorial_SLURM.seaMass* to your HPC submit node and execute *Tutorial_SLURM.seaMass/submit.sh* from the command prompt.
