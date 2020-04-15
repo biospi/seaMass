@@ -127,7 +127,7 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "submit.process0"))
   cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
   if (length(ctrl@plot) > 0) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(sigma@path, "submit.plots", "hpc_plots"))
-  cat(config(object, "seaMass", name, 1, T, "hpc_finalise"), file = file.path(sigma@path, "submit.finalise"))
+  cat(config(object, "", name, 1, T, "hpc_finalise"), file = file.path(sigma@path, "submit.finalise"))
 
   # submit script
   cat(paste0(
@@ -181,7 +181,7 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
 
 
 setMethod("prepare_delta", "schedule_slurm", function(object, delta) {
-  cat(config(object, "D", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), T, "hpc_delta"), file = file.path(delta@sigma@path, "submit.delta"))
+  cat(config(object, "D", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), F, "hpc_delta"), file = file.path(delta@sigma@path, "submit.delta"))
   return(invisible(object))
 })
 
@@ -267,7 +267,7 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "submit.process0"))
   cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
   if (length(ctrl@plot) > 0) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(sigma@path, "submit.plots"))
-  cat(config(object, "seaMass", name, 1, T, "hpc_finalise"), file = file.path(sigma@path, "submit.finalise"))
+  cat(config(object, "", name, 1, T, "hpc_finalise"), file = file.path(sigma@path, "submit.finalise"))
 
   # submit script
   cat(paste0(
@@ -321,7 +321,7 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
 
 
 setMethod("prepare_delta", "schedule_pbs", function(object, delta) {
-  cat(config(object, "D", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), T, "hpc_delta"), file = file.path(delta@sigma@path, "submit.delta"))
+  cat(config(object, "D", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), F, "hpc_delta"), file = file.path(delta@sigma@path, "submit.delta"))
   return(invisible(object))
 })
 
@@ -416,7 +416,7 @@ hpc_process0 <- function(task) {
   cat(paste0("[", Sys.time(), "]  running process0 for name=", name(sigma), "...\n"))
   process0(fits(sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
   cat(paste0("[", Sys.time(), "] complete!\n"))
-  warnings(file = stderr())
+  print(warnings(file = stderr()))
   return(invisible(0))
 }
 
@@ -428,7 +428,7 @@ hpc_process1 <- function(task) {
   cat(paste0("[", Sys.time(), "]  running process1 for name=", name(sigma), "...\n"))
   process1(fits(sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
   cat(paste0("[", Sys.time(), "] complete!\n"))
-  warnings(file = stderr())
+  print(warnings(file = stderr()))
   return(invisible(0))
 }
 
@@ -440,7 +440,7 @@ hpc_plots <- function(task) {
   cat(paste0("[", Sys.time(), "]  running plots for name=", name(sigma), "...\n"))
   plots(fits(sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
   cat(paste0("[", Sys.time(), "] complete!\n"))
-  warnings(file = stderr())
+  print(warnings(file = stderr()))
   return(invisible(0))
 }
 
@@ -451,7 +451,7 @@ hpc_delta <- function(task) {
   cat(paste0("[", Sys.time(), "]  running name=", name(delta), "...\n"))
   run(delta)
   cat(paste0("[", Sys.time(), "] complete!\n"))
-  warnings(file = stderr())
+  print(warnings(file = stderr()))
   return(invisible(0))
 }
 
@@ -462,7 +462,8 @@ hpc_finalise <- function(task) {
   cat(paste0("[", Sys.time(), "]  finalising..."))
   # currently doesn't do anything except allow the cluster manager to send a single email, which is ridiculous!
   cat(paste0("[", Sys.time(), "] complete!\n"))
-  warnings(file = stderr())
+  print(warnings(file = stderr()))
+  warning("test warning")
   return(invisible(0))
 }
 
