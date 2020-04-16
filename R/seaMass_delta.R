@@ -72,7 +72,6 @@ seaMass_delta <- function(
   DT.design <- unique(as.data.table(data.design)[!is.na(Assay)], by = "Assay")
 
   # get design into the format we need
-  DT.design <- as.data.table(data.design)[!is.na(Assay)]
   if (!is.factor(DT.design$Assay)) DT.design[, Assay := factor(as.character(Assay), levels = levels(assay_design(sigma)$Assay))]
   if ("nGroup" %in% colnames(DT.design)) DT.design[, nGroup := NULL]
   if ("nComponent" %in% colnames(DT.design)) DT.design[, nComponent := NULL]
@@ -126,8 +125,8 @@ open_seaMass_delta <- function(sigma, name = "fit", quiet = FALSE, force = FALSE
     if (quiet) {
       return(NULL)
     } else {
-      if (force) stop("'", path, "' does not contain a completed seaMass-Δ run")
-      else stop("'", path, "' does not contain a seaMass-Δ run")
+      if (force) stop("'", path, "' does not contain a completed seaMass-delta run")
+      else stop("'", path, "' does not contain a seaMass-delta run")
     }
   }
 }
@@ -138,13 +137,13 @@ open_seaMass_delta <- function(sigma, name = "fit", quiet = FALSE, force = FALSE
 setMethod("run", "seaMass_delta", function(object) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))
-      stop(paste0("version mismatch - 'object' was created with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
+    stop(paste0("version mismatch - '", name(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
 
   DT.design <- assay_design(object, as.data.table = T)
   ellipsis <- ctrl@ellipsis
   ellipsis$object <- object
 
-  cat(paste0("[", Sys.time(), "]  running delta for name=", name(object), "...\n"))
+  cat(paste0("[", Sys.time(), "]  running delta for name=", name(object), " sigma=", name(object@sigma), "...\n"))
 
   # standardise quants using reference weights
   standardise_group_quants(object)
@@ -277,7 +276,7 @@ setMethod("path", "seaMass_delta", function(object) {
 #' @export
 setMethod("control", "seaMass_delta", function(object) {
   if (!file.exists(file.path(path(object), "meta", "control.rds")))
-    stop(paste0("seaMass-Δ output '", name(object), "' is missing or zipped"))
+    stop(paste0("seaMass-delta output '", name(object), "' is missing or zipped"))
 
   return(readRDS(file.path(path(object), "meta", "control.rds")))
 })

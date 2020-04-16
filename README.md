@@ -142,7 +142,9 @@ sigma <- seaMass_sigma(
   data.design,
   name = "Tutorial_SLURM",
   run = FALSE,
-  control = sigma_control(schedule = schedule_slurm(cpus_per_task = 14, mem = "64000m", mail_user = "username@domain.com"))
+  control = sigma_control(
+    schedule = schedule_slurm(cpus_per_task = 14, mem = "64000m", mail_user = "username@domain.com")
+  )
 )
 ```
 
