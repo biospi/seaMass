@@ -44,6 +44,7 @@ Collate:
     'delta_fdr.R'
     'delta_norm.R'
     'delta_plot.R'
+    'delta_standardise.R'
     'design.R'
     'dist.R'
     'import.R'
