@@ -30,9 +30,9 @@ setClass("sigma_control", slots = c(
 
 #' @describeIn sigma_control-class Generator function
 #' @param summarise Outputs to write csv summaries for, \code{NULL} or a subset of
-#'   \code{c("measurement.vars", "component.vars", "component.deviations", "assay.deviations", "unnormalised.group.quants")}
+#'   \code{c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "unnormalised.group.quants")}
 #' @param keep Outputs to keep MCMC samples for, \code{NULL} or a subset of
-#'   \code{c("measurement.vars", "component.vars", "component.deviations", "assay.deviations", "unnormalised.group.quants")}
+#'   \code{c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "unnormalised.group.quants")}
 #'   Note, you must keep \code{"unnormalised.group.quants"} if you want to run seaMass-Δ!
 #' @param plot Outputs to plot [TODO]
 #' @param measurement.model Either \code{"single"} (single residual) or \code{"independent"} (per-measurement independent residuals)
@@ -58,7 +58,7 @@ setClass("sigma_control", slots = c(
 #' @export sigma_control
 sigma_control <- function(
   summarise = NULL,
-  keep = c("measurement.vars", "component.vars", "component.deviations", "unnormalised.group.quants"),
+  keep = c("measurement.variances", "component.variances", "component.deviations", "unnormalised.group.quants"),
   plot = NULL,
   measurement.model = "independent",
   measurement.eb.min = 2,
@@ -108,8 +108,8 @@ sigma_control <- function(
 }
 
 setValidity("sigma_control", function(object) {
-  if (!(all(object@summarise %in% c("measurement.vars", "component.vars", "component.deviations", "assay.deviations", "unnormalised.group.quants")))) return("'summarise' is not valid!")
-  if (!(all(object@keep %in% c("measurement.vars", "component.vars", "component.deviations", "assay.deviations", "unnormalised.group.quants")))) return("'keep' is not valid!")
+  if (!(all(object@summarise %in% c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "unnormalised.group.quants")))) return("'summarise' is not valid!")
+  if (!(all(object@keep %in% c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "unnormalised.group.quants")))) return("'keep' is not valid!")
   if (length(object@measurement.model) != 1 || !(object@measurement.model %in% c("single", "independent"))) return("'measurement.model' is not valid!")
   if (length(object@measurement.eb.min) != 1 || object@measurement.eb.min <= 0) return("'measurement.eb.min' must be positive!")
   if (length(object@component.model) != 1 || !(object@component.model %in% c("", "single", "independent"))) return("'component.model' is not valid!")
