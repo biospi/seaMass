@@ -6,16 +6,16 @@
 \alias{schedule_sge}
 \title{Schedule seaMass to run on SGE}
 \usage{
-schedule_sge(q = NULL, ppn = NULL, mem = NULL, walltime = NULL, M = NULL)
+schedule_sge(q = NULL, pe = NULL, mem = NULL, time = NULL, M = NULL)
 }
 \arguments{
 \item{q}{.}
 
-\item{ppn}{.}
+\item{pe}{.}
 
 \item{mem}{.}
 
-\item{walltime}{.}
+\item{time}{.}
 
 \item{M}{.}
 }

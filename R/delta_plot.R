@@ -116,18 +116,25 @@ setMethod("plot_pca", "seaMass_delta", function(
     if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, x = x, y = y, z = z1), breaks = 1, alpha = 0.5)
     if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, x = x, y = y, z = z2), breaks = 1, alpha = 0.25)
     if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, x = x, y = y, z = z3), breaks = 1, alpha = 0.125)
-    g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = SampleAssay), size = 2.5)
-    g <- g + ggplot2::geom_point()
+    if (nlevels(DT.median$SampleAssay) <= 150) g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = SampleAssay), size = 2.5)
+    g <- g + ggplot2::geom_point(size = 0.5)
   } else {
     if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, colour = Condition, x = x, y = y, z = z1), breaks = 1, alpha = 0.5)
     if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, colour = Condition, x = x, y = y, z = z2), breaks = 1, alpha = 0.25)
     if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, colour = Condition, x = x, y = y, z = z3), breaks = 1, alpha = 0.125)
-    g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = SampleAssay, colour = Condition), size = 2.5)
-    g <- g + ggplot2::geom_point(ggplot2::aes(colour = Condition))
+    if (nlevels(DT.median$SampleAssay) <= 150) g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = SampleAssay, colour = Condition), size = 2.5)
+    g <- g + ggplot2::geom_point(ggplot2::aes(colour = Condition), size = 0.5)
   }
   g <- g + ggplot2::xlab(paste0("PC1 (", format(round(pc1, 2), nsmall = 2), "%)"))
   g <- g + ggplot2::ylab(paste0("PC2 (", format(round(pc2, 2), nsmall = 2), "%)"))
-  g <- g + ggplot2::coord_fixed(xlim = c(min.lim[1], max.lim[1]), ylim = c(min.lim[2], max.lim[2]))
+  #g <- g + ggplot2::coord_fixed(xlim = c(min.lim[1], max.lim[1]), ylim = c(min.lim[2], max.lim[2]))
+
+  # aspect ratio = 1
+  span <- max(max.lim[1] - min.lim[1], max.lim[2] - min.lim[2]) / 2
+  mid.lim <- c((max.lim[1] + min.lim[1]) / 2, (max.lim[2] + min.lim[2]) / 2)
+  g <- g + ggplot2::scale_x_continuous(limits = c(mid.lim[1] - span, mid.lim[1] + span))
+  g <- g + ggplot2::scale_y_continuous(limits = c(mid.lim[2] - span, mid.lim[2] + span))
+  g <- g + ggplot2::theme(aspect.ratio = 1)
 
   if (!data.is.data.table) setDF(data)
   if (!data.summary.is.data.table) setDF(data.summary)

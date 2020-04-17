@@ -182,19 +182,19 @@ setMethod("run", "seaMass_delta", function(object) {
   }
 
   # plot PCA and assay exposures
-  cat("[", paste0(Sys.time(), "]   plotting PCA and assay exposures...\n"))
-  if (ctrl@component.deviations == T && component.model == "independent") {
-    DT <- component_deviations(object, as.data.table = T)
-    DT[, Group := interaction(Group, Component, sep = " : ", lex.order = T, drop = T)]
-    DT.summary <- component_deviations(object, summary = T, as.data.table = T)
-    DT.summary[, Group := interaction(Group, Component, sep = " : ", lex.order = T, drop = T)]
-    g <- plot_pca(object, data = DT, data.summary = DT.summary)
-    ggplot2::ggsave(file.path(path(object), "output", "log2_component_deviations_pca.pdf"), width = 12, height = 12, limitsize = F)
-  }
-  g <- plot_pca(object)
-  ggplot2::ggsave(file.path(path(object), "output", "log2_group_quants_pca.pdf"), width = 12, height = 12, limitsize = F)
-  g <- plot_assay_exposures(object)
-  ggplot2::ggsave(file.path(path(object), "output", "log2_assay_exposures.pdf"), width = 8, height = 0.5 + 1 * nlevels(DT.design$Assay), limitsize = F)
+  #cat("[", paste0(Sys.time(), "]   plotting PCA and assay exposures...\n"))
+  # if (ctrl@component.deviations == T && component.model == "independent") {
+  #   DT <- component_deviations(object, as.data.table = T)
+  #   DT[, Group := interaction(Group, Component, sep = " : ", lex.order = T, drop = T)]
+  #   DT.summary <- component_deviations(object, summary = T, as.data.table = T)
+  #   DT.summary[, Group := interaction(Group, Component, sep = " : ", lex.order = T, drop = T)]
+  #   g <- plot_pca(object, data = DT, data.summary = DT.summary)
+  #   ggplot2::ggsave(file.path(path(object), "output", "log2_component_deviations_pca.pdf"), width = 12, height = 12, limitsize = F)
+  # }
+  #g <- plot_pca(object)
+  #ggplot2::ggsave(file.path(path(object), "output", "log2_group_quants_pca.pdf"), width = 12, height = 12, limitsize = F)
+  #g <- plot_assay_exposures(object)
+  #ggplot2::ggsave(file.path(path(object), "output", "log2_assay_exposures.pdf"), width = 8, height = 0.5 + 1 * nlevels(DT.design$Assay), limitsize = F)
 
   # differential expression analysis and false discovery rate correction
   if (ctrl@dea.model != "" && !all(is.na(DT.design$Condition))) {
