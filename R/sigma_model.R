@@ -17,7 +17,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
   }
 
   # create subdirs
-  dir.create(file.path(object@path, input, "group.quants"), showWarnings = F)
+  dir.create(file.path(object@path, input, "unnormalised.group.quants"), showWarnings = F)
   dir.create(file.path(object@path, input, "measurement.variances"), showWarnings = F)
   dir.create(file.path(object@path, input, "component.variances"), showWarnings = F)
   dir.create(file.path(object@path, input, "component.deviations"), showWarnings = F)
@@ -352,7 +352,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
 
         # if large enough write out group quants now to conserve memory, otherwise don't to conserve disk space
         if (object.size(output$DT.group.quants) > 2^18) {
-          filename <- file.path("group.quants", paste0(chain, ".", item[, GroupID], ".fst"))
+          filename <- file.path("unnormalised.group.quants", paste0(chain, ".", item[, GroupID], ".fst"))
           fst::write.fst(output$DT.group.quants, file.path(object@path, input, filename))
 
           if (chain == 1) {
@@ -704,7 +704,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
     if (!is.null(outputs$DT.group.quants)) {
       if (nrow(outputs$DT.group.quants) > 0) {
         setorder(outputs$DT.group.quants, GroupID, AssayID, chainID, mcmcID)
-        filename <- file.path("group.quants", paste0(chain, ".fst"))
+        filename <- file.path("unnormalised.group.quants", paste0(chain, ".fst"))
         fst::write.fst(outputs$DT.group.quants, file.path(object@path, input, filename))
 
         # finish index construction
@@ -720,7 +720,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
 
       if (chain == 1) {
         setkey(outputs$DT.index.group.quants, GroupID, file, from)
-        fst::write.fst(outputs$DT.index.group.quants, file.path(object@path, input, paste0("group.quants.index.fst")))
+        fst::write.fst(outputs$DT.index.group.quants, file.path(object@path, input, paste0("unnormalised.group.quants.index.fst")))
       }
 
       outputs$DT.group.quants <- NULL
@@ -728,4 +728,6 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
   }
 
   write.table(data.frame(), file.path(object@path, input, paste(".complete", chain, sep = ".")), col.names = F)
+
+  return(invisible(NULL))
 })

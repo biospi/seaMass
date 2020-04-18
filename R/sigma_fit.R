@@ -2,7 +2,7 @@
 #'
 #' The results of a seaMass-Σ fit to a single block, returned by /link{seaMass_sigma} /code{fits()} function
 #' @include seaMass.R
-sigma_fit <- setClass("sigma_fit", contains = "seaMass_fit", slots = c(
+sigma_fit <- setClass("sigma_fit", contains = "seaMass", slots = c(
   path = "character"
 ))
 
@@ -292,7 +292,7 @@ setMethod("unnormalised_group_quants", "sigma_fit", function(object, groups = NU
   if(is.null(summary) || summary == F) summary <- NULL
   if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
 
-  DT <- read_mcmc(object, "group.quants", "GroupID", "GroupID", c("GroupID", "AssayID"), itemIDs, input, chains, summary)
+  DT <- read_mcmc(object, "unnormalised.group.quants", "GroupID", "GroupID", c("GroupID", "AssayID"), itemIDs, input, chains, summary)
   if (is.null(DT)) stop(paste("unnormalised group quants were not", ifelse(is.null(summary), "kept", "summarised")))
 
   DT <- merge(DT, DT.groups[, .(GroupID, Group)], by = "GroupID")
@@ -308,77 +308,3 @@ setMethod("unnormalised_group_quants", "sigma_fit", function(object, groups = NU
   else DT[]
   return(DT)
 })
-
-
-#' @import data.table
-read_mcmc <- function(object, effect.name, columnID, batchIDs, summaryIDs, itemIDs, input, chains, summary) {
-  if (!is.null(summary)) filename <- file.path(file.path(path(object), input, paste(summary, effect.name, "fst", sep = ".")))
-  if (!is.null(summary) && file.exists(filename)) {
-    # load and filter from cache
-    DT <- fst::read.fst(filename, as.data.table = T)
-    if (!is.null(itemIDs)) DT <- DT[get(columnID) %in% itemIDs]
-  } else {
-    # load and filter index
-    filename.index <- file.path(path(object), input, paste(effect.name, "index.fst", sep = "."))
-    if (!file.exists(filename.index)) return(NULL)
-    DT.index <- fst::read.fst(filename.index, as.data.table = T)
-    if (!is.null(itemIDs)) DT.index <- DT.index[get(columnID) %in% itemIDs]
-    DT.index <- DT.index[complete.cases(DT.index)]
-    if (nrow(DT.index) == 0) return(NULL)
-    setorder(DT.index, file, from)
-
-    # read
-    ctrl <- control(object)
-    if (is.null(summary)) {
-      items <- list(DT.index)
-    } else {
-      items <- batch_split(DT.index, batchIDs, 16)
-    }
-    DT <- rbindlist(parallel_lapply(items, function(item, object, input, chains, summary, summaryIDs) {
-      # minimise file access
-      item[, file.prev := shift(file, fill = "")]
-      item[, to.prev := shift(to + 1, fill = 0)]
-      item[, file.next := shift(file, fill = "", -1)]
-      item[, from.next := shift(from - 1, fill = 0, -1)]
-      item <- cbind(
-        item[!(file == file.prev & from == to.prev), .(file, from)],
-        item[!(file == file.next & to == from.next), .(to)]
-      )
-
-      # read
-      DT <- rbindlist(lapply(1:nrow(item), function(i) {
-        rbindlist(lapply(chains, function(chain) {
-          DT1 <- NULL
-          try({
-            DT1 <- fst::read.fst(
-              file.path(path(object), input, dirname(item[i, file]), sub("^([0-9]+)", chain, basename(item[i, file]))),
-              from = item[i, from],
-              to = item[i, to],
-              as.data.table = T
-            )}, silent = T)
-          return(DT1)
-        }))
-      }))
-
-      # optional summarise
-      if (!is.null(summary) && nrow(DT) > 0) {
-        # average samples if assay run in multiple blocks
-        if (length(unique(DT$BlockID)) > 1) DT <- DT[, .(value = mean(value)), by = c(summaryIDs, "chainID", "mcmcID")]
-        DT.summary <- DT[, do.call(summary, list(chainID = chainID, mcmcID = mcmcID, value = value)), by = summaryIDs]
-        # add back metadata
-        DT <- DT[, c(summaryIDs, colnames(DT)[!(colnames(DT) %in% c(colnames(DT.summary), "chainID", "mcmcID", "value"))]), with = F]
-        DT <- merge(DT[!duplicated(DT[, summaryIDs, with = F])], DT.summary, by = summaryIDs)
-      }
-
-      setcolorder(DT, summaryIDs)
-      return(DT)
-    }, nthread = ifelse(length(items) == 1, 1, ctrl@nthread)))
-
-    # cache results
-    if (!is.null(summary) && is.null(itemIDs) && identical(chains, 1:ctrl@model.nchain)) {
-      fst::write.fst(DT, filename)
-    }
-  }
-
-  return(DT)
-}

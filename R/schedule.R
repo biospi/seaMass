@@ -470,6 +470,7 @@ setMethod("prepare_sigma", "schedule_sge", function(object, sigma) {
 #' @include generics.R
 setMethod("prepare_delta", "schedule_sge", function(object, delta) {
   cat(config(object, "D", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), F, "hpc_delta"), file = file.path(delta@sigma@path, "submit.delta"))
+
   return(invisible(object))
 })
 
@@ -478,6 +479,7 @@ setMethod("prepare_delta", "schedule_sge", function(object, delta) {
 setMethod("run", "schedule_sge", function(object, sigma) {
   cat(paste0("[", Sys.time(), "]  submitting to SGE...\n"))
   system(file.path(sigma@path, "submit.sh"))
+
   return(invisible(object))
 })
 
@@ -490,6 +492,7 @@ hpc_process0 <- function(task) {
   process0(fits(sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
   cat(paste0("[", Sys.time(), "] complete!\n"))
   print(warnings(file = stderr()))
+
   return(invisible(0))
 }
 
@@ -502,6 +505,7 @@ hpc_process1 <- function(task) {
   process1(fits(sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
   cat(paste0("[", Sys.time(), "] complete!\n"))
   print(warnings(file = stderr()))
+
   return(invisible(0))
 }
 
@@ -514,6 +518,7 @@ hpc_plots <- function(task) {
   plots(fits(sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
   cat(paste0("[", Sys.time(), "] complete!\n"))
   print(warnings(file = stderr()))
+
   return(invisible(0))
 }
 
@@ -525,6 +530,7 @@ hpc_delta <- function(task) {
   run(delta)
   cat(paste0("[", Sys.time(), "] complete!\n"))
   print(warnings(file = stderr()))
+
   return(invisible(0))
 }
 
@@ -536,6 +542,7 @@ hpc_finalise <- function(task) {
   # currently doesn't do anything except allow the cluster manager to send a single email, which is ridiculous!
   cat(paste0("[", Sys.time(), "] complete!\n"))
   print(warnings(file = stderr()))
+
   return(invisible(0))
 }
 

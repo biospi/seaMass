@@ -6,8 +6,8 @@ setGeneric("fdr_BH", function(object, ...) standardGeneric("fdr_BH"))
 #' @include generics.R
 setMethod("fdr_ash", "seaMass_delta", function(
   object,
-  input = "de",
-  output = "fdr",
+  input = "gropu.de",
+  output = "group.fdr",
   type = "group.quants",
   by.effect = TRUE,
   by.model = TRUE,

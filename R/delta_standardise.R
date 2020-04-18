@@ -3,8 +3,8 @@ setGeneric("standardise_component_deviations", function(object, ...) standardGen
 
 
 #' @include generics.R
-setMethod("standardise_group_quants", "seaMass_delta", function(object, data.design = assay_design(object), output = "standardised") {
-  cat(paste0("[", Sys.time(), "]  standardising unnormalised group quants...\n"))
+setMethod("standardise_group_quants", "seaMass_delta", function(object, data.design = assay_design(object), output = "standardised.group.quants") {
+  cat(paste0("[", Sys.time(), "]   standardising unnormalised group quants...\n"))
 
   ctrl <- control(object)
   DT.refweights <- as.data.table(data.design)[, .(Assay, RefWeight)]
@@ -38,7 +38,7 @@ setMethod("standardise_group_quants", "seaMass_delta", function(object, data.des
 
 #' @include generics.R
 setMethod("standardise_component_deviations", "seaMass_delta", function(object, output = "standardised.component.deviations") {
-  cat(paste0("[", Sys.time(), "]  standardising component deviations...\n"))
+  cat(paste0("[", Sys.time(), "]   standardising component deviations...\n"))
 
   ctrl <- control(object)
   if (file.exists(file.path(path(object), paste(output, "fst", sep = ".")))) file.remove(file.path(path(object), paste(output, "fst", sep = ".")))

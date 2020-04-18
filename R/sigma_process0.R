@@ -81,6 +81,8 @@ setMethod("process0", "sigma_fit", function(object, chain) {
     plot_priors(DT.priors, by = "Effect", xlab = "log2 Standard Deviation", trans = sqrt, inv.trans = function(x) x^2)
     suppressWarnings(ggplot2::ggsave(file.path(object@path, "output", "qc_stdevs.pdf"), width = 4, height = 0.5 + 1 * nrow(DT.priors), limitsize = F))
   }
+
+  return(invisible(NULL))
 })
 
 

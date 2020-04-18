@@ -4,7 +4,7 @@
 #' quants output by seaMass-Σ
 #' @include seaMass.R
 #' @include seaMass_sigma.R
-setClass("seaMass_delta", contains = "seaMass_fit", slots = c(
+setClass("seaMass_delta", contains = "seaMass", slots = c(
   sigma = "seaMass_sigma",
   name = "character"
 ))
@@ -143,7 +143,7 @@ setMethod("run", "seaMass_delta", function(object) {
   if (ctrl@norm.model != "") do.call(paste("norm", ctrl@norm.model, sep = "_"), ellipsis)
 
   # group quants
-  cat("[", paste0(Sys.time(), "]   summarising normalised group quants...\n"))
+  cat(paste0("[", Sys.time(), "]   getting summaries...\n"))
   set.seed(ctrl@random.seed)
   DT.groups <- groups(object, as.data.table = T)
   DT.group.quants <- normalised_group_quants(object, summary = T, as.data.table = T)
@@ -154,7 +154,7 @@ setMethod("run", "seaMass_delta", function(object) {
 
   # component deviations
   if (ctrl@component.deviations == T && component.model == "independent") {
-    cat("[", paste0(Sys.time(), "]   component deviations...\n"))
+    cat(paste0("[", Sys.time(), "]   component deviations...\n"))
     set.seed(ctrl@random.seed)
     DT.component.deviations <- component_deviations(object, summary = T, as.data.table = T)
     DT.component.deviations[, GroupComponent := paste(Group, Component, sep = "_seaMass_")]
@@ -171,7 +171,7 @@ setMethod("run", "seaMass_delta", function(object) {
   }
 
   # plot PCA and assay exposures
-  #cat("[", paste0(Sys.time(), "]   plotting PCA and assay exposures...\n"))
+  cat(paste0("[", Sys.time(), "]   plotting PCA and assay exposures...\n"))
   # if (ctrl@component.deviations == T && component.model == "independent") {
   #   DT <- component_deviations(object, as.data.table = T)
   #   DT[, Group := interaction(Group, Component, sep = " : ", lex.order = T, drop = T)]
@@ -180,8 +180,8 @@ setMethod("run", "seaMass_delta", function(object) {
   #   g <- plot_pca(object, data = DT, data.summary = DT.summary)
   #   ggplot2::ggsave(file.path(path(object), "output", "log2_component_deviations_pca.pdf"), width = 12, height = 12, limitsize = F)
   # }
-  #g <- plot_pca(object)
-  #ggplot2::ggsave(file.path(path(object), "output", "log2_group_quants_pca.pdf"), width = 12, height = 12, limitsize = F)
+  do.call("plot_pca", ellipsis)
+  ggplot2::ggsave(file.path(path(object), "output", "log2_normalised_group_quants_pca.pdf"), width = 300, height = 300 * 9/16, units = "mm")
   #g <- plot_assay_exposures(object)
   #ggplot2::ggsave(file.path(path(object), "output", "log2_assay_exposures.pdf"), width = 8, height = 0.5 + 1 * nlevels(DT.design$Assay), limitsize = F)
 
@@ -241,6 +241,8 @@ setMethod("run", "seaMass_delta", function(object) {
 
   # set complete
   write.table(data.frame(), file.path(path(object), "complete"), col.names = F)
+
+  cat(paste0("[", Sys.time(), "] complete!\n"))
 
   return(object@name)
 })
@@ -330,27 +332,6 @@ setMethod("unnormalised_group_quants", "seaMass_delta", function(object, groups 
   if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
 
   DT <- read_mcmc(object, input, "Group", "Group", c("Group", "Assay"), groups, ".", chains, summary)
-
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
-})
-
-
-#' @describeIn seaMass_delta-class Get the model normalised group quantifications as a \link{data.frame}.
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("normalised_group_quants", "seaMass_delta", function(object, groups = NULL, summary = FALSE, input = "normalised", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  if (!dir.exists(file.path(path(object), input))) {
-    DT <- unnormalised_group_quants(object, groups, summary, chains = chains, as.data.table = T)
-    DT[, exposure := 0]
-  } else {
-    if(is.null(summary) || summary == F) summary <- NULL
-    if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
-
-    DT <- read_mcmc(object, input, "Group", "Group", c("Group", "Assay"), groups, ".", chains, summary)
-  }
 
   if (!as.data.table) setDF(DT)
   else DT[]

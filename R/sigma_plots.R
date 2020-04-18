@@ -31,5 +31,7 @@ setMethod("plots", "sigma_fit", function(object, chain) {
   #   ggplot2::ggsave(file.path(object, "plots", "components", paste0(pid, ".pdf")), plt.components$g, width = plt.components$width, height = plt.components$height, limitsize = F)
   # }
   # setTxtProgressBar(pb, length(pids))
+
+  return(invisible(NULL))
 })
 

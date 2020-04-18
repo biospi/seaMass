@@ -1,0 +1,169 @@
+#' Robust PCA plot
+#'
+#' @param object .
+#' @param data .
+#' @param data.summary .
+#' @param data.design .
+#' @param contours .
+#' @param robust .
+#' @return A ggplot2 object.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_pca", "seaMass", function(
+  object,
+  data.summary = normalised_group_quants(object, summary = TRUE),
+  data.mcmc = normalised_group_quants(object),
+  data.design = assay_design(object),
+  contours = 1:2,
+  aspect.ratio = 9/16,
+  robust = TRUE,
+  ...
+) {
+  DT.summary <- as.data.table(data.summary)
+  DT.design <- as.data.table(data.design)
+
+  # assays with zero variance (pure reference samples) and groups with missing values, to remove later also
+  assays <- DT.summary[, .(use = var(m) >= 1e-5), by = Assay][use == T, Assay]
+  assays <- assays[assays %in% DT.design[, Assay]]
+  groups <- dcast(DT.summary, Group ~ Assay, value.var = "m")
+  groups <- groups[complete.cases(groups), Group]
+
+  # setup MCMC samples for contours
+  if (!is.null(data.mcmc)) {
+    data.mcmc.is.data.table <- is.data.table(data.mcmc)
+    setDT(data.mcmc)
+    data.mcmc[, rowname := as.character(interaction(Assay, chainID, mcmcID), lex.order = T)]
+
+    DT <- dcast(data.mcmc[Assay %in% assays & Group %in% groups], rowname ~ Group, value.var = "value")
+    setDF(DT)
+    rownames(DT) <- DT$rowname
+    DT$rowname <- NULL
+
+    if (!data.mcmc.is.data.table) setDF(data.mcmc)
+  }
+
+  # format for FactoMineR
+  DT.summary[, rowname := as.character(Assay)]
+
+  if (robust) {
+    # can row.w and col.w calculation be improved?
+    DT.se <- dcast(DT.summary[Assay %in% assays & Group %in% groups,], rowname ~ Group, value.var = "s")
+    DT.se[, rowname := NULL]
+    row.weights <- as.numeric(1.0 / apply(DT.se, 1, median)^2)
+    col.weights <- as.numeric(1.0 / apply(DT.se, 2, median)^2)
+    rm(DT.se)
+  }
+
+  DT.summary <- dcast(DT.summary[Assay %in% assays & Group %in% groups], rowname ~ Group, value.var = "m")
+  setDF(DT.summary)
+  rownames(DT.summary) <- DT.summary$rowname
+  DT.summary$rowname <- NULL
+
+  # FactoMineR PCA
+  if (is.null(data.mcmc)) {
+    if (robust) {
+      fit <- FactoMineR::PCA(DT.summary, scale.unit = F, row.w = row.weights, col.w = col.weights, graph = F)
+    } else {
+      fit <- FactoMineR::PCA(DT.summary, scale.unit = F, graph = F)
+    }
+
+    # extract main results
+    DT <- data.table(
+      x = fit$ind$coord[,1],
+      y = fit$ind$coord[,2],
+      Assay = factor(rownames(fit$ind$coord), levels = levels(DT.design$Assay))
+    )
+
+  } else {
+    DT <- rbind(DT.summary, DT)
+
+    if (robust) {
+      fit <- FactoMineR::PCA(DT, scale.unit = F, ind.sup = (length(assays) + 1):nrow(DT), row.w = row.weights, col.w = col.weights, graph = F)
+    } else {
+      fit <- FactoMineR::PCA(DT, scale.unit = F, ind.sup = (length(assays) + 1):nrow(DT), graph = F)
+    }
+
+    # extract 'supplementary' MCMC results
+    DT <- data.table(
+      x = fit$ind.sup$coord[,1],
+      y = fit$ind.sup$coord[,2],
+      Assay = factor(sub("\\.[0-9]+\\.[0-9]+$", "", rownames(fit$ind.sup$coord)), levels = levels(DT.design$Assay))
+    )
+
+  }
+  pc1 <- fit$eig[1, "percentage of variance"]
+  pc2 <- fit$eig[2, "percentage of variance"]
+  rm(fit)
+  DT <- merge(DT, DT.design, by = "Assay")
+  DT[, SampleAssay := factor(paste0("(", Sample, ") ", Assay))]
+
+  # central point of each assay
+  DT.point <- DT[, .(SampleAssay = first(SampleAssay), Condition = first(Condition), x = median(x), y = median(y)), by = Assay]
+  # calculate limits for the aspect ratio
+  min.x <- min(DT.point$x)
+  min.y <- min(DT.point$y)
+  max.x <- max(DT.point$x)
+  max.y <- max(DT.point$y)
+  mid <- 0.5 * c(max.x + min.x, max.y + min.y)
+  if (aspect.ratio * (max.x - min.x) > max.y - min.y) {
+    span <- 0.55 * (max.x - min.x) * c(1, aspect.ratio)
+  } else {
+    span <- 0.55 * (max.y - min.y) * c(1/aspect.ratio, 1)
+  }
+
+  # plot
+  g <- ggplot2::ggplot(DT.point, ggplot2::aes(x = x, y = y))
+
+  # MCMC contours
+  if (!is.null(data.mcmc)) {
+    # kde bandwidth across all assays
+    H <- ks::Hpi(cbind(DT$x, DT$y))
+
+    # generate density contours
+    DT <- DT[x > mid[1] - 1.5 * span[1] & x < mid[1] + 1.5 * span[1] & y > mid[2] - 1.5 * span[2] & y < mid[2] + 1.5 * span[2]]
+    DT <- rbindlist(parallel_lapply(batch_split(DT, "Assay", 8), function(item, H, mid, span) {
+      rbindlist(lapply(split(item, drop = T, by = "Assay"), function(DT.in) {
+        DT <- NULL
+        try({
+          dens <- ks::kde(cbind(DT.in$x, DT.in$y), H, xmin = mid - 1.5 * span, xmax = mid + 1.5 * span)
+          DT <- data.table(
+            Assay = DT.in$Assay[1],
+            expand.grid(x = dens$eval.points[[1]], y = dens$eval.points[[2]]),
+            z1 = as.vector(dens$estimate) / dens$cont["32%"],
+            z2 = as.vector(dens$estimate) / dens$cont["5%"],
+            z3 = as.vector(dens$estimate) / dens$cont["1%"]
+          )
+        })
+      }))
+    }, control(object)@nthread))
+    DT <- merge(DT, DT.design, by = "Assay")
+    DT[, SampleAssay := factor(paste0("(", Sample, ") ", Assay))]
+
+    if (all(is.na(DT.point$Condition))) {
+      if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, x = x, y = y, z = z1), breaks = 1, alpha = 0.5)
+      if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, x = x, y = y, z = z2), breaks = 1, alpha = 0.25)
+      if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, x = x, y = y, z = z3), breaks = 1, alpha = 0.125)
+    } else {
+      if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, colour = Condition, x = x, y = y, z = z1), breaks = 1, alpha = 0.5)
+      if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, colour = Condition, x = x, y = y, z = z2), breaks = 1, alpha = 0.25)
+      if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, colour = Condition, x = x, y = y, z = z3), breaks = 1, alpha = 0.125)
+    }
+  }
+
+  if (all(is.na(DT.point$Condition))) {
+    if (nlevels(DT.point$SampleAssay) <= 100) g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = SampleAssay), size = 2.5)
+    g <- g + ggplot2::geom_point(size = 0.5)
+  } else {
+    if (nlevels(DT.point$SampleAssay) <= 100) g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = SampleAssay, colour = Condition), size = 2.5)
+    g <- g + ggplot2::geom_point(ggplot2::aes(colour = Condition), size = 0.5)
+  }
+
+  g <- g + ggplot2::xlab(paste0("PC1 (", format(round(pc1, 2), nsmall = 2), "%)"))
+  g <- g + ggplot2::ylab(paste0("PC2 (", format(round(pc2, 2), nsmall = 2), "%)"))
+  g <- g + ggplot2::coord_cartesian(xlim = mid[1] + c(-span[1], span[1]), ylim = mid[2] + c(-span[2], span[2]))
+  g <- g + ggplot2::theme(aspect.ratio = aspect.ratio)
+
+  return(g)
+})
+

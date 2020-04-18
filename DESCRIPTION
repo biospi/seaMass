@@ -51,6 +51,7 @@ Collate:
     'import.R'
     'logydensity.R'
     'norm.R'
+    'plot.R'
     'schedule.R'
     'sigma_control.R'
     'sigma_fit.R'

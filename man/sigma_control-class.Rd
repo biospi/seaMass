@@ -9,8 +9,8 @@
 sigma_control(
   summarise = NULL,
   keep = c("measurement.variances", "component.variances", "component.deviations",
-    "unnormalised.group.quants"),
-  plot = NULL,
+    "unnormalised.group.quants", "normalised.group.quants"),
+  plot = "normalised.group.quants.pca",
   measurement.model = "independent",
   measurement.eb.min = 2,
   component.model = "independent",

@@ -4,19 +4,20 @@ setGeneric("norm_quantile", function(object, ...) standardGeneric("norm_quantile
 
 
 #' @include generics.R
-setMethod("norm_theta", "seaMass_fit", function(object, input = "standardised", output = "normalised", norm.groups = ".*", ...) {
+setMethod("norm_theta", "seaMass", function(object, input = "standardised.group.quants", output = "normalised.group.quants", norm.groups = ".*", ...) {
   if (file.exists(file.path(path(object), paste(output, "fst", sep = ".")))) file.remove(file.path(path(object), paste(output, "fst", sep = ".")))
   dir.create(file.path(path(object), output), showWarnings = F)
-  output2 <- paste(output, "group.variances", sep = ".")
+  output2 <- paste0(sub("group.quants$", "", output), "group.variances")
   if (file.exists(file.path(path(object), paste(output2, "fst", sep = ".")))) file.remove(file.path(path(object), paste(output2, "fst", sep = ".")))
   dir.create(file.path(path(object), output2), showWarnings = F)
 
-  cat(paste0("[", Sys.time(), "]  summarising standardised group quants...\n"))
+  cat(paste0("[", Sys.time(), "]   seaMass-Θ normalisation\n"))
+  cat(paste0("[", Sys.time(), "]    getting summaries...\n"))
   groups <- groups(object, as.data.table = T)[, Group]
   ctrl <- control(object)
   DT <- unnormalised_group_quants(object, groups[grep(norm.groups, groups)], summary = T, input = input, as.data.table = T)
 
-  cat(paste0("[", Sys.time(), "]  seaMass-Θ normalisation...\n"))
+  cat(paste0("[", Sys.time(), "]    running model...\n"))
   parallel_lapply(as.list(1:ctrl@model.nchain), function(item, object, ctrl, input, output, DT) {
     DT <- droplevels(merge(DT, unique(assay_design(object, as.data.table = T)[, .(Assay, Sample)]), by = "Assay"))
 
@@ -72,7 +73,7 @@ setMethod("norm_theta", "seaMass_fit", function(object, input = "standardised", 
 
 
 #' @include generics.R
-setMethod("norm_median", "seaMass_fit", function(object, input = "standardised", output = "normalised", norm.groups = ".*", ...) {
+setMethod("norm_median", "seaMass", function(object, input = "standardised.group.quants", output = "normalised.group.quants", norm.groups = ".*", ...) {
   cat(paste0("[", Sys.time(), "]  median normalisation...\n"))
 
   if (file.exists(file.path(path(object), paste(output, "fst", sep = ".")))) file.remove(file.path(path(object), paste(output, "fst", sep = ".")))
@@ -93,7 +94,7 @@ setMethod("norm_median", "seaMass_fit", function(object, input = "standardised",
 
 
 #' @include generics.R
-setMethod("norm_quantile", "seaMass_fit", function(object, input = "standardised", output = "normalised", norm.groups = ".*", ...) {
+setMethod("norm_quantile", "seaMass", function(object, input = "standardised.group.quants", output = "normalised.group.quants", norm.groups = ".*", ...) {
   cat(paste0("[", Sys.time(), "]  quantile normalisation...\n"))
 
   if (file.exists(file.path(path(object), paste(output, "fst", sep = ".")))) file.remove(file.path(path(object), paste(output, "fst", sep = ".")))
