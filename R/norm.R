@@ -3,8 +3,8 @@ setGeneric("norm_median", function(object, ...) standardGeneric("norm_median"))
 setGeneric("norm_quantile", function(object, ...) standardGeneric("norm_quantile"))
 
 
-#' @include seaMass_delta.R
-setMethod("norm_theta", "seaMass_delta", function(object, input = "standardised", output = "normalised", norm.groups = ".*", ...) {
+#' @include generics.R
+setMethod("norm_theta", "seaMass_fit", function(object, input = "standardised", output = "normalised", norm.groups = ".*", ...) {
   if (file.exists(file.path(path(object), paste(output, "fst", sep = ".")))) file.remove(file.path(path(object), paste(output, "fst", sep = ".")))
   dir.create(file.path(path(object), output), showWarnings = F)
   output2 <- paste(output, "group.variances", sep = ".")
@@ -71,8 +71,8 @@ setMethod("norm_theta", "seaMass_delta", function(object, input = "standardised"
 })
 
 
-#' @include seaMass_delta.R
-setMethod("norm_median", "seaMass_delta", function(object, input = "standardised", output = "normalised", norm.groups = ".*", ...) {
+#' @include generics.R
+setMethod("norm_median", "seaMass_fit", function(object, input = "standardised", output = "normalised", norm.groups = ".*", ...) {
   cat(paste0("[", Sys.time(), "]  median normalisation...\n"))
 
   if (file.exists(file.path(path(object), paste(output, "fst", sep = ".")))) file.remove(file.path(path(object), paste(output, "fst", sep = ".")))
@@ -92,8 +92,8 @@ setMethod("norm_median", "seaMass_delta", function(object, input = "standardised
 })
 
 
-#' @include seaMass_delta.R
-setMethod("norm_quantile", "seaMass_delta", function(object, input = "standardised", output = "normalised", norm.groups = ".*", ...) {
+#' @include generics.R
+setMethod("norm_quantile", "seaMass_fit", function(object, input = "standardised", output = "normalised", norm.groups = ".*", ...) {
   cat(paste0("[", Sys.time(), "]  quantile normalisation...\n"))
 
   if (file.exists(file.path(path(object), paste(output, "fst", sep = ".")))) file.remove(file.path(path(object), paste(output, "fst", sep = ".")))

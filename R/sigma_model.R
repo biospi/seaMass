@@ -1,7 +1,5 @@
-setGeneric("model", function(object, ...) standardGeneric("model"))
-
-
 #' @import data.table
+#' @include generics.R
 setMethod("model", "sigma_fit", function(object, input, chain = 1) {
   ctrl <- control(object)
   set.seed(ctrl@random.seed + chain-1)

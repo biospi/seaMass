@@ -2,9 +2,8 @@ setGeneric("fdr_ash", function(object, ...) standardGeneric("fdr_ash"))
 setGeneric("fdr_BH", function(object, ...) standardGeneric("fdr_BH"))
 
 
-#' @include seaMass_delta.R
 #' @import data.table
-#' @export
+#' @include generics.R
 setMethod("fdr_ash", "seaMass_delta", function(
   object,
   input = "de",
@@ -121,9 +120,8 @@ setMethod("fdr_ash", "seaMass_delta", function(
 })
 
 
-#' @include seaMass_delta.R
 #' @import data.table
-#' @export
+#' @include generics.R
 setMethod("fdr_BH", "seaMass_delta", function(
   object,
   data = group_de(object),

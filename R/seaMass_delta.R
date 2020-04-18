@@ -1,22 +1,10 @@
-setGeneric("components", function(object, ...) standardGeneric("components"))
-setGeneric("groups", function(object, ...) standardGeneric("groups"))
-setGeneric("unnormalised_group_quants", function(object, ...) standardGeneric("unnormalised_group_quants"))
-setGeneric("normalised_group_quants", function(object, ...) standardGeneric("normalised_group_quants"))
-setGeneric("component_deviations", function(object, ...) standardGeneric("component_deviations"))
-setGeneric("group_variances", function(object, ...) standardGeneric("group_variances"))
-setGeneric("group_de", function(object, ...) standardGeneric("group_de"))
-setGeneric("component_deviations_de", function(object, ...) standardGeneric("component_deviations_de"))
-setGeneric("group_fdr", function(object, ...) standardGeneric("group_fdr"))
-setGeneric("component_deviations_fdr", function(object, ...) standardGeneric("component_deviations_fdr"))
-
-
 #' seaMass-Δ
 #'
 #' Perform seaMass-Δ normalisation, differential expression analysis and/or false discovery rate correction on unnormalised group-level
 #' quants output by seaMass-Σ
-#'
+#' @include seaMass.R
 #' @include seaMass_sigma.R
-setClass("seaMass_delta", slots = c(
+setClass("seaMass_delta", contains = "seaMass_fit", slots = c(
   sigma = "seaMass_sigma",
   name = "character"
 ))
@@ -134,6 +122,7 @@ open_seaMass_delta <- function(sigma, name = "fit", quiet = FALSE, force = FALSE
 
 #' @describeIn seaMass_delta-class Run.
 #' @export
+#' @include generics.R
 setMethod("run", "seaMass_delta", function(object) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))
@@ -260,6 +249,7 @@ setMethod("run", "seaMass_delta", function(object) {
 
 #' @describeIn seaMass_delta-class Get name.
 #' @export
+#' @include generics.R
 setMethod("name", "seaMass_delta", function(object) {
   return(sub("^delta\\.", "", object@name))
 })
@@ -267,6 +257,7 @@ setMethod("name", "seaMass_delta", function(object) {
 
 #' @describeIn seaMass_delta-class Get path.
 #' @export
+#' @include generics.R
 setMethod("path", "seaMass_delta", function(object) {
   return(file.path(object@sigma@path, object@name))
 })
@@ -274,6 +265,7 @@ setMethod("path", "seaMass_delta", function(object) {
 
 #' @describeIn seaMass_delta-class Get the \link{sigma_control}.
 #' @export
+#' @include generics.R
 setMethod("control", "seaMass_delta", function(object) {
   if (!file.exists(file.path(path(object), "meta", "control.rds")))
     stop(paste0("seaMass-delta output '", name(object), "' is missing or zipped"))
@@ -284,6 +276,7 @@ setMethod("control", "seaMass_delta", function(object) {
 
 #' @describeIn seaMass_delta-class Get the study design as a \code{data.frame}.
 #' @export
+#' @include generics.R
 setMethod("assay_design", "seaMass_delta", function(object, as.data.table = FALSE) {
   DT <- fst::read.fst(file.path(path(object), "meta", "design.fst"), as.data.table = T)
 
@@ -296,6 +289,7 @@ setMethod("assay_design", "seaMass_delta", function(object, as.data.table = FALS
 #' @describeIn seaMass_delta-class Delete the \code{seaMass_delta} run from disk.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("del", "seaMass_delta", function(object) {
   return(unlink(path(object), recursive = T))
 })
@@ -304,6 +298,7 @@ setMethod("del", "seaMass_delta", function(object) {
 #' @describeIn seaMass_delta-class Get the component metadata as a \link{data.frame}.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("components", "seaMass_delta", function(object, as.data.table = FALSE) {
   DT <- fst::read.fst(file.path(path(object), "meta", "components.fst"), as.data.table = T)
 
@@ -316,6 +311,7 @@ setMethod("components", "seaMass_delta", function(object, as.data.table = FALSE)
 #' @describeIn seaMass_delta-class Get the group metadata as a \link{data.frame}.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("groups", "seaMass_delta", function(object, as.data.table = FALSE) {
   DT <- fst::read.fst(file.path(path(object), "meta", "groups.fst"), as.data.table = T)
 
@@ -328,6 +324,7 @@ setMethod("groups", "seaMass_delta", function(object, as.data.table = FALSE) {
 #' @describeIn seaMass_delta-class Get the model unnormalised group quantifications as a \link{data.frame}.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("unnormalised_group_quants", "seaMass_delta", function(object, groups = NULL, summary = FALSE, input = "standardised", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   if(is.null(summary) || summary == F) summary <- NULL
   if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
@@ -343,6 +340,7 @@ setMethod("unnormalised_group_quants", "seaMass_delta", function(object, groups 
 #' @describeIn seaMass_delta-class Get the model normalised group quantifications as a \link{data.frame}.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("normalised_group_quants", "seaMass_delta", function(object, groups = NULL, summary = FALSE, input = "normalised", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   if (!dir.exists(file.path(path(object), input))) {
     DT <- unnormalised_group_quants(object, groups, summary, chains = chains, as.data.table = T)
@@ -363,6 +361,7 @@ setMethod("normalised_group_quants", "seaMass_delta", function(object, groups = 
 #' @describeIn seaMass_delta-class Get the input standardised component deviations as a \link{data.frame}.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("component_deviations", "seaMass_delta", function(object, components = NULL, summary = FALSE, input = "standardised.component.deviations", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   if(is.null(summary) || summary == F) summary <- NULL
   if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
@@ -379,6 +378,7 @@ setMethod("component_deviations", "seaMass_delta", function(object, components =
 #' @describeIn seaMass_delta-class Get the model normalised group variances as a \link{data.frame}.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("group_variances", "seaMass_delta", function(object, groups = NULL, summary = FALSE, input = "normalised.group.variances", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   if(is.null(summary) || summary == F) summary <- NULL
   if(!is.null(summary)) summary <- ifelse(summary == T, "dist_invchisq_mcmc", paste("dist", summary, sep = "_"))
@@ -394,6 +394,7 @@ setMethod("group_variances", "seaMass_delta", function(object, groups = NULL, su
 #' @describeIn seaMass_delta-class Get the model differential expression as a \link{data.frame}.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("group_de", "seaMass_delta", function(object, groups = NULL, summary = FALSE, input = "de", chains = 1:control(object)@model.nchain, as.data.table = FALSE
 ) {
   if(is.null(summary) || summary == F) summary <- NULL
@@ -410,6 +411,7 @@ setMethod("group_de", "seaMass_delta", function(object, groups = NULL, summary =
 #' @describeIn seaMass_delta-class Get the component deviations differential expression as a \link{data.frame}.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("component_deviations_de", "seaMass_delta", function(object, components = NULL, summary = FALSE, input = "de.component.deviations", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   if(is.null(summary) || summary == F) summary <- NULL
   if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
@@ -425,6 +427,7 @@ setMethod("component_deviations_de", "seaMass_delta", function(object, component
 #' @describeIn seaMass_delta-class Get the false discovery rate corrected group differential expression as a \link{data.frame}.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("group_fdr", "seaMass_delta", function(object, input = "fdr", as.data.table = FALSE) {
   if (file.exists(file.path(path(object), paste(input, "fst", sep = ".")))) {
     return(fst::read.fst(file.path(path(object), paste(input, "fst", sep = ".")), as.data.table = as.data.table))
@@ -437,6 +440,7 @@ setMethod("group_fdr", "seaMass_delta", function(object, input = "fdr", as.data.
 #' @describeIn seaMass_delta-class Get the false discovery rate corrected component deviations differential expression as a \link{data.frame}.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("component_deviations_fdr", "seaMass_delta", function(object, input = "fdr.component.deviations", as.data.table = FALSE) {
   if (file.exists(file.path(path(object), paste(input, "fst", sep = ".")))) {
     return(fst::read.fst(file.path(path(object), paste(input, "fst", sep = ".")), as.data.table = as.data.table))

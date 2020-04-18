@@ -2,6 +2,7 @@ setGeneric("plots", function(object, ...) standardGeneric("plots"))
 
 
 #' @import data.table
+#' @include generics.R
 setMethod("plots", "sigma_fit", function(object, chain) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))

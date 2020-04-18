@@ -2,7 +2,7 @@ setGeneric("standardise_group_quants", function(object, ...) standardGeneric("st
 setGeneric("standardise_component_deviations", function(object, ...) standardGeneric("standardise_component_deviations"))
 
 
-#' @include seaMass_delta.R
+#' @include generics.R
 setMethod("standardise_group_quants", "seaMass_delta", function(object, data.design = assay_design(object), output = "standardised") {
   cat(paste0("[", Sys.time(), "]  standardising unnormalised group quants...\n"))
 
@@ -36,7 +36,7 @@ setMethod("standardise_group_quants", "seaMass_delta", function(object, data.des
 })
 
 
-#' @include seaMass_delta.R
+#' @include generics.R
 setMethod("standardise_component_deviations", "seaMass_delta", function(object, output = "standardised.component.deviations") {
   cat(paste0("[", Sys.time(), "]  standardising component deviations...\n"))
 

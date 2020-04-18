@@ -26,6 +26,9 @@ sigma_control(
   model.thin = 4,
   model.nsample = 1024,
   eb.max = 1024,
+  norm.model = "theta",
+  norm.nwarmup = 256,
+  norm.thin = 1,
   random.seed = 0,
   nthread = parallel::detectCores()\%/\%2,
   schedule = schedule_local()

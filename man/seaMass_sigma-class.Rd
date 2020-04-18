@@ -21,7 +21,8 @@ seaMass_sigma(
   data.design = new_assay_design(data),
   name = "fits",
   run = TRUE,
-  control = sigma_control()
+  control = sigma_control(),
+  ...
 )
 
 open_seaMass_sigma(path = "fits.seaMass", quiet = FALSE, force = FALSE)

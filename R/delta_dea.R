@@ -1,8 +1,9 @@
 setGeneric("dea_MCMCglmm", function(object, ...) standardGeneric("dea_MCMCglmm"))
 
-#' @include seaMass_delta.R
 #' @import data.table
 #' @import emmeans
+#' @include seaMass_delta.R
+#' @include generics.R
 setMethod("dea_MCMCglmm", "seaMass_delta", function(
   object,
   input = "normalised",

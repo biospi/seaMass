@@ -13,6 +13,7 @@ setGeneric("plot_assay_exposures", function(object, ...) standardGeneric("plot_a
 #' @return A ggplot2 object.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("plot_pca", "seaMass_delta", function(
   object,
   data = normalised_group_quants(object),
@@ -308,6 +309,7 @@ plot_pr <- function(
 #' @return A ggplot2 object.
 #' @import data.table
 #' @export
+#' @include generics.R
 plot_volcano <- function(
   data.fdr,
   contours = 1:2,

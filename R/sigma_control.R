@@ -22,10 +22,14 @@ setClass("sigma_control", slots = c(
   model.thin = "integer",
   model.nsample = "integer",
   eb.max = "integer",
+  norm.model = "character",
+  norm.nwarmup = "integer",
+  norm.thin = "integer",
   random.seed = "numeric",
   nthread = "integer",
   schedule = "schedule",
-  version = "character"
+  version = "character",
+  ellipsis = "list"
 ))
 
 #' @describeIn sigma_control-class Generator function
@@ -75,6 +79,9 @@ sigma_control <- function(
   model.thin = 4,
   model.nsample = 1024,
   eb.max = 1024,
+  norm.model = "theta",
+  norm.nwarmup = 256,
+  norm.thin = 1,
   random.seed = 0,
   nthread = parallel::detectCores() %/% 2,
   schedule = schedule_local()
@@ -99,6 +106,9 @@ sigma_control <- function(
   params$model.thin <- as.integer(model.thin)
   params$model.nsample <- as.integer(model.nsample)
   params$eb.max <- as.integer(eb.max)
+  if (!is.null(norm.model)) params$norm.model <- norm.model else params$norm.model <- ""
+  params$norm.nwarmup <- as.integer(norm.nwarmup)
+  params$norm.thin <- as.integer(norm.thin)
   params$random.seed <- as.integer(random.seed)
   params$nthread <- as.integer(nthread)
   params$schedule <- schedule
@@ -125,6 +135,9 @@ setValidity("sigma_control", function(object) {
   if (length(object@model.thin) != 1 || object@model.thin <= 0) return("'model.thin' must be positive!")
   if (length(object@model.nsample) != 1 || object@model.nsample <= 0) return("'model.nsample' must be positive!")
   if (length(object@eb.max) != 1 || object@eb.max <= 0) return("'eb.max' must be positive!")
+  if (length(object@norm.model) != 1 || !(object@norm.model %in% c("", "median", "quantile", "theta"))) return("'norm.model' is not valid!")
+  if (length(object@norm.nwarmup) != 1 || object@norm.nwarmup < 0) return("'norm.nwarmup' must be non-negative!")
+  if (length(object@norm.thin) != 1 || object@norm.thin <= 0) return("'norm.thin' must be positive!")
   if (length(object@nthread) != 1 || object@nthread <= 0) return("'nthread' must be positive!")
 
   return(T)

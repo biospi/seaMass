@@ -2,6 +2,7 @@ setGeneric("process1", function(object, ...) standardGeneric("process1"))
 
 
 #' @import data.table
+#' @include generics.R
 setMethod("process1", "sigma_fit", function(object, chain) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))
@@ -33,7 +34,7 @@ setMethod("process1", "sigma_fit", function(object, chain) {
       # measurement variances
       cat("[", paste0(Sys.time(), "]    summarising measurement variances...\n"))
       set.seed(ctrl@random.seed)
-      DT.measurement.variances <- measurement_vars(object, summary = T, as.data.table = T)
+      DT.measurement.variances <- measurement_variances(object, summary = T, as.data.table = T)
       setcolorder(DT.measurement.variances, c("Group", "Component"))
       fwrite(DT.measurement.variances, file.path(object@path, "output", "measurement_log2_variances.csv"))
       rm(DT.measurement.variances)
@@ -45,7 +46,7 @@ setMethod("process1", "sigma_fit", function(object, chain) {
     if("component.variances" %in% ctrl@summarise && !is.null(ctrl@component.model)) {
       cat("[", paste0(Sys.time(), "]    summarising component variances...\n"))
       set.seed(ctrl@random.seed)
-      DT.component.variances <- component_vars(object, summary = T, as.data.table = T)
+      DT.component.variances <- component_variances(object, summary = T, as.data.table = T)
       setcolorder(DT.component.variances, "Group")
       fwrite(DT.component.variances, file.path(object@path, "output", "component_log2_variances.csv"))
       rm(DT.component.variances)
@@ -101,7 +102,10 @@ setMethod("process1", "sigma_fit", function(object, chain) {
     # delete if not in 'keep'
     if (!("assay.deviations" %in% ctrl@keep)) unlink(file.path(object@path, "model1", "assay.deviations*"), recursive = T)
 
-    # unnoramlised group quants summary
+    # normalise for PCA plot
+
+
+    # unnormalised group quants summary
     if ("unnormalised.group.quants" %in% ctrl@summarise) {
       cat("[", paste0(Sys.time(), "]    summarising unnormalised group quants...\n"))
       set.seed(ctrl@random.seed)

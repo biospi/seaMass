@@ -1,22 +1,15 @@
-setGeneric("measurements", function(object, ...) standardGeneric("measurements"))
-setGeneric("summary", function(object, ...) standardGeneric("summary"))
-setGeneric("timings", function(object, ...) standardGeneric("timings"))
-setGeneric("measurement_vars", function(object, ...) standardGeneric("measurement_vars"))
-setGeneric("component_vars", function(object, ...) standardGeneric("component_vars"))
-setGeneric("assay_deviations", function(object, ...) standardGeneric("assay_deviations"))
-
-
 #' seaMass-Σ fit
 #'
 #' The results of a seaMass-Σ fit to a single block, returned by /link{seaMass_sigma} /code{fits()} function
-#'
-sigma_fit <- setClass("sigma_fit", slots = c(
+#' @include seaMass.R
+sigma_fit <- setClass("sigma_fit", contains = "seaMass_fit", slots = c(
   path = "character"
 ))
 
 
 #' @describeIn sigma_fit Get the path.
 #' @export
+#' @include generics.R
 setMethod("path", "sigma_fit", function(object) {
   return(object@path)
 })
@@ -25,6 +18,7 @@ setMethod("path", "sigma_fit", function(object) {
 #' @describeIn sigma_fit Get the \link{sigma_control} object for this fit.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("control", "sigma_fit", function(object) {
   return(readRDS(file.path(dirname(object@path), "sigma.control.rds")))
 })
@@ -33,6 +27,7 @@ setMethod("control", "sigma_fit", function(object) {
 #' @describeIn sigma_fit Get the study design for this block as a \link{data.frame}.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("assay_design", "sigma_fit", function(object, as.data.table = FALSE) {
   if (!file.exists(file.path(object@path, "meta", "design.fst")))
     stop(paste0("seaMass-Σ block '", sub("^sigma\\.", "", basename(object@path)), "' is missing or zipped"))
@@ -49,6 +44,7 @@ setMethod("assay_design", "sigma_fit", function(object, as.data.table = FALSE) {
 #' @describeIn sigma_fit Get the measurement metadata as a \link{data.frame}.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("measurements", "sigma_fit", function(object, as.data.table = FALSE) {
   if (!file.exists(file.path(object@path, "meta", "measurements.fst")))
     stop(paste0("seaMass-Σ block '", sub("^sigma\\.", "", basename(object@path)), "' is missing or zipped"))
@@ -65,6 +61,7 @@ setMethod("measurements", "sigma_fit", function(object, as.data.table = FALSE) {
 #' @describeIn sigma_fit Get the component metadata as a \link{data.frame}.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("components", "sigma_fit", function(object, as.data.table = FALSE) {
   if (!file.exists(file.path(object@path, "meta", "components.fst")))
     stop(paste0("seaMass-Σ block '", sub("^sigma\\.", "", basename(object@path)), "' is missing or zipped"))
@@ -81,6 +78,7 @@ setMethod("components", "sigma_fit", function(object, as.data.table = FALSE) {
 #' @describeIn sigma_fit Get the group metadata as a \link{data.frame}.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("groups", "sigma_fit", function(object, as.data.table = FALSE) {
   if (!file.exists(file.path(object@path, "meta", "groups.fst")))
     stop(paste0("seaMass-Σ block '", sub("^sigma\\.", "", basename(object@path)), "' is missing or zipped"))
@@ -97,6 +95,7 @@ setMethod("groups", "sigma_fit", function(object, as.data.table = FALSE) {
 #' @describeIn sigma_fit Print the model summary for a group.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("summary", "sigma_fit", function(object, group, input = "model1") {
   filenames <- list.files(file.path(object@path, input, "summaries"), "^[0-9]+\\..*fst$", full.names = T)
   if (length(filenames) == 0) return(NULL)
@@ -110,6 +109,7 @@ setMethod("summary", "sigma_fit", function(object, group, input = "model1") {
 #' @describeIn sigma_fit Get the model timings as a \link{data.frame}.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("timings", "sigma_fit", function(object, input = "model1", as.data.table = FALSE) {
   filenames <- list.files(file.path(object@path, input, "timings"), "^[0-9]+\\..*fst$", full.names = T)
   if (length(filenames) == 0) return(NULL)
@@ -125,7 +125,8 @@ setMethod("timings", "sigma_fit", function(object, input = "model1", as.data.tab
 #' @describeIn sigma_fit Get the model measurement variances as a \link{data.frame}.
 #' @import data.table
 #' @export
-setMethod("measurement_vars", "sigma_fit", function(object, measurements = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+#' @include generics.R
+setMethod("measurement_variances", "sigma_fit", function(object, measurements = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT.measurements <- fst::read.fst(file.path(object@path, "meta", "measurements.fst"), as.data.table = T)
   if (is.null(measurements)) {
     itemIDs <- NULL
@@ -157,7 +158,8 @@ setMethod("measurement_vars", "sigma_fit", function(object, measurements = NULL,
 #' @describeIn sigma_fit Get the model component variances as a \link{data.frame}.
 #' @import data.table
 #' @export
-setMethod("component_vars", "sigma_fit", function(object, components = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+#' @include generics.R
+setMethod("component_variances", "sigma_fit", function(object, components = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT.components <- fst::read.fst(file.path(object@path, "meta", "components.fst"), as.data.table = T)
   if (is.null(components)) {
     itemIDs <- NULL
@@ -187,6 +189,7 @@ setMethod("component_vars", "sigma_fit", function(object, components = NULL, sum
 #' @describeIn sigma_fit Gets the model component deviations as a \link{data.frame}.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("component_deviations", "sigma_fit", function(object, components = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT.components <- fst::read.fst(file.path(object@path, "meta", "components.fst"), as.data.table = T)
   if (is.null(components)) {
@@ -220,6 +223,7 @@ setMethod("component_deviations", "sigma_fit", function(object, components = NUL
 #' @import doRNG
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("assay_deviations", "sigma_fit", function(object, measurements = NULL, components = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   if (control(object)@assay.model == "measurement") {
     DT.measurements <- fst::read.fst(file.path(object@path, "meta", "measurements.fst"), as.data.table = T)
@@ -276,6 +280,7 @@ setMethod("assay_deviations", "sigma_fit", function(object, measurements = NULL,
 #' @describeIn sigma_fit Get the model unnormalised group quantifications as a \link{data.frame}.
 #' @import data.table
 #' @export
+#' @include generics.R
 setMethod("unnormalised_group_quants", "sigma_fit", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT.groups <- fst::read.fst(file.path(object@path, "meta", "groups.fst"), as.data.table = T)
   if (is.null(groups)) {

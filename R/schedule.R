@@ -1,8 +1,3 @@
-setGeneric("prepare_sigma", function(object, ...) standardGeneric("prepare_sigma"))
-setGeneric("prepare_delta", function(object, ...) standardGeneric("prepare_delta"))
-setGeneric("config", function(object, ...) standardGeneric("config"))
-
-
 # abstract base class for schedule, not exported
 setClass("schedule", contains = "VIRTUAL")
 
@@ -14,16 +9,19 @@ setClass("schedule", contains = "VIRTUAL")
 schedule_local <- setClass("schedule_local", contains = "schedule")
 
 
+#' @include generics.R
 setMethod("prepare_sigma", "schedule_local", function(object, sigma) {
   return(invisible(object))
 })
 
 
+#' @include generics.R
 setMethod("prepare_delta", "schedule_local", function(object, delta) {
   return(invisible(object))
 })
 
 
+#' @include generics.R
 setMethod("run", "schedule_local", function(object, sigma) {
   ctrl <- control(sigma)
 
@@ -99,6 +97,7 @@ setValidity("schedule_slurm", function(object) {
 })
 
 
+#' @include generics.R
 setMethod("config", "schedule_slurm", function(object, prefix, name, n, notify, func) {
   return(paste0(
     "#!/bin/bash\n",
@@ -119,6 +118,7 @@ setMethod("config", "schedule_slurm", function(object, prefix, name, n, notify, 
 })
 
 
+#' @include generics.R
 setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
   name <- name(sigma)
   ctrl <- control(sigma)
@@ -180,12 +180,14 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
 })
 
 
+#' @include generics.R
 setMethod("prepare_delta", "schedule_slurm", function(object, delta) {
   cat(config(object, "D", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), F, "hpc_delta"), file = file.path(delta@sigma@path, "submit.delta"))
   return(invisible(object))
 })
 
 
+#' @include generics.R
 setMethod("run", "schedule_slurm", function(object, sigma) {
   cat(paste0("[", Sys.time(), "]  submitting to SLURM...\n"))
   system(file.path(sigma@path, "submit.sh"))
@@ -243,6 +245,7 @@ setValidity("schedule_pbs", function(object) {
 })
 
 
+#' @include generics.R
 setMethod("config", "schedule_pbs", function(object, prefix, name, n, notify, func) {
   return(paste0(
     paste0("#PBS -N sm", prefix, ".", name, "\n"),
@@ -259,6 +262,7 @@ setMethod("config", "schedule_pbs", function(object, prefix, name, n, notify, fu
 })
 
 
+#' @include generics.R
 setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
   name <- name(sigma)
   ctrl <- control(sigma)
@@ -320,12 +324,14 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
 })
 
 
+#' @include generics.R
 setMethod("prepare_delta", "schedule_pbs", function(object, delta) {
   cat(config(object, "D", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), F, "hpc_delta"), file = file.path(delta@sigma@path, "submit.delta"))
   return(invisible(object))
 })
 
 
+#' @include generics.R
 setMethod("run", "schedule_pbs", function(object, sigma) {
   cat(paste0("[", Sys.time(), "]  submitting to PBS...\n"))
   system(file.path(sigma@path, "submit.sh"))
@@ -339,9 +345,9 @@ setMethod("run", "schedule_pbs", function(object, sigma) {
 #' @export schedule_pbs
 setClass("schedule_sge", contains = "schedule", slots = c(
   q = "character",
-  pe = "integer",
+  pe = "character",
   mem = "character",
-  time = "character",
+  walltime = "character",
   M = "character"
 ))
 
@@ -357,14 +363,14 @@ schedule_sge <- function(
   q = NULL,
   pe = NULL,
   mem = NULL,
-  time = NULL,
+  walltime = NULL,
   M = NULL
 ) {
   params <- list("schedule_sge")
 
   if (is.null(q)) params$q <- NA_character_ else params$q <- as.character(q)
-  if (is.null(pe)) params$pe <- NA_integer_ else params$pe <- as.integer(pe)
-  if (is.null(time)) params$time <- NA_character_ else params$time <- as.character(time)
+  if (is.null(pe)) params$pe <- NA_character_ else params$pe <- as.character(pe)
+  if (is.null(walltime)) params$walltime <- NA_character_ else params$walltime <- as.character(walltime)
   if (is.null(mem)) params$mem <- NA_character_ else params$mem <- as.character(mem)
   if (is.null(M)) params$M <- NA_character_ else params$M <- as.character(M)
 
@@ -374,9 +380,9 @@ schedule_sge <- function(
 
 setValidity("schedule_sge", function(object) {
   if (length(object@q) != 1) return("'q' must be a string!")
-  if (!(length(object@pe) == 1 &&  (is.na(object@pe) || object@pe > 0))) return("'ppn' must be a positive scalar!")
+  if (length(object@pe) != 1) return("'pe' must be a string!")
   if (length(object@mem) != 1) return("'mem' must be a string!")
-  if (length(object@time) != 1) return("'walltime' must be a string!")
+  if (length(object@walltime) != 1) return("'walltime' must be a string!")
   if (length(object@M) != 1) return("'M' must be a string!")
 
   return(T)
@@ -386,20 +392,21 @@ setValidity("schedule_sge", function(object) {
 setMethod("config", "schedule_sge", function(object, prefix, name, n, notify, func) {
   return(paste0(
     paste0("#$ -N sm", prefix, ".", name, "\n"),
-    paste0("#$ -V\n"),
     paste0("#$ -t 1-", n, "\n"),
     ifelse(is.na(object@q), "", paste0("#$ -q ", object@q, "\n")),
-    ifelse(is.na(object@pe), "", paste0("#$ -pe smp ", object@pe, "\n")),
-    ifelse(is.na(object@mem), "", paste0("#$ -mem=", object@mem, "\n")),
-    ifelse(is.na(object@time), "", paste0("#$ -l time=", object@time, "\n")),
+    ifelse(is.na(object@pe), "", paste0("#$ -pe ", object@pe, "\n")),
+    ifelse(is.na(object@mem), "", paste0("#$ -l mem=", object@mem, "\n")),
+    ifelse(is.na(object@walltime), "", paste0("#$ -l walltime=", object@walltime, "\n")),
     ifelse(is.na(object@M), "", paste0("#$ -M ", object@M, "\n")),
     ifelse(notify, "#$ -m ae\n", "#$ -m a\n"),
-    "cd $SGE_O_WORKDIR\n",
+    "#$ -cwd\n",
+    "export OMP_NUM_THREADS=$NSLOTS\n",
     paste0("Rscript --vanilla -e seaMass:::", func, "\\(${SGE_TASK_ID}\\)\n")
   ))
 })
 
 
+#' @include generics.R
 setMethod("prepare_sigma", "schedule_sge", function(object, sigma) {
   name <- name(sigma)
   ctrl <- control(sigma)
@@ -417,33 +424,28 @@ setMethod("prepare_sigma", "schedule_sge", function(object, sigma) {
     "pushd $DIR > /dev/null\n",
     "\n",
     "# job chain\n",
-    "JOBID=$(qsub submit.process0)\n",
+    "PROCESS0=$(qsub submit.process0)\n",
     "EXITCODE=$?\n",
-    "PROCESS0=$JOBID\n",
-    "LASTJOB=submit.process0\n",
+    "JOBNAME=submit.process0\n",
     "\n",
-    "JOBID=$(qsub -hold_jid_ad $LASTJOB submit.process1)\n",
+    "PROCESS1=$(qsub -hold_jid_ad $JOBNAME submit.process1)\n",
     "EXITCODE=$?\n",
-    "PROCESS1=$JOBID\n",
-    "LASTJOB=submit.process1\n",
+    "JOBNAME=submit.process1\n",
     "\n",
     "if [ -e \"submit.plots\" ]; then\n",
-    "  JOBID=$(qsub -hold_jid_ad $LASTJOB submit.plots)\n",
+    "  PLOTS=$(qsub -hold_jid_ad $JOBNAME submit.plots)\n",
     "  EXITCODE=$?\n",
-    "  PLOTS=$JOBID\n",
-    "  LASTJOB=submit.plots\n",
+    "  JOBNAME=submit.plots\n",
     "fi\n",
     "\n",
     "if [ -e \"submit.delta\" ]; then\n",
-    "  JOBID=$(qsub -hold_jid_ad $LASTJOB submit.delta)\n",
+    "  DELTA=$(qsub -hold_jid_ad $JOBNAME submit.delta)\n",
     "  EXITCODE=$?\n",
-    "  DELTA=$JOBID\n",
-    "  LASTJOB=submit.delta\n",
+    "  JOBNAME=submit.delta\n",
     "fi\n",
     "\n",
-    "JOBID=$(qsub -hold_jid_ad $LASTJOB submit.finalise)\n",
+    "FINALISE=$(qsub -hold_jid_ad $JOBNAME submit.finalise)\n",
     "EXITCODE=$?\n",
-    "FINALISE=$JOBID\n",
     "\n",
     "# clean up\n",
     "if [[ $EXITCODE != 0 ]]; then\n",
@@ -465,12 +467,14 @@ setMethod("prepare_sigma", "schedule_sge", function(object, sigma) {
 })
 
 
+#' @include generics.R
 setMethod("prepare_delta", "schedule_sge", function(object, delta) {
   cat(config(object, "D", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), F, "hpc_delta"), file = file.path(delta@sigma@path, "submit.delta"))
   return(invisible(object))
 })
 
 
+#' @include generics.R
 setMethod("run", "schedule_sge", function(object, sigma) {
   cat(paste0("[", Sys.time(), "]  submitting to SGE...\n"))
   system(file.path(sigma@path, "submit.sh"))

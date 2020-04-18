@@ -2,6 +2,7 @@ setGeneric("process0", function(object, ...) standardGeneric("process0"))
 
 
 #' @import data.table
+#' @include generics.R
 setMethod("process0", "sigma_fit", function(object, chain) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))
@@ -17,13 +18,13 @@ setMethod("process0", "sigma_fit", function(object, chain) {
     # Measurement EB prior
     cat(paste0("[", Sys.time(), "]    measurement prior...\n"))
     set.seed(ctrl@random.seed)
-    DT.priors <- data.table(Effect = "Measurements", measurement_vars(object, input = "model0", summary = T, as.data.table = T)[, squeeze_var(v, df)])
+    DT.priors <- data.table(Effect = "Measurements", measurement_variances(object, input = "model0", summary = T, as.data.table = T)[, squeeze_var(v, df)])
 
     # Component EB prior
     if(!is.null(ctrl@component.model)) {
       cat(paste0("[", Sys.time(), "]    component prior...\n"))
       set.seed(ctrl@random.seed)
-      DT.priors <- rbind(DT.priors, data.table(Effect = "Components", component_vars(object, input = "model0", summary = T, as.data.table = T)[, squeeze_var(v, df)]))
+      DT.priors <- rbind(DT.priors, data.table(Effect = "Components", component_variances(object, input = "model0", summary = T, as.data.table = T)[, squeeze_var(v, df)]))
     }
 
     # Assay EB priors

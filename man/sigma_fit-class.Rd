@@ -12,8 +12,8 @@
 \alias{groups,sigma_fit-method}
 \alias{summary,sigma_fit-method}
 \alias{timings,sigma_fit-method}
-\alias{measurement_vars,sigma_fit-method}
-\alias{component_vars,sigma_fit-method}
+\alias{measurement_variances,sigma_fit-method}
+\alias{component_variances,sigma_fit-method}
 \alias{component_deviations,sigma_fit-method}
 \alias{assay_deviations,sigma_fit-method}
 \alias{unnormalised_group_quants,sigma_fit-method}
@@ -35,7 +35,7 @@
 
 \S4method{timings}{sigma_fit}(object, input = "model1", as.data.table = FALSE)
 
-\S4method{measurement_vars}{sigma_fit}(
+\S4method{measurement_variances}{sigma_fit}(
   object,
   measurements = NULL,
   summary = FALSE,
@@ -44,7 +44,7 @@
   as.data.table = FALSE
 )
 
-\S4method{component_vars}{sigma_fit}(
+\S4method{component_variances}{sigma_fit}(
   object,
   components = NULL,
   summary = FALSE,
@@ -102,9 +102,9 @@ The results of a seaMass-Σ fit to a single block, returned by /link{seaMass_sig
 
 \item \code{timings}: Get the model timings as a \link{data.frame}.
 
-\item \code{measurement_vars}: Get the model measurement variances as a \link{data.frame}.
+\item \code{measurement_variances}: Get the model measurement variances as a \link{data.frame}.
 
-\item \code{component_vars}: Get the model component variances as a \link{data.frame}.
+\item \code{component_variances}: Get the model component variances as a \link{data.frame}.
 
 \item \code{component_deviations}: Gets the model component deviations as a \link{data.frame}.
 
