@@ -7,6 +7,7 @@ setClass("sigma_control", slots = c(
   summarise = "character",
   keep = "character",
   plot = "character",
+  plots = "character",
   measurement.model = "character",
   measurement.eb.min = "integer",
   component.model = "character",
@@ -90,7 +91,10 @@ sigma_control <- function(
 
   if (!is.null(summarise)) params$summarise <- as.character(summarise)
   if (!is.null(keep)) params$keep <- as.character(keep)
-  if (!is.null(plot)) params$plot <- as.character(plot)
+  if (!is.null(plot)) {
+    params$plot <- as.character(plot)
+    params$plots <- intersect(params$plot, "measurements")
+  }
   params$measurement.model <- as.character(measurement.model)
   params$measurement.eb.min <- as.integer(measurement.eb.min)
   if (!is.null(component.model)) params$component.model <- as.character(component.model) else params$component.model <- ""
@@ -143,3 +147,4 @@ setValidity("sigma_control", function(object) {
 
   return(T)
 })
+

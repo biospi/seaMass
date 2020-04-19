@@ -35,7 +35,7 @@ setMethod("run", "schedule_local", function(object, sigma) {
     for (chain in 1:ctrl@model.nchain) process1(fit, chain)
 
     # run plots if you want
-    if (length(ctrl@plot) > 0) for (chain in 1:ctrl@model.nchain) plots(fit, chain)
+    if (length(ctrl@plots) > 0) for (chain in 1:ctrl@model.nchain) plots(fit, chain)
   }
 
   # run delta if they exist
@@ -126,7 +126,7 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
 
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "submit.process0"))
   cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
-  if (length(ctrl@plot) > 0) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(sigma@path, "submit.plots", "hpc_plots"))
+  if (length(ctrl@plots) > 0) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(sigma@path, "submit.plots"))
   cat(config(object, "", name, 1, T, "hpc_finalise"), file = file.path(sigma@path, "submit.finalise"))
 
   # submit script
@@ -270,7 +270,7 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
 
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "submit.process0"))
   cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
-  if (length(ctrl@plot) > 0) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(sigma@path, "submit.plots"))
+  if (length(ctrl@plots) > 0) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(sigma@path, "submit.plots"))
   cat(config(object, "", name, 1, T, "hpc_finalise"), file = file.path(sigma@path, "submit.finalise"))
 
   # submit script
@@ -414,7 +414,7 @@ setMethod("prepare_sigma", "schedule_sge", function(object, sigma) {
 
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "submit.process0"))
   cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
-  if (length(ctrl@plot) > 0) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(sigma@path, "submit.plots"))
+  if (length(ctrl@plots) > 0) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(sigma@path, "submit.plots"))
   cat(config(object, "", name, 1, T, "hpc_finalise"), file = file.path(sigma@path, "submit.finalise"))
 
   # submit script
