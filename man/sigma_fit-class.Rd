@@ -10,6 +10,7 @@
 \alias{measurements,sigma_fit-method}
 \alias{components,sigma_fit-method}
 \alias{groups,sigma_fit-method}
+\alias{priors,sigma_fit-method}
 \alias{summary,sigma_fit-method}
 \alias{timings,sigma_fit-method}
 \alias{measurement_variances,sigma_fit-method}
@@ -30,6 +31,8 @@
 \S4method{components}{sigma_fit}(object, as.data.table = FALSE)
 
 \S4method{groups}{sigma_fit}(object, as.data.table = FALSE)
+
+\S4method{priors}{sigma_fit}(object, input = "model1", as.data.table = FALSE)
 
 \S4method{summary}{sigma_fit}(object, group, input = "model1")
 
@@ -97,6 +100,8 @@ The results of a seaMass-Σ fit to a single block, returned by /link{seaMass_sig
 \item \code{components}: Get the component metadata as a \link{data.frame}.
 
 \item \code{groups}: Get the group metadata as a \link{data.frame}.
+
+\item \code{priors}: Get the priors if computed.
 
 \item \code{summary}: Print the model summary for a group.
 

@@ -32,7 +32,7 @@ setMethod("process1", "sigma_fit", function(object, chain) {
     # measurement var summary
     if ("measurement.variances" %in% ctrl@summarise) {
       # measurement variances
-      cat("[", paste0(Sys.time(), "]    summarising measurement variances...\n"))
+      cat(paste0("[", Sys.time(), "]    summarising measurement variances...\n"))
       set.seed(ctrl@random.seed)
       DT.measurement.variances <- measurement_variances(object, summary = T, as.data.table = T)
       setcolorder(DT.measurement.variances, c("Group", "Component"))
@@ -44,7 +44,7 @@ setMethod("process1", "sigma_fit", function(object, chain) {
 
     # component variances summary
     if("component.variances" %in% ctrl@summarise && !is.null(ctrl@component.model)) {
-      cat("[", paste0(Sys.time(), "]    summarising component variances...\n"))
+      cat(paste0("[", Sys.time(), "]    summarising component variances...\n"))
       set.seed(ctrl@random.seed)
       DT.component.variances <- component_variances(object, summary = T, as.data.table = T)
       setcolorder(DT.component.variances, "Group")
@@ -56,7 +56,7 @@ setMethod("process1", "sigma_fit", function(object, chain) {
 
     # component deviations summary
     if("component.deviations" %in% ctrl@summarise && !is.null(ctrl@component.model) && ctrl@component.model == "independent") {
-      cat("[", paste0(Sys.time(), "]    summarising component deviations...\n"))
+      cat(paste0("[", Sys.time(), "]    summarising component deviations...\n"))
       set.seed(ctrl@random.seed)
       DT.component.deviations <- component_deviations(object, summary = T, as.data.table = T)
       DT.component.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.component.deviations, by = "Group")
@@ -80,7 +80,7 @@ setMethod("process1", "sigma_fit", function(object, chain) {
 
     # assay deviations summary
     if("assay.deviations" %in% ctrl@summarise && !is.null(ctrl@assay.model) && ctrl@assay.model == "component") {
-      cat("[", paste0(Sys.time(), "]    summarising assay deviations...\n"))
+      cat(paste0("[", Sys.time(), "]    summarising assay deviations...\n"))
       set.seed(ctrl@random.seed)
       DT.assay.deviations <- assay_deviations(object, summary = T, as.data.table = T)
       DT.assay.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.assay.deviations, by = "Group")
@@ -104,7 +104,7 @@ setMethod("process1", "sigma_fit", function(object, chain) {
 
     # unnormalised group quants summary
     if ("unnormalised.group.quants" %in% ctrl@summarise) {
-      cat("[", paste0(Sys.time(), "]    summarising unnormalised group quants...\n"))
+      cat(paste0("[", Sys.time(), "]    summarising unnormalised group quants...\n"))
       set.seed(ctrl@random.seed)
       DT.group.quants <- unnormalised_group_quants(object, summary = T, as.data.table = T)
       DT.group.quants.out <- dcast(DT.group.quants, Group ~ Assay, drop = F, value.var = colnames(DT.group.quants)[6:ncol(DT.group.quants)])
@@ -114,29 +114,32 @@ setMethod("process1", "sigma_fit", function(object, chain) {
     }
 
     # normalised group quants
-    if ("normalised.group.quants" %in% ctrl@summarise || "normalised.group.quants" %in% ctrl@keep || "assay_pca" %in% ctrl@plot) {
+    if ("normalised.group.quants" %in% ctrl@summarise || "normalised.group.quants" %in% ctrl@keep || "normalised.group.quants.pca" %in% ctrl@plot) {
       # normalise group quants
       ellipsis <- ctrl@ellipsis
       ellipsis$object <- object
       ellipsis$input <- "model1"
       do.call(paste("norm", ctrl@norm.model, sep = "_"), ellipsis)
 
-      if ("normalised.group.quants" %in% ctrl@summarise) {
-        cat("[", paste0(Sys.time(), "]    getting summaries...\n"))
+      if ("normalised.group.quants" %in% ctrl@summarise || "normalised.group.quants.pca" %in% ctrl@plot) {
+        cat(paste0("[", Sys.time(), "]   getting summaries...\n"))
         set.seed(ctrl@random.seed)
         DT.groups <- groups(object, as.data.table = T)
         DT.group.quants <- normalised_group_quants(object, summary = T, as.data.table = T)
-        DT.group.quants <- dcast(DT.group.quants, Group ~ Assay, drop = F, value.var = colnames(DT.group.quants)[5:ncol(DT.group.quants)])
-        DT.group.quants <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants, by = "Group")
-        fwrite(DT.group.quants, file.path(path(object), "output", "log2_normalised_group_quants.csv"))
-        rm(DT.group.quants)
-      }
 
-        # pca plot
-      if ("normalised.group.quants.pca" %in% ctrl@plot) {
-        ellipsis$input <- NULL
-        do.call("plot_pca", ellipsis)
-        ggplot2::ggsave(file.path(object@path, "output", "log2_normalised_group_quants_pca.pdf"), width = 300, height = 300 * 9/16, units = "mm")
+        if ("normalised.group.quants" %in% ctrl@summarise) {
+          DT.group.quants <- dcast(DT.group.quants, Group ~ Assay, drop = F, value.var = colnames(DT.group.quants)[5:ncol(DT.group.quants)])
+          DT.group.quants <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants, by = "Group")
+          fwrite(DT.group.quants, file.path(path(object), "output", "log2_normalised_group_quants.csv"))
+          rm(DT.group.quants)
+        }
+
+        if ("normalised.group.quants.pca" %in% ctrl@plot) {
+          cat(paste0("[", Sys.time(), "]   plotting PCA...\n"))
+          ellipsis$input <- NULL
+          do.call("plot_pca", ellipsis)
+          ggplot2::ggsave(file.path(object@path, "output", "log2_normalised_group_quants_pca.pdf"), width = 300, height = 300 * 9/16, units = "mm")
+        }
       }
     }
 

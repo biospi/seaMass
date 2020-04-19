@@ -6,8 +6,6 @@
 \usage{
 \S4method{plot_pca}{seaMass}(
   object,
-  data.summary = normalised_group_quants(object, summary = TRUE),
-  data.mcmc = normalised_group_quants(object),
   data.design = assay_design(object),
   contours = 1:2,
   aspect.ratio = 9/16,
@@ -18,8 +16,6 @@
 \arguments{
 \item{object}{.}
 
-\item{data.summary}{.}
-
 \item{data.design}{.}
 
 \item{contours}{.}
@@ -27,6 +23,8 @@
 \item{robust}{.}
 
 \item{data}{.}
+
+\item{data.summary}{.}
 }
 \value{
 A ggplot2 object.

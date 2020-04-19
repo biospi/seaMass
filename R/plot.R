@@ -12,15 +12,16 @@
 #' @include generics.R
 setMethod("plot_pca", "seaMass", function(
   object,
-  data.summary = normalised_group_quants(object, summary = TRUE),
-  data.mcmc = normalised_group_quants(object),
   data.design = assay_design(object),
   contours = 1:2,
   aspect.ratio = 9/16,
   robust = TRUE,
   ...
 ) {
-  DT.summary <- as.data.table(data.summary)
+  # this is needed to stop foreach massive memory leak!!!
+  rm("...")
+
+  DT.summary <- normalised_group_quants(object, summary = T, as.data.table = T)
   DT.design <- as.data.table(data.design)
 
   # assays with zero variance (pure reference samples) and groups with missing values, to remove later also
@@ -30,17 +31,16 @@ setMethod("plot_pca", "seaMass", function(
   groups <- groups[complete.cases(groups), Group]
 
   # setup MCMC samples for contours
-  if (!is.null(data.mcmc)) {
-    data.mcmc.is.data.table <- is.data.table(data.mcmc)
-    setDT(data.mcmc)
-    data.mcmc[, rowname := as.character(interaction(Assay, chainID, mcmcID), lex.order = T)]
+  if (!is.null(contours)) {
+    cat(paste0("[", Sys.time(), "]    preparing MCMC...\n"))
+    DT <- normalised_group_quants(object, as.data.table = T)[Assay %in% assays & Group %in% groups]
+    DT[, rowname := interaction(Assay, chainID, mcmcID)]
+    DT <- dcast(DT, rowname ~ Group, value.var = "value")
 
-    DT <- dcast(data.mcmc[Assay %in% assays & Group %in% groups], rowname ~ Group, value.var = "value")
+    # Need rownames but data.table not like
     setDF(DT)
     rownames(DT) <- DT$rowname
     DT$rowname <- NULL
-
-    if (!data.mcmc.is.data.table) setDF(data.mcmc)
   }
 
   # format for FactoMineR
@@ -61,7 +61,8 @@ setMethod("plot_pca", "seaMass", function(
   DT.summary$rowname <- NULL
 
   # FactoMineR PCA
-  if (is.null(data.mcmc)) {
+  if (is.null(contours)) {
+
     if (robust) {
       fit <- FactoMineR::PCA(DT.summary, scale.unit = F, row.w = row.weights, col.w = col.weights, graph = F)
     } else {
@@ -76,8 +77,9 @@ setMethod("plot_pca", "seaMass", function(
     )
 
   } else {
-    DT <- rbind(DT.summary, DT)
+    cat(paste0("[", Sys.time(), "]    running PCA...\n"))
 
+    DT <- rbind(DT.summary, DT)
     if (robust) {
       fit <- FactoMineR::PCA(DT, scale.unit = F, ind.sup = (length(assays) + 1):nrow(DT), row.w = row.weights, col.w = col.weights, graph = F)
     } else {
@@ -116,27 +118,28 @@ setMethod("plot_pca", "seaMass", function(
   g <- ggplot2::ggplot(DT.point, ggplot2::aes(x = x, y = y))
 
   # MCMC contours
-  if (!is.null(data.mcmc)) {
+  if (!is.null(contours)) {
+    cat(paste0("[", Sys.time(), "]    generating contours...\n"))
+
     # kde bandwidth across all assays
     H <- ks::Hpi(cbind(DT$x, DT$y))
 
     # generate density contours
     DT <- DT[x > mid[1] - 1.5 * span[1] & x < mid[1] + 1.5 * span[1] & y > mid[2] - 1.5 * span[2] & y < mid[2] + 1.5 * span[2]]
-    DT <- rbindlist(parallel_lapply(batch_split(DT, "Assay", 8), function(item, H, mid, span) {
-      rbindlist(lapply(split(item, drop = T, by = "Assay"), function(DT.in) {
-        DT <- NULL
-        try({
-          dens <- ks::kde(cbind(DT.in$x, DT.in$y), H, xmin = mid - 1.5 * span, xmax = mid + 1.5 * span)
-          DT <- data.table(
-            Assay = DT.in$Assay[1],
-            expand.grid(x = dens$eval.points[[1]], y = dens$eval.points[[2]]),
-            z1 = as.vector(dens$estimate) / dens$cont["32%"],
-            z2 = as.vector(dens$estimate) / dens$cont["5%"],
-            z3 = as.vector(dens$estimate) / dens$cont["1%"]
-          )
-        })
-      }))
-    }, control(object)@nthread))
+    DT <- rbindlist(lapply(split(DT, drop = T, by = "Assay"), function(DT.in) {
+      DT <- NULL
+      try({
+        dens <- ks::kde(cbind(DT.in$x, DT.in$y), H, xmin = mid - 1.5 * span, xmax = mid + 1.5 * span)
+        DT <- data.table(
+          Assay = DT.in$Assay[1],
+          expand.grid(x = dens$eval.points[[1]], y = dens$eval.points[[2]]),
+          z1 = as.vector(dens$estimate) / dens$cont["32%"],
+          z2 = as.vector(dens$estimate) / dens$cont["5%"],
+          z3 = as.vector(dens$estimate) / dens$cont["1%"]
+        )
+      })
+      return(DT)
+    }))
     DT <- merge(DT, DT.design, by = "Assay")
     DT[, SampleAssay := factor(paste0("(", Sample, ") ", Assay))]
 
@@ -163,6 +166,8 @@ setMethod("plot_pca", "seaMass", function(
   g <- g + ggplot2::ylab(paste0("PC2 (", format(round(pc2, 2), nsmall = 2), "%)"))
   g <- g + ggplot2::coord_cartesian(xlim = mid[1] + c(-span[1], span[1]), ylim = mid[2] + c(-span[2], span[2]))
   g <- g + ggplot2::theme(aspect.ratio = aspect.ratio)
+
+  if (!is.null(contours)) cat(paste0("[", Sys.time(), "]    ready to plot\n"))
 
   return(g)
 })

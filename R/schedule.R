@@ -41,7 +41,8 @@ setMethod("run", "schedule_local", function(object, sigma) {
   # run delta if they exist
   for (delta in open_seaMass_deltas(sigma, force = T)) run(delta)
 
-  cat(paste0("[", Sys.time(), "] complete!\n"))
+  # finish
+  finish(sigma)
 
   return(invisible(object))
 })
@@ -127,7 +128,7 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "submit.process0"))
   cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
   if (length(ctrl@plots) > 0) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(sigma@path, "submit.plots"))
-  cat(config(object, "", name, 1, T, "hpc_finalise"), file = file.path(sigma@path, "submit.finalise"))
+  cat(config(object, "", name, 1, T, "hpc_finish"), file = file.path(sigma@path, "submit.finish"))
 
   # submit script
   cat(paste0(
@@ -156,18 +157,18 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
     "  DELTA=$JOBID\n",
     "fi\n",
     "\n",
-    "JOBID=$(sbatch --parsable --dependency=afterok:$JOBID submit.finalise)\n",
+    "JOBID=$(sbatch --parsable --dependency=afterok:$JOBID submit.finish)\n",
     "EXITCODE=$?\n",
-    "FINALISE=$JOBID\n",
+    "finish=$JOBID\n",
     "\n",
     "# clean up\n",
     "if [[ $EXITCODE != 0 ]]; then\n",
-    "  scancel $PROCESS0 $PROCESS1 $PLOTS $DELTA $FINALISE \n",
+    "  scancel $PROCESS0 $PROCESS1 $PLOTS $DELTA $finish \n",
     "  echo Failed to submit jobs!\n",
     "else\n",
     "  echo Submitted jobs! To cancel execute $DIR/cancel.sh\n",
     "  echo '#!/bin/bash' > $DIR/cancel.sh\n",
-    "  echo scancel $PROCESS0 $PROCESS1 $PLOTS $DELTA $FINALISE >> $DIR/cancel.sh\n",
+    "  echo scancel $PROCESS0 $PROCESS1 $PLOTS $DELTA $finish >> $DIR/cancel.sh\n",
     "  chmod u+x $DIR/cancel.sh\n",
     "fi\n",
     "\n",
@@ -271,7 +272,7 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "submit.process0"))
   cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
   if (length(ctrl@plots) > 0) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(sigma@path, "submit.plots"))
-  cat(config(object, "", name, 1, T, "hpc_finalise"), file = file.path(sigma@path, "submit.finalise"))
+  cat(config(object, "", name, 1, T, "hpc_finish"), file = file.path(sigma@path, "submit.finish"))
 
   # submit script
   cat(paste0(
@@ -300,18 +301,18 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
     "  DELTA=$JOBID\n",
     "fi\n",
     "\n",
-    "JOBID=$(qsub -W depend=afterokarray:$JOBID submit.finalise)\n",
+    "JOBID=$(qsub -W depend=afterokarray:$JOBID submit.finish)\n",
     "EXITCODE=$?\n",
-    "FINALISE=$JOBID\n",
+    "finish=$JOBID\n",
     "\n",
     "# clean up\n",
     "if [[ $EXITCODE != 0 ]]; then\n",
-    "  qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $FINALISE \n",
+    "  qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $finish \n",
     "  echo Failed to submit jobs!\n",
     "else\n",
     "  echo Submitted jobs! To cancel execute $DIR/cancel.sh\n",
     "  echo '#!/bin/bash' > $DIR/cancel.sh\n",
-    "  echo qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $FINALISE >> $DIR/cancel.sh\n",
+    "  echo qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $finish >> $DIR/cancel.sh\n",
     "  chmod u+x $DIR/cancel.sh\n",
     "fi\n",
     "\n",
@@ -415,7 +416,7 @@ setMethod("prepare_sigma", "schedule_sge", function(object, sigma) {
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "submit.process0"))
   cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
   if (length(ctrl@plots) > 0) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(sigma@path, "submit.plots"))
-  cat(config(object, "", name, 1, T, "hpc_finalise"), file = file.path(sigma@path, "submit.finalise"))
+  cat(config(object, "", name, 1, T, "hpc_finish"), file = file.path(sigma@path, "submit.finish"))
 
   # submit script
   cat(paste0(
@@ -444,17 +445,17 @@ setMethod("prepare_sigma", "schedule_sge", function(object, sigma) {
     "  JOBNAME=submit.delta\n",
     "fi\n",
     "\n",
-    "FINALISE=$(qsub -hold_jid_ad $JOBNAME submit.finalise)\n",
+    "finish=$(qsub -hold_jid_ad $JOBNAME submit.finish)\n",
     "EXITCODE=$?\n",
     "\n",
     "# clean up\n",
     "if [[ $EXITCODE != 0 ]]; then\n",
-    "  qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $FINALISE \n",
+    "  qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $finish \n",
     "  echo Failed to submit jobs!\n",
     "else\n",
     "  echo Submitted jobs! To cancel execute $DIR/cancel.sh\n",
     "  echo '#!/bin/bash' > $DIR/cancel.sh\n",
-    "  echo qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $FINALISE >> $DIR/cancel.sh\n",
+    "  echo qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $finish >> $DIR/cancel.sh\n",
     "  chmod u+x $DIR/cancel.sh\n",
     "fi\n",
     "\n",
@@ -490,7 +491,7 @@ hpc_process0 <- function(task) {
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running process0 for name=", name(sigma), "...\n"))
   process0(fits(sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
-  cat(paste0("[", Sys.time(), "] complete!\n"))
+  cat(paste0("[", Sys.time(), "] finished!\n"))
   print(warnings(file = stderr()))
 
   return(invisible(0))
@@ -503,7 +504,7 @@ hpc_process1 <- function(task) {
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running process1 for name=", name(sigma), "...\n"))
   process1(fits(sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
-  cat(paste0("[", Sys.time(), "] complete!\n"))
+  cat(paste0("[", Sys.time(), "] finished!\n"))
   print(warnings(file = stderr()))
 
   return(invisible(0))
@@ -516,7 +517,7 @@ hpc_plots <- function(task) {
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running plots for name=", name(sigma), "...\n"))
   plots(fits(sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
-  cat(paste0("[", Sys.time(), "] complete!\n"))
+  cat(paste0("[", Sys.time(), "] finished!\n"))
   print(warnings(file = stderr()))
 
   return(invisible(0))
@@ -528,19 +529,19 @@ hpc_delta <- function(task) {
   cat(paste0("[", Sys.time(), "] seaMass-delta v", control(delta)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running name=", name(delta), "...\n"))
   run(delta)
-  cat(paste0("[", Sys.time(), "] complete!\n"))
+  cat(paste0("[", Sys.time(), "] finished!\n"))
   print(warnings(file = stderr()))
 
   return(invisible(0))
 }
 
 
-hpc_finalise <- function(task) {
+hpc_finish <- function(task) {
   sigma <- open_seaMass_sigma(".", force = T)
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(sigma)@version, "\n"))
-  cat(paste0("[", Sys.time(), "]  finalising..."))
-  # currently doesn't do anything except allow the cluster manager to send a single email, which is ridiculous!
-  cat(paste0("[", Sys.time(), "] complete!\n"))
+  cat(paste0("[", Sys.time(), "]  finishing..."))
+  finish(sigma)
+  cat(paste0("[", Sys.time(), "] finished!\n"))
   print(warnings(file = stderr()))
 
   return(invisible(0))

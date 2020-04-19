@@ -105,3 +105,4 @@ setMethod("read_mcmc", "seaMass", function(object, effect.name, columnID, batchI
 
   return(DT)
 })
+

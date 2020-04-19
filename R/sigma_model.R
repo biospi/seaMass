@@ -10,17 +10,13 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
   DT.groups <- fst::read.fst(file.path(object@path, "meta", "groups.fst"), as.data.table = T)
   DT.index <- fst::read.fst(file.path(object@path, input, "data.index.fst"), as.data.table = T)
   nitt <- ctrl@model.nwarmup + (ctrl@model.nsample * ctrl@model.thin) / ctrl@model.nchain
-  if (file.exists(file.path(object@path, input, "priors.fst"))) {
-    DT.priors <- fst::read.fst(file.path(object@path, input, "priors.fst"), as.data.table = T)
-  } else {
-    DT.priors <- NULL
-  }
+  DT.priors <- priors(object, input = input, as.data.table = T)
 
   # create subdirs
-  dir.create(file.path(object@path, input, "unnormalised.group.quants"), showWarnings = F)
+  if (input != "model0") dir.create(file.path(object@path, input, "unnormalised.group.quants"), showWarnings = F)
   dir.create(file.path(object@path, input, "measurement.variances"), showWarnings = F)
   dir.create(file.path(object@path, input, "component.variances"), showWarnings = F)
-  dir.create(file.path(object@path, input, "component.deviations"), showWarnings = F)
+  if (input != "model0") dir.create(file.path(object@path, input, "component.deviations"), showWarnings = F)
   dir.create(file.path(object@path, input, "assay.deviations"), showWarnings = F)
   dir.create(file.path(object@path, input, "summaries"), showWarnings = F)
   dir.create(file.path(object@path, input, "timings"), showWarnings = F)

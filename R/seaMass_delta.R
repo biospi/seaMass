@@ -171,7 +171,7 @@ setMethod("run", "seaMass_delta", function(object) {
   }
 
   # plot PCA and assay exposures
-  cat(paste0("[", Sys.time(), "]   plotting PCA and assay exposures...\n"))
+  cat(paste0("[", Sys.time(), "]   plotting PCA...\n"))
   # if (ctrl@component.deviations == T && component.model == "independent") {
   #   DT <- component_deviations(object, as.data.table = T)
   #   DT[, Group := interaction(Group, Component, sep = " : ", lex.order = T, drop = T)]
@@ -241,8 +241,6 @@ setMethod("run", "seaMass_delta", function(object) {
 
   # set complete
   write.table(data.frame(), file.path(path(object), "complete"), col.names = F)
-
-  cat(paste0("[", Sys.time(), "] complete!\n"))
 
   return(object@name)
 })

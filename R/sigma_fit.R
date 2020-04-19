@@ -92,6 +92,26 @@ setMethod("groups", "sigma_fit", function(object, as.data.table = FALSE) {
 })
 
 
+#' @describeIn sigma_fit Get the priors if computed.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("priors", "sigma_fit", function(object, input = "model1", as.data.table = FALSE) {
+  if (file.exists(file.path(object@path, input, "priors.fst"))) {
+    DT <- fst::read.fst(file.path(object@path, input, "priors.fst"), as.data.table = T)
+    DT <- merge(DT, fst::read.fst(file.path(object@path, "meta", "design.fst"), as.data.table = T)[, .(AssayID, Assay)], by = "AssayID", all.x = T)
+    DT[, AssayID := NULL]
+    setcolorder(DT, c("Effect", "Assay", "v0", "df0", "rhat"))
+
+    if (!as.data.table) setDF(DT)
+    else DT[]
+    return(DT)
+  } else {
+    return(NULL)
+  }
+})
+
+
 #' @describeIn sigma_fit Print the model summary for a group.
 #' @import data.table
 #' @export

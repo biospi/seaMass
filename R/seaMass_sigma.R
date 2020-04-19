@@ -44,7 +44,7 @@ seaMass_sigma <- function(
 
   path <- file.path(getwd(), paste0(name, ".seaMass"))
   if (file.exists(path)) unlink(path, recursive = T)
-  dir.create(path, recursive = T)
+  dir.create(file.path(path, "output"), recursive = T)
   path <- normalizePath(path)
   saveRDS(control, file.path(path, "sigma.control.rds"))
 
@@ -270,6 +270,20 @@ open_seaMass_sigma <- function(
     }
   }
 }
+
+
+#' @import data.table
+#' @include generics.R
+setMethod("finish", "seaMass_sigma", function(object) {
+  # write out assay variances from priors
+  sigma_fits <- fits(object)
+  DT.priors <- rbindlist(lapply(1:length(sigma_fits), function(i) {
+    priors(sigma_fits[[i]], as.data.table = T)[!is.na(Assay), .(Block = names(sigma_fits)[i], Assay, rhat, v, df)]
+  }))
+  fwrite(DT.priors, file.path(object@path, "output", "log2_assay_variances.csv"))
+
+  return(invisible(NULL))
+})
 
 
 #' @describeIn seaMass_sigma-class Is completed?

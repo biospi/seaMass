@@ -19,6 +19,8 @@ setMethod("process0", "sigma_fit", function(object, chain) {
     cat(paste0("[", Sys.time(), "]    measurement prior...\n"))
     set.seed(ctrl@random.seed)
     DT.priors <- data.table(Effect = "Measurements", measurement_variances(object, input = "model0", summary = T, as.data.table = T)[, squeeze_var(v, df)])
+    # delete measurement variances if not in 'keep'
+    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@path, "model0", "measurement.variances*"), recursive = T)
 
     # Component EB prior
     if(!is.null(ctrl@component.model)) {
@@ -26,6 +28,8 @@ setMethod("process0", "sigma_fit", function(object, chain) {
       set.seed(ctrl@random.seed)
       DT.priors <- rbind(DT.priors, data.table(Effect = "Components", component_variances(object, input = "model0", summary = T, as.data.table = T)[, squeeze_var(v, df)]))
     }
+    # delete component variances if not in 'keep'
+    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@path, "model0", "component.variances*"), recursive = T)
 
     # Assay EB priors
     if(ctrl@assay.model != "") {
@@ -41,7 +45,6 @@ setMethod("process0", "sigma_fit", function(object, chain) {
       }))
       items <- split(items, by = c("Assay", "chainID"))
 
-      cat(paste0("[", Sys.time(), "]     modelling assay quality...\n"))
       DT.assay.prior <- rbindlist(parallel_lapply(items, function(item, ctrl) {
         item <- droplevels(item)
 
@@ -72,6 +75,8 @@ setMethod("process0", "sigma_fit", function(object, chain) {
       DT.assay.prior[, Assay := NULL]
       DT.priors <- rbind(DT.priors, DT.assay.prior, use.names = T, fill = T)
     }
+    # delete assay deviations if not in 'keep'
+    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@path, "model0", "assay.deviations*"), recursive = T)
 
     # SAVE PRIORS
     fst::write.fst(DT.priors, file.path(object@path, "model1", "priors.fst"))
