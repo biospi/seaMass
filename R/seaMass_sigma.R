@@ -254,7 +254,7 @@ open_seaMass_sigma <- function(
   quiet = FALSE,
   force = FALSE
 ) {
-  if (!grepl("\\.seaMass$", path)) path <- paste0(path, ".seaMass")
+  if (!dir.exists(path)) path <- paste0(path, ".seaMass")
 
   blocks <- list.dirs(path, full.names = F, recursive = F)
   blocks <- blocks[grep("^sigma\\.", blocks)]
