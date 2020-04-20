@@ -79,7 +79,7 @@ open_seaMass_delta(sigma, name = "fit", quiet = FALSE, force = FALSE)
   object,
   groups = NULL,
   summary = FALSE,
-  input = "de",
+  input = "group.de",
   chains = 1:control(object)@model.nchain,
   as.data.table = FALSE
 )
@@ -88,16 +88,16 @@ open_seaMass_delta(sigma, name = "fit", quiet = FALSE, force = FALSE)
   object,
   components = NULL,
   summary = FALSE,
-  input = "de.component.deviations",
+  input = "component.deviations.de",
   chains = 1:control(object)@model.nchain,
   as.data.table = FALSE
 )
 
-\S4method{group_fdr}{seaMass_delta}(object, input = "fdr", as.data.table = FALSE)
+\S4method{group_fdr}{seaMass_delta}(object, input = "group.fdr", as.data.table = FALSE)
 
 \S4method{component_deviations_fdr}{seaMass_delta}(
   object,
-  input = "fdr.component.deviations",
+  input = "component.deviations.fdr",
   as.data.table = FALSE
 )
 }

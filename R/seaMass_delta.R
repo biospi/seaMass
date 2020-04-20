@@ -189,7 +189,7 @@ setMethod("run", "seaMass_delta", function(object) {
   if (ctrl@dea.model != "" && !all(is.na(DT.design$Condition))) {
     # group quants
     do.call(paste("dea", ctrl@dea.model, sep = "_"), ellipsis)
-    if (file.exists(file.path(path(object), "de.index.fst"))) {
+    if (file.exists(file.path(path(object), "group.de.index.fst"))) {
       if (ctrl@fdr.model != "") {
         do.call(paste("fdr", ctrl@fdr.model, sep = "_"), ellipsis)
         DTs.fdr <- split(group_fdr(object, as.data.table = T), drop = T, by = "Batch")
@@ -201,7 +201,7 @@ setMethod("run", "seaMass_delta", function(object) {
           setorder(DT.fdr, qvalue, na.last = T)
           fwrite(DT.fdr, file.path(path(object), "output", paste("log2_group_de", gsub("\\s", "_", name), "csv", sep = ".")))
           # plot fdr
-          g <- plot_fdr(DT.fdr, 1.0)
+          g <- plot_fdr(DT.fdr)
           ggplot2::ggsave(file.path(path(object), "output", paste("log2_group_de", gsub("\\s", "_", name), "pdf", sep = ".")), g, width = 8, height = 8)
         }
       } else {
@@ -212,13 +212,13 @@ setMethod("run", "seaMass_delta", function(object) {
     # component deviations
     if (ctrl@component.deviations == T && component.model == "independent") {
       ellipsis$input <- "standardised.component.deviations"
-      ellipsis$output <- "de.component.deviations"
+      ellipsis$output <- "component.deviations.de"
       ellipsis$type <- "component.deviations"
       do.call(paste("dea", ctrl@dea.model, sep = "_"), ellipsis)
-      if (file.exists(file.path(path(object), "de.component.deviations.index.fst"))) {
+      if (file.exists(file.path(path(object), "component.deviations.de.index.fst"))) {
         if (ctrl@fdr.model != "") {
-          ellipsis$input <- "de.component.deviations"
-          ellipsis$output <- "fdr.component.deviations"
+          ellipsis$input <- "component.deviations.de"
+          ellipsis$output <- "component.deviations.fdr"
           do.call(paste("fdr", ctrl@fdr.model, sep = "_"), ellipsis)
           DTs.fdr <- split(component_deviations_fdr(object, as.data.table = T), drop = T, by = "Batch")
           for (name in names(DTs.fdr)) {
@@ -374,7 +374,7 @@ setMethod("group_variances", "seaMass_delta", function(object, groups = NULL, su
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("group_de", "seaMass_delta", function(object, groups = NULL, summary = FALSE, input = "de", chains = 1:control(object)@model.nchain, as.data.table = FALSE
+setMethod("group_de", "seaMass_delta", function(object, groups = NULL, summary = FALSE, input = "group.de", chains = 1:control(object)@model.nchain, as.data.table = FALSE
 ) {
   if(is.null(summary) || summary == F) summary <- NULL
   if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
@@ -391,7 +391,7 @@ setMethod("group_de", "seaMass_delta", function(object, groups = NULL, summary =
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_deviations_de", "seaMass_delta", function(object, components = NULL, summary = FALSE, input = "de.component.deviations", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("component_deviations_de", "seaMass_delta", function(object, components = NULL, summary = FALSE, input = "component.deviations.de", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   if(is.null(summary) || summary == F) summary <- NULL
   if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
 
@@ -407,7 +407,7 @@ setMethod("component_deviations_de", "seaMass_delta", function(object, component
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("group_fdr", "seaMass_delta", function(object, input = "fdr", as.data.table = FALSE) {
+setMethod("group_fdr", "seaMass_delta", function(object, input = "group.fdr", as.data.table = FALSE) {
   if (file.exists(file.path(path(object), paste(input, "fst", sep = ".")))) {
     return(fst::read.fst(file.path(path(object), paste(input, "fst", sep = ".")), as.data.table = as.data.table))
   } else {
@@ -420,7 +420,7 @@ setMethod("group_fdr", "seaMass_delta", function(object, input = "fdr", as.data.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_deviations_fdr", "seaMass_delta", function(object, input = "fdr.component.deviations", as.data.table = FALSE) {
+setMethod("component_deviations_fdr", "seaMass_delta", function(object, input = "component.deviations.fdr", as.data.table = FALSE) {
   if (file.exists(file.path(path(object), paste(input, "fst", sep = ".")))) {
     return(fst::read.fst(file.path(path(object), paste(input, "fst", sep = ".")), as.data.table = as.data.table))
   } else {
