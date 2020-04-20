@@ -6,7 +6,7 @@ setGeneric("process0", function(object, ...) standardGeneric("process0"))
 setMethod("process0", "sigma_fit", function(object, chain) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))
-      stop(paste0("version mismatch - '", name(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
+      stop(paste0("version mismatch - '", path(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
 
   # EXECUTE MODEL
   model(object, "model0", chain)

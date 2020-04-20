@@ -374,5 +374,7 @@ setMethod("assay_design", "seaMass_sigma", function(object, as.data.table = FALS
 #' @export
 #' @include generics.R
 setMethod("open_seaMass_deltas", "seaMass_sigma", function(object, quiet = FALSE, force = FALSE) {
-  return(lapply(sub("^delta\\.", "", list.files(path(object), "^delta\\.*")), function(name) open_seaMass_delta(object, name, quiet, force)))
+  deltas <- lapply(sub("^delta\\.", "", list.files(path(object), "^delta\\.*")), function(name) open_seaMass_delta(object, name, quiet, force))
+  names(deltas) <- lapply(deltas, function(delta) name(delta))
+  return(deltas)
 })

@@ -6,7 +6,7 @@ setGeneric("plots", function(object, ...) standardGeneric("plots"))
 setMethod("plots", "sigma_fit", function(object, chain) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))
-    stop(paste0("version mismatch - '", name(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
+    stop(paste0("version mismatch - '", path(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
 
   # ctrl <- ctrl(object)
   # cat(paste0("[", Sys.time(), "] PLOTS set=", i, "/", ctrl@assay.nblock * ctrl@model.nchain, "\n"))
