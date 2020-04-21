@@ -141,6 +141,7 @@ setMethod("run", "seaMass_delta", function(object) {
 
   # normalise quants by norm.groups
   if (ctrl@norm.model != "") do.call(paste("norm", ctrl@norm.model, sep = "_"), ellipsis)
+  if (!("standardised.group.quants" %in% ctrl@keep)) unlink(file.path(path(object), "standardised.group.quants*"), recursive = T)
 
   # group quants
   cat(paste0("[", Sys.time(), "]   getting summaries...\n"))
@@ -189,9 +190,16 @@ setMethod("run", "seaMass_delta", function(object) {
   if (ctrl@dea.model != "" && !all(is.na(DT.design$Condition))) {
     # group quants
     do.call(paste("dea", ctrl@dea.model, sep = "_"), ellipsis)
+    if (!("normalised.group.quants" %in% ctrl@keep)) unlink(file.path(path(object), "normalised.group.quants*"), recursive = T)
+    if (!("normalised.group.variances" %in% ctrl@keep)) {
+      if(file.exists(file.path(path(object), "normalised.group.variances"))) unlink(file.path(path(object), "normalised.group.variances*"), recursive = T)
+    }
+
     if (file.exists(file.path(path(object), "group.de.index.fst"))) {
       if (ctrl@fdr.model != "") {
         do.call(paste("fdr", ctrl@fdr.model, sep = "_"), ellipsis)
+        if (!("group.de" %in% ctrl@keep)) unlink(file.path(path(object), "group.de*"), recursive = T)
+
         DTs.fdr <- split(group_fdr(object, as.data.table = T), drop = T, by = "Batch")
         for (name in names(DTs.fdr)) {
           # save pretty version
@@ -204,10 +212,13 @@ setMethod("run", "seaMass_delta", function(object) {
           g <- plot_fdr(DT.fdr)
           ggplot2::ggsave(file.path(path(object), "output", paste("log2_group_de", gsub("\\s", "_", name), "pdf", sep = ".")), g, width = 8, height = 8)
         }
+        if (!("group.fdr" %in% ctrl@keep)) unlink(file.path(path(object), "group.fdr*"), recursive = T)
+
       } else {
         group_de(object, summary = T, as.data.table = T)
       }
     }
+
 
     # component deviations
     if (ctrl@component.deviations == T && component.model == "independent") {
@@ -215,11 +226,15 @@ setMethod("run", "seaMass_delta", function(object) {
       ellipsis$output <- "component.deviations.de"
       ellipsis$type <- "component.deviations"
       do.call(paste("dea", ctrl@dea.model, sep = "_"), ellipsis)
+      if (!("standardised.component.deviations" %in% ctrl@keep)) unlink(file.path(path(object), "standardised.component.deviations*"), recursive = T)
+
       if (file.exists(file.path(path(object), "component.deviations.de.index.fst"))) {
         if (ctrl@fdr.model != "") {
           ellipsis$input <- "component.deviations.de"
           ellipsis$output <- "component.deviations.fdr"
           do.call(paste("fdr", ctrl@fdr.model, sep = "_"), ellipsis)
+          if (!("component.deviations.de" %in% ctrl@keep)) unlink(file.path(path(object), "component.deviations.de*"), recursive = T)
+
           DTs.fdr <- split(component_deviations_fdr(object, as.data.table = T), drop = T, by = "Batch")
           for (name in names(DTs.fdr)) {
             # save pretty version
@@ -232,6 +247,8 @@ setMethod("run", "seaMass_delta", function(object) {
             g <- plot_fdr(DT.fdr, 1.0)
             ggplot2::ggsave(file.path(path(object), "output", paste("log2_component_deviations_de", gsub("\\s", "_", name), "pdf", sep = ".")), g, width = 8, height = 8)
           }
+          if (!("component.deviations.fdr" %in% ctrl@keep)) unlink(file.path(path(object), "component.deviations.fdr*"), recursive = T)
+
         } else {
           component_deviations_de(object, summary = T, as.data.table = T)
         }

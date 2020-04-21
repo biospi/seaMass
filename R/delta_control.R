@@ -4,6 +4,7 @@
 #'
 setClass("delta_control", slots = c(
   component.deviations = "logical",
+  keep = "character",
   norm.model = "character",
   norm.nwarmup = "integer",
   norm.thin = "integer",
@@ -34,6 +35,7 @@ setClass("delta_control", slots = c(
 #' @export delta_control
 delta_control <- function(
   component.deviations = FALSE,
+  keep = c("standardised.group.quants", "standardised.component.deviations", "normalised.group.quants", "normalised.group.variances", "group.de", "component.deviations.de", "group.fdr", "component.deviations.fdr"),
   norm.model = "theta",
   norm.nwarmup = 256,
   norm.thin = 1,
@@ -46,6 +48,7 @@ delta_control <- function(
   params <- list("delta_control")
 
   params$component.deviations <- as.logical(component.deviations)
+  if (!is.null(keep)) params$keep <- as.character(keep)
   if (!is.null(norm.model)) params$norm.model <- norm.model else params$norm.model <- ""
   params$norm.nwarmup <- as.integer(norm.nwarmup)
   params$norm.thin <- as.integer(norm.thin)
@@ -61,6 +64,8 @@ delta_control <- function(
 
 
 setValidity("delta_control", function(object) {
+  if (length(object@component.deviations) != 1) return("'component.deviations' is not valid!")
+  if (!(all(object@keep %in% c("standardised.group.quants", "standardised.component.deviations", "normalised.group.quants", "normalised.group.variances", "group.de", "component.deviations.de", "group.fdr", "component.deviations.fdr")))) return("'keep' is not valid!")
   if (length(object@norm.model) != 1 || !(object@norm.model %in% c("", "median", "quantile", "theta"))) return("'norm.model' is not valid!")
   if (length(object@norm.nwarmup) != 1 || object@norm.nwarmup < 0) return("'norm.nwarmup' must be non-negative!")
   if (length(object@norm.thin) != 1 || object@norm.thin <= 0) return("'norm.thin' must be positive!")

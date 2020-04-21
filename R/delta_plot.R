@@ -61,7 +61,8 @@ plot_fdr <- function(data.fdr, ymax = NULL) {
   DT[1, qvalue := 0]
   DT[, Discoveries := 0:(.N-1)]
 
-  if (is.null(ymax)) ymax <- max(DT[, qvalue])
+  pi <- ymax <- max(DT[, qvalue])
+  if (is.null(ymax)) ymax <- pi
   xmax <- max(DT[qvalue <= ymax, Discoveries])
   ylabels <- function() function(x) format(x, digits = 2)
 
@@ -71,7 +72,7 @@ plot_fdr <- function(data.fdr, ymax = NULL) {
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype = "dotted")
   g <- g + ggplot2::geom_step(direction = "vh")
   g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
-  g <- g + ggplot2::scale_y_reverse(breaks = c(0.0, 0.01, 0.05, 0.1, 0.2, 0.5), labels = ylabels(), expand = c(0.001, 0.001))
+  g <- g + ggplot2::scale_y_reverse(breaks = sort(c(pi, 0.0, 0.01, 0.05, 0.1, 0.2, 0.5, 1.0)), labels = ylabels(), expand = c(0.001, 0.001))
   g <- g + ggplot2::coord_cartesian(xlim = c(0, xmax), ylim = c(ymax, 0))
   g <- g + ggplot2::xlab("Number of Discoveries")
   g <- g + ggplot2::ylab("False Discovery Rate")
@@ -128,7 +129,7 @@ plot_pr <- function(
   if (plot.fdr) g <- g + ggplot2::geom_line(ggplot2::aes(y = qvalue), lty = "dashed")
   g <- g + ggplot2::geom_step(direction = "vh")
   g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
-  g <- g + ggplot2::scale_y_reverse(breaks = c(0.0, 0.01, 0.05, 0.1, 0.2, 0.5), labels = ylabels(), expand = c(0.001, 0.001))
+  g <- g + ggplot2::scale_y_reverse(breaks = sort(c(pi, 0.0, 0.01, 0.05, 0.1, 0.2, 0.5, 1.0)), labels = ylabels(), expand = c(0.001, 0.001))
   g <- g + ggplot2::coord_cartesian(xlim = c(0, max(DTs.pr$TrueDiscoveries)), ylim = c(ymax, 0))
   g <- g + ggplot2::xlab(paste0("True Discoveries [ Sensitivity x ", max(DTs.pr$TrueDiscoveries), " ] from ", max(DTs.pr$Discoveries), " total groups"))
   g <- g + ggplot2::ylab("Solid Line: False Discovery Proportion [ 1 - Precision ], Dashed Line: FDR")

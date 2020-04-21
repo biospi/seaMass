@@ -145,7 +145,10 @@ setMethod("process1", "sigma_fit", function(object, chain) {
 
     # delete group quants if not in 'keep'
     if (!("unnormalised.group.quants" %in% ctrl@keep)) unlink(file.path(object@path, "model1", "group.quants*"), recursive = T)
-    if (!("normalised.group.quants" %in% ctrl@keep)) unlink(file.path(object@path, "normalised.group.quants"), recursive = T)
+    if (!("normalised.group.quants" %in% ctrl@keep)) unlink(file.path(object@path, "normalised.group.quants*"), recursive = T)
+    if (!("normalised.group.variances" %in% ctrl@keep)) {
+      if(file.exists(file.path(object@path, "normalised.group.variances"))) unlink(file.path(object@path, "normalised.group.variances*"), recursive = T)
+    }
 
     # set complete
     write.table(data.frame(), file.path(object@path, "complete"), col.names = F)

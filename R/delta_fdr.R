@@ -33,7 +33,6 @@ setMethod("fdr_ash", "seaMass_delta", function(
   options(warn = 1)
 
   cat(paste0("[", Sys.time(), "]   ash false discovery rate correction...\n"))
-  dir.create(file.path(path(object), output), showWarnings = F)
 
   if (type == "group.quants") {
     DT <- group_de(object, input = input, summary = "lst_mcmc_ash", as.data.table = T)
