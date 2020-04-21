@@ -53,6 +53,7 @@ setMethod("run", "schedule_local", function(object, sigma) {
 #'
 #' @export schedule_slurm
 setClass("schedule_slurm", contains = "schedule", slots = c(
+  submit.prefix = "character",
   partition = "character",
   cpus_per_task = "integer",
   mem = "character",
@@ -69,6 +70,7 @@ setClass("schedule_slurm", contains = "schedule", slots = c(
 #' @param mail_user .
 #' @export schedule_slurm
 schedule_slurm <- function(
+  submit.prefix = "",
   partition = NULL,
   cpus_per_task = NULL,
   mem = NULL,
@@ -77,6 +79,7 @@ schedule_slurm <- function(
 ) {
   params <- list("schedule_slurm")
 
+  params$submit.prefix <- as.character(submit.prefix)
   if (is.null(partition)) params$partition <- NA_character_ else params$partition <- as.character(partition)
   if (is.null(cpus_per_task)) params$cpus_per_task <- NA_integer_ else params$cpus_per_task <- as.integer(cpus_per_task)
   if (is.null(time)) params$time <- NA_character_ else params$time <- as.character(time)
@@ -88,6 +91,7 @@ schedule_slurm <- function(
 
 
 setValidity("schedule_slurm", function(object) {
+  if (length(object@submit.prefix) != 1) return("'submit.prefix' must be a string!")
   if (!(length(object@cpus_per_task) == 1 &&  (is.na(object@cpus_per_task) || object@cpus_per_task > 0))) return("'cpus_per_task' must be a positive scalar!")
   if (length(object@partition) != 1) return("'partition' must be a string!")
   if (length(object@time) != 1) return("'time' must be a string!")
@@ -191,7 +195,7 @@ setMethod("prepare_delta", "schedule_slurm", function(object, delta) {
 #' @include generics.R
 setMethod("run", "schedule_slurm", function(object, sigma) {
   cat(paste0("[", Sys.time(), "]  submitting to SLURM...\n"))
-  system(file.path(sigma@path, "submit.sh"))
+  system(paste0(object@submit.prefix, file.path(basename(path(sigma)), "submit.sh")))
   return(invisible(object))
 })
 
@@ -201,10 +205,12 @@ setMethod("run", "schedule_slurm", function(object, sigma) {
 #'
 #' @export schedule_pbs
 setClass("schedule_pbs", contains = "schedule", slots = c(
+  submit.prefix = "character",
   q = "character",
   ppn = "integer",
   mem = "character",
   walltime = "character",
+  l = "character",
   M = "character"
 ))
 
@@ -217,18 +223,22 @@ setClass("schedule_pbs", contains = "schedule", slots = c(
 #' @param M .
 #' @export schedule_pbs
 schedule_pbs <- function(
+  submit.prefix = "",
   q = NULL,
   ppn = NULL,
   mem = NULL,
   walltime = NULL,
+  l = NULL,
   M = NULL
 ) {
   params <- list("schedule_pbs")
 
+  params$submit.prefix <- as.character(submit.prefix)
   if (is.null(q)) params$q <- NA_character_ else params$q <- as.character(q)
   if (is.null(ppn)) params$ppn <- NA_integer_ else params$ppn <- as.integer(ppn)
   if (is.null(walltime)) params$walltime <- NA_character_ else params$walltime <- as.character(walltime)
   if (is.null(mem)) params$mem <- NA_character_ else params$mem <- as.character(mem)
+  params$l <- as.character(l)
   if (is.null(M)) params$M <- NA_character_ else params$M <- as.character(M)
 
   return(do.call(new, params))
@@ -236,6 +246,7 @@ schedule_pbs <- function(
 
 
 setValidity("schedule_pbs", function(object) {
+  if (length(object@submit.prefix) != 1) return("'submit.prefix' must be a string!")
   if (length(object@q) != 1) return("'q' must be a string!")
   if (!(length(object@ppn) == 1 &&  (is.na(object@ppn) || object@ppn > 0))) return("'ppn' must be a positive scalar!")
   if (length(object@mem) != 1) return("'mem' must be a string!")
@@ -255,6 +266,7 @@ setMethod("config", "schedule_pbs", function(object, prefix, name, n, notify, fu
     ifelse(is.na(object@ppn), "", paste0("#PBS -l nodes=1:ppn=", object@ppn, "\n")),
     ifelse(is.na(object@mem), "", paste0("#PBS -l mem=", object@mem, "\n")),
     ifelse(is.na(object@walltime), "", paste0("#PBS -l walltime=", object@walltime, "\n")),
+    ifelse(length(object@l) == 0, "", paste0(paste0("#PBS -l ", object@l, "\n"), collapse = "")),
     ifelse(is.na(object@M), "", paste0("#PBS -M ", object@M, "\n")),
     ifelse(notify, "#PBS -m ae\n", "#PBS -m a\n"),
     "cd $PBS_O_WORKDIR\n",
@@ -335,7 +347,7 @@ setMethod("prepare_delta", "schedule_pbs", function(object, delta) {
 #' @include generics.R
 setMethod("run", "schedule_pbs", function(object, sigma) {
   cat(paste0("[", Sys.time(), "]  submitting to PBS...\n"))
-  system(file.path(sigma@path, "submit.sh"))
+  system(paste0(object@submit.prefix, file.path(basename(path(sigma)), "submit.sh")))
   return(invisible(object))
 })
 
@@ -345,10 +357,12 @@ setMethod("run", "schedule_pbs", function(object, sigma) {
 #'
 #' @export schedule_pbs
 setClass("schedule_sge", contains = "schedule", slots = c(
+  submit.prefix = "character",
   q = "character",
   pe = "character",
   mem = "character",
   walltime = "character",
+  l = "character",
   M = "character"
 ))
 
@@ -361,18 +375,22 @@ setClass("schedule_sge", contains = "schedule", slots = c(
 #' @param M .
 #' @export schedule_sge
 schedule_sge <- function(
+  submit.prefix = "",
   q = NULL,
   pe = NULL,
   mem = NULL,
   walltime = NULL,
+  l = NULL,
   M = NULL
 ) {
   params <- list("schedule_sge")
 
+  params$submit.prefix <- as.character(submit.prefix)
   if (is.null(q)) params$q <- NA_character_ else params$q <- as.character(q)
   if (is.null(pe)) params$pe <- NA_character_ else params$pe <- as.character(pe)
-  if (is.null(walltime)) params$walltime <- NA_character_ else params$walltime <- as.character(walltime)
   if (is.null(mem)) params$mem <- NA_character_ else params$mem <- as.character(mem)
+  if (is.null(walltime)) params$walltime <- NA_character_ else params$walltime <- as.character(walltime)
+  params$l <- as.character(l)
   if (is.null(M)) params$M <- NA_character_ else params$M <- as.character(M)
 
   return(do.call(new, params))
@@ -380,6 +398,7 @@ schedule_sge <- function(
 
 
 setValidity("schedule_sge", function(object) {
+  if (length(object@submit.prefix) != 1) return("'submit.prefix' must be a string!")
   if (length(object@q) != 1) return("'q' must be a string!")
   if (length(object@pe) != 1) return("'pe' must be a string!")
   if (length(object@mem) != 1) return("'mem' must be a string!")
@@ -398,6 +417,7 @@ setMethod("config", "schedule_sge", function(object, prefix, name, n, notify, fu
     ifelse(is.na(object@pe), "", paste0("#$ -pe ", object@pe, "\n")),
     ifelse(is.na(object@mem), "", paste0("#$ -l mem=", object@mem, "\n")),
     ifelse(is.na(object@walltime), "", paste0("#$ -l walltime=", object@walltime, "\n")),
+    ifelse(length(object@l) == 0, "", paste0(paste0("#$ -l ", object@l, "\n"), collapse = "")),
     ifelse(is.na(object@M), "", paste0("#$ -M ", object@M, "\n")),
     ifelse(notify, "#$ -m ae\n", "#$ -m a\n"),
     "#$ -cwd\n",
@@ -478,8 +498,7 @@ setMethod("prepare_delta", "schedule_sge", function(object, delta) {
 #' @include generics.R
 setMethod("run", "schedule_sge", function(object, sigma) {
   cat(paste0("[", Sys.time(), "]  submitting to SGE...\n"))
-  system(file.path(sigma@path, "submit.sh"))
-
+  system(paste0(object@submit.prefix, file.path(basename(path(sigma)), "submit.sh")))
   return(invisible(object))
 })
 

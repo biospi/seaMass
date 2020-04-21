@@ -6,7 +6,15 @@
 \alias{schedule_sge}
 \title{Schedule seaMass to run on SGE}
 \usage{
-schedule_sge(q = NULL, pe = NULL, mem = NULL, walltime = NULL, M = NULL)
+schedule_sge(
+  submit.prefix = "",
+  q = NULL,
+  pe = NULL,
+  mem = NULL,
+  walltime = NULL,
+  l = NULL,
+  M = NULL
+)
 }
 \arguments{
 \item{q}{.}

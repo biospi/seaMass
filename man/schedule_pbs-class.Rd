@@ -6,7 +6,15 @@
 \alias{schedule_pbs}
 \title{Schedule seaMass to run on PBS}
 \usage{
-schedule_pbs(q = NULL, ppn = NULL, mem = NULL, walltime = NULL, M = NULL)
+schedule_pbs(
+  submit.prefix = "",
+  q = NULL,
+  ppn = NULL,
+  mem = NULL,
+  walltime = NULL,
+  l = NULL,
+  M = NULL
+)
 }
 \arguments{
 \item{q}{.}

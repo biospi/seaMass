@@ -7,6 +7,7 @@
 \title{Schedule seaMass to run on SLURM}
 \usage{
 schedule_slurm(
+  submit.prefix = "",
   partition = NULL,
   cpus_per_task = NULL,
   mem = NULL,
