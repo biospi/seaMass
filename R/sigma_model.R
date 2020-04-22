@@ -43,7 +43,6 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
       DT[, RawCount := NULL]
 
       # prepare DT for MCMCglmm
-      DT[, GroupID := factor(GroupID)]
       DT[, ComponentID := factor(ComponentID)]
       DT[, MeasurementID := factor(MeasurementID)]
       DT[, AssayID := factor(AssayID)]
