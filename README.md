@@ -75,14 +75,14 @@ data.design$Assay <- factor(c(
 ))
 ```
 
-Next, run the seaMass-Σ model. Specifying TRUE for summaries will generate csv reports in the directory specified by the *seaMass-sigma* *name* parameter, and any internal control parameters (such as the number of CPU threads to use) can be specified through a *sigma_control* object. 
+Next, run the seaMass-Σ model. Specifying TRUE for summaries will generate csv reports in the directory specified by the *seaMass-sigma* *path* parameter, and any internal control parameters (such as the number of CPU threads to use) can be specified through a *sigma_control* object. 
 
 ```
 # run seaMass-Σ
 sigma <- seaMass_sigma(
   data,
   data.design,
-  name = "Tutorial",
+  path = "Tutorial",
   control = sigma_control(nthread = 4)
 )
 ```
