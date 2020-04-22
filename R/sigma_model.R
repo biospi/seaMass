@@ -43,6 +43,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
       DT[, RawCount := NULL]
 
       # prepare DT for MCMCglmm
+      DT[, GroupID := factor(GroupID)]
       DT[, ComponentID := factor(ComponentID)]
       DT[, MeasurementID := factor(MeasurementID)]
       DT[, AssayID := factor(AssayID)]
@@ -226,7 +227,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
         }
 
         ### EXTRACT COMPONENT DEVIATIONS
-        if (input == "model1" && ("component.deviations" %in% ctrl@summarise || "component.deviations" %in% ctrl@keep) && ctrl@component.model == "independent") {
+        if (input == "model1" && ctrl@component.model == "independent" && ("component.deviations" %in% ctrl@summarise || "component.deviations" %in% ctrl@keep)) {
           if (nC == 1) {
             output$DT.component.deviations <- as.data.table(model$Sol[, grep("^ComponentID:AssayID\\.[0-9]+\\.[0-9]+$", colnames(model$Sol)), drop = F])
             output$DT.component.deviations[, mcmcID := 1:nrow(output$DT.component.deviations)]
@@ -250,7 +251,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
         }
 
         ### EXTRACT ASSAY DEVIATIONS
-        if (input == "model0" || ("assay.deviations" %in% ctrl@summarise || "assay.deviations" %in% ctrl@keep)) {
+        if (input == "model0" || "assay.deviations" %in% ctrl@summarise || "assay.deviations" %in% ctrl@keep) {
           if (ctrl@assay.model == "measurement") {
             output$DT.assay.deviations <- as.data.table(model$Sol[, grep("^AssayID[0-9]+\\.MeasurementID\\.[0-9]+$", colnames(model$Sol)), drop = F])
             output$DT.assay.deviations[, mcmcID := 1:nrow(output$DT.assay.deviations)]
@@ -284,7 +285,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
         model$Sol <- NULL
 
         ### EXTRACT MEASUREMENT VARIANCES
-        if (input == "model0" || ("measurement.variances" %in% ctrl@summarise || "measurement.variances" %in% ctrl@keep)) {
+        if (input == "model0" || "measurement.variances" %in% ctrl@summarise || "measurement.variances" %in% ctrl@keep) {
           if (ctrl@measurement.model == "single" || nM == 1) {
             output$DT.measurement.variances <- as.data.table(model$VCV[, "units", drop = F])
           } else {
@@ -318,7 +319,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
         }
 
         # EXTRACT COMPONENT VARIANCES
-        if (input == "model0" || ("component.variances" %in% ctrl@summarise || "component.variances" %in% ctrl@keep) && ctrl@component.model != "") {
+        if (ctrl@component.model != "" && (input == "model0" || "component.variances" %in% ctrl@summarise || "component.variances" %in% ctrl@keep)) {
           if (ctrl@component.model == "single" || nC == 1) {
             output$DT.component.variances <- as.data.table(model$VCV[, "ComponentID:AssayID", drop = F])
           } else {
