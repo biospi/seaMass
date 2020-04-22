@@ -14,7 +14,7 @@ setClass("seaMass_sigma", slots = c(
 #'   assay names and block design.
 #' @param run Run seaMass-Σ now, or just prepare it for later execution on e.g. a HPC cluster?
 #' @param control A control object created with \link{sigma_control} specifying control parameters for the model.
-#' @param name Name of folder prefix on disk where all intermediate and output data will be stored.
+#' @param path Name of folder prefix on disk where all intermediate and output data will be stored.
 
 #' @return A \code{seaMass_sigma} object, which allows access to each block's \link{sigma_fit} object to access
 #'   various metadata and results.
@@ -23,7 +23,7 @@ setClass("seaMass_sigma", slots = c(
 seaMass_sigma <- function(
   data,
   data.design = new_assay_design(data),
-  name = "fits",
+  path = "fits",
   run = TRUE,
   control = sigma_control(),
   ...
@@ -31,9 +31,9 @@ seaMass_sigma <- function(
   data.is.data.table <- is.data.table(data)
 
   # check for finished output and return that
-  object <- open_seaMass_sigma(paste0(name, ".seaMass"), quiet = T)
+  object <- open_seaMass_sigma(path, quiet = T)
   if (!is.null(object)) {
-    message(paste0("returning completed seaMass-sigma object - if this wasn't your intention, supply a different 'name' or delete the folder for the returned object with 'del(object)'"))
+    message(paste0("returning completed seaMass-sigma object - if this wasn't your intention, supply a different 'path' or delete the folder for the returned object with 'del(object)'"))
     return(object)
   }
 
@@ -42,7 +42,7 @@ seaMass_sigma <- function(
   control@ellipsis <- list(...)
   validObject(control)
 
-  path <- file.path(getwd(), paste0(name, ".seaMass"))
+  if (!grepl("\\.seaMass$", path)) path <- paste0(path, ".seaMass")
   if (file.exists(path)) unlink(path, recursive = T)
   dir.create(file.path(path, "output"), recursive = T)
   path <- normalizePath(path)
@@ -237,7 +237,7 @@ seaMass_sigma <- function(
   if (run) {
     run(control@schedule, object)
   } else {
-    cat(paste0("[", Sys.time(), "] seaMass-sigma object prepared for future running\n"))
+    cat(paste0("[", Sys.time(), "] queued\n"))
   }
 
   ### TIDY UP
@@ -254,7 +254,7 @@ open_seaMass_sigma <- function(
   quiet = FALSE,
   force = FALSE
 ) {
-  if (!dir.exists(path)) path <- paste0(path, ".seaMass")
+  if (dir.exists(paste0(path, ".seaMass"))) path <- paste0(path, ".seaMass")
 
   blocks <- list.dirs(path, full.names = F, recursive = F)
   blocks <- blocks[grep("^sigma\\.", blocks)]
@@ -266,7 +266,7 @@ open_seaMass_sigma <- function(
       return(NULL)
     } else {
       if (force) stop("'", path, "' does not contain a full set of completed seaMass-Σ blocks")
-      else stop("'", path, "' does not contain seaMass-Σ blocks")
+      else stop("'", path, "' does not contain seaMass-sigma blocks")
     }
   }
 }
@@ -335,7 +335,7 @@ setMethod("run", "seaMass_sigma", function(object) {
 #' @include generics.R
 setMethod("control", "seaMass_sigma", function(object) {
   if (!file.exists(file.path(object@path, "sigma.control.rds")))
-    stop(paste0("seaMass-Σ output '", sub("\\.seaMass$", "", basename(object@path)), "' is missing or zipped"))
+    stop(paste0("seaMass-sigma output '", sub("\\.seaMass$", "", basename(object@path)), "' is missing or zipped"))
 
   return(readRDS(file.path(object@path, "sigma.control.rds")))
 })
@@ -347,7 +347,7 @@ setMethod("control", "seaMass_sigma", function(object) {
 setMethod("fits", "seaMass_sigma", function(object) {
   blocks <- list.dirs(object@path, full.names = F, recursive = F)
   if (length(blocks) == 0)
-    stop(paste0("seaMass-Σ output '", sub("\\.seaMass$", "", basename(object@path)), "' is missing or zipped"))
+    stop(paste0("seaMass-sigma output '", sub("\\.seaMass$", "", basename(object@path)), "' is missing or zipped"))
 
   blocks <- blocks[grep("^sigma\\.", blocks)]
   fits <- lapply(blocks, function(block) new("sigma_fit", path = normalizePath(file.path(object@path, block))))

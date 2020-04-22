@@ -19,7 +19,7 @@
 seaMass_sigma(
   data,
   data.design = new_assay_design(data),
-  name = "fits",
+  path = "fits",
   run = TRUE,
   control = sigma_control(),
   ...
@@ -52,7 +52,7 @@ open_seaMass_sigma(path = "fits.seaMass", quiet = FALSE, force = FALSE)
 \item{data.design}{A \link{data.frame} created by \link{new_assay_design} and then customised, which specifies
 assay names and block design.}
 
-\item{name}{Name of folder prefix on disk where all intermediate and output data will be stored.}
+\item{path}{Name of folder prefix on disk where all intermediate and output data will be stored.}
 
 \item{run}{Run seaMass-Σ now, or just prepare it for later execution on e.g. a HPC cluster?}
 
