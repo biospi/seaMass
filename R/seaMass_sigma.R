@@ -237,7 +237,7 @@ seaMass_sigma <- function(
   if (run) {
     run(control@schedule, object)
   } else {
-    message("call 'run(object)' on the returned object to run seaMass-sigma")
+    cat(paste0("[", Sys.time(), "] seaMass-sigma object prepared for future running\n"))
   }
 
   ### TIDY UP

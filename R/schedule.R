@@ -117,7 +117,7 @@ setMethod("config", "schedule_slurm", function(object, prefix, name, n, notify, 
     ifelse(is.na(object@mem), "", paste0("#SBATCH --mem=", object@mem, "\n")),
     ifelse(is.na(object@time), "", paste0("#SBATCH --time=", object@time, "\n")),
     ifelse(is.na(object@mail_user), "", paste0("#SBATCH --mail-user=", object@mail_user, "\n")),
-    ifelse(notify, "#SBATCH --mail-type=END,FAIL\n", "#SBATCH --mail-type=FAIL\n"),
+    ifelse(is.na(object@mail_user), "", ifelse(notify, "#SBATCH --mail-type=END,FAIL\n", "#SBATCH --mail-type=FAIL\n")),
     paste0("srun Rscript --vanilla -e seaMass:::", func, "\\(${SLURM_ARRAY_TASK_ID}\\)\n")
   ))
 })
@@ -268,7 +268,7 @@ setMethod("config", "schedule_pbs", function(object, prefix, name, n, notify, fu
     ifelse(is.na(object@walltime), "", paste0("#PBS -l walltime=", object@walltime, "\n")),
     ifelse(length(object@l) == 0, "", paste0(paste0("#PBS -l ", object@l, "\n"), collapse = "")),
     ifelse(is.na(object@M), "", paste0("#PBS -M ", object@M, "\n")),
-    ifelse(notify, "#PBS -m ae\n", "#PBS -m a\n"),
+    ifelse(is.na(object@M), "", ifelse(notify, "#PBS -m ae\n", "#PBS -m a\n")),
     "cd $PBS_O_WORKDIR\n",
     paste0("Rscript --vanilla -e seaMass:::", func, "\\(${PBS_ARRAYID}\\)\n")
   ))
@@ -419,7 +419,7 @@ setMethod("config", "schedule_sge", function(object, prefix, name, n, notify, fu
     ifelse(is.na(object@walltime), "", paste0("#$ -l walltime=", object@walltime, "\n")),
     ifelse(length(object@l) == 0, "", paste0(paste0("#$ -l ", object@l, "\n"), collapse = "")),
     ifelse(is.na(object@M), "", paste0("#$ -M ", object@M, "\n")),
-    ifelse(notify, "#$ -m ae\n", "#$ -m a\n"),
+    ifelse(is.na(object@M), "", ifelse(notify, "#$ -m ae\n", "#$ -m a\n")),
     "#$ -cwd\n",
     paste0("Rscript --vanilla -e seaMass:::", func, "\\(${SGE_TASK_ID}\\)\n")
   ))

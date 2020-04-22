@@ -94,7 +94,7 @@ seaMass_delta <- function(
   if (completed(sigma)) {
     run(object)
   } else {
-    message("seaMass-delta will be run when 'run(sigma)' is run")
+    cat(paste0("[", Sys.time(), "] seaMass-delta object queued for future running of seaMass-sigma\n"))
   }
 
   return(invisible(object))
