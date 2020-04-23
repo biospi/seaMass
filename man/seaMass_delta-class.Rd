@@ -15,7 +15,6 @@
 \alias{groups,seaMass_delta-method}
 \alias{unnormalised_group_quants,seaMass_delta-method}
 \alias{component_deviations,seaMass_delta-method}
-\alias{group_variances,seaMass_delta-method}
 \alias{group_de,seaMass_delta-method}
 \alias{component_deviations_de,seaMass_delta-method}
 \alias{group_fdr,seaMass_delta-method}
@@ -52,7 +51,7 @@ open_seaMass_delta(sigma, name = "fit", quiet = FALSE, force = FALSE)
   object,
   groups = NULL,
   summary = FALSE,
-  input = "standardised",
+  input = "unnormalised.group.quants",
   chains = 1:control(object)@model.nchain,
   as.data.table = FALSE
 )
@@ -61,16 +60,7 @@ open_seaMass_delta(sigma, name = "fit", quiet = FALSE, force = FALSE)
   object,
   components = NULL,
   summary = FALSE,
-  input = "standardised.component.deviations",
-  chains = 1:control(object)@model.nchain,
-  as.data.table = FALSE
-)
-
-\S4method{group_variances}{seaMass_delta}(
-  object,
-  groups = NULL,
-  summary = FALSE,
-  input = "normalised.group.variances",
+  input = "component.deviations",
   chains = 1:control(object)@model.nchain,
   as.data.table = FALSE
 )
@@ -143,8 +133,6 @@ quants output by seaMass-Σ
 \item \code{unnormalised_group_quants,seaMass_delta-method}: Get the model unnormalised group quantifications as a \link{data.frame}.
 
 \item \code{component_deviations,seaMass_delta-method}: Get the input standardised component deviations as a \link{data.frame}.
-
-\item \code{group_variances,seaMass_delta-method}: Get the model normalised group variances as a \link{data.frame}.
 
 \item \code{group_de,seaMass_delta-method}: Get the model differential expression as a \link{data.frame}.
 

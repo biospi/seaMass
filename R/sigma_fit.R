@@ -158,7 +158,7 @@ setMethod("measurement_variances", "sigma_fit", function(object, measurements = 
   if (!is.null(summary)) summary <- ifelse(summary == T, "dist_invchisq_mcmc", paste("dist", summary, sep = "_"))
 
   DT <- read_mcmc(object, "measurement.variances", "MeasurementID", c("GroupID", "ComponentID", "MeasurementID"), c("GroupID", "ComponentID", "MeasurementID"), itemIDs, input, chains, summary)
-  if (is.null(DT)) stop(paste("measurement variances were not", ifelse(is.null(summary), "kept", "summarised")))
+  if (is.null(DT)) stop("measurement variances were not kept")
 
   DT <- merge(DT, fst::read.fst(file.path(object@path, "meta", "groups.fst"), as.data.table = T)[, .(GroupID, Group)], by = "GroupID")
   DT[, GroupID := NULL]
@@ -191,7 +191,7 @@ setMethod("component_variances", "sigma_fit", function(object, components = NULL
   if (!is.null(summary)) summary <- ifelse(summary == T, "dist_invchisq_mcmc", paste("dist", summary, sep = "_"))
 
   DT <- read_mcmc(object, "component.variances", "ComponentID", c("GroupID", "ComponentID"), c("GroupID", "ComponentID"), itemIDs, input, chains, summary)
-  if (is.null(DT)) stop(paste("component variances were not", ifelse(is.null(summary), "kept", "summarised")))
+  if (is.null(DT)) stop("component variances were not kept")
 
   DT <- merge(DT, fst::read.fst(file.path(object@path, "meta", "groups.fst"), as.data.table = T)[, .(GroupID, Group)], by = "GroupID")
   DT[, GroupID := NULL]
@@ -222,7 +222,7 @@ setMethod("component_deviations", "sigma_fit", function(object, components = NUL
   if (!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
 
   DT <- read_mcmc(object, "component.deviations", "ComponentID", c("GroupID", "ComponentID"), c("GroupID", "ComponentID", "AssayID"), itemIDs, input, chains, summary)
-  if (is.null(DT)) stop(paste("component deviations were not", ifelse(is.null(summary), "kept", "summarised")))
+  if (is.null(DT)) stop("component deviations were not kept")
 
   DT <- merge(DT, fst::read.fst(file.path(object@path, "meta", "groups.fst"), as.data.table = T)[, .(GroupID, Group)], by = "GroupID")
   DT[, GroupID := NULL]
@@ -257,7 +257,7 @@ setMethod("assay_deviations", "sigma_fit", function(object, measurements = NULL,
     if (!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
 
     DT <- read_mcmc(object, "assay.deviations", "MeasurementID", c("GroupID", "MeasurementID"), c("GroupID", "MeasurementID", "AssayID"), itemIDs, input, chains, summary)
-    if (is.null(DT)) stop(paste("assay deviations were not", ifelse(is.null(summary), "kept", "summarised")))
+    if (is.null(DT)) stop("assay deviations were not kept")
 
     DT <- merge(DT, fst::read.fst(file.path(object@path, "meta", "groups.fst"), as.data.table = T)[, .(GroupID, Group)], by = "GroupID")
     DT[, GroupID := NULL]
@@ -279,7 +279,7 @@ setMethod("assay_deviations", "sigma_fit", function(object, measurements = NULL,
     if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
 
     DT <- read_mcmc(object, "assay.deviations", "ComponentID", c("GroupID", "ComponentID"), c("GroupID", "ComponentID", "AssayID"), itemIDs, input, chains, summary)
-    if (is.null(DT)) stop(paste("assay deviations were not", ifelse(summary, "summarised", "kept")))
+    if (is.null(DT)) stop("assay deviations were not kept")
 
     DT <- merge(DT, fst::read.fst(file.path(object@path, "meta", "groups.fst"), as.data.table = T)[, .(GroupID, Group)], by = "GroupID")
     DT[, GroupID := NULL]
@@ -313,7 +313,7 @@ setMethod("unnormalised_group_quants", "sigma_fit", function(object, groups = NU
   if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
 
   DT <- read_mcmc(object, "unnormalised.group.quants", "GroupID", "GroupID", c("GroupID", "AssayID"), itemIDs, input, chains, summary)
-  if (is.null(DT)) stop(paste("unnormalised group quants were not", ifelse(is.null(summary), "kept", "summarised")))
+  if (is.null(DT)) stop("unnormalised group quants were not kept")
 
   DT <- merge(DT, DT.groups[, .(GroupID, Group)], by = "GroupID")
   DT[, GroupID := NULL]

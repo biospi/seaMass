@@ -4,7 +4,7 @@ setGeneric("norm_quantile", function(object, ...) standardGeneric("norm_quantile
 
 
 #' @include generics.R
-setMethod("norm_theta", "seaMass", function(object, input = "standardised.group.quants", output = "normalised.group.quants", norm.groups = ".*", ...) {
+setMethod("norm_theta", "seaMass", function(object, input = "unnormalised.group.quants", output = "normalised.group.quants", norm.groups = ".*", ...) {
   if (file.exists(file.path(path(object), paste(output, "fst", sep = ".")))) file.remove(file.path(path(object), paste(output, "fst", sep = ".")))
   dir.create(file.path(path(object), output), showWarnings = F)
   output2 <- paste0(sub("group.quants$", "", output), "group.variances")
@@ -73,7 +73,7 @@ setMethod("norm_theta", "seaMass", function(object, input = "standardised.group.
 
 
 #' @include generics.R
-setMethod("norm_median", "seaMass", function(object, input = "standardised.group.quants", output = "normalised.group.quants", norm.groups = ".*", ...) {
+setMethod("norm_median", "seaMass", function(object, input = "unnormalised.group.quants", output = "normalised.group.quants", norm.groups = ".*", ...) {
   cat(paste0("[", Sys.time(), "]  median normalisation...\n"))
 
   if (file.exists(file.path(path(object), paste(output, "fst", sep = ".")))) file.remove(file.path(path(object), paste(output, "fst", sep = ".")))
@@ -94,7 +94,7 @@ setMethod("norm_median", "seaMass", function(object, input = "standardised.group
 
 
 #' @include generics.R
-setMethod("norm_quantile", "seaMass", function(object, input = "standardised.group.quants", output = "normalised.group.quants", norm.groups = ".*", ...) {
+setMethod("norm_quantile", "seaMass", function(object, input = "unnormalised.group.quants", output = "normalised.group.quants", norm.groups = ".*", ...) {
   cat(paste0("[", Sys.time(), "]  quantile normalisation...\n"))
 
   if (file.exists(file.path(path(object), paste(output, "fst", sep = ".")))) file.remove(file.path(path(object), paste(output, "fst", sep = ".")))

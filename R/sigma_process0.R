@@ -80,11 +80,11 @@ setMethod("process0", "sigma_fit", function(object, chain) {
 
     # SAVE PRIORS
     fst::write.fst(DT.priors, file.path(object@path, "model1", "priors.fst"))
-    fwrite(DT.priors, file.path(object@path, "output", "model_priors.csv"))
+    fwrite(DT.priors, file.path(dirname(object@path), "output", basename(object@path), "model_priors.csv"))
 
     # PLOT PRIORS
     plot_priors(DT.priors, by = "Effect", xlab = "log2 Standard Deviation", trans = sqrt, inv.trans = function(x) x^2)
-    suppressWarnings(ggplot2::ggsave(file.path(object@path, "output", "qc_stdevs.pdf"), width = 4, height = 0.5 + 1 * nrow(DT.priors), limitsize = F))
+    suppressWarnings(ggplot2::ggsave(file.path(dirname(object@path), "output", basename(object@path), "qc_stdevs.pdf"), width = 4, height = 0.5 + 1 * nrow(DT.priors), limitsize = F))
   }
 
   return(invisible(NULL))

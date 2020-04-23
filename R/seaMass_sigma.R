@@ -227,7 +227,7 @@ seaMass_sigma <- function(
     fst::write.fst(DT.measurements, file.path(block, "meta", "measurements.fst"))
     fst::write.fst(DT.design, file.path(block, "meta", "design.fst"))
 
-    dir.create(file.path(block, "output"))
+    dir.create(file.path(dirname(block), "output", basename(block)))
   }
 
   ### RUN
@@ -275,8 +275,34 @@ open_seaMass_sigma <- function(
 #' @import data.table
 #' @include generics.R
 setMethod("finish", "seaMass_sigma", function(object) {
-  # write out assay variances from priors
   sigma_fits <- fits(object)
+  ctrl <- control(object)
+
+  # write out measurement variances
+  if ("measurement.variances" %in% ctrl@summarise) {
+    DT.measurement.variances <- rbindlist(lapply(1:length(sigma_fits), function(i) {
+      DT <- measurement_variances(sigma_fits[[i]], summary = T, as.data.table = T)
+      DT[, Block := names(sigma_fits)[i]]
+      DT
+    }))
+    setcolorder(DT.measurement.variances, c("Group", "Component", "Measurement", "Block"))
+    setorder(DT.measurement.variances, Group, Component, Measurement, Block)
+    fwrite(DT.measurement.variances, file.path(object@path, "output", "log2_measurement_variances.csv"))
+  }
+
+  # write out component variances
+  if ("component.variances" %in% ctrl@summarise) {
+    DT.component.variances <- rbindlist(lapply(1:length(sigma_fits), function(i) {
+      DT <- component_variances(sigma_fits[[i]], summary = T, as.data.table = T)
+      DT[, Block := names(sigma_fits)[i]]
+      DT
+    }))
+    setcolorder(DT.component.variances, c("Group", "Component", "Block"))
+    setorder(DT.component.variances, Group, Component, Block)
+    fwrite(DT.component.variances, file.path(object@path, "output", "log2_component_variances.csv"))
+  }
+
+  # write out assay variances from priors
   DT.priors <- rbindlist(lapply(1:length(sigma_fits), function(i) {
     priors(sigma_fits[[i]], as.data.table = T)[!is.na(Assay), .(Block = names(sigma_fits)[i], Assay, rhat, v, df)]
   }))
@@ -301,7 +327,7 @@ setMethod("completed", "seaMass_sigma", function(object) {
 #' @export
 #' @include generics.R
 setMethod("del", "seaMass_sigma", function(object) {
-  return(unlink(sigma_fits@path, recursive = T))
+  return(unlink(object@path, recursive = T))
 })
 
 

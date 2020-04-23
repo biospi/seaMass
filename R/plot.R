@@ -13,6 +13,7 @@
 setMethod("plot_pca", "seaMass", function(
   object,
   data.design = assay_design(object),
+  type = "normalised.group.quants",
   contours = 1:2,
   aspect.ratio = 9/16,
   robust = TRUE,
@@ -21,7 +22,15 @@ setMethod("plot_pca", "seaMass", function(
   # this is needed to stop foreach massive memory leak!!!
   rm("...")
 
-  DT.summary <- normalised_group_quants(object, summary = T, as.data.table = T)
+  cat(paste0("[", Sys.time(), "]    plotting PCA for ", gsub("\\.", " ", type), "\n"))
+
+  if (type == "normalised.group.quants") {
+    DT.summary <- normalised_group_quants(object, summary = T, as.data.table = T)
+  } else {
+    DT.summary <- component_deviations(object, summary = T, as.data.table = T)
+    DT.summary[, Group := interaction(Group, Component, drop = T)]
+    DT.summary[, Component := NULL]
+  }
   DT.design <- as.data.table(data.design)
 
   # assays with zero variance (pure reference samples) and groups with missing values, to remove later also
@@ -32,8 +41,17 @@ setMethod("plot_pca", "seaMass", function(
 
   # setup MCMC samples for contours
   if (!is.null(contours)) {
-    cat(paste0("[", Sys.time(), "]    preparing MCMC...\n"))
-    DT <- normalised_group_quants(object, as.data.table = T)[Assay %in% assays & Group %in% groups]
+    cat(paste0("[", Sys.time(), "]     preparing MCMC...\n"))
+
+    if (type == "normalised.group.quants") {
+      DT <- normalised_group_quants(object, as.data.table = T)[Assay %in% assays & Group %in% groups]
+    } else {
+      DT <- component_deviations(object, as.data.table = T)[Assay %in% assays]
+      DT[, Group := interaction(Group, Component, drop = T)]
+      DT <- DT[Group %in% groups]
+      DT[, Component := NULL]
+    }
+
     DT[, rowname := interaction(Assay, chainID, mcmcID)]
     DT <- dcast(DT, rowname ~ Group, value.var = "value")
 
@@ -77,7 +95,7 @@ setMethod("plot_pca", "seaMass", function(
     )
 
   } else {
-    cat(paste0("[", Sys.time(), "]    running PCA...\n"))
+    cat(paste0("[", Sys.time(), "]     running PCA...\n"))
 
     DT <- rbind(DT.summary, DT)
     if (robust) {
@@ -119,7 +137,7 @@ setMethod("plot_pca", "seaMass", function(
 
   # MCMC contours
   if (!is.null(contours)) {
-    cat(paste0("[", Sys.time(), "]    generating contours...\n"))
+    cat(paste0("[", Sys.time(), "]     generating contours...\n"))
 
     # kde bandwidth across all assays
     H <- ks::Hpi(cbind(DT$x, DT$y))
@@ -167,7 +185,7 @@ setMethod("plot_pca", "seaMass", function(
   g <- g + ggplot2::coord_cartesian(xlim = mid[1] + c(-span[1], span[1]), ylim = mid[2] + c(-span[2], span[2]))
   g <- g + ggplot2::theme(aspect.ratio = aspect.ratio)
 
-  if (!is.null(contours)) cat(paste0("[", Sys.time(), "]    ready to plot\n"))
+  if (!is.null(contours)) cat(paste0("[", Sys.time(), "]     ready to plot\n"))
 
   return(g)
 })

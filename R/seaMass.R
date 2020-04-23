@@ -24,6 +24,28 @@ setMethod("normalised_group_quants", "seaMass", function(object, groups = NULL, 
     if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
 
     DT <- read_mcmc(object, input, "Group", "Group", c("Group", "Assay"), groups, ".", chains, summary)
+    if (is.null(DT)) stop(paste("normalised group variances were not", ifelse(is.null(summary), "kept", "summarised")))
+  }
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn sigma_fit Get the model normalised group variances as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("normalised_group_variances", "seaMass", function(object, groups = NULL, summary = FALSE, input = "normalised.group.variances", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  if (!dir.exists(file.path(path(object), input))) {
+    DT <- NULL
+  } else {
+    if(is.null(summary) || summary == F) summary <- NULL
+    if(!is.null(summary)) summary <- ifelse(summary == T, "dist_invchisq_mcmc", paste("dist", summary, sep = "_"))
+
+    DT <- read_mcmc(object, input, "Group", "Group", "Group", groups, ".", chains, summary)
+    if (is.null(DT)) stop(paste("normalised group variances were not", ifelse(is.null(summary), "kept", "summarised")))
   }
 
   if (!as.data.table) setDF(DT)

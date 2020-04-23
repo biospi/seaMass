@@ -7,10 +7,11 @@
 \title{Control parameters for seaMass-Σ}
 \usage{
 sigma_control(
-  summarise = NULL,
+  summarise = c("measurement.variances", "component.variances", "component.deviations",
+    "unnormalised.group.quants", "normalised.group.quants", "normalised.group.variances"),
   keep = c("measurement.variances", "component.variances", "component.deviations",
     "unnormalised.group.quants", "normalised.group.quants", "normalised.group.variances"),
-  plot = "normalised.group.quants.pca",
+  plot = c("normalised.group.quants.pca", "component.deviations.pca"),
   measurement.model = "independent",
   measurement.eb.min = 2,
   component.model = "independent",
@@ -36,13 +37,13 @@ sigma_control(
 }
 \arguments{
 \item{summarise}{Outputs to write csv summaries for, \code{NULL} or a subset of
-\code{c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "unnormalised.group.quants")}}
+\code{c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "unnormalised.group.quants", "normalised.group.quants", "normalised.group.variances"))}}
 
 \item{keep}{Outputs to keep MCMC samples for, \code{NULL} or a subset of
-\code{c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "unnormalised.group.quants")}
+\code{c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "unnormalised.group.quants", "normalised.group.quants", "normalised.group.variances"))}
 Note, you must keep \code{"unnormalised.group.quants"} if you want to run seaMass-Δ!}
 
-\item{plot}{Outputs to plot [TODO]}
+\item{plot}{Outputs to plot, \code{NULL} or a subset of c("normalised.group.quants.pca", "component.deviations.pca")}
 
 \item{measurement.model}{Either \code{"single"} (single residual) or \code{"independent"} (per-measurement independent residuals)}
 
@@ -76,8 +77,6 @@ or \code{"componenet"} (per-assay independent random effects across components; 
 \item{model.nsample}{Total number of MCMC samples to deliver downstream}
 
 \item{random.seed}{Random number seed}
-
-\item{nthread}{Number of CPU threads to employ}
 
 \item{schedule}{Either \link{schedule_local} (execute locally), \link{schedule_pbs} or \link{schedule_slurm} (prepare for submission to HPC cluster)}
 }

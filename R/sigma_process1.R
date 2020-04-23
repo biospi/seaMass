@@ -26,53 +26,59 @@ setMethod("process1", "sigma_fit", function(object, chain) {
     DT.timings <- data.table::dcast(DT.timings, GroupID ~ chainID, value.var = "elapsed")
     DT.timings <- merge(DT.groups[, .(GroupID, Group, nComponent, nMeasurement, nDatapoint, pred = timing)], DT.timings, by = "GroupID")
     DT.timings[, GroupID := NULL]
-    fwrite(DT.timings, file.path(object@path, "output", "group_timings.csv"))
+    fwrite(DT.timings, file.path(dirname(object@path), "output", basename(object@path), "group_timings.csv"))
     rm(DT.timings)
 
     # measurement var summary
     if ("measurement.variances" %in% ctrl@summarise) {
       # measurement variances
-      cat(paste0("[", Sys.time(), "]    summarising measurement variances...\n"))
-      set.seed(ctrl@random.seed)
+      cat(paste0("[", Sys.time(), "]    getting measurement variance summaries...\n"))
       DT.measurement.variances <- measurement_variances(object, summary = T, as.data.table = T)
-      setcolorder(DT.measurement.variances, c("Group", "Component"))
-      fwrite(DT.measurement.variances, file.path(object@path, "output", "log2_measurement_variances.csv"))
-      rm(DT.measurement.variances)
     }
     # delete if not in 'keep'
     if (!("measurement.variances" %in% ctrl@keep)) unlink(file.path(object@path, "model1", "measurement.variances*"), recursive = T)
 
     # component variances summary
     if("component.variances" %in% ctrl@summarise && !is.null(ctrl@component.model)) {
-      cat(paste0("[", Sys.time(), "]    summarising component variances...\n"))
-      set.seed(ctrl@random.seed)
+      cat(paste0("[", Sys.time(), "]    getting component variance summaries...\n"))
       DT.component.variances <- component_variances(object, summary = T, as.data.table = T)
-      setcolorder(DT.component.variances, "Group")
-      fwrite(DT.component.variances, file.path(object@path, "output", "log2_component_variances.csv"))
-      rm(DT.component.variances)
     }
     # delete if not in 'keep'
     if (!("component.variances" %in% ctrl@keep)) unlink(file.path(object@path, "model1", "component.variances*"), recursive = T)
 
     # component deviations summary
-    if("component.deviations" %in% ctrl@summarise && !is.null(ctrl@component.model) && ctrl@component.model == "independent") {
-      cat(paste0("[", Sys.time(), "]    summarising component deviations...\n"))
-      set.seed(ctrl@random.seed)
-      DT.component.deviations <- component_deviations(object, summary = T, as.data.table = T)
-      DT.component.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.component.deviations, by = "Group")
-      DT.component.deviations <- merge(DT.components[, .(ComponentID, Component)], DT.component.deviations, by = "Component")
-      DT.component.deviations[, GroupIDComponentID := paste(GroupID, ComponentID, sep = "_")]
-      setcolorder(DT.component.deviations, "GroupIDComponentID")
-      DT.component.deviations <- dcast(DT.component.deviations, GroupIDComponentID ~ Assay, drop = F, value.var = colnames(DT.component.deviations)[7:ncol(DT.component.deviations)])
-      DT.component.deviations[, GroupID := as.integer(sub("^([0-9]+)_[0-9]+$", "\\1", GroupIDComponentID))]
-      DT.component.deviations[, ComponentID := as.integer(sub("^[0-9]+_([0-9]+)$", "\\1", GroupIDComponentID))]
-      DT.component.deviations[, GroupIDComponentID := NULL]
-      DT.component.deviations <- merge(DT.components[, .(ComponentID, Component, nMeasurement, nDatapoint)], DT.component.deviations, by = "ComponentID")
-      DT.component.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.component.deviations, by = "GroupID")
-      setcolorder(DT.component.deviations, c("GroupID", "ComponentID"))
-      DT.component.deviations[, ComponentID := NULL]
-      DT.component.deviations[, GroupID := NULL]
-      fwrite(DT.component.deviations, file.path(object@path, "output", "log2_component_deviations.csv"))
+    if (!is.null(ctrl@component.model) && ctrl@component.model == "independent") {
+      if ("component.deviations" %in% ctrl@summarise || "component.deviations.pca" %in% ctrl@plot) {
+        cat(paste0("[", Sys.time(), "]    getting component deviation summaries...\n"))
+        DT.component.deviations <- component_deviations(object, summary = T, as.data.table = T)
+      }
+
+      if("component.deviations" %in% ctrl@summarise) {
+        DT.component.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.component.deviations, by = "Group")
+        DT.component.deviations <- merge(DT.components[, .(ComponentID, Component)], DT.component.deviations, by = "Component")
+        DT.component.deviations[, GroupIDComponentID := paste(GroupID, ComponentID, sep = "_")]
+        setcolorder(DT.component.deviations, "GroupIDComponentID")
+        DT.component.deviations <- dcast(DT.component.deviations, GroupIDComponentID ~ Assay, drop = F, value.var = colnames(DT.component.deviations)[7:ncol(DT.component.deviations)])
+        DT.component.deviations[, GroupID := as.integer(sub("^([0-9]+)_[0-9]+$", "\\1", GroupIDComponentID))]
+        DT.component.deviations[, ComponentID := as.integer(sub("^[0-9]+_([0-9]+)$", "\\1", GroupIDComponentID))]
+        DT.component.deviations[, GroupIDComponentID := NULL]
+        DT.component.deviations <- merge(DT.components[, .(ComponentID, Component, nMeasurement, nDatapoint)], DT.component.deviations, by = "ComponentID")
+        DT.component.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.component.deviations, by = "GroupID")
+        setcolorder(DT.component.deviations, c("GroupID", "ComponentID"))
+        DT.component.deviations[, ComponentID := NULL]
+        DT.component.deviations[, GroupID := NULL]
+        fwrite(DT.component.deviations, file.path(dirname(object@path), "output", basename(object@path), "log2_component_deviations.csv"))
+      }
+
+      if ("component.deviations.pca" %in% ctrl@plot) {
+        ellipsis <- ctrl@ellipsis
+        ellipsis$object <- object
+        ellipsis$type <- "component.deviations"
+        do.call("plot_pca", ellipsis)
+        ellipsis$type <- NULL
+        ggplot2::ggsave(file.path(dirname(object@path), "output", basename(object@path), "log2_component_deviations_pca.pdf"), width = 300, height = 300 * 9/16, units = "mm")
+      }
+
       rm(DT.component.deviations)
     }
     # delete if not in 'keep'
@@ -80,8 +86,7 @@ setMethod("process1", "sigma_fit", function(object, chain) {
 
     # assay deviations summary
     if("assay.deviations" %in% ctrl@summarise && !is.null(ctrl@assay.model) && ctrl@assay.model == "component") {
-      cat(paste0("[", Sys.time(), "]    summarising assay deviations...\n"))
-      set.seed(ctrl@random.seed)
+      cat(paste0("[", Sys.time(), "]    getting assay deviation summaries...\n"))
       DT.assay.deviations <- assay_deviations(object, summary = T, as.data.table = T)
       DT.assay.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.assay.deviations, by = "Group")
       DT.assay.deviations <- merge(DT.components[, .(ComponentID, Component)], DT.assay.deviations, by = "Component")
@@ -96,7 +101,7 @@ setMethod("process1", "sigma_fit", function(object, chain) {
       setcolorder(DT.assay.deviations, c("GroupID", "ComponentID"))
       DT.assay.deviations[, ComponentID := NULL]
       DT.assay.deviations[, GroupID := NULL]
-      fwrite(DT.assay.deviations, file.path(object@path, "output", "log2_assay_deviations.csv"))
+      fwrite(DT.assay.deviations, file.path(dirname(object@path), "output", basename(object@path), "log2_assay_deviations.csv"))
       rm(DT.assay.deviations)
     }
     # delete if not in 'keep'
@@ -104,41 +109,47 @@ setMethod("process1", "sigma_fit", function(object, chain) {
 
     # unnormalised group quants summary
     if ("unnormalised.group.quants" %in% ctrl@summarise) {
-      cat(paste0("[", Sys.time(), "]    summarising unnormalised group quants...\n"))
-      set.seed(ctrl@random.seed)
+      cat(paste0("[", Sys.time(), "]    getting unnormalised group quant summaries...\n"))
       DT.group.quants <- unnormalised_group_quants(object, summary = T, as.data.table = T)
       DT.group.quants.out <- dcast(DT.group.quants, Group ~ Assay, drop = F, value.var = colnames(DT.group.quants)[6:ncol(DT.group.quants)])
       DT.group.quants.out <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants.out, by = "Group")
-      fwrite(DT.group.quants.out, file.path(object@path, "output", "log2_unnormalised_group_quants.csv"))
+      fwrite(DT.group.quants.out, file.path(dirname(object@path), "output", basename(object@path), "log2_unnormalised_group_quants.csv"))
       rm(DT.group.quants.out)
     }
 
     # normalised group quants
-    if ("normalised.group.quants" %in% ctrl@summarise || "normalised.group.quants" %in% ctrl@keep || "normalised.group.quants.pca" %in% ctrl@plot) {
+    if ("normalised.group.variances" %in% ctrl@summarise || "normalised.group.variances" %in% ctrl@keep || "normalised.group.quants" %in% ctrl@summarise || "normalised.group.quants" %in% ctrl@keep || "normalised.group.quants.pca" %in% ctrl@plot) {
       # normalise group quants
       ellipsis <- ctrl@ellipsis
       ellipsis$object <- object
       ellipsis$input <- "model1"
       do.call(paste("norm", ctrl@norm.model, sep = "_"), ellipsis)
+      ellipsis$input <- NULL
+
+      if ("normalised.group.variances" %in% ctrl@summarise) {
+        cat(paste0("[", Sys.time(), "]   getting normalised group variance summaries...\n"))
+        DT.groups <- groups(object, as.data.table = T)
+        DT.group.variances <- normalised_group_variances(object, summary = T, as.data.table = T)
+        setcolorder(DT.group.variances, "Group")
+        fwrite(DT.group.variances, file.path(dirname(object@path), "output", basename(object@path), "log2_normalised_group_variances.csv"))
+        rm(DT.group.variances)
+      }
 
       if ("normalised.group.quants" %in% ctrl@summarise || "normalised.group.quants.pca" %in% ctrl@plot) {
-        cat(paste0("[", Sys.time(), "]   getting summaries...\n"))
-        set.seed(ctrl@random.seed)
+        cat(paste0("[", Sys.time(), "]   getting group quant summaries...\n"))
         DT.groups <- groups(object, as.data.table = T)
         DT.group.quants <- normalised_group_quants(object, summary = T, as.data.table = T)
 
         if ("normalised.group.quants" %in% ctrl@summarise) {
-          DT.group.quants <- dcast(DT.group.quants, Group ~ Assay, drop = F, value.var = colnames(DT.group.quants)[5:ncol(DT.group.quants)])
+          DT.group.quants <- dcast(DT.group.quants, Group ~ Assay, drop = F, value.var = colnames(DT.group.quants)[6:ncol(DT.group.quants)])
           DT.group.quants <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants, by = "Group")
-          fwrite(DT.group.quants, file.path(path(object), "output", "log2_normalised_group_quants.csv"))
+          fwrite(DT.group.quants, file.path(dirname(object@path), "output", basename(object@path), "log2_normalised_group_quants.csv"))
           rm(DT.group.quants)
         }
 
         if ("normalised.group.quants.pca" %in% ctrl@plot) {
-          cat(paste0("[", Sys.time(), "]   plotting PCA...\n"))
-          ellipsis$input <- NULL
           do.call("plot_pca", ellipsis)
-          ggplot2::ggsave(file.path(object@path, "output", "log2_normalised_group_quants_pca.pdf"), width = 300, height = 300 * 9/16, units = "mm")
+          ggplot2::ggsave(file.path(dirname(object@path), "output", basename(object@path), "log2_normalised_group_quants_pca.pdf"), width = 300, height = 300 * 9/16, units = "mm")
         }
       }
     }

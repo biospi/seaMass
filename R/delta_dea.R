@@ -9,7 +9,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
   input = "normalised.group.quants",
   output = "group.de",
   data.design = assay_design(object),
-  type = "group.quants",
+  type = "normalised.group.quants",
   emmeans.args = list(revpairwise ~ Condition),
   fixed = ~ Condition,
   random = ~ idh(Condition):Sample,
@@ -45,7 +45,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
   warn <- getOption("warn")
   options(warn = 1)
 
-  cat(paste0("[", Sys.time(), "]   MCMCglmm differential expression analysis for ", type, "\n"))
+  cat(paste0("[", Sys.time(), "]   MCMCglmm differential expression analysis for ", gsub("\\.", " ", type), "\n"))
 
   # process parameters
   ctrl <- control(object)
@@ -65,7 +65,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
   if (!is.null(DT.design$nComponent)) DT.design[, nComponent := NULL]
   if (!is.null(DT.design$nMeasurement)) DT.design[, nMeasurement := NULL]
 
-  if (type == "group.quants") {
+  if (type == "normalised.group.quants") {
     type <- "Group"
     DTs <- batch_split(normalised_group_quants(object, input = input, summary = T, as.data.table = T), type, 64)
   } else {
