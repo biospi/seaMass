@@ -35,10 +35,10 @@ setClass("sigma_control", slots = c(
 
 #' @describeIn sigma_control-class Generator function
 #' @param summarise Outputs to write csv summaries for, \code{NULL} or a subset of
-#'   \code{c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "unnormalised.group.quants", "normalised.group.quants", "normalised.group.variances"))}
+#'   \code{c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "raw.group.quants", "normalised.group.quants", "normalised.group.variances"))}
 #' @param keep Outputs to keep MCMC samples for, \code{NULL} or a subset of
-#'   \code{c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "unnormalised.group.quants", "normalised.group.quants", "normalised.group.variances"))}
-#'   Note, you must keep \code{"unnormalised.group.quants"} if you want to run seaMass-Δ!
+#'   \code{c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "raw.group.quants", "standardised.group.quants", "normalised.group.quants", "normalised.group.variances"))}
+#'   Note, you must keep \code{"raw.group.quants"} if you want to run seaMass-Δ!
 #' @param plot Outputs to plot, \code{NULL} or a subset of c("normalised.group.quants.pca", "component.deviations.pca")
 #' @param measurement.model Either \code{"single"} (single residual) or \code{"independent"} (per-measurement independent residuals)
 #' @param measurement.eb.min Minimum number of measurements per component to use for computing Empirical Bayes priors
@@ -61,9 +61,9 @@ setClass("sigma_control", slots = c(
 #' @param schedule Either \link{schedule_local} (execute locally), \link{schedule_pbs} or \link{schedule_slurm} (prepare for submission to HPC cluster)
 #' @export sigma_control
 sigma_control <- function(
-  summarise = c("measurement.variances", "component.variances", "component.deviations", "unnormalised.group.quants", "normalised.group.quants", "normalised.group.variances"),
-  keep = c("measurement.variances", "component.variances", "component.deviations", "unnormalised.group.quants", "normalised.group.quants", "normalised.group.variances"),
-  plot = c("normalised.group.quants.pca", "component.deviations.pca"),
+  summarise = c("measurement.variances", "component.variances", "raw.group.quants", "normalised.group.quants", "normalised.group.variances"),
+  keep = c("measurement.variances", "component.variances", "component.deviations", "raw.group.quants", "normalised.group.quants", "normalised.group.variances"),
+  plot = c("normalised.group.quants.pca"),
   measurement.model = "independent",
   measurement.eb.min = 2,
   component.model = "independent",
@@ -121,8 +121,8 @@ sigma_control <- function(
 }
 
 setValidity("sigma_control", function(object) {
-  if (!(all(object@summarise %in% c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "unnormalised.group.quants", "normalised.group.quants", "normalised.group.variances")))) return("'summarise' is not valid!")
-  if (!(all(object@keep %in% c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "unnormalised.group.quants", "normalised.group.quants", "normalised.group.variances")))) return("'keep' is not valid!")
+  if (!(all(object@summarise %in% c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "raw.group.quants", "normalised.group.quants", "normalised.group.variances")))) return("'summarise' is not valid!")
+  if (!(all(object@keep %in% c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "raw.group.quants", "standardised.group.quants", "normalised.group.quants", "normalised.group.variances")))) return("'keep' is not valid!")
   if (!(all(object@plot %in% c("normalised.group.quants.pca", "component.deviations.pca")))) return("'plot' is not valid!")
   if (length(object@measurement.model) != 1 || !(object@measurement.model %in% c("single", "independent"))) return("'measurement.model' is not valid!")
   if (length(object@measurement.eb.min) != 1 || object@measurement.eb.min <= 0) return("'measurement.eb.min' must be positive!")

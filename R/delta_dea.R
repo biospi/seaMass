@@ -1,12 +1,10 @@
-setGeneric("dea_MCMCglmm", function(object, ...) standardGeneric("dea_MCMCglmm"))
-
 #' @import data.table
 #' @import emmeans
 #' @include seaMass_delta.R
 #' @include generics.R
+#' @export
 setMethod("dea_MCMCglmm", "seaMass_delta", function(
   object,
-  input = "normalised.group.quants",
   output = "group.de",
   data.design = assay_design(object),
   type = "normalised.group.quants",
@@ -67,19 +65,21 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
 
   if (type == "normalised.group.quants") {
     type <- "Group"
-    DTs <- batch_split(normalised_group_quants(object, input = input, summary = T, as.data.table = T), type, 64)
-  } else {
+    DTs <- batch_split(normalised_group_quants(object, summary = T, as.data.table = T), type, 64)
+  } else if (type == "normalised.group.quants") {
     type <- c("Group", "Component")
-    DTs <- batch_split(component_deviations(object, input = input, summary = T, as.data.table = T), type, 64)
+    DTs <- batch_split(component_deviations(object, summary = T, as.data.table = T), type, 64)
+  } else {
+    stop("unknown type")
   }
 
   # loop over all chains and all groups/components
-  if (file.exists(file.path(path(object), paste(output, "fst", sep = ".")))) file.remove(file.path(path(object), paste(output, "fst", sep = ".")))
-  dir.create(file.path(path(object), output), showWarnings = F)
+  if (file.exists(file.path(filepath(object), paste(output, "fst", sep = ".")))) file.remove(file.path(filepath(object), paste(output, "fst", sep = ".")))
+  dir.create(file.path(filepath(object), output), showWarnings = F)
   for (chain in 1:ctrl@model.nchain) {
     cat(paste0("[", Sys.time(), "]    chain ", chain ,"/", ctrl@model.nchain, "...\n"))
 
-    DT.de.index <- rbindlist(parallel_lapply(DTs, function(item, object, input, output, DT.design, type, emmeans.args, ctrl, chain, fixed, random, rcov, start, prior, tune, pedigree, nodes, scale, nitt, pr, pl, DIC, saveX, saveZ, saveXL, slice, ginverse, trunc) {
+    DT.de.index <- rbindlist(parallel_lapply(DTs, function(item, object, output, DT.design, type, emmeans.args, ctrl, chain, fixed, random, rcov, start, prior, tune, pedigree, nodes, scale, nitt, pr, pl, DIC, saveX, saveZ, saveXL, slice, ginverse, trunc) {
       batch <- lapply(split(item, by = type, drop = T), function(DT) {
         model <- list()
         group <- DT[1, Group]
@@ -191,7 +191,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
       })
 
       # save
-      #saveRDS(batch, file.path(path(object), output, paste(chain, item[1, BatchID], "rds", sep = ".")))
+      #saveRDS(batch, file.path(filepath(object), output, paste(chain, item[1, BatchID], "rds", sep = ".")))
 
       # flatten
       DT.batch.de <- rbindlist(lapply(1:length(batch), function(i) {
@@ -213,14 +213,14 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
           DT.index[, file := file.path(output, paste(chain, item[1, BatchID], "fst", sep = "."))]
           setcolorder(DT.index, c("Group", "file"))
         }
-        fst::write.fst(DT.batch.de, file.path(path(object), output, paste(chain, item[1, BatchID], "fst", sep = ".")))
+        fst::write.fst(DT.batch.de, file.path(filepath(object), output, paste(chain, item[1, BatchID], "fst", sep = ".")))
         return(DT.index)
       } else {
         return(NULL)
       }
     }, nthread = ctrl@nthread, .packages = c("seaMass", "emmeans")))
 
-    if (chain == 1 && nrow(DT.de.index) > 0) fst::write.fst(DT.de.index, file.path(path(object), paste(output, "index.fst", sep = ".")))
+    if (chain == 1 && nrow(DT.de.index) > 0) fst::write.fst(DT.de.index, file.path(filepath(object), paste(output, "index.fst", sep = ".")))
   }
 
   options(warn = warn)

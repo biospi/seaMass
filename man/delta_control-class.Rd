@@ -8,9 +8,9 @@
 \usage{
 delta_control(
   component.deviations = FALSE,
-  keep = c("unnormalised.group.quants", "normalised.group.quants",
-    "normalised.group.variances", "group.de", "group.fdr", "component.deviations",
-    "component.deviations.de", "component.deviations.fdr"),
+  keep = c("raw.group.quants", "normalised.group.quants", "normalised.group.variances",
+    "group.de", "group.fdr", "component.deviations", "component.deviations.de",
+    "component.deviations.fdr"),
   norm.model = "theta",
   norm.nwarmup = 256,
   norm.thin = 1,
@@ -25,7 +25,7 @@ delta_control(
 \item{component.deviations}{Set this to \code{TRUE} to do differential expression analysis on the component deviations as well as the group quants.}
 
 \item{keep}{Outputs to keep MCMC samples for, \code{NULL} or a subset of
-c("unnormalised.group.quants", "normalised.group.quants", "normalised.group.variances", "group.de", "group.fdr", "component.deviations", "component.deviations.de", "component.deviations.fdr")}
+c("raw.group.quants", "normalised.group.quants", "normalised.group.variances", "group.de", "group.fdr", "component.deviations", "component.deviations.de", "component.deviations.fdr")}
 
 \item{norm.model}{Either \code{NULL} (no normalisation), \code{"median"}, \code{"quantile"} or \code{"theta"} (seaMass-theta Bayesian normalisation)}
 

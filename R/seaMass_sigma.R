@@ -3,7 +3,7 @@
 #' Fits the seaMass-Σ Bayesian group-level quantification model to imported data.
 #'
 setClass("seaMass_sigma", slots = c(
-  path = "character"
+  filepath = "character"
 ))
 
 
@@ -65,6 +65,7 @@ seaMass_sigma <- function(
     DT.design.all[, Channel := "1"]
   }
   if (!is.factor(DT.design.all$Channel)) DT.design.all[, Channel := factor(as.character(Channel), levels = levels(DT.all$Channel))]
+  if (!is.factor(DT.design.all$RefWeight)) DT.design.all[, RefWeight := 1]
 
   # process each block independently
   block.cols <- colnames(DT.design.all)[grep("^Block\\.(.*)$", colnames(DT.design.all))]
@@ -231,7 +232,7 @@ seaMass_sigma <- function(
   }
 
   ### RUN
-  object <- new("seaMass_sigma", path = path)
+  object <- new("seaMass_sigma", filepath = path)
   prepare_sigma(control@schedule, object)
 
   if (run) {
@@ -287,7 +288,7 @@ setMethod("finish", "seaMass_sigma", function(object) {
     }))
     setcolorder(DT.measurement.variances, c("Group", "Component", "Measurement", "Block"))
     setorder(DT.measurement.variances, Group, Component, Measurement, Block)
-    fwrite(DT.measurement.variances, file.path(object@path, "output", "log2_measurement_variances.csv"))
+    fwrite(DT.measurement.variances, file.path(filepath(object), "output", "log2_measurement_variances.csv"))
   }
 
   # write out component variances
@@ -299,14 +300,14 @@ setMethod("finish", "seaMass_sigma", function(object) {
     }))
     setcolorder(DT.component.variances, c("Group", "Component", "Block"))
     setorder(DT.component.variances, Group, Component, Block)
-    fwrite(DT.component.variances, file.path(object@path, "output", "log2_component_variances.csv"))
+    fwrite(DT.component.variances, file.path(filepath(object), "output", "log2_component_variances.csv"))
   }
 
   # write out assay variances from priors
   DT.priors <- rbindlist(lapply(1:length(sigma_fits), function(i) {
     priors(sigma_fits[[i]], as.data.table = T)[!is.na(Assay), .(Block = names(sigma_fits)[i], Assay, rhat, v, df)]
   }))
-  fwrite(DT.priors, file.path(object@path, "output", "log2_assay_variances.csv"))
+  fwrite(DT.priors, file.path(filepath(object), "output", "log2_assay_variances.csv"))
 
   return(invisible(NULL))
 })
@@ -316,10 +317,10 @@ setMethod("finish", "seaMass_sigma", function(object) {
 #' @export
 #' @include generics.R
 setMethod("completed", "seaMass_sigma", function(object) {
-  blocks <- list.dirs(path(object), full.names = F, recursive = F)
+  blocks <- list.dirs(filepath(object), full.names = F, recursive = F)
   blocks <- blocks[grep("^sigma\\.", blocks)]
 
-  return(all(file.exists(file.path(path(object), blocks, "complete"))))
+  return(all(file.exists(file.path(filepath(object), blocks, "complete"))))
 })
 
 
@@ -327,7 +328,7 @@ setMethod("completed", "seaMass_sigma", function(object) {
 #' @export
 #' @include generics.R
 setMethod("del", "seaMass_sigma", function(object) {
-  return(unlink(object@path, recursive = T))
+  return(unlink(filepath(object), recursive = T))
 })
 
 
@@ -335,15 +336,15 @@ setMethod("del", "seaMass_sigma", function(object) {
 #' @export
 #' @include generics.R
 setMethod("name", "seaMass_sigma", function(object) {
-  return(sub("\\.seaMass$", "", basename(object@path)))
+  return(sub("\\.seaMass$", "", basename(filepath(object))))
 })
 
 
 #' @describeIn seaMass_sigma-class Get path.
 #' @export
 #' @include generics.R
-setMethod("path", "seaMass_sigma", function(object) {
-  return(object@path)
+setMethod("filepath", "seaMass_sigma", function(object) {
+  return(object@filepath)
 })
 
 
@@ -360,10 +361,10 @@ setMethod("run", "seaMass_sigma", function(object) {
 #' @export
 #' @include generics.R
 setMethod("control", "seaMass_sigma", function(object) {
-  if (!file.exists(file.path(object@path, "sigma.control.rds")))
-    stop(paste0("seaMass-sigma output '", sub("\\.seaMass$", "", basename(object@path)), "' is missing or zipped"))
+  if (!file.exists(file.path(filepath(object), "sigma.control.rds")))
+    stop(paste0("seaMass-sigma output '", sub("\\.seaMass$", "", basename(filepath(object))), "' is missing or zipped"))
 
-  return(readRDS(file.path(object@path, "sigma.control.rds")))
+  return(readRDS(file.path(filepath(object), "sigma.control.rds")))
 })
 
 
@@ -371,12 +372,12 @@ setMethod("control", "seaMass_sigma", function(object) {
 #' @export
 #' @include generics.R
 setMethod("fits", "seaMass_sigma", function(object) {
-  blocks <- list.dirs(object@path, full.names = F, recursive = F)
-  if (length(blocks) == 0)
-    stop(paste0("seaMass-sigma output '", sub("\\.seaMass$", "", basename(object@path)), "' is missing or zipped"))
-
+  blocks <- list.dirs(filepath(object), full.names = F, recursive = F)
   blocks <- blocks[grep("^sigma\\.", blocks)]
-  fits <- lapply(blocks, function(block) new("sigma_fit", path = normalizePath(file.path(object@path, block))))
+  if (length(blocks) == 0)
+    stop(paste0("seaMass-sigma output '", sub("\\.seaMass$", "", basename(filepath(object))), "' is missing or zipped"))
+
+  fits <- lapply(blocks, function(block) new("sigma_fit", filepath = normalizePath(file.path(filepath(object), block))))
   names(fits) <- sub("^.*\\.(.*)$", "\\1", blocks)
   return(fits)
 })
@@ -400,7 +401,7 @@ setMethod("assay_design", "seaMass_sigma", function(object, as.data.table = FALS
 #' @export
 #' @include generics.R
 setMethod("open_seaMass_deltas", "seaMass_sigma", function(object, quiet = FALSE, force = FALSE) {
-  deltas <- lapply(sub("^delta\\.", "", list.files(path(object), "^delta\\.*")), function(name) open_seaMass_delta(object, name, quiet, force))
+  deltas <- lapply(sub("^delta\\.", "", list.files(filepath(object), "^delta\\.*")), function(name) open_seaMass_delta(object, name, quiet, force))
   names(deltas) <- lapply(deltas, function(delta) name(delta))
   return(deltas)
 })

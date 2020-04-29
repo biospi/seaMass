@@ -153,12 +153,12 @@ plot_pr <- function(
 plot_volcano <- function(
   data.fdr,
   contours = 1:2,
-  plt.fdp = F
+  plot.fdp = F
 ) {
   if ("truth" %in% colnames(data.fdr)) {
     DT.fdr <- as.data.table(data.fdr)[, .(m, truth, y = qvalue)]
 
-    if (plt.fdp) {
+    if (plot.fdp) {
       # compute FDP
       DT.fdr[, FD := ifelse(truth == 0 | m * truth < 0, 1, 0)]
       DT.fdr[, Discoveries := 1:nrow(DT.fdr)]
@@ -184,7 +184,7 @@ plot_volcano <- function(
   # generate density contour line
   DT.density <- DT.fdr[, {
     DT <- NULL
-    try(if (length(y) >= 3) {
+    try(if (length(y) >= 5) {
         #dens <- ks::kde(cbind(m, get(yvar)), H, xmin = min.lim, xmax = max.lim)
         #dens <- ks::kde.boundary(cbind(m, y), H, xmin = min.lim, xmax = max.lim)
         dens <- ks::kde.boundary(cbind(m, y), H)
@@ -204,8 +204,8 @@ plot_volcano <- function(
   if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z1, colour = Group), breaks = 1, alpha = 1)
   if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z2, colour = Group), breaks = 1, alpha = 0.5)
   if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z3, colour = Group), breaks = 1, alpha = 0.25)
-  g <- g + ggplot2::geom_vline(aes(color = factor(truth), xintercept = truth), DT.meta[N >= 3])
-  g <- g + ggplot2::geom_vline(aes(color = factor(truth), xintercept = median), DT.meta[N >= 3], lty = "longdash")
+  g <- g + ggplot2::geom_vline(aes(color = factor(truth), xintercept = truth), DT.meta[N >= 5])
+  g <- g + ggplot2::geom_vline(aes(color = factor(truth), xintercept = median), DT.meta[N >= 5], lty = "longdash")
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype = "dotted")
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype = "dotted")
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype = "dotted")

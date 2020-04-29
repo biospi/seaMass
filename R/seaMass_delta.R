@@ -1,6 +1,6 @@
 #' seaMass-Δ
 #'
-#' Perform seaMass-Δ normalisation, differential expression analysis and/or false discovery rate correction on unnormalised group-level
+#' Perform seaMass-Δ normalisation, differential expression analysis and/or false discovery rate correction on raw group-level
 #' quants output by seaMass-Σ
 #' @include seaMass.R
 #' @include seaMass_sigma.R
@@ -47,7 +47,7 @@ seaMass_delta <- function(
 
   # create fit and output directories
   object <- new("seaMass_delta", sigma = sigma, name = paste0("delta.", name))
-  path <- path(object)
+  path <- filepath(object)
   if (file.exists(path)) unlink(path, recursive = T)
   dir.create(file.path(path, "meta"), recursive = T)
   if (file.exists(file.path(dirname(path), "output", basename(path)))) unlink(file.path(dirname(path), "output", basename(path)), recursive = T)
@@ -104,7 +104,7 @@ seaMass_delta <- function(
 #' @describeIn seaMass_delta-class Open a complete \code{seaMass_delta} run from the supplied \link{seaMass_sigma} and \code{name}.
 #' @export
 open_seaMass_delta <- function(sigma, name = "fit", quiet = FALSE, force = FALSE) {
-  path <- file.path(path(sigma), paste0("delta.", name))
+  path <- file.path(filepath(sigma), paste0("delta.", name))
 
   if(force || file.exists(file.path(path, "complete"))) {
     object <- new("seaMass_delta", sigma = sigma, name = paste0("delta.", name))
@@ -135,57 +135,59 @@ setMethod("run", "seaMass_delta", function(object) {
 
   cat(paste0("[", Sys.time(), "]  running delta for name=", name(object), " sigma=", name(object@sigma), "...\n"))
 
-  # standardise quants using reference weights
-  standardise_group_quants(object)
+  if (!(length(fits(object)) == 1 && identical(assay_design(fits(object)[[1]], as.data.table = T)[, .(Assay, RefWeight)], assay_design(object, as.data.table = T)[, .(Assay, RefWeight)]))) {
+    # standardise quants using reference weights
+    standardise_group_quants(object)
 
-  # normalise quants by norm.groups
-  if (ctrl@norm.model != "") do.call(paste("norm", ctrl@norm.model, sep = "_"), ellipsis)
-  if (!("unnormalised.group.quants" %in% ctrl@keep)) unlink(file.path(path(object), "unnormalised.group.quants*"), recursive = T)
+    # normalise quants by norm.groups
+    if (ctrl@norm.model != "") do.call(paste("norm", ctrl@norm.model, sep = "_"), ellipsis)
+    if (!("standardised.group.quants" %in% ctrl@keep)) unlink(file.path(filepath(object), "standardised.group.quants*"), recursive = T)
 
-  # summarise group variances
-  if(file.exists(file.path(path(object), "normalised.group.variances"))) {
-    cat(paste0("[", Sys.time(), "]   getting normalised group variance summaries...\n"))
-    DT.group.variances <- normalised_group_variances(object, summary = T, as.data.table = T)
-    setcolorder(DT.group.variances, "Group")
-    fwrite(DT.group.variances, file.path(dirname(path(object)), "output", basename(path(object)), "log2_normalised_group_variances.csv"))
-    rm(DT.group.variances)
+    # summarise group variances
+    if(file.exists(file.path(filepath(object), "normalised.group.variances"))) {
+      cat(paste0("[", Sys.time(), "]   getting normalised group variance summaries...\n"))
+      DT.group.variances <- normalised_group_variances(object, summary = T, as.data.table = T)
+      setcolorder(DT.group.variances, "Group")
+      fwrite(DT.group.variances, file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_normalised_group_variances.csv"))
+      rm(DT.group.variances)
+    }
+
+    # summarise group quants
+    cat(paste0("[", Sys.time(), "]   getting normalised group quant summaries...\n"))
+    DT.group.quants <- normalised_group_quants(object, summary = T, as.data.table = T)
+    DT.group.quants <- dcast(DT.group.quants, Group ~ Assay, drop = F, value.var = colnames(DT.group.quants)[5:ncol(DT.group.quants)])
+    DT.group.quants <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants, by = "Group")
+    fwrite(DT.group.quants, file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_normalised_group_quants.csv"))
+    rm(DT.group.quants)
+
+    # plot PCA
+    do.call("plot_pca", ellipsis)
+    ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_normalised_group_quants_pca.pdf"), width = 300, height = 300 * 9/16, units = "mm")
+
+    # plot assay exposures
+    #g <- plot_assay_exposures(object)
+    #ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_assay_exposures.pdf"), width = 8, height = 0.5 + 1 * nlevels(DT.design$Assay), limitsize = F)
   }
-
-  # summarise group quants
-  cat(paste0("[", Sys.time(), "]   getting normalised group quant summaries...\n"))
-  DT.group.quants <- normalised_group_quants(object, summary = T, as.data.table = T)
-  DT.group.quants <- dcast(DT.group.quants, Group ~ Assay, drop = F, value.var = colnames(DT.group.quants)[5:ncol(DT.group.quants)])
-  DT.group.quants <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants, by = "Group")
-  fwrite(DT.group.quants, file.path(dirname(path(object)), "output", basename(path(object)), "log2_normalised_group_quants.csv"))
-  rm(DT.group.quants)
-
-  # plot PCA
-  do.call("plot_pca", ellipsis)
-  ggplot2::ggsave(file.path(dirname(path(object)), "output", basename(path(object)), "log2_normalised_group_quants_pca.pdf"), width = 300, height = 300 * 9/16, units = "mm")
-
-  # plot assay exposures
-  #g <- plot_assay_exposures(object)
-  #ggplot2::ggsave(file.path(dirname(path(object)), "output", basename(path(object)), "log2_assay_exposures.pdf"), width = 8, height = 0.5 + 1 * nlevels(DT.design$Assay), limitsize = F)
 
   # group dea
   if (ctrl@dea.model != "" && !all(is.na(DT.design$Condition))) do.call(paste("dea", ctrl@dea.model, sep = "_"), ellipsis)
-  if (!("normalised.group.quants" %in% ctrl@keep)) unlink(file.path(path(object), "normalised.group.quants*"), recursive = T)
+  if (!("normalised.group.quants" %in% ctrl@keep)) unlink(file.path(filepath(object), "normalised.group.quants*"), recursive = T)
   if (!("normalised.group.variances" %in% ctrl@keep)) {
-    if(file.exists(file.path(path(object), "normalised.group.variances"))) unlink(file.path(path(object), "normalised.group.variances*"), recursive = T)
+    if(file.exists(file.path(filepath(object), "normalised.group.variances"))) unlink(file.path(filepath(object), "normalised.group.variances*"), recursive = T)
   }
 
   # summarise group de and perform fdr correction
-  if (file.exists(file.path(path(object), "group.de.index.fst"))) {
+  if (file.exists(file.path(filepath(object), "group.de.index.fst"))) {
     if(ctrl@fdr.model != "") {
       do.call(paste("fdr", ctrl@fdr.model, sep = "_"), ellipsis)
     } else {
       group_de(object, summary = T, as.data.table = T)
     }
   }
-  if (!("group.de" %in% ctrl@keep)) unlink(file.path(path(object), "group.de*"), recursive = T)
+  if (!("group.de" %in% ctrl@keep)) unlink(file.path(filepath(object), "group.de*"), recursive = T)
 
   # write out group fdr
-  if (file.exists(file.path(path(object), "group.fdr.fst"))) {
+  if (file.exists(file.path(filepath(object), "group.fdr.fst"))) {
     DTs.fdr <- split(group_fdr(object, as.data.table = T), drop = T, by = "Batch")
     for (name in names(DTs.fdr)) {
       # save pretty version
@@ -193,13 +195,13 @@ setMethod("run", "seaMass_delta", function(object) {
       DT.fdr[, Batch := NULL]
       setcolorder(DT.fdr, c("Effect", "Model"))
       setorder(DT.fdr, qvalue, na.last = T)
-      fwrite(DT.fdr, file.path(dirname(path(object)), "output", basename(path(object)), paste("log2_group_de", gsub("\\s", "_", name), "csv", sep = ".")))
+      fwrite(DT.fdr, file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_group_de", gsub("\\s", "_", name), "csv", sep = ".")))
       # plot fdr
       g <- plot_fdr(DT.fdr)
-      ggplot2::ggsave(file.path(dirname(path(object)), "output", basename(path(object)), paste("log2_group_de", gsub("\\s", "_", name), "pdf", sep = ".")), g, width = 8, height = 8)
+      ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_group_de", gsub("\\s", "_", name), "pdf", sep = ".")), g, width = 8, height = 8)
     }
   }
-  if (!("group.fdr" %in% ctrl@keep)) unlink(file.path(path(object), "group.fdr*"), recursive = T)
+  if (!("group.fdr" %in% ctrl@keep)) unlink(file.path(filepath(object), "group.fdr*"), recursive = T)
 
 
   # component deviations
@@ -220,7 +222,7 @@ setMethod("run", "seaMass_delta", function(object) {
     DT.component.deviations[, GroupComponent := NULL]
     DT.component.deviations <- merge(DT.components[, .(Component, nMeasurement, nDatapoint)], DT.component.deviations, by = "Component")
     setcolorder(DT.component.deviations, c("Group", "Component"))
-    fwrite(DT.component.deviations, file.path(dirname(path(object)), "output", basename(path(object)), "log2_component_deviations.csv"))
+    fwrite(DT.component.deviations, file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_component_deviations.csv"))
     rm(DT.component.deviations)
 
     # plot PCA
@@ -230,7 +232,7 @@ setMethod("run", "seaMass_delta", function(object) {
     #   DT.summary <- component_deviations(object, summary = T, as.data.table = T)
     #   DT.summary[, Group := interaction(Group, Component, sep = " : ", lex.order = T, drop = T)]
     #   g <- plot_pca(object, data = DT, data.summary = DT.summary)
-    #   ggplot2::ggsave(file.path(dirname(path(object)), "output", basename(path(object)), "log2_component_deviations_pca.pdf"), width = 12, height = 12, limitsize = F)
+    #   ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_component_deviations_pca.pdf"), width = 12, height = 12, limitsize = F)
     # }
 
     # component deviation dea
@@ -238,10 +240,10 @@ setMethod("run", "seaMass_delta", function(object) {
     ellipsis$output <- "component.deviations.de"
     ellipsis$type <- "component.deviations"
     do.call(paste("dea", ctrl@dea.model, sep = "_"), ellipsis)
-    if (!("component.deviations" %in% ctrl@keep)) unlink(file.path(path(object), "component.deviations*"), recursive = T)
+    if (!("component.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "component.deviations*"), recursive = T)
 
     # summarise component deviation de and perform fdr correction
-    if (file.exists(file.path(path(object), "component.deviations.de.index.fst"))) {
+    if (file.exists(file.path(filepath(object), "component.deviations.de.index.fst"))) {
       if(ctrl@fdr.model != "") {
         ellipsis$input <- "component.deviations.de"
         ellipsis$output <- "component.deviations.fdr"
@@ -250,10 +252,10 @@ setMethod("run", "seaMass_delta", function(object) {
         component_deviations_de(object, summary = T, as.data.table = T)
       }
     }
-    if (!("component.deviations.de" %in% ctrl@keep)) unlink(file.path(path(object), "component.deviations.de*"), recursive = T)
+    if (!("component.deviations.de" %in% ctrl@keep)) unlink(file.path(filepath(object), "component.deviations.de*"), recursive = T)
 
     # write out group fdr
-    if (file.exists(file.path(path(object), "component.deviations.fdr.fst"))) {
+    if (file.exists(file.path(filepath(object), "component.deviations.fdr.fst"))) {
       DTs.fdr <- split(component_deviations_fdr(object, as.data.table = T), drop = T, by = "Batch")
       for (name in names(DTs.fdr)) {
         # save pretty version
@@ -261,18 +263,18 @@ setMethod("run", "seaMass_delta", function(object) {
         DT.fdr[, Batch := NULL]
         setcolorder(DT.fdr, c("Effect", "Model", "Group"))
         setorder(DT.fdr, qvalue, na.last = T)
-        fwrite(DT.fdr, file.path(dirname(path(object)), "output", basename(path(object)), paste("log2_component_deviations_de", gsub("\\s", "_", name), "csv", sep = ".")))
+        fwrite(DT.fdr, file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_component_deviations_de", gsub("\\s", "_", name), "csv", sep = ".")))
         # plot fdr
         g <- plot_fdr(DT.fdr, 1.0)
-        ggplot2::ggsave(file.path(dirname(path(object)), "output", basename(path(object)), paste("log2_component_deviations_de", gsub("\\s", "_", name), "pdf", sep = ".")), g, width = 8, height = 8)
+        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_component_deviations_de", gsub("\\s", "_", name), "pdf", sep = ".")), g, width = 8, height = 8)
       }
     }
-    if (!("component.deviations.fdr" %in% ctrl@keep)) unlink(file.path(path(object), "component.deviations.fdr*"), recursive = T)
+    if (!("component.deviations.fdr" %in% ctrl@keep)) unlink(file.path(filepath(object), "component.deviations.fdr*"), recursive = T)
   }
 
 
   # set complete
-  write.table(data.frame(), file.path(path(object), "complete"), col.names = F)
+  write.table(data.frame(), file.path(filepath(object), "complete"), col.names = F)
 
   return(object@name)
 })
@@ -288,10 +290,10 @@ setMethod("name", "seaMass_delta", function(object) {
 
 
 #' @describeIn seaMass_delta-class Get path.
-#' @export
 #' @include generics.R
-setMethod("path", "seaMass_delta", function(object) {
-  return(file.path(object@sigma@path, object@name))
+#' @export
+setMethod("filepath", "seaMass_delta", function(object) {
+  return(file.path(filepath(object@sigma), object@name))
 })
 
 
@@ -299,10 +301,18 @@ setMethod("path", "seaMass_delta", function(object) {
 #' @export
 #' @include generics.R
 setMethod("control", "seaMass_delta", function(object) {
-  if (!file.exists(file.path(path(object), "meta", "control.rds")))
+  if (!file.exists(file.path(filepath(object), "meta", "control.rds")))
     stop(paste0("seaMass-delta output '", name(object), "' is missing or zipped"))
 
-  return(readRDS(file.path(path(object), "meta", "control.rds")))
+  return(readRDS(file.path(filepath(object), "meta", "control.rds")))
+})
+
+
+#' @describeIn seaMass_sigma-class Get the block name and \code{sigma_fit} object as a named list.
+#' @export
+#' @include generics.R
+setMethod("fits", "seaMass_delta", function(object) {
+  return(fits(object@sigma))
 })
 
 
@@ -310,7 +320,7 @@ setMethod("control", "seaMass_delta", function(object) {
 #' @export
 #' @include generics.R
 setMethod("assay_design", "seaMass_delta", function(object, as.data.table = FALSE) {
-  DT <- fst::read.fst(file.path(path(object), "meta", "design.fst"), as.data.table = T)
+  DT <- fst::read.fst(file.path(filepath(object), "meta", "design.fst"), as.data.table = T)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -323,7 +333,7 @@ setMethod("assay_design", "seaMass_delta", function(object, as.data.table = FALS
 #' @export
 #' @include generics.R
 setMethod("del", "seaMass_delta", function(object) {
-  return(unlink(path(object), recursive = T))
+  return(unlink(filepath(object), recursive = T))
 })
 
 
@@ -332,7 +342,7 @@ setMethod("del", "seaMass_delta", function(object) {
 #' @export
 #' @include generics.R
 setMethod("components", "seaMass_delta", function(object, as.data.table = FALSE) {
-  DT <- fst::read.fst(file.path(path(object), "meta", "components.fst"), as.data.table = T)
+  DT <- fst::read.fst(file.path(filepath(object), "meta", "components.fst"), as.data.table = T)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -345,23 +355,7 @@ setMethod("components", "seaMass_delta", function(object, as.data.table = FALSE)
 #' @export
 #' @include generics.R
 setMethod("groups", "seaMass_delta", function(object, as.data.table = FALSE) {
-  DT <- fst::read.fst(file.path(path(object), "meta", "groups.fst"), as.data.table = T)
-
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
-})
-
-
-#' @describeIn seaMass_delta-class Get the model unnormalised group quantifications as a \link{data.frame}.
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("unnormalised_group_quants", "seaMass_delta", function(object, groups = NULL, summary = FALSE, input = "unnormalised.group.quants", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  if(is.null(summary) || summary == F) summary <- NULL
-  if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
-
-  DT <- read_mcmc(object, input, "Group", "Group", c("Group", "Assay"), groups, ".", chains, summary)
+  DT <- fst::read.fst(file.path(filepath(object), "meta", "groups.fst"), as.data.table = T)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -423,8 +417,8 @@ setMethod("component_deviations_de", "seaMass_delta", function(object, component
 #' @export
 #' @include generics.R
 setMethod("group_fdr", "seaMass_delta", function(object, input = "group.fdr", as.data.table = FALSE) {
-  if (file.exists(file.path(path(object), paste(input, "fst", sep = ".")))) {
-    return(fst::read.fst(file.path(path(object), paste(input, "fst", sep = ".")), as.data.table = as.data.table))
+  if (file.exists(file.path(filepath(object), paste(input, "fst", sep = ".")))) {
+    return(fst::read.fst(file.path(filepath(object), paste(input, "fst", sep = ".")), as.data.table = as.data.table))
   } else {
     return(group_de(object, summary = T, as.data.table = as.data.table))
   }
@@ -436,8 +430,8 @@ setMethod("group_fdr", "seaMass_delta", function(object, input = "group.fdr", as
 #' @export
 #' @include generics.R
 setMethod("component_deviations_fdr", "seaMass_delta", function(object, input = "component.deviations.fdr", as.data.table = FALSE) {
-  if (file.exists(file.path(path(object), paste(input, "fst", sep = ".")))) {
-    return(fst::read.fst(file.path(path(object), paste(input, "fst", sep = ".")), as.data.table = as.data.table))
+  if (file.exists(file.path(filepath(object), paste(input, "fst", sep = ".")))) {
+    return(fst::read.fst(file.path(filepath(object), paste(input, "fst", sep = ".")), as.data.table = as.data.table))
   } else {
     return(component_deviations_de(object, summary = T, as.data.table = as.data.table))
   }

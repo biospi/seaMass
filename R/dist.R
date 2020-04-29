@@ -10,7 +10,7 @@ summarise_normal_robust <- function(value) {
 #'
 #' @export
 summarise_normal_robust_mcmc <- function(chainID, mcmcID, value) {
-  return(c(list(rhat = rhat(chainID, mcmcID, value, T)), summarise_normal_robust(value)))
+  return(c(summarise_normal_robust(value), list(rhat = rhat(chainID, mcmcID, value, T))))
 }
 
 
@@ -53,7 +53,7 @@ dist_normal <- function(value, plots = FALSE, ...) {
 #'
 #' @export
 dist_normal_mcmc <- function(chainID, mcmcID, value, ...) {
-  return(c(list(rhat = rhat(chainID, mcmcID, value, T)), dist_normal(value, method = "mge", gof = "CvM", ...)))
+  return(c(dist_normal(value, method = "mge", gof = "CvM", ...), list(rhat = rhat(chainID, mcmcID, value, T))))
 }
 
 
@@ -106,7 +106,7 @@ dist_lst <- function(value, min.df = 0, plots = FALSE, ...) {
 #'
 #' @export
 dist_lst_mcmc <- function(chainID, mcmcID, value, ...) {
-  return(c(list(rhat = rhat(chainID, mcmcID, value, T)), dist_lst(value, method = "mge", gof = "CvM", ...)))
+  return(c(dist_lst(value, method = "mge", gof = "CvM", ...), list(rhat = rhat(chainID, mcmcID, value, T))))
 }
 
 
@@ -169,7 +169,7 @@ dist_invchisq <- function(value, plots = FALSE, ...) {
 #'
 #' @export
 dist_invchisq_mcmc <- function(chainID, mcmcID, value, ...) {
-  return(c(list(rhat = rhat(chainID, mcmcID, value, T)), dist_invchisq(value, method = "mge", gof = "CvM", ...)))
+  return(c(dist_invchisq(value, method = "mge", gof = "CvM", ...), list(rhat = rhat(chainID, mcmcID, value, T))))
 }
 
 
@@ -216,6 +216,7 @@ dist_sf_with_fixed_df1_fitdistrplus <- function(value, df1, plots = FALSE, ...) 
 
   return(list(v0 = est0$v, df0 = est0$df, v = est$v, df = est$df))
 }
+
 
 #' Our squeezeVar function - works for small DF unlike Limma squeezeVar, but slower
 #'

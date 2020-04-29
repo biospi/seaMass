@@ -1,9 +1,6 @@
-setGeneric("fdr_ash", function(object, ...) standardGeneric("fdr_ash"))
-setGeneric("fdr_BH", function(object, ...) standardGeneric("fdr_BH"))
-
-
 #' @import data.table
 #' @include generics.R
+#' @export
 setMethod("fdr_ash", "seaMass_delta", function(
   object,
   input = "group.de",
@@ -111,7 +108,7 @@ setMethod("fdr_ash", "seaMass_delta", function(
     setorder(DT, Batch, qvalue, na.last = T)
   }
 
-  fst::write.fst(DT, file.path(path(object), paste(output, "fst", sep = ".")))
+  fst::write.fst(DT, file.path(filepath(object), paste(output, "fst", sep = ".")))
 
   options(warn = warn)
 
@@ -121,6 +118,7 @@ setMethod("fdr_ash", "seaMass_delta", function(
 
 #' @import data.table
 #' @include generics.R
+#' @export
 setMethod("fdr_BH", "seaMass_delta", function(
   object,
   data = group_de(object),

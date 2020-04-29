@@ -5,7 +5,7 @@
 \alias{normalised_group_variances,seaMass-method}
 \alias{sigma_fit-class}
 \alias{sigma_fit}
-\alias{path,sigma_fit-method}
+\alias{filepath,sigma_fit-method}
 \alias{control,sigma_fit-method}
 \alias{assay_design,sigma_fit-method}
 \alias{measurements,sigma_fit-method}
@@ -18,19 +18,18 @@
 \alias{component_variances,sigma_fit-method}
 \alias{component_deviations,sigma_fit-method}
 \alias{assay_deviations,sigma_fit-method}
-\alias{unnormalised_group_quants,sigma_fit-method}
+\alias{raw_group_quants,sigma_fit-method}
 \title{seaMass-Σ fit}
 \usage{
 \S4method{normalised_group_variances}{seaMass}(
   object,
   groups = NULL,
   summary = FALSE,
-  input = "normalised.group.variances",
   chains = 1:control(object)@model.nchain,
   as.data.table = FALSE
 )
 
-\S4method{path}{sigma_fit}(object)
+\S4method{filepath}{sigma_fit}(object)
 
 \S4method{control}{sigma_fit}(object)
 
@@ -85,7 +84,7 @@
   as.data.table = FALSE
 )
 
-\S4method{unnormalised_group_quants}{sigma_fit}(
+\S4method{raw_group_quants}{sigma_fit}(
   object,
   groups = NULL,
   summary = FALSE,
@@ -101,7 +100,7 @@ The results of a seaMass-Σ fit to a single block, returned by /link{seaMass_sig
 \itemize{
 \item \code{normalised_group_variances}: Get the model normalised group variances as a \link{data.frame}.
 
-\item \code{path}: Get the path.
+\item \code{filepath}: Get the path.
 
 \item \code{control}: Get the \link{sigma_control} object for this fit.
 
@@ -127,6 +126,6 @@ The results of a seaMass-Σ fit to a single block, returned by /link{seaMass_sig
 
 \item \code{assay_deviations}: Get the model assay deviations as a \link{data.frame}.
 
-\item \code{unnormalised_group_quants}: Get the model unnormalised group quantifications as a \link{data.frame}.
+\item \code{raw_group_quants}: Get the model raw group quantifications as a \link{data.frame}.
 }}
 

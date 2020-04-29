@@ -3,23 +3,23 @@
 setMethod("model", "sigma_fit", function(object, input, chain = 1) {
   ctrl <- control(object)
   set.seed(ctrl@random.seed + chain-1)
-  cat(paste0("[", Sys.time(), "]   ", toupper(input), " block=", sub("^.*sigma\\.(.*)$", "\\1", object@path), " chain=", chain, "/", ctrl@model.nchain, "\n"))
+  cat(paste0("[", Sys.time(), "]   ", toupper(input), " block=", sub("^.*sigma\\.(.*)$", "\\1", filepath(object)), " chain=", chain, "/", ctrl@model.nchain, "\n"))
 
   # load metadata
-  DT.design <- fst::read.fst(file.path(object@path, "meta", "design.fst"), as.data.table = T)
-  DT.groups <- fst::read.fst(file.path(object@path, "meta", "groups.fst"), as.data.table = T)
-  DT.index <- fst::read.fst(file.path(object@path, input, "data.index.fst"), as.data.table = T)
+  DT.design <- fst::read.fst(file.path(filepath(object), "meta", "design.fst"), as.data.table = T)
+  DT.groups <- fst::read.fst(file.path(filepath(object), "meta", "groups.fst"), as.data.table = T)
+  DT.index <- fst::read.fst(file.path(filepath(object), input, "data.index.fst"), as.data.table = T)
   nitt <- ctrl@model.nwarmup + (ctrl@model.nsample * ctrl@model.thin) / ctrl@model.nchain
   DT.priors <- priors(object, input = input, as.data.table = T)
 
   # create subdirs
-  if (input != "model0") dir.create(file.path(object@path, input, "unnormalised.group.quants"), showWarnings = F)
-  dir.create(file.path(object@path, input, "measurement.variances"), showWarnings = F)
-  dir.create(file.path(object@path, input, "component.variances"), showWarnings = F)
-  if (input != "model0") dir.create(file.path(object@path, input, "component.deviations"), showWarnings = F)
-  dir.create(file.path(object@path, input, "assay.deviations"), showWarnings = F)
-  dir.create(file.path(object@path, input, "summaries"), showWarnings = F)
-  dir.create(file.path(object@path, input, "timings"), showWarnings = F)
+  if (input != "model0") dir.create(file.path(filepath(object), input, "raw.group.quants"), showWarnings = F)
+  dir.create(file.path(filepath(object), input, "measurement.variances"), showWarnings = F)
+  dir.create(file.path(filepath(object), input, "component.variances"), showWarnings = F)
+  if (input != "model0") dir.create(file.path(filepath(object), input, "component.deviations"), showWarnings = F)
+  dir.create(file.path(filepath(object), input, "assay.deviations"), showWarnings = F)
+  dir.create(file.path(filepath(object), input, "summaries"), showWarnings = F)
+  dir.create(file.path(filepath(object), input, "timings"), showWarnings = F)
 
   if (nrow(DT.index) > 0) {
     cat(paste0("[", Sys.time(), "]    modelling ngroup=", nrow(DT.index), " nitt=", nitt, "...\n"))
@@ -33,7 +33,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
       nitt <- ctrl@model.nwarmup + (ctrl@model.nsample * ctrl@model.thin) / ctrl@model.nchain
 
       # load data
-      DT <- fst::read.fst(file.path(object@path, input, item[, file]), as.data.table = T, from = item[, from], to = item[, to])
+      DT <- fst::read.fst(file.path(filepath(object), input, item[, file]), as.data.table = T, from = item[, from], to = item[, to])
 
       # calculate how many real (non-imputed) components and measurements back each Assay
       DT.assay.n <- DT[, .(nMeasurement = sum(!is.na(RawCount))), by = .(AssayID, ComponentID)]
@@ -201,7 +201,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
         }
 
         ### EXTRACT GROUP QUANTS
-        if (input == "model1" && ("unnormalised.group.quants" %in% ctrl@summarise || "unnormalised.group.quants" %in% ctrl@keep)) {
+        if (input == "model1" && ("raw.group.quants" %in% ctrl@summarise || "raw.group.quants" %in% ctrl@keep)) {
           output$DT.group.quants <- as.data.table(model$Sol[, grep("^QuantID[0-9]+\\.[0-9]+$", colnames(model$Sol)), drop = F])
           output$DT.group.quants[, mcmcID := 1:nrow(output$DT.group.quants)]
           output$DT.group.quants <- melt(output$DT.group.quants, variable.name = "BaselineID", id.vars = "mcmcID")
@@ -348,8 +348,8 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
 
         # if large enough write out group quants now to conserve memory, otherwise don't to conserve disk space
         if (object.size(output$DT.group.quants) > 2^18) {
-          filename <- file.path("unnormalised.group.quants", paste0(chain, ".", item[, GroupID], ".fst"))
-          fst::write.fst(output$DT.group.quants, file.path(object@path, input, filename))
+          filename <- file.path("raw.group.quants", paste0(chain, ".", item[, GroupID], ".fst"))
+          fst::write.fst(output$DT.group.quants, file.path(filepath(object), input, filename))
 
           if (chain == 1) {
             # construct index
@@ -370,7 +370,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
         if (!is.null(output$DT.component.deviations)) {
           if (object.size(output$DT.component.deviations) > 2^18) {
             filename <- file.path("component.deviations", paste0(chain, ".", item[, GroupID], ".fst"))
-            fst::write.fst(output$DT.component.deviations, file.path(object@path, input, filename))
+            fst::write.fst(output$DT.component.deviations, file.path(filepath(object), input, filename))
 
             if (chain == 1) {
               # construct index
@@ -395,7 +395,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
         if (!is.null(output$DT.assay.deviations)) {
           if (object.size(output$DT.assay.deviations) > 2^18) {
             filename <- file.path("assay.deviations", paste0(chain, ".", item[, GroupID], ".fst"))
-            fst::write.fst(output$DT.assay.deviations, file.path(object@path, input, filename))
+            fst::write.fst(output$DT.assay.deviations, file.path(filepath(object), input, filename))
 
             if (chain == 1) {
               # construct index
@@ -431,7 +431,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
         # if large enough write out measurement variances now to conserve memory, otherwise don't to conserve disk space
         if (object.size(output$DT.measurement.variances) > 2^18) {
           filename <- file.path("measurement.variances", paste0(chain, ".", item[, GroupID], ".fst"))
-          fst::write.fst(output$DT.measurement.variances, file.path(object@path, input, filename))
+          fst::write.fst(output$DT.measurement.variances, file.path(filepath(object), input, filename))
 
           if (chain == 1) {
             # construct index
@@ -455,7 +455,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
         if (!is.null(output$DT.component.variances)) {
           if (object.size(output$DT.component.variances) > 2^18) {
             filename <- file.path("component.variances", paste0(chain, ".", item[, GroupID], ".fst"))
-            fst::write.fst(output$DT.component.variances, file.path(object@path, input, filename))
+            fst::write.fst(output$DT.component.variances, file.path(filepath(object), input, filename))
 
             if (chain == 1) {
               # construct index
@@ -480,7 +480,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
         if (!is.null(output$DT.assay.variances)) {
           if (object.size(output$DT.assay.variances) > 2^18) {
             filename <- file.path("assay.variances", paste0(chain, ".", item[, GroupID], ".fst"))
-            fst::write.fst(output$DT.assay.variances, file.path(object@path, input, filename))
+            fst::write.fst(output$DT.assay.variances, file.path(filepath(object), input, filename))
 
             if (chain == 1) {
               # construct index
@@ -507,11 +507,11 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
 
     # write out concatenation of smaller output
     setorder(outputs$DT.summaries, GroupID, chainID)
-    fst::write.fst(outputs$DT.summaries, file.path(object@path, input, file.path("summaries", paste0(chain, ".fst"))))
+    fst::write.fst(outputs$DT.summaries, file.path(filepath(object), input, file.path("summaries", paste0(chain, ".fst"))))
     outputs$DT.summaries <- NULL
 
     setorder(outputs$DT.timings, GroupID, chainID)
-    fst::write.fst(outputs$DT.timings, file.path(object@path, input, file.path("timings", paste0(chain, ".fst"))))
+    fst::write.fst(outputs$DT.timings, file.path(filepath(object), input, file.path("timings", paste0(chain, ".fst"))))
     outputs$DT.timings <- NULL
 
     # write out component deviations
@@ -519,7 +519,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
       if (nrow(outputs$DT.component.deviations) > 0) {
         setorder(outputs$DT.component.deviations, GroupID, ComponentID, AssayID, chainID, mcmcID)
         filename <- file.path("component.deviations", paste0(chain, ".fst"))
-        fst::write.fst(outputs$DT.component.deviations, file.path(object@path, input, filename))
+        fst::write.fst(outputs$DT.component.deviations, file.path(filepath(object), input, filename))
 
         # finish index construction
         if (chain == 1) {
@@ -538,7 +538,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
       # write index
       if (chain == 1) {
         setkey(outputs$DT.index.component.deviations, GroupID, file, from, ComponentID)
-        fst::write.fst(outputs$DT.index.component.deviations, file.path(object@path, input, paste0("component.deviations.index.fst")))
+        fst::write.fst(outputs$DT.index.component.deviations, file.path(filepath(object), input, paste0("component.deviations.index.fst")))
       }
 
       outputs$DT.component.deviations <- NULL
@@ -550,7 +550,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
         if (nrow(outputs$DT.assay.deviations) > 0) {
           setorder(outputs$DT.assay.deviations, GroupID, MeasurementID, AssayID, chainID, mcmcID)
           filename <- file.path("assay.deviations", paste0(chain, ".fst"))
-          fst::write.fst(outputs$DT.assay.deviations, file.path(object@path, input, filename))
+          fst::write.fst(outputs$DT.assay.deviations, file.path(filepath(object), input, filename))
 
           # finish index construction
           if (chain == 1) {
@@ -569,13 +569,13 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
         # write index
         if (chain == 1) {
           setkey(outputs$DT.index.assay.deviations, GroupID, file, from, MeasurementID)
-          fst::write.fst(outputs$DT.index.assay.deviations, file.path(object@path, input, paste0("assay.deviations.index.fst")))
+          fst::write.fst(outputs$DT.index.assay.deviations, file.path(filepath(object), input, paste0("assay.deviations.index.fst")))
         }
       } else {
         if (nrow(outputs$DT.assay.deviations) > 0) {
           setorder(outputs$DT.assay.deviations, GroupID, ComponentID, AssayID, chainID, mcmcID)
           filename <- file.path("assay.deviations", paste0(chain, ".fst"))
-          fst::write.fst(outputs$DT.assay.deviations, file.path(object@path, input, filename))
+          fst::write.fst(outputs$DT.assay.deviations, file.path(filepath(object), input, filename))
 
           # finish index construction
           if (chain == 1) {
@@ -594,7 +594,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
         # write index
         if (chain == 1) {
           setkey(outputs$DT.index.assay.deviations, GroupID, file, from, ComponentID)
-          fst::write.fst(outputs$DT.index.assay.deviations, file.path(object@path, input, paste0("assay.deviations.index.fst")))
+          fst::write.fst(outputs$DT.index.assay.deviations, file.path(filepath(object), input, paste0("assay.deviations.index.fst")))
         }
       }
 
@@ -611,7 +611,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
           setorder(outputs$DT.measurement.variances, GroupID, chainID, mcmcID)
         }
         filename <- file.path("measurement.variances", paste0(chain, ".fst"))
-        fst::write.fst(outputs$DT.measurement.variances, file.path(object@path, input, filename))
+        fst::write.fst(outputs$DT.measurement.variances, file.path(filepath(object), input, filename))
 
         # finish index construction
         if (chain == 1) {
@@ -630,7 +630,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
       # write index
       if (chain == 1) {
         setkey(outputs$DT.index.measurement.variances, GroupID, file, from, ComponentID, MeasurementID)
-        fst::write.fst(outputs$DT.index.measurement.variances, file.path(object@path, input, paste0("measurement.variances.index.fst")))
+        fst::write.fst(outputs$DT.index.measurement.variances, file.path(filepath(object), input, paste0("measurement.variances.index.fst")))
       }
 
       outputs$DT.measurement.variances <- NULL
@@ -641,7 +641,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
       if (nrow(outputs$DT.component.variances) > 0) {
         setorder(outputs$DT.component.variances, GroupID, ComponentID, chainID, mcmcID)
         filename <- file.path("component.variances", paste0(chain, ".fst"))
-        fst::write.fst(outputs$DT.component.variances, file.path(object@path, input, filename))
+        fst::write.fst(outputs$DT.component.variances, file.path(filepath(object), input, filename))
 
         # finish index construction
         if (chain == 1) {
@@ -660,7 +660,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
       # write index
       if (chain == 1) {
         setkey(outputs$DT.index.component.variances, GroupID, file, from, ComponentID)
-        fst::write.fst(outputs$DT.index.component.variances, file.path(object@path, input, paste0("component.variances.index.fst")))
+        fst::write.fst(outputs$DT.index.component.variances, file.path(filepath(object), input, paste0("component.variances.index.fst")))
       }
 
       outputs$DT.component.variances <- NULL
@@ -671,7 +671,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
       if (nrow(outputs$DT.assay.variances) > 0) {
         setorder(outputs$DT.assay.variances, GroupID, AssayID, chainID, mcmcID)
         filename <- file.path("assay.variances", paste0(chain, ".fst"))
-        fst::write.fst(outputs$DT.assay.variances, file.path(object@path, input, filename))
+        fst::write.fst(outputs$DT.assay.variances, file.path(filepath(object), input, filename))
 
         # finish index construction
         if (chain == 1) {
@@ -690,7 +690,7 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
       # write index
       if (chain == 1) {
         setkey(outputs$DT.index.assay.variances, GroupID, file, from, AssayID)
-        fst::write.fst(outputs$DT.index.assay.variances, file.path(object@path, input, paste0("assay.variances.index.fst")))
+        fst::write.fst(outputs$DT.index.assay.variances, file.path(filepath(object), input, paste0("assay.variances.index.fst")))
       }
 
       outputs$DT.assay.variances <- NULL
@@ -700,8 +700,8 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
     if (!is.null(outputs$DT.group.quants)) {
       if (nrow(outputs$DT.group.quants) > 0) {
         setorder(outputs$DT.group.quants, GroupID, AssayID, chainID, mcmcID)
-        filename <- file.path("unnormalised.group.quants", paste0(chain, ".fst"))
-        fst::write.fst(outputs$DT.group.quants, file.path(object@path, input, filename))
+        filename <- file.path("raw.group.quants", paste0(chain, ".fst"))
+        fst::write.fst(outputs$DT.group.quants, file.path(filepath(object), input, filename))
 
         # finish index construction
         if (chain == 1) {
@@ -716,14 +716,14 @@ setMethod("model", "sigma_fit", function(object, input, chain = 1) {
 
       if (chain == 1) {
         setkey(outputs$DT.index.group.quants, GroupID, file, from)
-        fst::write.fst(outputs$DT.index.group.quants, file.path(object@path, input, paste0("unnormalised.group.quants.index.fst")))
+        fst::write.fst(outputs$DT.index.group.quants, file.path(filepath(object), input, paste0("raw.group.quants.index.fst")))
       }
 
       outputs$DT.group.quants <- NULL
     }
   }
 
-  write.table(data.frame(), file.path(object@path, input, paste(".complete", chain, sep = ".")), col.names = F)
+  write.table(data.frame(), file.path(filepath(object), input, paste(".complete", chain, sep = ".")), col.names = F)
 
   return(invisible(NULL))
 })

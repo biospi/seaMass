@@ -10,7 +10,6 @@
   object,
   groups = NULL,
   summary = FALSE,
-  input = "normalised.group.quants",
   chains = 1:control(object)@model.nchain,
   as.data.table = FALSE
 )

@@ -6,21 +6,21 @@ setGeneric("process0", function(object, ...) standardGeneric("process0"))
 setMethod("process0", "sigma_fit", function(object, chain) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))
-      stop(paste0("version mismatch - '", path(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
+      stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
 
   # EXECUTE MODEL
   model(object, "model0", chain)
 
-  if (all(sapply(1:ctrl@model.nchain, function(chain) file.exists(file.path(object@path, "model0", paste(".complete", chain, sep = ".")))))) {
+  if (all(sapply(1:ctrl@model.nchain, function(chain) file.exists(file.path(object@filepath, "model0", paste(".complete", chain, sep = ".")))))) {
     # PROCESS OUTPUT
-    cat(paste0("[", Sys.time(), "]   OUTPUT0 block=", sub("^.*sigma\\.(.*)$", "\\1", object@path), "\n"))
+    cat(paste0("[", Sys.time(), "]   OUTPUT0 block=", sub("^.*sigma\\.(.*)$", "\\1", object@filepath), "\n"))
 
     # Measurement EB prior
     cat(paste0("[", Sys.time(), "]    measurement prior...\n"))
     set.seed(ctrl@random.seed)
     DT.priors <- data.table(Effect = "Measurements", measurement_variances(object, input = "model0", summary = T, as.data.table = T)[, squeeze_var(v, df)])
     # delete measurement variances if not in 'keep'
-    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@path, "model0", "measurement.variances*"), recursive = T)
+    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "measurement.variances*"), recursive = T)
 
     # Component EB prior
     if(!is.null(ctrl@component.model)) {
@@ -29,7 +29,7 @@ setMethod("process0", "sigma_fit", function(object, chain) {
       DT.priors <- rbind(DT.priors, data.table(Effect = "Components", component_variances(object, input = "model0", summary = T, as.data.table = T)[, squeeze_var(v, df)]))
     }
     # delete component variances if not in 'keep'
-    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@path, "model0", "component.variances*"), recursive = T)
+    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "component.variances*"), recursive = T)
 
     # Assay EB priors
     if(ctrl@assay.model != "") {
@@ -70,21 +70,21 @@ setMethod("process0", "sigma_fit", function(object, chain) {
       }, nthread = ctrl@nthread))
 
       DT.assay.prior <- DT.assay.prior[, dist_invchisq_mcmc(chainID, mcmcID, value), by = Assay]
-      DT.assay.prior <- merge(DT.assay.prior, fst::read.fst(file.path(object@path, "meta", "design.fst"), as.data.table = T)[, .(AssayID, Assay)], by = "Assay")
+      DT.assay.prior <- merge(DT.assay.prior, fst::read.fst(file.path(object@filepath, "meta", "design.fst"), as.data.table = T)[, .(AssayID, Assay)], by = "Assay")
       DT.assay.prior[, Effect := paste("Assay", Assay)]
       DT.assay.prior[, Assay := NULL]
       DT.priors <- rbind(DT.priors, DT.assay.prior, use.names = T, fill = T)
     }
     # delete assay deviations if not in 'keep'
-    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@path, "model0", "assay.deviations*"), recursive = T)
+    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "assay.deviations*"), recursive = T)
 
     # SAVE PRIORS
-    fst::write.fst(DT.priors, file.path(object@path, "model1", "priors.fst"))
-    fwrite(DT.priors, file.path(dirname(object@path), "output", basename(object@path), "model_priors.csv"))
+    fst::write.fst(DT.priors, file.path(object@filepath, "model1", "priors.fst"))
+    fwrite(DT.priors, file.path(dirname(object@filepath), "output", basename(object@filepath), "model_priors.csv"))
 
     # PLOT PRIORS
     plot_priors(DT.priors, by = "Effect", xlab = "log2 Standard Deviation", trans = sqrt, inv.trans = function(x) x^2)
-    suppressWarnings(ggplot2::ggsave(file.path(dirname(object@path), "output", basename(object@path), "qc_stdevs.pdf"), width = 4, height = 0.5 + 1 * nrow(DT.priors), limitsize = F))
+    suppressWarnings(ggplot2::ggsave(file.path(dirname(object@filepath), "output", basename(object@filepath), "qc_stdevs.pdf"), width = 4, height = 0.5 + 1 * nrow(DT.priors), limitsize = F))
   }
 
   return(invisible(NULL))

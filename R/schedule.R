@@ -129,10 +129,10 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
   ctrl <- control(sigma)
   n <- length(fits(sigma)) * ctrl@model.nchain
 
-  cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "submit.process0"))
-  cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
-  if (length(ctrl@plots) > 0) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(sigma@path, "submit.plots"))
-  cat(config(object, "", name, 1, T, "hpc_finish"), file = file.path(sigma@path, "submit.finish"))
+  cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(filepath(sigma), "submit.process0"))
+  cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(filepath(sigma), "submit.process1"))
+  if (length(ctrl@plots) > 0) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(filepath(sigma), "submit.plots"))
+  cat(config(object, "F", name, 1, T, "hpc_finish"), file = file.path(filepath(sigma), "submit.finish"))
 
   # submit script
   cat(paste0(
@@ -178,8 +178,8 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
     "\n",
     "popd > /dev/null\n",
     "exit $EXITCODE\n"
-  ), file = file.path(sigma@path, "submit.sh"))
-  system(paste("chmod u+x", file.path(sigma@path, "submit.sh")))
+  ), file = file.path(filepath(sigma), "submit.sh"))
+  system(paste("chmod u+x", file.path(filepath(sigma), "submit.sh")))
 
   return(invisible(object))
 })
@@ -187,7 +187,7 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, sigma) {
 
 #' @include generics.R
 setMethod("prepare_delta", "schedule_slurm", function(object, delta) {
-  cat(config(object, "D", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), F, "hpc_delta"), file = file.path(delta@sigma@path, "submit.delta"))
+  cat(config(object, "D", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), F, "hpc_delta"), file = file.path(filepath(delta@sigma), "submit.delta"))
   return(invisible(object))
 })
 
@@ -195,7 +195,7 @@ setMethod("prepare_delta", "schedule_slurm", function(object, delta) {
 #' @include generics.R
 setMethod("run", "schedule_slurm", function(object, sigma) {
   cat(paste0("[", Sys.time(), "]  submitting to SLURM...\n"))
-  system(paste0(object@submit.prefix, file.path(basename(path(sigma)), "submit.sh")))
+  system(paste0(object@submit.prefix, file.path(basename(filepath(sigma)), "submit.sh")))
   return(invisible(object))
 })
 
@@ -281,10 +281,10 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
   ctrl <- control(sigma)
   n <- length(fits(sigma)) * ctrl@model.nchain
 
-  cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "submit.process0"))
-  cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
-  if (length(ctrl@plots) > 0) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(sigma@path, "submit.plots"))
-  cat(config(object, "", name, 1, T, "hpc_finish"), file = file.path(sigma@path, "submit.finish"))
+  cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(filepath(sigma), "submit.process0"))
+  cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(filepath(sigma), "submit.process1"))
+  if (length(ctrl@plots) > 0) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(filepath(sigma), "submit.plots"))
+  cat(config(object, "F", name, 1, T, "hpc_finish"), file = file.path(filepath(sigma), "submit.finish"))
 
   # submit script
   cat(paste0(
@@ -330,8 +330,8 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
     "\n",
     "popd > /dev/null\n",
     "exit $EXITCODE\n"
-  ), file = file.path(sigma@path, "submit.sh"))
-  system(paste("chmod u+x", file.path(sigma@path, "submit.sh")))
+  ), file = file.path(filepath(sigma), "submit.sh"))
+  system(paste("chmod u+x", file.path(filepath(sigma), "submit.sh")))
 
   return(invisible(object))
 })
@@ -339,7 +339,7 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, sigma) {
 
 #' @include generics.R
 setMethod("prepare_delta", "schedule_pbs", function(object, delta) {
-  cat(config(object, "D", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), F, "hpc_delta"), file = file.path(delta@sigma@path, "submit.delta"))
+  cat(config(object, "D", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), F, "hpc_delta"), file = file.path(filepath(delta@sigma), "submit.delta"))
   return(invisible(object))
 })
 
@@ -347,7 +347,7 @@ setMethod("prepare_delta", "schedule_pbs", function(object, delta) {
 #' @include generics.R
 setMethod("run", "schedule_pbs", function(object, sigma) {
   cat(paste0("[", Sys.time(), "]  submitting to PBS...\n"))
-  system(paste0(object@submit.prefix, file.path(basename(path(sigma)), "submit.sh")))
+  system(paste0(object@submit.prefix, file.path(basename(filepath(sigma)), "submit.sh")))
   return(invisible(object))
 })
 
@@ -432,10 +432,10 @@ setMethod("prepare_sigma", "schedule_sge", function(object, sigma) {
   ctrl <- control(sigma)
   n <- length(fits(sigma)) * ctrl@model.nchain
 
-  cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(sigma@path, "submit.process0"))
-  cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(sigma@path, "submit.process1"))
-  if (length(ctrl@plots) > 0) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(sigma@path, "submit.plots"))
-  cat(config(object, "", name, 1, T, "hpc_finish"), file = file.path(sigma@path, "submit.finish"))
+  cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(filepath(sigma), "submit.process0"))
+  cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(filepath(sigma), "submit.process1"))
+  if (length(ctrl@plots) > 0) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(filepath(sigma), "submit.plots"))
+  cat(config(object, "F", name, 1, T, "hpc_finish"), file = file.path(filepath(sigma), "submit.finish"))
 
   # submit script
   cat(paste0(
@@ -480,8 +480,8 @@ setMethod("prepare_sigma", "schedule_sge", function(object, sigma) {
     "\n",
     "popd > /dev/null\n",
     "exit $EXITCODE\n"
-  ), file = file.path(sigma@path, "submit.sh"))
-  system(paste("chmod u+x", file.path(sigma@path, "submit.sh")))
+  ), file = file.path(filepath(sigma), "submit.sh"))
+  system(paste("chmod u+x", file.path(filepath(sigma), "submit.sh")))
 
   return(invisible(object))
 })
@@ -489,7 +489,7 @@ setMethod("prepare_sigma", "schedule_sge", function(object, sigma) {
 
 #' @include generics.R
 setMethod("prepare_delta", "schedule_sge", function(object, delta) {
-  cat(config(object, "D", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), F, "hpc_delta"), file = file.path(delta@sigma@path, "submit.delta"))
+  cat(config(object, "D", name(delta@sigma), length(open_seaMass_deltas(delta@sigma, force = T)), F, "hpc_delta"), file = file.path(filepath(delta@sigma), "submit.delta"))
 
   return(invisible(object))
 })
@@ -498,7 +498,7 @@ setMethod("prepare_delta", "schedule_sge", function(object, delta) {
 #' @include generics.R
 setMethod("run", "schedule_sge", function(object, sigma) {
   cat(paste0("[", Sys.time(), "]  submitting to SGE...\n"))
-  system(paste0(object@submit.prefix, file.path(basename(path(sigma)), "submit.sh")))
+  system(paste0(object@submit.prefix, file.path(basename(filepath(sigma)), "submit.sh")))
   return(invisible(object))
 })
 

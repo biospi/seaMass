@@ -33,7 +33,7 @@ To upgrade to the latest version of seaMass, simply run this line again.
 
 ## seaMass-Σ and seaMass-Δ
 
-Firstly, you need to use an *import* function to convert from an upstream tool format to seaMass' standardised *data.frame* format. Then you can assign injections to runs if you've used fractionation, and specify a block structure to your assays if this is a large study (TMT/iTraq studies are blocked automatically). Finally, you use the *seaMass-sigma* function to fit the model and generate unnormalised group-level quants.
+Firstly, you need to use an *import* function to convert from an upstream tool format to seaMass' standardised *data.frame* format. Then you can assign injections to runs if you've used fractionation, and specify a block structure to your assays if this is a large study (TMT/iTraq studies are blocked automatically). Finally, you use the *seaMass-sigma* function to fit the model and generate raw group-level quants.
 
 ### Tutorial (local processing)
 
@@ -75,19 +75,7 @@ data.design$Assay <- factor(c(
 ))
 ```
 
-Next, run the seaMass-Σ model. Specifying TRUE for summaries will generate csv reports in the directory specified by the *seaMass-sigma* *path* parameter, and any internal control parameters (such as the number of CPU threads to use) can be specified through a *sigma_control* object. 
-
-```
-# run seaMass-Σ
-sigma <- seaMass_sigma(
-  data,
-  data.design,
-  path = "Tutorial",
-  control = sigma_control(nthread = 4)
-)
-```
-
-seaMass-Σ computes unnormalised protein group quants (together with peptide deviations from the protein group quants, and peptide/feature variances) for each block. To allow comparisons to be made across blocks (standardisation), and optionally normalisation and/or false discovery rate controlled differential expression analysis, run seaMass-Δ on the *seaMass_sigma_fits* object returned by seaMass-Σ. Firstly, define which assays will be used as references: 
+seaMass-Σ computes raw protein group quants (together with peptide deviations from the protein group quants, and peptide/feature variances) for each block. To allow comparisons to be made across blocks (standardisation), and optionally normalisation and/or false discovery rate controlled differential expression analysis, run seaMass-Δ on the *seaMass_sigma_fits* object returned by seaMass-Σ. Firstly, define which assays will be used as references: 
 
 ```
 # Define reference weights for each block
@@ -111,13 +99,24 @@ data.design$Condition <- factor(c(
 ))
 ```
 
+Next, run the seaMass-Σ model. Specifying TRUE for summaries will generate csv reports in the directory specified by the *seaMass-sigma* *path* parameter, and any internal control parameters (such as the number of CPU threads to use) can be specified through a *sigma_control* object. 
+
+```
+# run seaMass-Σ
+sigma <- seaMass_sigma(
+  data,
+  data.design,
+  path = "Tutorial",
+  control = sigma_control(nthread = 4)
+)
+```
+
 Finally, run seaMass-Δ. Internal control parameters can be specified through a *delta_control* object. 
 
 ```
 # run seaMass-Δ
 delta <- seaMass_delta(
   sigma,
-  data.design,
   control = delta_control(random.seed = 0)
 )
 ```

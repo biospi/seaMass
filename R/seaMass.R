@@ -11,21 +11,20 @@
 setClass("seaMass", contains = "VIRTUAL")
 
 
-#' @describeIn seaMass-class Get the model normalised group quantifications as a \link{data.frame}.
+#' @describeIn seaMass_delta-class Get the model standardised group quantifications as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("normalised_group_quants", "seaMass", function(object, groups = NULL, summary = FALSE, input = "normalised.group.quants", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  if (!dir.exists(file.path(path(object), input))) {
-    DT <- unnormalised_group_quants(object, groups, summary, chains = chains, as.data.table = T)
-    DT[, exposure := 0]
-  } else {
-    if(is.null(summary) || summary == F) summary <- NULL
-    if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
+setMethod("standardised_group_quants", "seaMass", function(object, groups = NULL, summary = FALSE, chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  if(is.null(summary) || summary == F) summary <- NULL
+  if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
 
-    DT <- read_mcmc(object, input, "Group", "Group", c("Group", "Assay"), groups, ".", chains, summary)
-    if (is.null(DT)) stop(paste("normalised group variances were not", ifelse(is.null(summary), "kept", "summarised")))
+  if (dir.exists(file.path(filepath(object), "standardised.group.quants"))) {
+    DT <- read_mcmc(object, "standardised.group.quants", "Group", "Group", c("Group", "Assay"), groups, ".", chains, summary)
+  } else {
+    DT <- read_mcmc(fits(object)[[1]], "standardised.group.quants", "Group", "Group", c("Group", "Assay"), groups, ".", chains, summary)
   }
+  if (is.null(DT)) stop(paste("standardised group quants were not", ifelse(is.null(summary), "kept", "summarised")))
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -37,16 +36,48 @@ setMethod("normalised_group_quants", "seaMass", function(object, groups = NULL, 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("normalised_group_variances", "seaMass", function(object, groups = NULL, summary = FALSE, input = "normalised.group.variances", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  if (!dir.exists(file.path(path(object), input))) {
-    DT <- NULL
-  } else {
-    if(is.null(summary) || summary == F) summary <- NULL
-    if(!is.null(summary)) summary <- ifelse(summary == T, "dist_invchisq_mcmc", paste("dist", summary, sep = "_"))
+setMethod("normalised_group_variances", "seaMass", function(object, groups = NULL, summary = FALSE, chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  if(is.null(summary) || summary == F) summary <- NULL
+  if(!is.null(summary)) summary <- ifelse(summary == T, "dist_invchisq_mcmc", paste("dist", summary, sep = "_"))
 
-    DT <- read_mcmc(object, input, "Group", "Group", "Group", groups, ".", chains, summary)
-    if (is.null(DT)) stop(paste("normalised group variances were not", ifelse(is.null(summary), "kept", "summarised")))
+  if (dir.exists(file.path(filepath(object), "normalised.group.variances"))) {
+    DT <- read_mcmc(object, "normalised.group.variances", "Group", "Group", "Group", groups, ".", chains, summary)
+   } else {
+     DT <- read_mcmc(fits(object)[[1]], "normalised.group.variances", "Group", "Group", "Group", groups, ".", chains, summary)
+   }
+  if (is.null(DT)) stop(paste("normalised group variances were not", ifelse(is.null(summary), "kept", "summarised")))
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass-class Get the model normalised group quantifications as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("normalised_group_quants", "seaMass", function(object, groups = NULL, summary = FALSE, chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  if (dir.exists(file.path(filepath(object), "normalised.group.quants"))) {
+    if(is.null(summary) || summary == F) summary <- NULL
+    if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
+    DT <- read_mcmc(object, "normalised.group.quants", "Group", "Group", c("Group", "Assay"), groups, ".", chains, summary)
+  } else {
+    if (dir.exists(file.path(filepath(object), "standardised_group_quants"))) {
+      DT <- standardised_group_quants(object, groups, summary, chains = chains, as.data.table = T)
+      DT[, exposure := 0]
+    } else {
+      if (dir.exists(file.path(filepath(fits(object)[[1]]), "normalised.group.quants"))) {
+        if(is.null(summary) || summary == F) summary <- NULL
+        if(!is.null(summary)) summary <- ifelse(summary == T, "dist_lst_mcmc", paste("dist", summary, sep = "_"))
+        DT <- read_mcmc(fits(object)[[1]], "normalised.group.quants", "Group", "Group", c("Group", "Assay"), groups, ".", chains, summary)
+      } else {
+        DT <- standardised_group_quants(fits(object)[[1]], groups, summary, chains = chains, as.data.table = T)
+        DT[, exposure := 0]
+      }
+    }
   }
+  if (is.null(DT)) stop(paste("normalised group variances were not", ifelse(is.null(summary), "kept", "summarised")))
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -57,14 +88,14 @@ setMethod("normalised_group_variances", "seaMass", function(object, groups = NUL
 #' @import data.table
 #' @include generics.R
 setMethod("read_mcmc", "seaMass", function(object, effect.name, columnID, batchIDs, summaryIDs, itemIDs, input, chains, summary) {
-  if (!is.null(summary)) filename <- file.path(file.path(path(object), input, paste(summary, effect.name, "fst", sep = ".")))
+  if (!is.null(summary)) filename <- file.path(file.path(filepath(object), input, paste(summary, effect.name, "fst", sep = ".")))
   if (!is.null(summary) && file.exists(filename)) {
     # load and filter from cache
     DT <- fst::read.fst(filename, as.data.table = T)
     if (!is.null(itemIDs)) DT <- DT[get(columnID) %in% itemIDs]
   } else {
     # load and filter index
-    filename.index <- file.path(path(object), input, paste(effect.name, "index.fst", sep = "."))
+    filename.index <- file.path(filepath(object), input, paste(effect.name, "index.fst", sep = "."))
     if (!file.exists(filename.index)) return(NULL)
     DT.index <- fst::read.fst(filename.index, as.data.table = T)
     if (!is.null(itemIDs)) DT.index <- DT.index[get(columnID) %in% itemIDs]
@@ -96,7 +127,7 @@ setMethod("read_mcmc", "seaMass", function(object, effect.name, columnID, batchI
           DT1 <- NULL
           try({
             DT1 <- fst::read.fst(
-              file.path(path(object), input, dirname(item[i, file]), sub("^([0-9]+)", chain, basename(item[i, file]))),
+              file.path(filepath(object), input, dirname(item[i, file]), sub("^([0-9]+)", chain, basename(item[i, file]))),
               from = item[i, from],
               to = item[i, to],
               as.data.table = T
