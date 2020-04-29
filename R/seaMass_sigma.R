@@ -261,7 +261,7 @@ open_seaMass_sigma <- function(
   blocks <- blocks[grep("^sigma\\.", blocks)]
 
   if(length(blocks) > 0 && (force || all(file.exists(file.path(path, blocks, "complete"))))) {
-     return(new("seaMass_sigma", path = normalizePath(path)))
+     return(new("seaMass_sigma", filepath = normalizePath(path)))
   } else {
     if (quiet) {
       return(NULL)
