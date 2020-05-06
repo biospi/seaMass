@@ -8,9 +8,10 @@
   object,
   data.design = assay_design(object),
   type = "normalised.group.quants",
+  robust = TRUE,
   contours = 1:2,
   aspect.ratio = 9/16,
-  robust = TRUE,
+  colour = "Condition",
   ...
 )
 }
@@ -19,9 +20,9 @@
 
 \item{data.design}{.}
 
-\item{contours}{.}
-
 \item{robust}{.}
+
+\item{contours}{.}
 
 \item{data}{.}
 

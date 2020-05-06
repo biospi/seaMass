@@ -64,32 +64,32 @@ new_assay_design <- function(data) {
   DT.design[, Channel_ := NULL]
 
   # autodetect blocks
-  Block. <- merge(DT.design[, .(Run, Channel, Assay)], data[, .(Run, Channel, Measurement)], by = c("Run", "Channel"))
-  Block.[, Run := NULL]
-  Block.[, Channel := NULL]
-  Block.[, N := 1]
-  Block. <- dcast(Block., Measurement ~ Assay, sum, value.var = "N")
-  Block.[, Measurement := NULL]
-  Block. <- as.matrix(Block.)
-  # matrix multiplication distributes assay relationships
-  Block. <- t(Block.) %*% Block.
-  # Block. is recoded first non-zero occurence for each assay
-  Block. <- colnames(Block.)[apply(Block. != 0, 2, which.max)]
-  Block. <- factor(as.integer(factor(Block., levels = unique(Block.))))
-  if (nlevels(Block.) == 1) {
-    DT.design[, paste("Block", levels(Block.), sep = ".")] <- as.logical(as.integer(Block.))
-  } else if (nlevels(Block.) > 1) {
-    Block. <- data.table(model.matrix(~ Block. - 1))
-    DT.design <- cbind(DT.design, mapply(Block., FUN = as.logical))
+  DT.blocks <- merge(DT.design[, .(Run, Channel, Assay)], data[, .(Run, Channel, Measurement)], by = c("Run", "Channel"))
+  DT.blocks[, Run := NULL]
+  DT.blocks[, Channel := NULL]
+  DT.blocks[, N := 1]
+  DT.blocks <- setDF(dcast(DT.blocks, Measurement ~ Assay, sum, value.var = "N"))
+  rownames(DT.blocks) <- paste0("_seaMass_.Measurement.", DT.blocks$Measurement)
+  DT.blocks$Measurement <- NULL
+  colnames(DT.blocks) <- paste0("_seaMass_.Assay.", colnames(DT.blocks))
+  DT.blocks <- igraph::components(igraph::graph.incidence(DT.blocks))
+  DT.blocks <- DT.blocks$membership[grep("^_seaMass_\\.Assay\\.", names(DT.blocks$membership))]
+  DT.blocks <- data.table(Assay = sub("^_seaMass_\\.Assay\\.", "", names(DT.blocks)), Block. = factor(DT.blocks))
+  DT.design <- merge(DT.design, DT.blocks, by = "Assay", sort = F)
+  if (nlevels(DT.design$Block.) == 1) {
+    DT.design[,paste0("Block.", levels(DT.design$Block.)) := Block. == levels(DT.design$Block.)]
+  } else {
+    DT.design <- cbind(DT.design, apply(model.matrix(~ Block. - 1, data = DT.design), 2, as.logical))
   }
+  DT.design[, Block. := NULL]
 
-  # For seaMass-Δ
   if ("RefWeight" %in% colnames(data)) {
     DT.design <- merge(DT.design, unique(data[, .(Run, Channel, RefWeight)]), by = c("Run", "Channel"), sort = F)
   } else {
     DT.design[, RefWeight := 1]
   }
 
+  # For seaMass-Δ
   if ("Sample" %in% colnames(data)) {
     DT.design <- merge(DT.design, unique(data[, .(Run, Channel, Sample)]), by = c("Run", "Channel"), sort = F)
   } else {
@@ -99,8 +99,10 @@ new_assay_design <- function(data) {
   if ("Condition" %in% colnames(data)) {
     DT.design <- merge(DT.design, unique(data[, .(Run, Channel, Condition)]), by = c("Run", "Channel"), sort = F)
   } else {
-    DT.design[, Condition := NA]
+    DT.design[, Condition := NA_character_]
   }
+
+  setcolorder(DT.design, c("Run", "Channel", "Assay"))
 
   if (!data.is.data.table) setDF(data)
   setDF(DT.design)

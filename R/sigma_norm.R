@@ -1,30 +1,37 @@
 #' @include generics.R
 #' @export
-setMethod("norm_theta", "seaMass", function(object, norm.groups = ".*", ...) {
+setMethod("norm_theta", "seaMass", function(object, norm.groups = NULL, ...) {
   if (file.exists(file.path(filepath(object), "normalised.group.quants"))) unlink(paste0(file.path(filepath(object), "*normalised.group.quants*")), recursive = T)
   dir.create(file.path(filepath(object), "normalised.group.quants"), showWarnings = F)
   "normalised.group.variances" <- paste0(sub("group.quants$", "", "normalised.group.quants"), "group.variances")
   if (file.exists(file.path(filepath(object), "normalised.group.variances"))) unlink(paste0(file.path(filepath(object), "*normalised.group.variances*")), recursive = T)
   dir.create(file.path(filepath(object), "normalised.group.variances"), showWarnings = F)
 
-  cat(paste0("[", Sys.time(), "]    seaMass-Θ normalisation\n"))
+  cat(paste0("[", Sys.time(), "]    seaMass-theta normalisation\n"))
   cat(paste0("[", Sys.time(), "]     getting summaries...\n"))
-  groups <- groups(object, as.data.table = T)[, Group]
   ctrl <- control(object)
-  DT <- standardised_group_quants(object, groups[grep(norm.groups, groups)], summary = T, as.data.table = T)
+
+  if (is.null(norm.groups)) {
+    DT <- standardised_group_quants(object, summary = T, as.data.table = T)[, .(Group, Assay, m, s)]
+  } else {
+    groups <- groups(object, as.data.table = T)[, Group]
+    DT <- standardised_group_quants(object, groups[grep(norm.groups, groups)], summary = T, as.data.table = T)[, .(Group, Assay, m, s)]
+  }
+  DT <- DT[complete.cases(DT)]
 
   cat(paste0("[", Sys.time(), "]     running model...\n"))
   parallel_lapply(as.list(1:ctrl@model.nchain), function(item, object, ctrl, DT) {
-    DT <- droplevels(merge(DT, unique(assay_design(object, as.data.table = T)[, .(Assay, Sample)]), by = "Assay"))
+    DT.in <- merge(DT, unique(assay_design(object, as.data.table = T)[, .(Assay, Sample)]), by = "Assay")
+    DT.in <- droplevels(DT[complete.cases(DT)])
 
     # seaMass-Θ Bayesian model
     set.seed(ctrl@random.seed + item)
     system.time(model <- MCMCglmm::MCMCglmm(
       m ~ Assay - 1,
-      mev = DT[, s]^2,
+      mev = DT.in[, s]^2,
       rcov = ~ idh(Group):units,
-      data = DT,
-      prior = list(R = list(V = diag(nlevels(DT[, Group])), nu = 2e-4)),
+      data = DT.in,
+      prior = list(R = list(V = diag(nlevels(DT.in[, Group])), nu = 2e-4)),
       burnin = ctrl@norm.nwarmup,
       nitt = ctrl@norm.nwarmup + (ctrl@model.nsample * ctrl@norm.thin) / ctrl@model.nchain,
       thin = ctrl@norm.thin,

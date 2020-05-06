@@ -24,7 +24,7 @@ setMethod("process1", "sigma_fit", function(object, chain) {
     # timings
     DT.timings <- timings(object, as.data.table = T)
     DT.timings <- data.table::dcast(DT.timings, GroupID ~ chainID, value.var = "elapsed")
-    DT.timings <- merge(DT.groups[, .(GroupID, Group, nComponent, nMeasurement, nDatapoint, pred = timing)], DT.timings, by = "GroupID")
+    DT.timings <- merge(DT.groups[, .(GroupID, Group, nComponent, nMeasurement, nDatapoint, pred = timing)], DT.timings, by = "GroupID", all.x = T)
     DT.timings[, GroupID := NULL]
     fwrite(DT.timings, file.path(dirname(filepath(object)), "output", basename(filepath(object)), "group_timings.csv"))
     rm(DT.timings)
@@ -54,16 +54,16 @@ setMethod("process1", "sigma_fit", function(object, chain) {
       }
 
       if("component.deviations" %in% ctrl@summarise) {
-        DT.component.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.component.deviations, by = "Group")
-        DT.component.deviations <- merge(DT.components[, .(ComponentID, Component)], DT.component.deviations, by = "Component")
+        DT.component.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.component.deviations, by = "Group", all.x = T)
+        DT.component.deviations <- merge(DT.components[, .(ComponentID, Component)], DT.component.deviations, by = "Component", all.x = T)
         DT.component.deviations[, GroupIDComponentID := paste(GroupID, ComponentID, sep = "_")]
         setcolorder(DT.component.deviations, "GroupIDComponentID")
         DT.component.deviations <- dcast(DT.component.deviations, GroupIDComponentID ~ Assay, drop = F, value.var = colnames(DT.component.deviations)[7:ncol(DT.component.deviations)])
         DT.component.deviations[, GroupID := as.integer(sub("^([0-9]+)_[0-9]+$", "\\1", GroupIDComponentID))]
         DT.component.deviations[, ComponentID := as.integer(sub("^[0-9]+_([0-9]+)$", "\\1", GroupIDComponentID))]
         DT.component.deviations[, GroupIDComponentID := NULL]
-        DT.component.deviations <- merge(DT.components[, .(ComponentID, Component, nMeasurement, nDatapoint)], DT.component.deviations, by = "ComponentID")
-        DT.component.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.component.deviations, by = "GroupID")
+        DT.component.deviations <- merge(DT.components[, .(ComponentID, Component, nMeasurement, nDatapoint)], DT.component.deviations, by = "ComponentID", all.x = T)
+        DT.component.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.component.deviations, by = "GroupID", all.x = T)
         setcolorder(DT.component.deviations, c("GroupID", "ComponentID"))
         DT.component.deviations[, ComponentID := NULL]
         DT.component.deviations[, GroupID := NULL]
@@ -87,16 +87,16 @@ setMethod("process1", "sigma_fit", function(object, chain) {
     if("assay.deviations" %in% ctrl@summarise && !is.null(ctrl@assay.model) && ctrl@assay.model == "component") {
       cat(paste0("[", Sys.time(), "]    getting assay deviation summaries...\n"))
       DT.assay.deviations <- assay_deviations(object, summary = T, as.data.table = T)
-      DT.assay.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.assay.deviations, by = "Group")
-      DT.assay.deviations <- merge(DT.components[, .(ComponentID, Component)], DT.assay.deviations, by = "Component")
+      DT.assay.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.assay.deviations, by = "Group", all.x = T)
+      DT.assay.deviations <- merge(DT.components[, .(ComponentID, Component)], DT.assay.deviations, by = "Component", all.x = T)
       DT.assay.deviations[, GroupIDComponentID := paste(GroupID, ComponentID, sep = "_")]
       setcolorder(DT.assay.deviations, "GroupIDComponentID")
       DT.assay.deviations <- dcast(DT.assay.deviations, GroupIDComponentID ~ Assay, drop = F, value.var = colnames(DT.assay.deviations)[7:ncol(DT.assay.deviations)])
       DT.assay.deviations[, GroupID := as.integer(sub("^([0-9]+)_[0-9]+$", "\\1", GroupIDComponentID))]
       DT.assay.deviations[, ComponentID := as.integer(sub("^[0-9]+_([0-9]+)$", "\\1", GroupIDComponentID))]
       DT.assay.deviations[, GroupIDComponentID := NULL]
-      DT.assay.deviations <- merge(DT.components[, .(ComponentID, Component, nMeasurement, nDatapoint)], DT.assay.deviations, by = "ComponentID")
-      DT.assay.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.assay.deviations, by = "GroupID")
+      DT.assay.deviations <- merge(DT.components[, .(ComponentID, Component, nMeasurement, nDatapoint)], DT.assay.deviations, by = "ComponentID", all.x = T)
+      DT.assay.deviations <- merge(DT.groups[, .(GroupID, Group)], DT.assay.deviations, by = "GroupID", all.x = T)
       setcolorder(DT.assay.deviations, c("GroupID", "ComponentID"))
       DT.assay.deviations[, ComponentID := NULL]
       DT.assay.deviations[, GroupID := NULL]
@@ -111,7 +111,7 @@ setMethod("process1", "sigma_fit", function(object, chain) {
       cat(paste0("[", Sys.time(), "]    getting raw group quant summaries...\n"))
       DT.group.quants <- raw_group_quants(object, summary = T, as.data.table = T)
       DT.group.quants.out <- dcast(DT.group.quants, Group + Baseline ~ Assay, value.var = colnames(DT.group.quants)[6:ncol(DT.group.quants)])
-      DT.group.quants.out <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants.out, by = "Group")
+      DT.group.quants.out <- merge(DT.groups[, .(Group, GroupInfo)], DT.group.quants.out, by = "Group", all.x = T)
       fwrite(DT.group.quants.out, file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_raw_group_quants.csv"))
       rm(DT.group.quants.out)
     }
@@ -131,6 +131,7 @@ setMethod("process1", "sigma_fit", function(object, chain) {
         cat(paste0("[", Sys.time(), "]   getting normalised group variance summaries...\n"))
         DT.groups <- groups(object, as.data.table = T)
         DT.group.variances <- normalised_group_variances(object, summary = T, as.data.table = T)
+        DT.group.variances <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.variances, by = "Group", all.x = T)
         setcolorder(DT.group.variances, "Group")
         fwrite(DT.group.variances, file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_normalised_group_variances.csv"))
         rm(DT.group.variances)
@@ -143,7 +144,7 @@ setMethod("process1", "sigma_fit", function(object, chain) {
 
         if ("normalised.group.quants" %in% ctrl@summarise) {
           DT.group.quants <- dcast(DT.group.quants, Group ~ Assay, drop = F, value.var = colnames(DT.group.quants)[6:ncol(DT.group.quants)])
-          DT.group.quants <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants, by = "Group")
+          DT.group.quants <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants, by = "Group", all.x = T)
           fwrite(DT.group.quants, file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_normalised_group_quants.csv"))
           rm(DT.group.quants)
         }

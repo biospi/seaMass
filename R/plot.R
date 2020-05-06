@@ -14,15 +14,18 @@ setMethod("plot_pca", "seaMass", function(
   object,
   data.design = assay_design(object),
   type = "normalised.group.quants",
+  robust = TRUE,
   contours = 1:2,
   aspect.ratio = 9/16,
-  robust = TRUE,
+  labels = TRUE,
+  colour = "Condition",
+  shape = NULL,
   ...
 ) {
   # this is needed to stop foreach massive memory leak!!!
   rm("...")
 
-  cat(paste0("[", Sys.time(), "]   plotting PCA for ", gsub("\\.", " ", type), "\n"))
+  if (!is.null(contours)) cat(paste0("[", Sys.time(), "]   plotting PCA for ", gsub("\\.", " ", type), "\n"))
 
   if (type == "normalised.group.quants") {
     DT.summary <- normalised_group_quants(object, summary = T, as.data.table = T)
@@ -34,7 +37,8 @@ setMethod("plot_pca", "seaMass", function(
   DT.design <- as.data.table(data.design)
 
   # assays with zero variance (pure reference samples) and groups with missing values, to remove later also
-  assays <- DT.summary[, .(use = var(m) >= 1e-5), by = Assay][use == T, Assay]
+  ngroup.all <- nlevels(DT.summary$Group)
+  assays <- DT.summary[, .(use = var(m, na.rm = T) >= 1e-5), by = Assay][use == T, Assay]
   assays <- assays[assays %in% DT.design[, Assay]]
   groups <- dcast(DT.summary, Group ~ Assay, value.var = "m")
   groups <- groups[complete.cases(groups), Group]
@@ -115,11 +119,9 @@ setMethod("plot_pca", "seaMass", function(
   pc1 <- fit$eig[1, "percentage of variance"]
   pc2 <- fit$eig[2, "percentage of variance"]
   rm(fit)
-  DT <- merge(DT, DT.design, by = "Assay")
-  DT[, SampleAssay := factor(paste0("(", Sample, ") ", Assay))]
 
   # central point of each assay
-  DT.point <- DT[, .(SampleAssay = first(SampleAssay), Condition = first(Condition), x = median(x), y = median(y)), by = Assay]
+  DT.point <- DT[, .(x = median(x), y = median(y)), by = Assay]
   # calculate limits for the aspect ratio
   min.x <- min(DT.point$x)
   min.y <- min(DT.point$y)
@@ -131,6 +133,10 @@ setMethod("plot_pca", "seaMass", function(
   } else {
     span <- 0.55 * (max.y - min.y) * c(1/aspect.ratio, 1)
   }
+
+  # merge with design
+  DT.design[, SampleAssay := factor(paste0("(", Sample, ") ", Assay))]
+  DT.point <- merge(DT.point, DT.design, by = "Assay")
 
   # plot
   g <- ggplot2::ggplot(DT.point, ggplot2::aes(x = x, y = y))
@@ -159,31 +165,19 @@ setMethod("plot_pca", "seaMass", function(
       return(DT)
     }))
     DT <- merge(DT, DT.design, by = "Assay")
-    DT[, SampleAssay := factor(paste0("(", Sample, ") ", Assay))]
 
-    if (all(is.na(DT.point$Condition))) {
-      if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, x = x, y = y, z = z1), breaks = 1, alpha = 0.5)
-      if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, x = x, y = y, z = z2), breaks = 1, alpha = 0.25)
-      if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, x = x, y = y, z = z3), breaks = 1, alpha = 0.125)
-    } else {
-      if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, colour = Condition, x = x, y = y, z = z1), breaks = 1, alpha = 0.5)
-      if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, colour = Condition, x = x, y = y, z = z2), breaks = 1, alpha = 0.25)
-      if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes(group = Assay, colour = Condition, x = x, y = y, z = z3), breaks = 1, alpha = 0.125)
-    }
+    if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "Assay", colour = colour, x = "x", y = "y", z = "z1"), breaks = 1, alpha = 0.5)
+    if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "Assay", colour = colour, x = "x", y = "y", z = "z2"), breaks = 1, alpha = 0.25)
+    if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "Assay", colour = colour, x = "x", y = "y", z = "z3"), breaks = 1, alpha = 0.125)
   }
 
-  if (all(is.na(DT.point$Condition))) {
-    if (nlevels(DT.point$SampleAssay) <= 100) g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = SampleAssay), size = 2.5)
-    g <- g + ggplot2::geom_point(size = 0.5)
-  } else {
-    if (nlevels(DT.point$SampleAssay) <= 100) g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = SampleAssay, colour = Condition), size = 2.5)
-    g <- g + ggplot2::geom_point(ggplot2::aes(colour = Condition), size = 0.5)
-  }
-
+  if (labels) g <- g + ggrepel::geom_label_repel(ggplot2::aes_string(label = "SampleAssay", colour = colour), size = 2.5)
+  g <- g + ggplot2::geom_point(ggplot2::aes_string(colour = colour, shape = shape), size = 2)
   g <- g + ggplot2::xlab(paste0("PC1 (", format(round(pc1, 2), nsmall = 2), "%)"))
   g <- g + ggplot2::ylab(paste0("PC2 (", format(round(pc2, 2), nsmall = 2), "%)"))
   g <- g + ggplot2::coord_cartesian(xlim = mid[1] + c(-span[1], span[1]), ylim = mid[2] + c(-span[2], span[2]))
   g <- g + ggplot2::theme(aspect.ratio = aspect.ratio)
+  g <- g + ggplot2::ggtitle(paste0("PCA using ", length(groups), " complete variables out of ", ngroup.all, " total"))
 
   return(g)
 })

@@ -50,7 +50,7 @@ setClass("sigma_control", slots = c(
 #' @param assay.eb.min Minimum number of assays per group group to use for computing Empirical Bayes priors
 #' @param assay.eb.nsample Number of MCMC samples to use for assay model input
 #' @param error.model Likelihood model, either \code{"poisson"} or \code{"lognormal"} (default)
-#' @param missingness.model Either \code{NULL} (NAs removed), \code{"one"} (NAs set to 1), \code{"minimum"} (NAs set to lowest quant of that measurement) or
+#' @param missingness.model Either \code{NULL} (do nothing), \code{"rm"} (NAs removed), \code{"one"} (NAs set to 1), \code{"minimum"} (NAs set to lowest quant of that measurement) or
 #'   \code{"censored"} (NAs modelled as censored below lowest quant of that measurement; default)
 #' @param missingness.threshold All datapoints equal to or below this count are treated as missing
 #' @param random.seed Random number seed
@@ -132,7 +132,7 @@ setValidity("sigma_control", function(object) {
   if (length(object@assay.eb.min) != 1 || object@assay.eb.min <= 0) return("'assay.eb.min' must be positive!")
   if (length(object@assay.eb.nsample) != 1 || object@assay.eb.nsample <= 0) return("'assay.eb.nsample' must be positive!")
   if (length(object@error.model) != 1 || !(object@error.model %in% c("", "poisson", "lognormal"))) return("'error.model' is not valid!")
-  if (length(object@missingness.model) != 1 || !(object@missingness.model %in% c("", "one", "minimum") || substr(object@missingness.model, 1, 8) == "censored")) return("'missingness.model' is not valid!")
+  if (length(object@missingness.model) != 1 || !(object@missingness.model %in% c("", "rm", "one", "minimum") || substr(object@missingness.model, 1, 8) == "censored")) return("'missingness.model' is not valid!")
   if (length(object@missingness.threshold) != 1 || object@missingness.threshold < 0) return("'missingness.threshold' must be non-negative!")
   if (length(object@model.nchain) != 1 || object@model.nchain <= 0) return("'model.nchain' must be positive!")
   if (length(object@model.nwarmup) != 1 || object@model.nwarmup < 0) return("'model.nwarmup' must be non-negative!")

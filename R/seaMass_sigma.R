@@ -65,7 +65,7 @@ seaMass_sigma <- function(
     DT.design.all[, Channel := "1"]
   }
   if (!is.factor(DT.design.all$Channel)) DT.design.all[, Channel := factor(as.character(Channel), levels = levels(DT.all$Channel))]
-  if (!is.factor(DT.design.all$RefWeight)) DT.design.all[, RefWeight := 1]
+  if (is.null(DT.design.all$RefWeight)) DT.design.all[, RefWeight := 1]
 
   # process each block independently
   block.cols <- colnames(DT.design.all)[grep("^Block\\.(.*)$", colnames(DT.design.all))]
@@ -150,7 +150,7 @@ seaMass_sigma <- function(
     DT[, Assay := NULL]
 
     # censoring model
-    if (control@missingness.model == "") DT <- DT[complete.cases(DT)]
+    if (control@missingness.model == "rm") DT <- DT[complete.cases(DT)]
     if (control@missingness.model == "one") DT[is.na(Count), Count := 1.0]
     if (control@missingness.model == "minimum") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = MeasurementID]
     if (substr(control@missingness.model, 1, 8) == "censored") DT[, Count1 := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = MeasurementID]
@@ -165,15 +165,11 @@ seaMass_sigma <- function(
     if (control@missingness.model == "censored8") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^8, Count), by = MeasurementID]
     if (control@missingness.model == "censored9") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^9, Count), by = MeasurementID]
 
-    # if poission model only integers are allowed, and remove Count1 if all equal to Count
-    if (!is.null(DT$Count1)) {
-      if (identical(DT$Count, DT$Count1)) {
-        DT[, Count1 := NULL]
-      } else {
-        if (control@error.model == "poisson") DT[, Count1 := round(Count1)]
-      }
+    # if poission model only integers are allowed
+    if (control@error.model == "poisson") {
+      DT[, Count := round(Count)]
+      if (!is.null(DT$Count1)) DT[, Count1 := round(Count1)]
     }
-    if (control@error.model == "poisson") DT[, Count := round(Count)]
 
     # set ordering for indexing
     setorder(DT, GroupID, ComponentID, MeasurementID, AssayID)
@@ -283,6 +279,7 @@ setMethod("finish", "seaMass_sigma", function(object) {
   if ("measurement.variances" %in% ctrl@summarise) {
     DT.measurement.variances <- rbindlist(lapply(1:length(sigma_fits), function(i) {
       DT <- measurement_variances(sigma_fits[[i]], summary = T, as.data.table = T)
+      DT <- merge(measurements(sigma_fits[[i]], as.data.table = T), DT, by = "Measurement", all.x = T)
       DT[, Block := names(sigma_fits)[i]]
       DT
     }))
@@ -295,6 +292,7 @@ setMethod("finish", "seaMass_sigma", function(object) {
   if ("component.variances" %in% ctrl@summarise) {
     DT.component.variances <- rbindlist(lapply(1:length(sigma_fits), function(i) {
       DT <- component_variances(sigma_fits[[i]], summary = T, as.data.table = T)
+      DT <- merge(components(sigma_fits[[i]], as.data.table = T), DT, by = "Component", all.x = T)
       DT[, Block := names(sigma_fits)[i]]
       DT
     }))
@@ -305,8 +303,13 @@ setMethod("finish", "seaMass_sigma", function(object) {
 
   # write out assay variances from priors
   DT.priors <- rbindlist(lapply(1:length(sigma_fits), function(i) {
-    priors(sigma_fits[[i]], as.data.table = T)[!is.na(Assay), .(Block = names(sigma_fits)[i], Assay, rhat, v, df)]
+    DT <- priors(sigma_fits[[i]], as.data.table = T)[!is.na(Assay), .(Assay, rhat, v, df)]
+    DT <- merge(assay_design(sigma_fits[[i]], as.data.table = T), DT, by = "Assay", all.x = T)
+    DT <- DT[, -grep("^Block\\.", colnames(DT)), with = F]
+    DT[, Block := names(sigma_fits)[i]]
+    DT
   }))
+  setcolorder(DT.priors, c("Block"))
   fwrite(DT.priors, file.path(filepath(object), "output", "log2_assay_variances.csv"))
 
   return(invisible(NULL))

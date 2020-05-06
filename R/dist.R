@@ -2,7 +2,7 @@
 #'
 #' @export
 summarise_normal_robust <- function(value) {
-  return(list(m = median(value), s = mad(value), df = Inf))
+  return(list(m = median(value, na.rm = T), s = mad(value, na.rm = T), df = Inf))
 }
 
 
@@ -35,7 +35,7 @@ rhat <- function(chainID, mcmcID, value, transform = FALSE) {
 dist_normal <- function(value, plots = FALSE, ...) {
   est <- summarise_normal_robust(value)
 
-  if (est$s > 1e-16) {
+  if (!is.na(est$s) && est$s > 1e-16) {
     tryCatch({
       ft <- fitdistrplus::fitdist(as.vector(value), "norm", start = list(mean = est$m, sd = est$s), ...)
       if (plots) plot(ft)
@@ -64,7 +64,7 @@ dist_lst <- function(value, min.df = 0, plots = FALSE, ...) {
   est <- summarise_normal_robust(value)
   est$df <- Inf
 
-  if (est$s > 1e-16) {
+  if (!is.na(est$s) && est$s > 1e-16) {
    d_seaMass_lst <<- function(x, log_df, mu, log_sigma, log = FALSE) {
       if (length(x) > 0) {
         return(extraDistr::dlst(x, exp(log_df), mu, exp(log_sigma), log))
@@ -125,7 +125,7 @@ dist_invchisq <- function(value, plots = FALSE, ...) {
   est <- summarise_normal_robust(log(value))
   est <- list(v = exp(est$m), df = 2.0 * est$s^-2)
 
-  if (!is.infinite(est$df)) {
+  if (!is.na(est$df) && !is.infinite(est$df)) {
     d_seaMass_invchisq <<- function(x, log_df, log_v, log = F) {
       if (length(x) > 0) {
         return(extraDistr::dinvchisq(x, exp(log_df), exp(log_v), log))

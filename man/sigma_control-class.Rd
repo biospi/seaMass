@@ -63,7 +63,7 @@ or \code{"componenet"} (per-assay independent random effects across components; 
 
 \item{error.model}{Likelihood model, either \code{"poisson"} or \code{"lognormal"} (default)}
 
-\item{missingness.model}{Either \code{NULL} (NAs removed), \code{"one"} (NAs set to 1), \code{"minimum"} (NAs set to lowest quant of that measurement) or
+\item{missingness.model}{Either \code{NULL} (do nothing), \code{"rm"} (NAs removed), \code{"one"} (NAs set to 1), \code{"minimum"} (NAs set to lowest quant of that measurement) or
 \code{"censored"} (NAs modelled as censored below lowest quant of that measurement; default)}
 
 \item{missingness.threshold}{All datapoints equal to or below this count are treated as missing}

@@ -29,7 +29,8 @@ setMethod("fdr_ash", "seaMass_delta", function(
   warn <- getOption("warn")
   options(warn = 1)
 
-  cat(paste0("[", Sys.time(), "]   ash false discovery rate correction...\n"))
+  cat(paste0("[", Sys.time(), "]   ash false discovery rate correction\n"))
+  cat(paste0("[", Sys.time(), "]    getting summaries...\n"))
 
   if (type == "group.quants") {
     DT <- group_de(object, input = input, summary = "lst_mcmc_ash", as.data.table = T)
@@ -58,6 +59,7 @@ setMethod("fdr_ash", "seaMass_delta", function(
   }
   setcolorder(DT, "Batch")
 
+  cat(paste0("[", Sys.time(), "]    running model...\n"))
   DT <- rbindlist(parallel_lapply(split(DT, by = "Batch"), function(item, use.df, mixcompdist, type) {
     if (nrow(item[use.FDR == T]) > 0) {
       # run ash, but allowing variable DF

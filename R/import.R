@@ -625,10 +625,14 @@ import_MaxQuant <- function(
     MeasurementID = id,
     Component = `Modified sequence`,
     Measurement = paste0(`Modified sequence`, ",", Charge, "+"),
-    Fraction,
     Run = Experiment,
     Count = Intensity
   )]
+  if ("Fraction" %in% colnames(DT.raw)) {
+    DT[, Fraction := DT.raw$Fraction]
+  } else {
+    DT[, Fraction := 1]
+  }
 
   # remove or expand out rows with shared features
   if (filter.shared.peptides) {

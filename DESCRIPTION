@@ -26,6 +26,7 @@ Imports:
     ggfortify (>= 0.4.7),
     ggrepel (>= 0.8.1),
     gridExtra (>= 2.3),
+    igraph (>= 1.2.5),
     ks (>= 1.11.5),
     limma (>= 3.40.6),
     logKDE (>= 0.3.2),
@@ -45,19 +46,19 @@ Collate:
     'delta_dea.R'
     'delta_fdr.R'
     'delta_plot.R'
-    'delta_standardise.R'
     'design.R'
     'dist.R'
     'import.R'
     'logydensity.R'
-    'norm.R'
     'plot.R'
     'schedule.R'
     'sigma_control.R'
     'sigma_fit.R'
     'sigma_model.R'
+    'sigma_norm.R'
     'sigma_plot.R'
     'sigma_plots.R'
     'sigma_process0.R'
     'sigma_process1.R'
+    'sigma_standardise.R'
     'utils.R'

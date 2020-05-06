@@ -42,9 +42,9 @@ setMethod("normalised_group_variances", "seaMass", function(object, groups = NUL
 
   if (dir.exists(file.path(filepath(object), "normalised.group.variances"))) {
     DT <- read_mcmc(object, "normalised.group.variances", "Group", "Group", "Group", groups, ".", chains, summary)
-   } else {
-     DT <- read_mcmc(fits(object)[[1]], "normalised.group.variances", "Group", "Group", "Group", groups, ".", chains, summary)
-   }
+  } else {
+    DT <- read_mcmc(fits(object)[[1]], "normalised.group.variances", "Group", "Group", "Group", groups, ".", chains, summary)
+  }
   if (is.null(DT)) stop(paste("normalised group variances were not", ifelse(is.null(summary), "kept", "summarised")))
 
   if (!as.data.table) setDF(DT)

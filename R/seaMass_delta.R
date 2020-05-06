@@ -147,6 +147,7 @@ setMethod("run", "seaMass_delta", function(object) {
     if(file.exists(file.path(filepath(object), "normalised.group.variances"))) {
       cat(paste0("[", Sys.time(), "]   getting normalised group variance summaries...\n"))
       DT.group.variances <- normalised_group_variances(object, summary = T, as.data.table = T)
+      DT.group.variances <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.variances, by = "Group", all.x = T)
       setcolorder(DT.group.variances, "Group")
       fwrite(DT.group.variances, file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_normalised_group_variances.csv"))
       rm(DT.group.variances)
@@ -155,8 +156,8 @@ setMethod("run", "seaMass_delta", function(object) {
     # summarise group quants
     cat(paste0("[", Sys.time(), "]   getting normalised group quant summaries...\n"))
     DT.group.quants <- normalised_group_quants(object, summary = T, as.data.table = T)
-    DT.group.quants <- dcast(DT.group.quants, Group ~ Assay, drop = F, value.var = colnames(DT.group.quants)[5:ncol(DT.group.quants)])
-    DT.group.quants <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants, by = "Group")
+    DT.group.quants <- dcast(DT.group.quants, Group ~ Assay, drop = F, value.var = colnames(DT.group.quants)[6:ncol(DT.group.quants)])
+    DT.group.quants <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DT.group.quants, by = "Group", all.x = T)
     fwrite(DT.group.quants, file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_normalised_group_quants.csv"))
     rm(DT.group.quants)
 
@@ -191,7 +192,7 @@ setMethod("run", "seaMass_delta", function(object) {
     DTs.fdr <- split(group_fdr(object, as.data.table = T), drop = T, by = "Batch")
     for (name in names(DTs.fdr)) {
       # save pretty version
-      DT.fdr <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DTs.fdr[[name]], by = "Group")
+      DT.fdr <- merge(DT.groups[, .(Group, GroupInfo, nComponent, nMeasurement, nDatapoint)], DTs.fdr[[name]], by = "Group", all.x = T)
       DT.fdr[, Batch := NULL]
       setcolorder(DT.fdr, c("Effect", "Model"))
       setorder(DT.fdr, qvalue, na.last = T)
@@ -220,7 +221,7 @@ setMethod("run", "seaMass_delta", function(object) {
     DT.component.deviations[, Group := sub("^(.*)_seaMass_.*$", "\\1", GroupComponent)]
     DT.component.deviations[, Component := sub("^.*_seaMass_(.*)$", "\\1", GroupComponent)]
     DT.component.deviations[, GroupComponent := NULL]
-    DT.component.deviations <- merge(DT.components[, .(Component, nMeasurement, nDatapoint)], DT.component.deviations, by = "Component")
+    DT.component.deviations <- merge(DT.components[, .(Component, nMeasurement, nDatapoint)], DT.component.deviations, by = "Component", all.x = T)
     setcolorder(DT.component.deviations, c("Group", "Component"))
     fwrite(DT.component.deviations, file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_component_deviations.csv"))
     rm(DT.component.deviations)
@@ -259,7 +260,7 @@ setMethod("run", "seaMass_delta", function(object) {
       DTs.fdr <- split(component_deviations_fdr(object, as.data.table = T), drop = T, by = "Batch")
       for (name in names(DTs.fdr)) {
         # save pretty version
-        DT.fdr <- merge(DT.components, DTs.fdr[[name]], by = "Component")
+        DT.fdr <- merge(DT.components, DTs.fdr[[name]], by = "Component", all.x = T)
         DT.fdr[, Batch := NULL]
         setcolorder(DT.fdr, c("Effect", "Model", "Group"))
         setorder(DT.fdr, qvalue, na.last = T)

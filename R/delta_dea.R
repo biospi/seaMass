@@ -65,10 +65,10 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
 
   if (type == "normalised.group.quants") {
     type <- "Group"
-    DTs <- batch_split(normalised_group_quants(object, summary = T, as.data.table = T), type, 64)
+    DTs <- (batch_split(normalised_group_quants(object, summary = T, as.data.table = T), type, 64))
   } else if (type == "normalised.group.quants") {
     type <- c("Group", "Component")
-    DTs <- batch_split(component_deviations(object, summary = T, as.data.table = T), type, 64)
+    DTs <- (batch_split(component_deviations(object, summary = T, as.data.table = T), type, 64))
   } else {
     stop("unknown type")
   }
@@ -86,7 +86,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
         if ("Component" %in% type) component <- DT[1, Component]
 
         # have to keep all.y assays in even if NA otherwise MCMCglmm will get confused over its priors
-        DT <- droplevels(merge(DT, DT.design, all.y = T, by = "Assay"))
+        DT <- (merge(DT, DT.design, all.y = T, by = "Assay"))
         if (any(!is.na(DT[, m]))) {
 
           set.seed(ctrl@random.seed + chain)
@@ -196,7 +196,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
       # flatten
       DT.batch.de <- rbindlist(lapply(1:length(batch), function(i) {
         if (!is.null(batch[[i]]$DT.de)) {
-          return(droplevels(batch[[i]]$DT.de))
+          return((batch[[i]]$DT.de))
         } else {
           return(NULL)
         }
