@@ -11,7 +11,9 @@
   robust = TRUE,
   contours = 1:2,
   aspect.ratio = 9/16,
+  labels = TRUE,
   colour = "Condition",
+  shape = NULL,
   ...
 )
 }
