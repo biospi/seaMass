@@ -30,6 +30,8 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
   # this is needed to stop foreach massive memory leak!!!
   rm("...")
 
+  print(object)
+
   cat(paste0("[", Sys.time(), "]   MCMCglmm differential expression analysis for ", gsub("\\.", " ", type), "\n"))
 
   # prepare
