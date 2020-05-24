@@ -549,10 +549,10 @@ hpc_plots <- function(task) {
 
 
 hpc_delta <- function(task) {
-  delta <- open_deltass(open_sigma(".", force = T), force = T)[[task]]
-  cat(paste0("[", Sys.time(), "] seaMass-delta v", control(delta)@version, "\n"))
-  cat(paste0("[", Sys.time(), "]  running name=", name(delta), "...\n"))
-  run(delta)
+  fit.delta <- open_deltas(open_sigma(".", force = T), force = T)[[task]]
+  cat(paste0("[", Sys.time(), "] seaMass-delta v", control(fit.delta)@version, "\n"))
+  cat(paste0("[", Sys.time(), "]  running name=", name(fit.delta), "...\n"))
+  run(fit.delta)
   cat(paste0("[", Sys.time(), "] finished!\n"))
   print(warnings(file = stderr()))
 
