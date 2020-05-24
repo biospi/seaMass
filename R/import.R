@@ -13,7 +13,6 @@
 #' @return A \link{data.frame} for input into \link{seaMass_sigma}.
 #' @import data.table
 #' @export
-
 import_ProteinPilot <- function(
   file = NULL,
   shared = F,
@@ -589,13 +588,15 @@ import_MaxQuant_evidence0 <- function(
 import_MaxQuant <- function(
   proteinGroups.file = NULL,
   evidence.file = NULL,
-  filter.shared.peptides = TRUE,
-  filter.only.identified.by.site = TRUE,
-  filter.reverse = TRUE,
-  filter.potential.contaminant = TRUE,
+  use.shared.peptides = FALSE,
+  use.only.identified.by.site = FALSE,
+  use.reverse = FALSE,
+  use.potential.contaminant = FALSE,
   proteinGroups.data = NULL,
   evidence.data = NULL
 ) {
+  warning("import_MaxQuant currently only supports labelfree data with no fractionation")
+
   # load groups
   if (is.null(proteinGroups.file)) {
     if (is.null(proteinGroups.data)) stop("One of 'proteinGroups.data' or 'proteinGroups.file' needs to be specified.")
@@ -604,69 +605,65 @@ import_MaxQuant <- function(
     DT.groups <- fread(file = proteinGroups.file, showProgress = T)
   }
 
-  # filter groups
-  if (filter.only.identified.by.site) DT.groups <- DT.groups[`Only identified by site` != "+",]
-  if (filter.reverse) DT.groups <- DT.groups[`Reverse` != "+",]
-  if (filter.potential.contaminant) DT.groups <- DT.groups[`Potential contaminant` != "+",]
+  # make sure we keep ALL groups, components and measurements for reference
+  DT.groups[, Group := factor(`Protein IDs`, levels = unique(`Protein IDs`))]
+  DT.groups[, Use := T]
 
-  DT.groups <- DT.groups[, .(Group = `Protein IDs`, GroupInfo = `Fasta headers`, GroupID = id)]
+  # filter groups
+  if (!use.only.identified.by.site) DT.groups[`Only identified by site` == "+", Use := F]
+  if (!use.reverse) DT.groups[`Reverse` == "+", Use := F]
+  if (!use.potential.contaminant) DT.groups[`Potential contaminant` == "+", Use := F]
+
+  DT.groups <- DT.groups[, .(
+    Group,
+    GroupInfo = factor(`Fasta headers`, levels = unique(`Fasta headers`)),
+    GroupID = as.integer(id),
+    Use
+  )]
 
   # load wide raw
   if (is.null(evidence.file)) {
     if (is.null(evidence.data)) stop("One of 'evidence.data' or 'evidence.file' needs to be specified.")
-    DT.raw <- setDT(evidence.data)
+    DT <- setDT(evidence.data)
   } else {
-    DT.raw <- fread(file = evidence.file, showProgress = T)
+    DT <- fread(file = evidence.file, showProgress = T)
   }
 
-  # filter raw
-  DT <- DT.raw[, .(
-    GroupID = `Protein group IDs`,
-    MeasurementID = id,
-    Component = `Modified sequence`,
+  # make sure we keep ALL components and measurements for reference
+  DT <- DT[, .(
+    GroupID = as.character(`Protein group IDs`),
+    MeasurementID = as.integer(id),
+    Component = factor(`Modified sequence`, levels = unique(`Modified sequence`)),
     Measurement = paste0(`Modified sequence`, ",", Charge, "+"),
-    Run = Experiment,
-    Count = Intensity
+    Run = factor(Experiment, levels = unique(Experiment)),
+    Channel = factor(1),
+    Count = as.double(Intensity)
   )]
-  if ("Fraction" %in% colnames(DT.raw)) {
-    DT[, Fraction := DT.raw$Fraction]
-  } else {
-    DT[, Fraction := 1]
-  }
+  DT[, Measurement := factor(Measurement, levels = unique(Measurement))]
 
-  # remove or expand out rows with shared features
-  if (filter.shared.peptides) {
-    DT <- DT[!grepl(";", GroupID),]
-    DT[, GroupID := as.integer(GroupID)]
-  } else {
-    DT = merge(DT[, !"GroupID"], DT[, {
-      groupID = strsplit(GroupID, ";")
-      list(MeasurementID = rep(MeasurementID, sapply(groupID, length)), GroupID = as.integer(unlist(groupID)))
-    }], by = "MeasurementID")
-  }
+  # expand out rows with shared features
+  DT[, Use := ifelse(grepl(";", GroupID), use.shared.peptides, T)]
+  DT = merge(DT[, !"GroupID"], DT[, {
+    groupID = strsplit(GroupID, ";")
+    list(MeasurementID = rep(MeasurementID, sapply(groupID, length)), GroupID = as.integer(unlist(groupID)))
+  }], by = "MeasurementID", sort = F)
 
   # merge groups and raw
-  DT <- merge(DT.groups, DT, by = "GroupID")
+  DT <- merge(DT.groups, DT, by = "GroupID", sort = F, suffixes = c(".groups",""))
   DT[, GroupInfo := paste0("[", GroupID, "] ", GroupInfo)]
+  DT[, GroupInfo := factor(GroupInfo, levels = unique(GroupInfo))]
+  DT[, Use := Use & Use.groups]
+  DT[, Use.groups := NULL]
   DT[, GroupID := NULL]
   DT[, MeasurementID := NULL]
 
-  # create wide data table (summing up multiple features per measurement)
-  DT <- dcast(DT, Group + GroupInfo + Component + Measurement + Fraction ~ Run, fun.aggregate = sum, value.var = "Count")
+  # sum multiple datapoints per measurement
+  DT <- DT[, .(GroupInfo = GroupInfo[1], is.na = all(is.na(Count)), Count = sum(Count, na.rm = T)), by = .(Group, Component, Measurement, Run, Channel, Use)]
+  DT[is.na == T, Count := NA_real_]
+  DT[, is.na := NULL]
 
-  # melt to long data table and convert zeros to NA
-  DT <- melt(DT, variable.name = "Run", value.name = "Count", id.vars = c("Group", "GroupInfo", "Component", "Measurement", "Fraction"))
-  DT$Count[DT$Count == 0] <- NA
-  DT[, GroupInfo := factor(GroupInfo)]
-  DT[, Group := factor(Group)]
-  DT[, Component := factor(Component)]
-  DT[, Measurement := factor(Measurement)]
-  DT[, Injection := factor(paste(Run, Fraction, sep = ","))]
-  DT[, Fraction := factor(Fraction)]
-  DT[, Run := factor(Run)]
-  DT[, Channel := factor("1")]
-  DT[, Count := as.double(Count)]
-  setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Channel", "Injection"))
+  setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Channel", "Count"))
+  setorder(DT, Group, Component, Measurement, Run, Channel)
 
   setDF(DT)
   return(DT)

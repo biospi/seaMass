@@ -9,18 +9,18 @@ summarise_normal_robust <- function(value) {
 #' fit normal distribution with fitdistrplus
 #'
 #' @export
-summarise_normal_robust_mcmc <- function(chainID, mcmcID, value) {
-  return(c(summarise_normal_robust(value), list(rhat = rhat(chainID, mcmcID, value, T))))
+summarise_normal_robust_samples <- function(chain, sample, value) {
+  return(c(summarise_normal_robust(value), list(rhat = rhat(chain, sample, value, T))))
 }
 
 
 #' rhat
 #'
 #' @export
-rhat <- function(chainID, mcmcID, value, transform = FALSE) {
-  if (length(unique(chainID)) > 1) {
-    DT <- data.table::dcast(data.table(mcmcID = mcmcID, chainID = chainID, value = value), mcmcID ~ chainID, value.var = "value")
-    DT[, mcmcID := NULL]
+rhat <- function(chain, sample, value, transform = FALSE) {
+  if (length(unique(chain)) > 1) {
+    DT <- data.table::dcast(data.table(sample = sample, chain = chain, value = value), sample ~ chain, value.var = "value")
+    DT[, sample := NULL]
     rhat <- coda::gelman.diag(coda::as.mcmc.list(lapply(DT, coda::as.mcmc)), transform, autoburnin = F)$psrf[1]
     return(ifelse(is.nan(rhat), NA_real_, rhat))
   } else {
@@ -52,8 +52,8 @@ dist_normal <- function(value, plots = FALSE, ...) {
 #' fit normal distribution with fitdistrplus
 #'
 #' @export
-dist_normal_mcmc <- function(chainID, mcmcID, value, ...) {
-  return(c(dist_normal(value, method = "mge", gof = "CvM", ...), list(rhat = rhat(chainID, mcmcID, value, T))))
+dist_normal_samples <- function(chain, sample, value, ...) {
+  return(c(dist_normal(value, method = "mge", gof = "CvM", ...), list(rhat = rhat(chain, sample, value, T))))
 }
 
 
@@ -105,16 +105,16 @@ dist_lst <- function(value, min.df = 0, plots = FALSE, ...) {
 #' fit location-scale t distribution
 #'
 #' @export
-dist_lst_mcmc <- function(chainID, mcmcID, value, ...) {
-  return(c(dist_lst(value, method = "mge", gof = "CvM", ...), list(rhat = rhat(chainID, mcmcID, value, T))))
+dist_lst_samples <- function(chain, sample, value, ...) {
+  return(c(dist_lst(value, method = "mge", gof = "CvM", ...), list(rhat = rhat(chain, sample, value, T))))
 }
 
 
 #' fit location-scale t distribution for ash (minimum df = 2)
 #'
 #' @export
-dist_lst_mcmc_ash <- function(chainID, mcmcID, value, ...) {
-  return(c(list(rhat = rhat(chainID, mcmcID, value, T)), dist_lst(value, method = "mge", gof = "CvM", min.df = 2, ...)))
+dist_lst_samples_ash <- function(chain, sample, value, ...) {
+  return(c(dist_lst(value, method = "mge", gof = "CvM", min.df = 2, ...), list(rhat = rhat(chain, sample, value, T))))
 }
 
 
@@ -168,8 +168,8 @@ dist_invchisq <- function(value, plots = FALSE, ...) {
 #' Clarke et al 2012 ("A fast robust method for fitting gamma distributions") are right - CvM is about the only robust way to fit gamma distributions!!
 #'
 #' @export
-dist_invchisq_mcmc <- function(chainID, mcmcID, value, ...) {
-  return(c(dist_invchisq(value, method = "mge", gof = "CvM", ...), list(rhat = rhat(chainID, mcmcID, value, T))))
+dist_invchisq_samples <- function(chain, sample, value, ...) {
+  return(c(dist_invchisq(value, method = "mge", gof = "CvM", ...), list(rhat = rhat(chain, sample, value, T))))
 }
 
 

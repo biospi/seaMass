@@ -1,9 +1,7 @@
-setGeneric("plots", function(object, ...) standardGeneric("plots"))
-
-
 #' @import data.table
 #' @include generics.R
-setMethod("plots", "sigma_fit", function(object, chain) {
+#' @include sigma_block.R
+setMethod("plots", "sigma_block", function(object, chain) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))
     stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))

@@ -35,9 +35,88 @@ To upgrade to the latest version of seaMass, simply run this line again.
 
 Firstly, you need to use an *import* function to convert from an upstream tool format to seaMass' standardised *data.frame* format. Then you can assign injections to runs if you've used fractionation, and specify a block structure to your assays if this is a large study (TMT/iTraq studies are blocked automatically). Finally, you use the *seaMass-sigma* function to fit the model and generate raw group-level quants.
 
-### Tutorial (local processing)
+### Tutorial 1 - basic analysis
 
-Load the included ProteinPilot iTraq dataset (note this is a small subset of proteins from our spike-in study and as such is not useful for anything else than this tutorial).
+Load the included MaxQuant labelfree Orbitrap dataset (note this is a small subset of proteins from our spike-in study and as such is not useful for anything else than this tutorial).
+
+```
+library(seaMass)
+
+# Import MaxQuant tutorial dataset from the seaMass R package.
+proteinGroups.file <- system.file("proteinGroups.txt.bz2", package = "seaMass")
+evidence.file <- system.file("evidence.txt.bz2", package = "seaMass")
+data <- import_MaxQuant(proteinGroups.file, evidence.file)
+```
+
+By default, differential expression analysis functions look for columns *Sample* and *Condition* in *data.design*. If you want to perform differential expression analysis, assign samples to assays, and conditions to samples:
+
+```
+# Get skeleton design matrix
+data.design <- new_assay_design(data)
+
+# Define Sample and Condition mappings
+data.design$Sample <- c("A1", "A3", "A5", "A6", "B2", "B3", "B4", "B5")
+data.design$Condition <- c("A", "A", "A", "A", "B", "B", "B", "B")
+```
+
+Now you can run the seaMass-Σ model: 
+
+```
+# run seaMass-sigma
+fit.sigma <- seaMass_sigma(data, data.design)
+```
+
+A directory has been created called *fit.seaMass* with a *output* subdirectory that contains csv results and QC plots. You can also get all these results in R. For example, you can output the normalised protein group quants and generate a PCA plot coloured by 'Assay.SD', which is the unexplained variation in each assay - the higher this is for an assay, the more uncertain the results are (but note, this tutorial study is well run, the highest Assay.SD of 0.06 is still considered very low): 
+
+```
+# output normalised group quant summaries
+normalised_group_quants(fit.sigma, summary = T)
+
+# plot PCA with "Assay.SD"
+plot_pca(fit.sigma)
+```
+
+Now you can run seaMass-Δ on the results of seaMass-Σ:
+
+```
+# run seaMass-delta
+fit.delta <- seaMass_delta(fit.sigma)
+```
+
+Results and plots of this analysis are added to a new *delta.fit* subdirectory in the *output* directory. Again, you can get these results in R. For this tutorial dataset, we also provide the ground truth for this dataset so we can check the False Discovery Rate against the ground truth False Discovery Proportion with the following:
+
+```
+# get protein group FDR results
+data.fdr <- group_fdr(fit.delta)
+
+# add ground truth and plot precision-recall curve
+data.fdr <- add_seaMass_spikein_truth(data.fdr)
+plot_pr(data.fdr)
+```
+
+### Tutorial 2 - HPC
+
+To run seaMass on a HPC cluster, add a *schedule_slurm*, *schedule_pbs* or *schedule_sge* object to *sigma_control*. We also can specify the path of the output directory, in this case to 'hpc':
+
+```
+# prepare seaMass-Σ
+fit.sigma <- seaMass_sigma(data, data.design, path = "hpc", run = FALSE, 
+  control = sigma_control(schedule = schedule_slurm(cpus_per_task = 14, mem = "64000m", mail_user = "username@domain.com")))
+```
+
+Note above we also set set *run = FALSE* which prepares but does not run seaMass-Σ. This gives you the opportunity to add one or more seaMass-Δ runs so that everything can be run in one go later.
+
+```
+# prepare seaMass-Δ
+fit.delta <- seaMass_delta(fit.sigma)
+
+# run seaMass-Σ and then seaMass-Δ
+run(fit.sigma)
+```
+
+Note, if you are not doing this from the HPC submit node, instead of *run(sigma)* you can copy the output folder *Tutorial_SLURM.seaMass* to your HPC submit node and execute *Tutorial_SLURM.seaMass/submit.sh* from the command prompt.
+
+
 
 ```
 library(seaMass)
@@ -130,34 +209,4 @@ data.fdr$truth <- ifelse(grepl("_RAT$", data.fdr$Group), 0, log2(1.6))
 plot_pr(data.fdr)
 ```
 
-### Tutorial (HPC)
 
-To run seaMass on a HPC cluster, add a *schedule_slurm*, *schedule_pbs* or *schedule_sge* object to *sigma_control* e.g.
-
-```
-# prepare seaMass-Σ
-sigma <- seaMass_sigma(
-  data,
-  data.design,
-  name = "Tutorial_SLURM",
-  run = FALSE,
-  control = sigma_control(
-    schedule = schedule_slurm(cpus_per_task = 14, mem = "64000m", mail_user = "username@domain.com")
-  )
-)
-```
-
-Note above we also set set *run = FALSE* which prepares but does not run seaMass-Σ. This gives you the opportunity to add one or more seaMass-Δ runs so that everything can be run in one go later.
-
-```
-# prepare seaMass-Δ
-delta <- seaMass_delta(
-  sigma,
-  data.design
-)
-
-# run seaMass-Σ and then seaMass-Δ
-run(sigma)
-```
-
-Note, if you are not doing this from the HPC submit node, instead of *run(sigma)* you can copy the output folder *Tutorial_SLURM.seaMass* to your HPC submit node and execute *Tutorial_SLURM.seaMass/submit.sh* from the command prompt.

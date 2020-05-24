@@ -4,7 +4,7 @@
 \alias{rhat}
 \title{rhat}
 \usage{
-rhat(chainID, mcmcID, value, transform = FALSE)
+rhat(chain, sample, value, transform = FALSE)
 }
 \description{
 rhat

@@ -5,23 +5,13 @@
 #' @export
 setMethod("dea_MCMCglmm", "seaMass_delta", function(
   object,
-  output = "group.de",
-  data.design = assay_design(object),
-  type = "normalised.group.quants",
-  emmeans.args = list(revpairwise ~ Condition),
-  fixed = ~ Condition,
-  random = ~ idh(Condition):Sample,
-  rcov = ~ units,
+  type = "group.de",
+  emmeans = revpairwise ~ Condition,
+  fixed = ~Condition,
+  random = NULL,
+  rcov = ~units,
   start = NULL,
-  prior = list(
-    G = list(G1 = list(
-      V = diag(nlevels(factor(data.design$Condition))),
-      nu = nlevels(factor(data.design$Condition)),
-      alpha.mu = rep(0, nlevels(factor(data.design$Condition))),
-      alpha.V = diag(25^2, nlevels(factor(data.design$Condition))))
-    ),
-    R = list(V = 1, nu = 2e-4)
-  ),
+  prior = list(R = list(V = nlevels(factor(assay_design(object)$Condition)), nu = 2e-4)),
   tune = NULL,
   pedigree = NULL,
   nodes = "ALL",
@@ -40,56 +30,66 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
   # this is needed to stop foreach massive memory leak!!!
   rm("...")
 
-  warn <- getOption("warn")
-  options(warn = 1)
-
   cat(paste0("[", Sys.time(), "]   MCMCglmm differential expression analysis for ", gsub("\\.", " ", type), "\n"))
 
-  # process parameters
+  # prepare
   ctrl <- control(object)
-  fixed <- as.formula(sub("^.*~", "m ~", deparse(fixed)))
-  nitt <- ctrl@dea.nwarmup + (ctrl@model.nsample * ctrl@dea.thin) / ctrl@model.nchain
-
-  # if default random effect but Samples and Assays the same, move random effect specification to rcov
-  if (is.null(random)) {
-    prior$G <- NULL
-  } else if (random == ~ idh(Condition):Sample && setequal(as.character(unique(data.design$Assay)), unique(as.character(data.design$Sample)))) {
-    random <- NULL
-    prior <- list(R = list(V = nlevels(factor(data.design$Condition)), nu = 2e-4))
-  }
-
-  # prepare design
-  DT.design <- as.data.table(data.design)[!is.na(Condition)]
-  if (!is.null(DT.design$nComponent)) DT.design[, nComponent := NULL]
-  if (!is.null(DT.design$nMeasurement)) DT.design[, nMeasurement := NULL]
-
-  if (type == "normalised.group.quants") {
-    type <- "Group"
-    DTs <- (batch_split(normalised_group_quants(object, summary = T, as.data.table = T), type, 64))
-  } else if (type == "normalised.group.quants") {
-    type <- c("Group", "Component")
-    DTs <- (batch_split(component_deviations(object, summary = T, as.data.table = T), type, 64))
+  fixed1 <- as.formula(paste("m", deparse(fixed, width.cutoff = 500), collapse=""))
+  if (type == "group.de") {
+    DTs <- normalised_group_quants(object@fit, summary = T, as.data.table = T)
+    DTs[, Group := as.integer(Group)]
+    DTs[, Assay := as.integer(Assay)]
+    DTs[, Block := as.integer(Block)]
+    DTs <- batch_split(DTs, "Group", 4 * ctrl@nthread)
+  } else if (type == "component.deviations.de") {
+    DTs <- component_deviations(object@fit, summary = T, as.data.table = T)
+    DTs[, Group := as.integer(Group)]
+    DTs[, Component := as.integer(Component)]
+    DTs[, Assay := as.integer(Assay)]
+    DTs[, Block := as.integer(Block)]
+    DTs <- batch_split(DTs, c("Group", "Component"), 4 * ctrl@nthread)
   } else {
     stop("unknown type")
   }
 
   # loop over all chains and all groups/components
-  if (file.exists(file.path(filepath(object), paste(output, "fst", sep = ".")))) file.remove(file.path(filepath(object), paste(output, "fst", sep = ".")))
-  dir.create(file.path(filepath(object), output), showWarnings = F)
+  dir.create(file.path(filepath(object), type), showWarnings = F)
   for (chain in 1:ctrl@model.nchain) {
     cat(paste0("[", Sys.time(), "]    chain ", chain ,"/", ctrl@model.nchain, "...\n"))
 
-    DT.de.index <- rbindlist(parallel_lapply(DTs, function(item, object, output, DT.design, type, emmeans.args, ctrl, chain, fixed, random, rcov, start, prior, tune, pedigree, nodes, scale, nitt, pr, pl, DIC, saveX, saveZ, saveXL, slice, ginverse, trunc) {
-      batch <- lapply(split(item, by = type, drop = T), function(DT) {
-        model <- list()
-        group <- DT[1, Group]
-        if ("Component" %in% type) component <- DT[1, Component]
+    DT.index <- parallel_lapply(DTs, function(item, object, type, chain, emmeans, fixed1, random, rcov, start, prior, tune, pedigree, nodes, scale, pr, pl, DIC, saveX, saveZ, saveXL, slice, ginverse, trunc) {
+      ctrl <- control(object)
+      batch <- item[1, Batch]
 
-        # have to keep all.y assays in even if NA otherwise MCMCglmm will get confused over its priors
-        DT <- (merge(DT, DT.design, all.y = T, by = "Assay"))
-        if (any(!is.na(DT[, m]))) {
+      if (type == "group.de") {
+        DT.groups <- assay_groups(object@fit, as.data.table = T)
+        DT.groups[, Group := as.integer(Group)]
+        DT.groups[, Assay := as.integer(Assay)]
+        item <- merge(item, DT.groups, by = c("Group", "Assay"), sort = F)
+        item <- split(item, by = "Group", drop = T)
+      }
+      if (type == "component.deviations.de"){
+        DT.components <- assay_components(object@fit, as.data.table = T)
+        DT.components[, Group := as.integer(Group)]
+        DT.components[, Component := as.integer(Component)]
+        DT.components[, Assay := as.integer(Assay)]
+        item <- merge(item, DT.components, by = c("Group", "Component", "Assay"), sort = F)
+        item <- split(item, by = c("Group", "Component"), drop = T)
+      }
 
-          set.seed(ctrl@random.seed + chain)
+      outputs <- lapply(item, function(DT) {
+        # have to keep all assays in even if count NA otherwise MCMCglmm will get confused over its priors
+        DT.design <- assay_design(object, as.data.table = T)
+        DT[, Assay := factor(Assay, levels = 1:nlevels(DT.design[, Assay]), labels = levels(DT.design[, Assay]))]
+        DT[, Block := factor(Block, levels = 1:nlevels(DT.design[, Block]), labels = levels(DT.design[, Block]))]
+        DT <- merge(DT, DT.design, all.y = T, by = c("Block", "Assay"), sort = F)
+
+        # run MCMCglmm
+        output <- list()
+        if (all(is.na(DT[, m])))  {
+          output$DT.de <- data.table()
+          if (chain == 1) output$DT.meta <- data.table()
+        } else {
           # try a few times as MCMCglmm can moan about priors not being strong enough
           success <- F
           attempt <- 0
@@ -98,8 +98,8 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
             if (attempt > 1) print(attempt)
             tryCatch({
               # run MCMCglmm
-              model$MCMCglmm <- MCMCglmm::MCMCglmm(
-                fixed = fixed,
+              model <- MCMCglmm::MCMCglmm(
+                fixed = fixed1,
                 random = random,
                 rcov = rcov,
                 family = "gaussian",
@@ -111,7 +111,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
                 pedigree = pedigree,
                 nodes = nodes,
                 scale = scale,
-                nitt = nitt,
+                nitt = ctrl@dea.nwarmup + (ctrl@model.nsample * ctrl@dea.thin) / ctrl@model.nchain,
                 thin = ctrl@dea.thin,
                 burnin = ctrl@dea.nwarmup,
                 pr = pr,
@@ -126,104 +126,126 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
                 ginverse = ginverse,
                 trunc = trunc
               )
-
-              # run emmeans.args
-              model$emmGrid <- do.call("emmeans", c(list(model$MCMCglmm), emmeans.args, list(data = DT)))
-
-              # extract from emmGrid
-              model$DT.de <- as.data.table(as.mcmc.emmGrid(model$emmGrid$emmeans))
-              model$DT.de[, mcmcID := .I]
-              model$DT.de <- melt(model$DT.de, id.vars = "mcmcID", variable.name = "Model")
-              model$DT.de[, Effect := sub("^(.*) .*$", "\\1", Model)]
-              model$DT.de[, Level := sub("^.* (.*)$", "\\1", Model)]
-              model$DT.de[, Level0 := NA]
-
-              # just do contrasts for now
-              #if (!is.null(model$emmGrid[[i]]$contrasts)) {
-              DT.contrasts <- as.data.table(emmeans::as.mcmc.emmGrid(model$emmGrid$contrasts))
-              DT.contrasts[, mcmcID := .I]
-              DT.contrasts <- melt(DT.contrasts, id.vars = "mcmcID", variable.name = "Model")
-              DT.contrasts[, Effect := model$DT.de[1, Effect]]
-              DT.contrasts[, Level := sub("^contrast (.*) - .*$", "\\1", Model)]
-              DT.contrasts[, Level0 := sub("^contrast .* - (.*)$", "\\1", Model)]
-              #model$DT.de <- rbind(model$DT.de, DT.contrasts)
-              model$DT.de <- DT.contrasts
-              #}
-
-              # add metadata (this is rubbish but works)
-              DT.meta <- unique(rbind(model$DT.de[, .(Effect, Level)], model$DT.de[, .(Effect, Level = Level0)]))[!is.na(Level)]
-              DT.meta[, a := 0]
-              DT.meta[, b := 0]
-              DT.meta[, c := 0]
-              DT.meta[, d := 0]
-              for (i in 1:nrow(DT.meta)) {
-                DT.meta$a[i] <- max(0, DT[get(as.character(DT.meta[i, Effect])) == DT.meta[i, Level], nComponent], na.rm = T)
-                DT.meta$b[i] <- max(0, DT[get(as.character(DT.meta[i, Effect])) == DT.meta[i, Level], nMeasurement], na.rm = T)
-                DT.meta$c[i] <- length(unique(DT[get(as.character(DT.meta[i, Effect])) == DT.meta[i, Level] & !is.na(m), Sample]))
-                DT.meta$d[i] <- length(unique(DT[get(as.character(DT.meta[i, Effect])) == DT.meta[i, Level] & !is.na(m) & nComponent > 0, Sample]))
-              }
-
-              model$DT.de <- merge(DT.meta, model$DT.de, all.y = T, by = c("Effect", "Level"))
-              setnames(model$DT.de, c("a", "b", "c", "d"), c("1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample"))
-              model$DT.de[, Level := NULL]
-              setnames(DT.meta, "Level", "Level0")
-              model$DT.de <- merge(DT.meta, model$DT.de, all.y = T, by = c("Effect", "Level0"))
-              setnames(model$DT.de, c("a", "b", "c", "d"), c("2:nMaxComponent", "2:nMaxMeasurement", "2:nTestSample", "2:nRealSample"))
-              model$DT.de[, Level0 := NULL]
-
-              model$DT.de[, Effect := factor(Effect, levels = unique(Effect))]
-              model$DT.de[, Group := group]
-              if ("Component" %in% type)  model$DT.de[, Component := component]
-              model$DT.de[, chainID := chain]
-              if ("Component" %in% type)  {
-                setcolorder(model$DT.de, c("Model", "Effect", "Group", "Component", "chainID", "mcmcID"))
-              } else {
-                setcolorder(model$DT.de, c("Model", "Effect", "Group", "chainID", "mcmcID"))
-              }
               success <- T
             }, error = function(e) if (attempt > 16) stop(paste0("[", Sys.time(), "] ERROR: ", e)))
             prior$R$nu <- prior$R$nu * 2
           }
-          #if (success == F) stop(paste0("[", Sys.time(), "]   modelling group ", group, " failed - please email andrew.dowsey@bristol.ac.uk about this."))
+
+          # run emmeans.args
+          emmGrid <- do.call("emmeans", c(list(model), revpairwise ~ Condition, list(data = DT)))
+
+          # just do contrasts for now (note: we assume they exist)
+          output$DT.de <- as.data.table(emmeans::as.mcmc.emmGrid(emmGrid$contrasts))
+          output$DT.de[, sample := .I]
+          output$DT.de <- melt(output$DT.de, id.vars = "sample", variable.name = "Baseline")
+          output$DT.de[, chain := chain]
+          output$DT.de[, Effect := paste(paste(colnames(emmGrid$contrasts@misc$orig.grid)), collapse = ":")]
+          output$DT.de[, Effect := factor(Effect, levels = unique(Effect))]
+          output$DT.de[, Contrast := sub("^contrast (.*) - .*$", "\\1", Baseline)]
+          output$DT.de[, Contrast := factor(Contrast, levels = unique(Contrast))]
+          output$DT.de[, Baseline := sub("^contrast .* - (.*)$", "\\1", Baseline)]
+          output$DT.de[, Baseline := factor(Baseline, levels = unique(Baseline))]
+          output$DT.de[, Group := DT[1, Group]]
+          if (type == "group.de") setcolorder(output$DT.de, c("Group", "Effect", "Contrast", "Baseline", "chain"))
+          if (type == "component.deviations.de") {
+            output$DT.de[, Component := DT[1, Component]]
+            setcolorder(output$DT.de, c("Group", "Component", "Effect", "Contrast", "Baseline", "chain"))
+          }
+
+          if (chain == 1) {
+            # calculate metadata (this is rubbish but works)
+            output$DT.meta <- unique(rbind(output$DT.de[, .(Effect, Level = Contrast)], output$DT.de[, .(Effect, Level = Baseline)]))[!is.na(Level)]
+            output$DT.meta[, Group := DT[1, Group]]
+            if (type == "component.deviations.de") output$DT.meta[, Component := DT[1, Component]]
+            if (type == "group.de") output$DT.meta[, qC := 0]
+            output$DT.meta[, qM := 0]
+            output$DT.meta[, qS := 0]
+            output$DT.meta[, uS := 0]
+            for (i in 1:nrow(output$DT.meta)) {
+              if (type == "group.de") output$DT.meta$qC[i] <- max(0, DT[get(as.character(output$DT.meta[i, Effect])) == output$DT.meta[i, Level], qC], na.rm = T)
+              output$DT.meta$qM[i] <- max(0, DT[get(as.character(output$DT.meta[i, Effect])) == output$DT.meta[i, Level], qM], na.rm = T)
+              output$DT.meta$qS[i] <- length(unique(DT[get(as.character(output$DT.meta[i, Effect])) == output$DT.meta[i, Level] & !is.na(m) & qM > 0, Sample]))
+              output$DT.meta$uS[i] <- length(unique(DT[get(as.character(output$DT.meta[i, Effect])) == output$DT.meta[i, Level] & !is.na(m), Sample]))
+            }
+          }
         }
 
-        return(model)
+        return(output)
       })
 
-      # save
-      #saveRDS(batch, file.path(filepath(object), output, paste(chain, item[1, BatchID], "rds", sep = ".")))
+      # flatten results
+      DT0.de <- rbindlist(lapply(1:length(outputs), function(i) outputs[[i]]$DT.de))
 
-      # flatten
-      DT.batch.de <- rbindlist(lapply(1:length(batch), function(i) {
-        if (!is.null(batch[[i]]$DT.de)) {
-          return((batch[[i]]$DT.de))
-        } else {
-          return(NULL)
-        }
-      }))
+      if (nrow(DT0.de) > 0) {
+        # create index
+        if (chain == 1) {
+          if (type == "group.de") {
+            DT0.index <- DT0.de[, .(
+              from = .I[!duplicated(DT0.de, by = c("Group", "Effect", "Contrast", "Baseline"))],
+              to = .I[!duplicated(DT0.de, fromLast = T, by = c("Group", "Effect", "Contrast", "Baseline"))]
+            )]
+            DT0.index <- cbind(
+              DT0.de[DT0.index$from, .(Group, Effect, Contrast, Baseline)],
+              data.table(file = factor(file.path(type, paste(chain, batch, "fst", sep = ".")))),
+              DT0.index
+            )
+          }
+          if (type == "component.deviations.de") {
+            DT0.index <- DT0.de[, .(
+              from = .I[!duplicated(DT0.de, by = c("Group", "Component", "Effect", "Contrast", "Baseline"))],
+              to = .I[!duplicated(DT0.de, fromLast = T, by = c("Group", "Component", "Effect", "Contrast", "Baseline"))]
+            )]
+            DT0.index <- cbind(
+              DT0.de[DT0.index$from, .(Group, Component, Effect, Contrast, Baseline)],
+              data.table(file = factor(file.path(type, paste(chain, batch, "fst", sep = ".")))),
+              DT0.index
+            )
+          }
 
-      if (nrow(DT.batch.de) > 0) {
-        if ("Component" %in% type) {
-          setcolorder(DT.batch.de, c("Group", "Component", "Effect", "Model", "1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample", "2:nMaxComponent", "2:nMaxMeasurement", "2:nTestSample", "2:nRealSample"))
-          DT.index <- DT.batch.de[, .(from = .I[!duplicated(DT.batch.de, by = c("Group", "Component"))], to = .I[!duplicated(DT.batch.de, fromLast = T, by = c("Group", "Component"))])]
-          DT.index <- cbind(DT.batch.de[DT.index$from, .(Group, Component)], data.table(file = file.path(output, paste(chain, item[1, BatchID], "fst", sep = "."))), DT.index)
-        } else {
-          setcolorder(DT.batch.de, c("Group", "Effect", "Model", "1:nMaxComponent", "1:nMaxMeasurement", "1:nTestSample", "1:nRealSample", "2:nMaxComponent", "2:nMaxMeasurement", "2:nTestSample", "2:nRealSample"))
-          DT.index <- DT.batch.de[, .(from = first(.I), to = last(.I)), by = Group]
-          DT.index[, file := file.path(output, paste(chain, item[1, BatchID], "fst", sep = "."))]
-          setcolorder(DT.index, c("Group", "file"))
+          DT0.meta <- rbindlist(lapply(1:length(outputs), function(i) outputs[[i]]$DT.meta))
+
+          setnames(DT0.meta, "Level", "Contrast")
+          if (type == "group.de") DT0.index <- merge(DT0.index, DT0.meta, by = c("Group", "Effect", "Contrast"), sort = F)
+          if (type == "component.deviations.de") DT0.index <- merge(DT0.index, DT0.meta, by = c("Group", "Component", "Effect", "Contrast"), sort = F)
+          setnames(DT0.index, c("qM", "qS", "uS"), c("qM_Contrast", "qS_Contrast", "uS_Contrast"))
+          if (type == "group.de") setnames(DT0.index, "qC", "qC_Contrast")
+          setnames(DT0.meta, "Contrast", "Baseline")
+          if (type == "group.de") DT0.index <- merge(DT0.index, DT0.meta, by = c("Group", "Effect", "Baseline"), sort = F)
+          if (type == "component.deviations.de") DT0.index <- merge(DT0.index, DT0.meta, by = c("Group", "Component", "Effect", "Baseline"), sort = F)
+          setnames(DT0.index, c("qM", "qS", "uS"), c("qM_Baseline", "qS_Baseline", "uS_Baseline"))
+          if (type == "group.de") setnames(DT0.index, "qC", "qC_Baseline")
+          if (type == "group.de") setcolorder(DT0.index, c("Group", "Effect", "Contrast", "Baseline", "file", "from", "to", "uS_Contrast", "uS_Baseline", "qS_Contrast", "qS_Baseline", "qC_Contrast", "qC_Baseline", "qM_Contrast", "qM_Baseline"))
+          if (type == "component.deviations.de") setcolorder(DT0.index, c("Group", "Component", "Effect", "Contrast", "Baseline", "file", "from", "to", "uS_Contrast", "uS_Baseline", "qS_Contrast", "qS_Baseline", "qM_Contrast", "qM_Baseline"))
         }
-        fst::write.fst(DT.batch.de, file.path(filepath(object), output, paste(chain, item[1, BatchID], "fst", sep = ".")))
-        return(DT.index)
-      } else {
-        return(NULL)
+
+        # write results
+        DT0.de[, Effect := as.integer(Effect)]
+        DT0.de[, Contrast := as.integer(Contrast)]
+        DT0.de[, Baseline := as.integer(Baseline)]
+        fst::write.fst(DT0.de, file.path(filepath(object), type, paste(chain, batch, "fst", sep = ".")))
+
+        if (chain == 1) return(DT0.index)
       }
-    }, nthread = ctrl@nthread, .packages = c("seaMass", "emmeans")))
 
-    if (chain == 1 && nrow(DT.de.index) > 0) fst::write.fst(DT.de.index, file.path(filepath(object), paste(output, "index.fst", sep = ".")))
+      return(NULL)
+    }, nthread = ctrl@nthread, .packages = c("seaMass", "emmeans"))
+
+    # save index
+    if (chain == 1) {
+      DT.index <- rbindlist(DT.index)
+      groups <- groups(object@fit, as.data.table = T)[, Group]
+      DT.index[, Group := factor(Group, levels = 1:nlevels(groups), labels = levels(groups))]
+      rm(groups)
+      if (type == "component.deviations.de") {
+        components <- components(object@fit, as.data.table = T)[, Component]
+        DT.index[, Component := factor(Component, levels = 1:nlevels(components), labels = levels(components))]
+        rm(components)
+      }
+      fst::write.fst(DT.index, file.path(filepath(object), paste(type, "index.fst", sep = ".")))
+    }
+
+    rm(DT.index)
   }
-
-  options(warn = warn)
 
   return(object)
 })

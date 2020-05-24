@@ -2,7 +2,8 @@
 #'
 #' Fits the seaMass-Σ Bayesian group-level quantification model to imported data.
 #'
-setClass("seaMass_sigma", slots = c(
+#' @include seaMass.R
+setClass("seaMass_sigma", contains = "seaMass", slots = c(
   filepath = "character"
 ))
 
@@ -16,22 +17,20 @@ setClass("seaMass_sigma", slots = c(
 #' @param control A control object created with \link{sigma_control} specifying control parameters for the model.
 #' @param path Name of folder prefix on disk where all intermediate and output data will be stored.
 
-#' @return A \code{seaMass_sigma} object, which allows access to each block's \link{sigma_fit} object to access
-#'   various metadata and results.
+#' @return A \code{seaMass_sigma} object, which allows access to metadata and each block's \link{sigma_block} object to access
+#'   various results.
 #' @import data.table
 #' @export seaMass_sigma
 seaMass_sigma <- function(
   data,
   data.design = new_assay_design(data),
-  path = "fits",
+  path = "fit",
   run = TRUE,
   control = sigma_control(),
   ...
 ) {
-  data.is.data.table <- is.data.table(data)
-
   # check for finished output and return that
-  object <- open_seaMass_sigma(path, quiet = T)
+  object <- open_sigma(path, quiet = T)
   if (!is.null(object)) {
     message(paste0("returning completed seaMass-sigma object - if this wasn't your intention, supply a different 'path' or delete the folder for the returned object with 'del(object)'"))
     return(object)
@@ -41,194 +40,232 @@ seaMass_sigma <- function(
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control@version, "\n"))
   control@ellipsis <- list(...)
   validObject(control)
+  data.table::setDTthreads(control@nthread)
+  fst::threads_fst(control@nthread)
 
+  # check if exists and save control
   if (!grepl("\\.seaMass$", path)) path <- paste0(path, ".seaMass")
   if (file.exists(path)) unlink(path, recursive = T)
   dir.create(file.path(path, "output"), recursive = T)
   path <- normalizePath(path)
-  saveRDS(control, file.path(path, "sigma.control.rds"))
+  dir.create(file.path(path, "meta"))
+  saveRDS(control, file.path(path, "meta", "control.rds"))
 
-  data.table::setDTthreads(control@nthread)
-  fst::threads_fst(control@nthread)
-  DT.all <- setDT(data)
+  # init DT
+  data.is.data.table <- is.data.table(data)
+  DT <- setDT(data)
+
+  # if poission model only integers are allowed, plus apply missingness.threshold
+  if (control@error.model == "poisson") {
+    DT[, Count0 := round(Count)]
+    DT[, Count0 := ifelse(Count0 <= control@missingness.threshold, NA_real_, Count0)]
+  } else {
+    DT[, Count0 := ifelse(Count <= control@missingness.threshold, NA_real_, Count)]
+  }
 
   # get design into the format we need
-  DT.design.all <- as.data.table(data.design)[!is.na(Assay)]
-  if (!is.factor(DT.design.all$Assay)) DT.design.all[, Assay := factor(as.character(Assay), levels = unique(as.character(Assay)))]
-  if (all(is.na(DT.design.all$Run))) {
-    DT.design.all[, Run := NULL]
-    DT.design.all[, Run := "1"]
+  DT.design <- as.data.table(data.design)
+  if (!is.factor(DT.design[, Assay])) DT.design[, Assay := factor(as.character(Assay), levels = unique(as.character(Assay)))]
+  if (all(is.na(DT.design[, Run]))) {
+    DT.design[, Run := NULL]
+    DT.design[, Run := "1"]
   }
-  if (!is.factor(DT.design.all$Run)) DT.design.all[, Run := factor(as.character(Run), levels = levels(DT.all$Run))]
-  if (all(is.na(DT.design.all$Channel))) {
-    DT.design.all[, Channel := NULL]
-    DT.design.all[, Channel := "1"]
+  if (!is.factor(DT.design[, Run])) DT.design[, Run := factor(as.character(Run), levels = levels(DT[, Run]))]
+  if (all(is.na(DT.design[, Channel]))) {
+    DT.design[, Channel := NULL]
+    DT.design[, Channel := "1"]
   }
-  if (!is.factor(DT.design.all$Channel)) DT.design.all[, Channel := factor(as.character(Channel), levels = levels(DT.all$Channel))]
-  if (is.null(DT.design.all$RefWeight)) DT.design.all[, RefWeight := 1]
+  if (!is.factor(DT.design[, Channel])) DT.design[, Channel := factor(as.character(Channel), levels = levels(DT[, Channel]))]
+  if (!("RefWeight" %in% names(DT.design))) DT.design[, RefWeight := 1]
+
+  # add Assay to DT
+  DT <- merge(DT, DT.design[, .(Run, Channel, Assay)], by = c("Run", "Channel"), sort = F, all.x = T)
+  DT[is.na(Assay), Use := F]
+  fst::write.fst(DT, file.path(path, "meta", "data.fst"))
+
+  # write Assay index (design)
+  DT.design <- merge(DT.design, DT[, .(
+    qG = uniqueN(Group[Use & !is.na(Count0)]),
+    uG = uniqueN(Group[Use]),
+    nG = uniqueN(Group),
+    qC = uniqueN(Component[Use & !is.na(Count0)]),
+    uC = uniqueN(Component[Use]),
+    nC = uniqueN(Component),
+    qM = uniqueN(Measurement[Use & !is.na(Count0)]),
+    uM = uniqueN(Measurement[Use]),
+    nM = uniqueN(Measurement),
+    qD = sum(Use & !is.na(Count0)),
+    uD = sum(Use),
+    nD = length(Count0)
+  ), by = .(Run, Channel)], by = c("Run", "Channel"))
+  setorder(DT.design, Assay, na.last = T)
+  setcolorder(DT.design, c("Assay", "Run", "Channel", colnames(DT.design)[grep("^Block\\.", colnames(DT.design))], "RefWeight"))
+
+  # write Group index
+  DT.groups <- DT[, .(
+    GroupInfo = GroupInfo[1],
+    qC = uniqueN(Component[Use & !is.na(Count0)]),
+    uC = uniqueN(Component[Use]),
+    nC = uniqueN(Component),
+    qM = uniqueN(Measurement[Use & !is.na(Count0)]),
+    uM = uniqueN(Measurement[Use]),
+    nM = uniqueN(Measurement),
+    qD = sum(Use & !is.na(Count0)),
+    uD = sum(Use),
+    nD = length(Count0)
+  ), by = Group]
+  setorder(DT.groups, -qC, -uC, -nC, -qM, -uM, -nM, -qD, -uD, -nD, Group)
+  fwrite(DT.groups, file.path(path, "output", "groups.csv"))
+  # use pre-trained regression model to estimate how long each Group will take to process
+  # Intercept, uC, uM, uC^2, uM^2, uC*uM
+  a <- c(5.338861e-01, 9.991205e-02, 2.871998e-01, 4.294391e-05, 6.903229e-04, 2.042114e-04)
+  DT.groups[, pred := a[1] + a[2]*uC + a[3]*uM + a[4]*uC*uC- + a[5]*uM*uM + a[6]*uC*uM]
+  fst::write.fst(DT.groups, file.path(path, "meta", "groups.fst"))
+
+  # write Component index
+  DT.components <- DT[, .(
+    qM = uniqueN(Measurement[Use & !is.na(Count0)]),
+    uM = uniqueN(Measurement[Use]),
+    nM = uniqueN(Measurement),
+    qD = sum(Use & !is.na(Count0)),
+    uD = sum(Use),
+    nD = length(Count0)
+  ), by = .(Group, Component)]
+  setorder(DT.components, -qM, -uM, -nM, -qD, -uD, -nD, Component)
+  DT.components <- merge(DT.groups[, .(Group)], DT.components, by = "Group", sort = F)
+  fst::write.fst(DT.components, file.path(path, "meta", "components.fst"))
+  fwrite(DT.components, file.path(path, "output", "components.csv"))
+
+  # write Measurement index
+  DT.measurements <- DT[, .(
+    qD = sum(Use & !is.na(Count0)),
+    uD = sum(Use),
+    nD = sum(!is.na(Count0))
+  ), by = .(Group, Component, Measurement)]
+  setorder(DT.measurements, -qD, -uD, -nD, Measurement)
+  DT.measurements <- merge(DT.components[, .(Group, Component)], DT.measurements, by = c("Group", "Component"), sort = F)
+  fst::write.fst(DT.measurements, file.path(path, "meta", "measurements.fst"))
+  fwrite(DT.measurements, file.path(path, "output", "measurements.csv"))
+  rm(DT.measurements)
 
   # process each block independently
-  block.cols <- colnames(DT.design.all)[grep("^Block\\.(.*)$", colnames(DT.design.all))]
+  block.cols <- colnames(DT.design)[grep("^Block\\.(.*)$", colnames(DT.design))]
   blocks <- sub("^Block\\.(.*)$", "\\1", block.cols)
-  for(i in 1:length(blocks)) {
+  DT.design <- rbindlist(lapply(1:length(blocks), function(i) {
     cat(paste0("[", Sys.time(), "]  preparing block=", blocks[i], "...\n"))
-    # extract input data for this block
-    DT <- merge(DT.all, DT.design.all[as.logical(get(block.cols[i])) == T, .(Run, Channel, Assay)], by = c("Run", "Channel"))
-    DT[, Run := NULL]
-    DT[, Channel := NULL]
-    # missingness.threshold
-    setnames(DT, "Count", "RawCount")
-    DT[, Count := ifelse(RawCount <= control@missingness.threshold, NA, RawCount)]
-    # remove measurements with no non-NA measurements
-    DT[, notNA := sum(!is.na(Count)), by = .(Measurement)]
-    DT <- DT[notNA > 0]
-    DT[, notNA := NULL]
-    DT <- droplevels(DT)
+    blockpath <- file.path(path, paste0("sigma.", blocks[i]))
 
-    # build Group index
-    DT.groups <- DT[, .(
-      GroupInfo = GroupInfo[1],
-      nComponent = length(unique(as.character(Component))),
-      nMeasurement = length(unique(as.character(Measurement))),
-      nDatapoint = sum(!is.na(Count))
-    ), by = Group]
+    # design for this block
+    DT.design.block <- DT.design[as.logical(get(block.cols[i]))]
+    DT.design.block[, (block.cols) := NULL]
+    DT.design.block[, Block := factor(blocks[i])]
+    setcolorder(DT.design.block, "Block")
 
-    # use pre-trained regression model to estimate how long each Group will take to process
-    # Intercept, nComponent, nMeasurement, nComponent^2, nMeasurement^2, nComponent*nMeasurement
-    a <- c(5.338861e-01, 9.991205e-02, 2.871998e-01, 4.294391e-05, 6.903229e-04, 2.042114e-04)
-    DT.groups[, timing := a[1] + a[2]*nComponent + a[3]*nMeasurement + a[4]*nComponent*nComponent + a[5]*nMeasurement*nMeasurement + a[6]*nComponent*nMeasurement]
-    setorder(DT.groups, -timing)
-    DT.groups[, GroupID := 1:nrow(DT.groups)]
-    DT.groups[, Group := factor(Group, levels = unique(Group))]
-    setcolorder(DT.groups, c("GroupID"))
+    # data for this block
+    DT.block <- merge(DT[Use == T, .(Group, Component, Measurement, Assay, Count0)], DT.design.block[, .(Assay)], by = "Assay", sort = F)
 
-    DT <- merge(DT, DT.groups[, .(Group, GroupID)], by = "Group", sort = F)
-    DT[, Group := NULL]
-    DT[, GroupInfo := NULL]
+    # missingness model
+    if (control@missingness.model == "rm") {
+      DT.block <- DT.block[!is.na(Count0)]
+    } else {
+      # add in NAs to be imputed, removing Measurements where all NA
+      DT.block <- DT.block[, Use := !all(is.na(Count0)), by = .(Group, Component, Measurement)]
+      DT.block <- dcast(DT.block[Use == T], Group + Component + Measurement ~ Assay, value.var = "Count0")
+      DT.block <- melt(DT.block, variable.name = "Assay", value.name = "Count0", id.vars = c("Group", "Component", "Measurement"))
+      DT.block[, Assay := factor(Assay, levels = levels(DT.design.block$Assay))]
 
-    # build Component index
-    DT.components <- DT[, .(
-      nMeasurement = length(unique(as.character(Measurement))),
-      nDatapoint = sum(!is.na(Count)),
-      TopGroupID = first(GroupID)
-    ), by = Component]
-    setorder(DT.components, TopGroupID, -nMeasurement, -nDatapoint, Component)
-    DT.components[, TopGroupID := NULL]
-    DT.components[, ComponentID := 1:nrow(DT.components)]
-    DT.components[, Component := factor(Component, levels = unique(Component))]
-    setcolorder(DT.components, "ComponentID")
-
-    DT <- merge(DT, DT.components[, .(Component, ComponentID)], by = "Component", sort = F)
-    DT[, Component := NULL]
-
-    # build Measurement index
-    DT.measurements <- DT[, .(
-      nDatapoint = sum(!is.na(Count)),
-      TopComponentID = min(ComponentID)
-    ), by = Measurement]
-    setorder(DT.measurements, TopComponentID, -nDatapoint, Measurement)
-    DT.measurements[, TopComponentID := NULL]
-    DT.measurements[, MeasurementID := 1:nrow(DT.measurements)]
-    DT.measurements[, Measurement := factor(Measurement, levels = unique(Measurement))]
-    setcolorder(DT.measurements, "MeasurementID")
-
-    DT <- merge(DT, DT.measurements[, .(Measurement, MeasurementID)], by = "Measurement", sort = F)
-    DT[, Measurement := NULL]
-
-    # build Assay index (design)
-    DT.design <- merge(merge(DT, DT.design.all, by = "Assay")[, .(
-      nGroup = length(unique(GroupID)),
-      nComponent = length(unique(ComponentID)),
-      nMeasurement = length(unique(MeasurementID)),
-      nDatapoint = sum(!is.na(Count))
-    ), keyby = Assay], DT.design.all, keyby = Assay)
-    DT.design[, AssayID := 1:nrow(DT.design)]
-    DT.design <- droplevels(DT.design)
-    setcolorder(DT.design, c("AssayID", "Assay", "Run", "Channel"))
-
-    DT <- merge(DT, DT.design[, .(Assay, AssayID)], by = "Assay", sort = F)
-    DT[, Assay := NULL]
-
-    # censoring model
-    if (control@missingness.model == "rm") DT <- DT[complete.cases(DT)]
-    if (control@missingness.model == "one") DT[is.na(Count), Count := 1.0]
-    if (control@missingness.model == "minimum") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = MeasurementID]
-    if (substr(control@missingness.model, 1, 8) == "censored") DT[, Count1 := ifelse(is.na(Count), min(Count, na.rm = T), Count), by = MeasurementID]
-    if (control@missingness.model == "censored0") DT[is.na(Count), Count := min(1.0, Count1)]
-    if (control@missingness.model == "censored1") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^1, Count), by = MeasurementID]
-    if (control@missingness.model == "censored2") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^2, Count), by = MeasurementID]
-    if (control@missingness.model == "censored3") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^3, Count), by = MeasurementID]
-    if (control@missingness.model == "censored4" || control@missingness.model == "censored") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^4, Count), by = MeasurementID]
-    if (control@missingness.model == "censored5") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^5, Count), by = MeasurementID]
-    if (control@missingness.model == "censored6") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^6, Count), by = MeasurementID]
-    if (control@missingness.model == "censored7") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^7, Count), by = MeasurementID]
-    if (control@missingness.model == "censored8") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^8, Count), by = MeasurementID]
-    if (control@missingness.model == "censored9") DT[, Count := ifelse(is.na(Count), min(Count, na.rm = T) / 2^9, Count), by = MeasurementID]
-
-    # if poission model only integers are allowed
-    if (control@error.model == "poisson") {
-      DT[, Count := round(Count)]
-      if (!is.null(DT$Count1)) DT[, Count1 := round(Count1)]
+      if (substr(control@missingness.model, 1, 8) == "censored") {
+        DT.block[, Count1 := min(Count0, na.rm = T), by = .(Group, Component, Measurement)]
+        DT.block[, Count1 := ifelse(is.na(Count0), Count1, Count0)]
+        if (control@missingness.model == "censored_") DT.block[is.na(Count0), Count0 := ifelse(is.na(Count1), NA_real_, pmin(1.0, Count1))]
+        if (control@missingness.model == "censored0") DT.block[is.na(Count0), Count0 := Count1 / 2^0]
+        if (control@missingness.model == "censored1") DT.block[is.na(Count0), Count0 := Count1 / 2^1]
+        if (control@missingness.model == "censored2") DT.block[is.na(Count0), Count0 := Count1 / 2^2]
+        if (control@missingness.model == "censored3") DT.block[is.na(Count0), Count0 := Count1 / 2^3]
+        if (control@missingness.model == "censored4" || control@missingness.model == "censored") DT.block[is.na(Count0), Count0 := Count1 / 2^4]
+        if (control@missingness.model == "censored5") DT.block[is.na(Count0), Count0 := Count1 / 2^5]
+        if (control@missingness.model == "censored6") DT.block[is.na(Count0), Count0 := Count1 / 2^6]
+        if (control@missingness.model == "censored7") DT.block[is.na(Count0), Count0 := Count1 / 2^7]
+        if (control@missingness.model == "censored8") DT.block[is.na(Count0), Count0 := Count1 / 2^8]
+        if (control@missingness.model == "censored9") DT.block[is.na(Count0), Count0 := Count1 / 2^9]
+        if (control@error.model == "poisson")  DT.block[, Count0 := round(Count)]
+      } else {
+        if (control@missingness.model == "one") DT.block[is.na(Count0), Count0 := 1.0]
+        if (control@missingness.model == "minimum") {
+          DT.block[, Count1 := min(Count0, na.rm = T), by = .(Group, Component,Measurement)]
+          DT.block[, Count0 := ifelse(is.na(Count0), Count1, Count0)]
+        }
+        DT.block[, Count1 := NA_real_]
+      }
     }
 
     # set ordering for indexing
-    setorder(DT, GroupID, ComponentID, MeasurementID, AssayID)
-    setcolorder(DT, c("GroupID", "ComponentID", "MeasurementID", "AssayID", "RawCount"))
+    DT.block <- merge(DT.block, DT.groups[, .(Group, pred)], by = "Group", sort = F)
+    setorder(DT.block, -pred, Group, Component, Measurement, Assay)
+    DT.block[, pred := NULL]
 
     # filter DT for Empirical Bayes model
-    DT0 <- unique(DT[, .(GroupID, ComponentID, MeasurementID)])
-    DT0[, nMeasurement := .N, by = .(GroupID, ComponentID)]
+    DT0 <- unique(DT.block[, .(Group, Component, Measurement)])
+    DT0[, nMeasurement := .N, by = .(Group, Component)]
     DT0 <- DT0[nMeasurement >= control@measurement.eb.min]
     DT0[, nMeasurement := NULL]
 
-    DT0.components <- unique(DT0[, .(GroupID, ComponentID)])
-    DT0.components[, nComponent := .N, by = GroupID]
+    DT0.components <- unique(DT0[, .(Group, Component)])
+    DT0.components[, nComponent := .N, by = Group]
     DT0.components <- DT0.components[nComponent >= control@component.eb.min]
     DT0.components[, nComponent := NULL]
-    DT0 <- merge(DT0, DT0.components, by = c("GroupID", "ComponentID"))
+    DT0 <- merge(DT0, DT0.components, by = c("Group", "Component"), sort = F)
 
-    DT0 <- merge(DT, DT0, by = c("GroupID", "ComponentID", "MeasurementID"))
+    DT0 <- merge(DT.block, DT0, by = c("Group", "Component", "Measurement"), sort = F)
 
-    DT0.assays <- unique(DT0[, .(GroupID, AssayID)])
-    DT0.assays[, nAssay := .N, by = GroupID]
+    DT0.assays <- unique(DT0[, .(Group, Assay)])
+    DT0.assays[, nAssay := .N, by = Group]
     DT0.assays <- DT0.assays[nAssay >= control@assay.eb.min]
     DT0.assays[, nAssay := NULL]
-    DT0 <- merge(DT0, DT0.assays, by = c("GroupID", "AssayID"))
+    DT0 <- merge(DT0, DT0.assays, by = c("Group", "Assay"), sort = F)
 
-    setorder(DT0, GroupID, ComponentID, MeasurementID, AssayID)
+    # filter to eb.max
     if (control@component.model == "") {
-      DT0 <- DT0[GroupID <= DT0[which.max(DT0[as.integer(factor(DT0$MeasurementID)) <= control@eb.max, MeasurementID]), GroupID]]
+      DT0[, I := as.integer(factor(Measurement, levels = unique(Measurement)))]
+      DT0[, I := I[1], by = Measurement]
     } else {
-      DT0 <- DT0[GroupID <= DT0[which.max(DT0[as.integer(factor(DT0$ComponentID)) <= control@eb.max, ComponentID]), GroupID]]
+      DT0[, I := as.integer(factor(Component, levels = unique(Component)))]
+      DT0[, I := I[1], by = Component]
     }
+    DT0 <- DT0[I <= control@eb.max]
+    DT0[, I := NULL]
+    setcolorder(DT0, c("Group", "Component", "Measurement", "Assay"))
 
     # create output directory
-    block <- file.path(path, paste0("sigma.", blocks[i]))
-    dir.create(file.path(block))
+    dir.create(blockpath)
+    fst::write.fst(DT.design.block[, Block := NULL], file.path(blockpath, "design.fst"))
 
-    # save data with random access indices
-    dir.create(file.path(block, "model0"))
-    fst::write.fst(DT0, file.path(block, "model0", "data.fst"))
-    DT0.index <- DT0[, .(GroupID = unique(GroupID), file = "data.fst", from = .I[!duplicated(GroupID)], to = .I[rev(!duplicated(rev(GroupID)))])]
-    fst::write.fst(DT0.index, file.path(block, "model0", "data.index.fst"))
+    # save random access indices
+    dir.create(file.path(blockpath, "model0"))
+    DT0.index <- DT0[, .(Group = unique(Group), file = factor("data.fst"), from = .I[!duplicated(Group)], to = .I[rev(!duplicated(rev(Group)))])]
+    fst::write.fst(DT0.index, file.path(blockpath, "model0", "data.index.fst"))
+    dir.create(file.path(blockpath, "model1"))
+    DT.index <- DT.block[, .(Group = unique(Group), file = factor("data.fst"), from = .I[!duplicated(Group)], to = .I[rev(!duplicated(rev(Group)))])]
+    fst::write.fst(DT.index, file.path(blockpath, "model1", "data.index.fst"))
 
-    dir.create(file.path(block, "model1"))
-    fst::write.fst(DT, file.path(block, "model1", "data.fst"))
-    DT.index <- DT[, .(GroupID = unique(GroupID), file = "data.fst", from = .I[!duplicated(GroupID)], to = .I[rev(!duplicated(rev(GroupID)))])]
-    fst::write.fst(DT.index, file.path(block, "model1", "data.index.fst"))
+    # convert factors to integers for efficiency for saving
+    DT0[, Group := as.integer(Group)]
+    DT0[, Component := as.integer(Component)]
+    DT0[, Measurement := as.integer(Measurement)]
+    DT0[, Assay := as.integer(Assay)]
+    fst::write.fst(DT0, file.path(blockpath, "model0", "data.fst"))
+    DT.block[, Group := as.integer(Group)]
+    DT.block[, Component := as.integer(Component)]
+    DT.block[, Measurement := as.integer(Measurement)]
+    DT.block[, Assay := as.integer(Assay)]
+    fst::write.fst(DT.block, file.path(blockpath, "model1", "data.fst"))
 
-    # save metadata
-    dir.create(file.path(block, "meta"))
-    fst::write.fst(DT.groups, file.path(block, "meta", "groups.fst"))
-    fst::write.fst(DT.components, file.path(block, "meta", "components.fst"))
-    fst::write.fst(DT.measurements, file.path(block, "meta", "measurements.fst"))
-    fst::write.fst(DT.design, file.path(block, "meta", "design.fst"))
-
-    dir.create(file.path(dirname(block), "output", basename(block)))
-  }
+    return(DT.design.block)
+  }))
 
   ### RUN
   object <- new("seaMass_sigma", filepath = path)
+  fwrite(assay_design(object, as.data.table = T), file.path(path, "output", "design.csv"))
   prepare_sigma(control@schedule, object)
 
   if (run) {
@@ -238,6 +275,8 @@ seaMass_sigma <- function(
   }
 
   ### TIDY UP
+  DT[, Assay := NULL]
+  DT[, Count0 := NULL]
   if (!data.is.data.table) setDF(data)
 
   return(invisible(object))
@@ -246,8 +285,8 @@ seaMass_sigma <- function(
 
 #' @describeIn seaMass_sigma-class Open a complete \code{seaMass_sigma} run from the supplied \code{path}.
 #' @export
-open_seaMass_sigma <- function(
-  path = "fits.seaMass",
+open_sigma <- function(
+  path = "fit.seaMass",
   quiet = FALSE,
   force = FALSE
 ) {
@@ -262,55 +301,175 @@ open_seaMass_sigma <- function(
     if (quiet) {
       return(NULL)
     } else {
-      if (force) stop("'", path, "' does not contain a full set of completed seaMass-Σ blocks")
-      else stop("'", path, "' does not contain seaMass-sigma blocks")
+      if (force) stop("'", path, "' does not contain seaMass-sigma blocks")
+      else stop("'", path, "' does not contain a full set of completed seaMass-Σ blocks")
     }
   }
 }
 
 
 #' @import data.table
+#' @export
+#' @include generics.R
+setMethod("imported_data", "seaMass_sigma", function(object, as.data.table = FALSE) {
+  DT <- fst::read.fst(file.path(filepath(object), "meta", "data.fst"), as.data.table = T)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @import data.table
+#' @export
 #' @include generics.R
 setMethod("finish", "seaMass_sigma", function(object) {
-  sigma_fits <- fits(object)
   ctrl <- control(object)
 
-  # write out measurement variances
+  # timings
+  DT <- timings(object, as.data.table = T)
+  DT <- dcast(DT, Group + Block ~ chain, value.var = "elapsed")
+  fwrite(DT, file.path(filepath(object), "output", "group_timings.csv"))
+  rm(DT)
+
+  DT <- imported_data(object, as.data.table = T)[!is.na(Assay)]
+  DT.groups <- groups(object, as.data.table = T)
+  DT.components <- components(object, as.data.table = T)
+
+  # write assay group stats
+  DT.assay.groups <- DT[, .(
+    qC = uniqueN(Component[Use & !is.na(Count0)]),
+    uC = uniqueN(Component[Use]),
+    nC = uniqueN(Component),
+    qM = uniqueN(Measurement[Use & !is.na(Count0)]),
+    uM = uniqueN(Measurement[Use]),
+    nM = uniqueN(Measurement),
+    qD = sum(Use & !is.na(Count0)),
+    uD = sum(Use),
+    nD = length(Count0)
+  ), by = .(Group, Assay)]
+  assay.levels <- levels(DT.assay.groups$Assay)
+  DT.assay.groups <- dcast(DT.assay.groups, Group ~ Assay, fill = 0, value.var = c("qC", "uC", "nC", "qM", "uM", "nM", "qD", "uD", "nD"))
+  DT.assay.groups <- merge(DT.groups[, .(Group)], DT.assay.groups, by = "Group", sort = F)
+  fwrite(DT.assay.groups, file.path(filepath(object), "output", "assay_groups.csv"))
+
+  DT.assay.groups <- melt(
+    DT.assay.groups,
+    id.vars = "Group",
+    measure.vars = patterns("^qC_", "^uC_", "nC_", "^qM_", "^uM_", "^nM_", "^qD_", "^uD_", "^nD_"),
+    variable.name = "Assay",
+    value.name = c("qC", "uC", "nC", "qM", "uM", "nM", "qD", "uD", "nD")
+  )
+  DT.assay.groups[, Assay := factor(Assay, levels = 1:nlevels(DT.assay.groups$Assay), labels = assay.levels)]
+  fst::write.fst(DT.assay.groups, file.path(filepath(object), "meta", "assay.groups.fst"))
+  rm(DT.assay.groups)
+
+  # write assay component stats
+  DT.assay.components <- DT[, .(
+    qM = uniqueN(Measurement[Use & !is.na(Count0)]),
+    uM = uniqueN(Measurement[Use]),
+    nM = uniqueN(Measurement),
+    qD = sum(Use & !is.na(Count0)),
+    uD = sum(Use),
+    nD = length(Count0)
+  ), by = .(Group, Component, Assay)]
+  assay.levels <- levels(DT.assay.components$Assay)
+  DT.assay.components <- dcast(DT.assay.components, Group + Component ~ Assay, fill = 0, value.var = c("qM", "uM", "nM", "qD", "uD", "nD"))
+  DT.assay.components <- merge(DT.components[, .(Group, Component)], DT.assay.components, by = c("Group", "Component"), sort = F)
+  fwrite(DT.assay.components, file.path(filepath(object), "output", "assay_components.csv"))
+
+  DT.assay.components <- melt(
+    DT.assay.components,
+    id.vars = c("Group", "Component"),
+    measure.vars = patterns("^qM", "^uM", "^nM", "^qD", "^uD", "^nD"),
+    variable.name = "Assay",
+    value.name = c("qM", "uM", "nM", "qD", "uD", "nD")
+  )
+  DT.assay.components[, Assay := factor(Assay, levels = 1:nlevels(DT.assay.components$Assay), labels = assay.levels)]
+  fst::write.fst(DT.assay.components, file.path(filepath(object), "meta", "assay.components.fst"))
+  rm(DT.assay.components)
+
+   # write out measurement variances
   if ("measurement.variances" %in% ctrl@summarise) {
-    DT.measurement.variances <- rbindlist(lapply(1:length(sigma_fits), function(i) {
-      DT <- measurement_variances(sigma_fits[[i]], summary = T, as.data.table = T)
-      DT <- merge(measurements(sigma_fits[[i]], as.data.table = T), DT, by = "Measurement", all.x = T)
-      DT[, Block := names(sigma_fits)[i]]
-      DT
-    }))
-    setcolorder(DT.measurement.variances, c("Group", "Component", "Measurement", "Block"))
-    setorder(DT.measurement.variances, Group, Component, Measurement, Block)
-    fwrite(DT.measurement.variances, file.path(filepath(object), "output", "log2_measurement_variances.csv"))
+    DT <- measurement_variances(object, summary = T, as.data.table = T)
+    DT <- dcast(DT, Group + Component + Measurement ~ Block, value.var = c("v", "df", "rhat"))
+    fwrite(DT, file.path(filepath(object), "output", "log2_measurement_variances.csv"))
   }
 
   # write out component variances
   if ("component.variances" %in% ctrl@summarise) {
-    DT.component.variances <- rbindlist(lapply(1:length(sigma_fits), function(i) {
-      DT <- component_variances(sigma_fits[[i]], summary = T, as.data.table = T)
-      DT <- merge(components(sigma_fits[[i]], as.data.table = T), DT, by = "Component", all.x = T)
-      DT[, Block := names(sigma_fits)[i]]
-      DT
-    }))
-    setcolorder(DT.component.variances, c("Group", "Component", "Block"))
-    setorder(DT.component.variances, Group, Component, Block)
-    fwrite(DT.component.variances, file.path(filepath(object), "output", "log2_component_variances.csv"))
+    DT <- component_variances(object, summary = T, as.data.table = T)
+    DT <- dcast(DT, Group + Component ~ Block, value.var = c("v", "df", "rhat"))
+    fwrite(DT, file.path(filepath(object), "output", "log2_component_variances.csv"))
   }
 
-  # write out assay variances from priors
-  DT.priors <- rbindlist(lapply(1:length(sigma_fits), function(i) {
-    DT <- priors(sigma_fits[[i]], as.data.table = T)[!is.na(Assay), .(Assay, rhat, v, df)]
-    DT <- merge(assay_design(sigma_fits[[i]], as.data.table = T), DT, by = "Assay", all.x = T)
-    DT <- DT[, -grep("^Block\\.", colnames(DT)), with = F]
-    DT[, Block := names(sigma_fits)[i]]
-    DT
-  }))
-  setcolorder(DT.priors, c("Block"))
-  fwrite(DT.priors, file.path(filepath(object), "output", "log2_assay_variances.csv"))
+  # write out component deviations
+  if ("component.deviations" %in% ctrl@summarise) {
+    DT <- component_deviations(object, summary = T, as.data.table = T)
+    DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
+    fwrite(DT, file.path(filepath(object), "output", "log2_component_deviations.csv"))
+  }
+
+  # write out assay variances
+  if ("assay.variances" %in% ctrl@summarise) {
+    DT <- assay_variances(object, as.data.table = T)
+    fwrite(DT, file.path(filepath(object), "output", "log2_assay_variances.csv"))
+  }
+
+  # write out assay deviations
+  if ("assay.deviations" %in% ctrl@summarise) {
+    DT <- assay_deviations(object, summary = T, as.data.table = T)
+    DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
+    fwrite(DT, file.path(filepath(object), "output", "log2_assay_deviations.csv"))
+  }
+
+  # write out raw group quants
+  if ("raw.group.quants" %in% ctrl@summarise) {
+    DT <- raw_group_quants(object, summary = T, as.data.table = T)
+    DT <- dcast(DT, Block + Group + Baseline ~ Assay, value.var = c("m", "s", "df", "rhat"))
+    fwrite(DT, file.path(filepath(object), "output", "log2_raw_group_quants.csv"))
+  }
+
+  # write out normalised group quants
+  if ("normalised.group.quants" %in% ctrl@summarise) {
+    DT <- normalised_group_quants(object, summary = T, as.data.table = T)
+    DT <- dcast(DT, Group ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
+    fwrite(DT, file.path(filepath(object), "output", "log2_normalised_group_quants.csv"))
+  }
+
+  # write out normalised group variances
+  if ("normalised.group.variances" %in% ctrl@summarise) {
+    DT <- normalised_group_variances(object, summary = T, as.data.table = T)
+    DT <- dcast(DT, Group ~ Block, value.var = c("v", "df", "rhat"))
+    fwrite(DT, file.path(filepath(object), "output", "log2_normalised_group_variances.csv"))
+  }
+
+  if ("component.deviations.pca" %in% ctrl@plot) {
+    ellipsis <- ctrl@ellipsis
+    ellipsis$object <- object
+    ellipsis$type <- "component.deviations"
+    do.call("plot_pca", ellipsis)
+    ggplot2::ggsave(file.path(filepath(object), "output", paste0("log2_component_deviations_pca__assay_sd.pdf")), width = 300, height = 300 * 9/16, units = "mm")
+    ellipsis$colour <- "Exposure"
+    do.call("plot_pca", ellipsis)
+    ggplot2::ggsave(file.path(filepath(object), "output", paste0("log2_component_deviations_pca__assay_exposure.pdf")), width = 300, height = 300 * 9/16, units = "mm")
+    ellipsis$colour <- "Condition"
+    do.call("plot_pca", ellipsis)
+    ggplot2::ggsave(file.path(filepath(object), "output", paste0("log2_component_deviations_pca.pdf")), width = 300, height = 300 * 9/16, units = "mm")
+  }
+
+  if ("normalised.group.quants.pca" %in% ctrl@plot) {
+    ellipsis <- ctrl@ellipsis
+    ellipsis$object <- object
+    do.call("plot_pca", ellipsis)
+    ggplot2::ggsave(file.path(filepath(object), "output", paste0("log2_normalised_group_quants_pca__assay_sd.pdf")), width = 300, height = 300 * 9/16, units = "mm")
+    ellipsis$colour <- "Exposure"
+    do.call("plot_pca", ellipsis)
+    ggplot2::ggsave(file.path(filepath(object), "output", paste0("log2_normalised_group_quants_pca__assay_exposure.pdf")), width = 300, height = 300 * 9/16, units = "mm")
+    ellipsis$colour <- "Condition"
+    do.call("plot_pca", ellipsis)
+    ggplot2::ggsave(file.path(filepath(object), "output", paste0("log2_normalised_group_quants_pca.pdf")), width = 300, height = 300 * 9/16, units = "mm")
+  }
 
   return(invisible(NULL))
 })
@@ -364,35 +523,16 @@ setMethod("run", "seaMass_sigma", function(object) {
 #' @export
 #' @include generics.R
 setMethod("control", "seaMass_sigma", function(object) {
-  if (!file.exists(file.path(filepath(object), "sigma.control.rds")))
-    stop(paste0("seaMass-sigma output '", sub("\\.seaMass$", "", basename(filepath(object))), "' is missing or zipped"))
-
-  return(readRDS(file.path(filepath(object), "sigma.control.rds")))
+  return(readRDS(file.path(filepath(object), "meta", "control.rds")))
 })
 
 
-#' @describeIn seaMass_sigma-class Get the list of \link{sigma_fit} obejcts for the blocks.
-#' @export
-#' @include generics.R
-setMethod("fits", "seaMass_sigma", function(object) {
-  blocks <- list.dirs(filepath(object), full.names = F, recursive = F)
-  blocks <- blocks[grep("^sigma\\.", blocks)]
-  if (length(blocks) == 0)
-    stop(paste0("seaMass-sigma output '", sub("\\.seaMass$", "", basename(filepath(object))), "' is missing or zipped"))
-
-  fits <- lapply(blocks, function(block) new("sigma_fit", filepath = normalizePath(file.path(filepath(object), block))))
-  names(fits) <- sub("^.*\\.(.*)$", "\\1", blocks)
-  return(fits)
-})
-
-
-#' @describeIn seaMass_sigma-class Get the study design for all blocks as a \code{data.frame}.
+#' @describeIn seaMass_sigma-class Get the groups as a \code{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("assay_design", "seaMass_sigma", function(object, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(fits(object), function(fit) assay_design(fit, as.data.table = T)), idcol = "Block")
-  DT[, Block := factor(Block, levels = unique(Block))]
+setMethod("groups", "seaMass_sigma", function(object, as.data.table = FALSE) {
+  DT <- fst::read.fst(file.path(filepath(object), "meta", "groups.fst"), as.data.table = T)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -400,11 +540,240 @@ setMethod("assay_design", "seaMass_sigma", function(object, as.data.table = FALS
 })
 
 
+#' @describeIn seaMass_sigma-class Get the groups as a \code{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("components", "seaMass_sigma", function(object, as.data.table = FALSE) {
+  DT <- fst::read.fst(file.path(filepath(object), "meta", "components.fst"), as.data.table = T)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the assay groups as a \code{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("assay_groups", "seaMass_sigma", function(object, as.data.table = FALSE) {
+  DT <- fst::read.fst(file.path(filepath(object), "meta", "assay.groups.fst"), as.data.table = T)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the assay groups as a \code{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("assay_components", "seaMass_sigma", function(object, as.data.table = FALSE) {
+  DT <- fst::read.fst(file.path(filepath(object), "meta", "assay.components.fst"), as.data.table = T)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the groups as a \code{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("measurements", "seaMass_sigma", function(object, as.data.table = FALSE) {
+  DT <- fst::read.fst(file.path(filepath(object), "meta", "measurements.fst"), as.data.table = T)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the list of \link{sigma_block} obejcts for the blocks.
+#' @export
+#' @include generics.R
+setMethod("blocks", "seaMass_sigma", function(object) {
+  blocks <- list.dirs(filepath(object), full.names = F, recursive = F)
+  blocks <- blocks[grep("^sigma\\.", blocks)]
+  if (length(blocks) == 0)
+    stop(paste0("seaMass-sigma output '", sub("\\.seaMass$", "", basename(filepath(object))), "' is missing"))
+
+  blocks <- lapply(blocks, function(block) new("sigma_block", filepath = normalizePath(file.path(filepath(object), block))))
+  names(blocks) <- sapply(blocks, function(block) name(block))
+  return(blocks)
+})
+
+
 #' @describeIn seaMass_sigma-class Open the list of \link{seaMass_delta} objects.
 #' @export
 #' @include generics.R
-setMethod("open_seaMass_deltas", "seaMass_sigma", function(object, quiet = FALSE, force = FALSE) {
-  deltas <- lapply(sub("^delta\\.", "", list.files(filepath(object), "^delta\\.*")), function(name) open_seaMass_delta(object, name, quiet, force))
+setMethod("open_deltas", "seaMass_sigma", function(object, quiet = FALSE, force = FALSE) {
+  deltas <- lapply(sub("^delta\\.", "", list.files(filepath(object), "^delta\\.*")), function(name) open_delta(object, name, quiet, force))
   names(deltas) <- lapply(deltas, function(delta) name(delta))
   return(deltas)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the study design as a \code{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("assay_design", "seaMass_sigma", function(object, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) assay_design(block, as.data.table = T)))
+  DT[, Block := factor(Block, levels = names(blocks(object)))]
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the model timings as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("timings", "seaMass_sigma", function(object, input = "model1", as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) timings(block, input, as.data.table = T)))
+  #if (!is.null(DT)) DT[, Block := factor(Block, levels = names(blocks(object)))]
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the model assay variances as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("assay_variances", "seaMass_sigma", function(object, input = "model1", as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) assay_variances(block, input, as.data.table = T)))
+  #if (!is.null(DT)) DT[, Block := factor(Block, levels = names(blocks(object)))]
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the model measurement variances as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("measurement_variances", "seaMass_sigma", function(object, measurements = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) measurement_variances(block, measurements, summary, input, chains, as.data.table = T)))
+  #if (!is.null(DT)) DT[, Block := factor(Block, levels = names(blocks(object)))]
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the model component variances as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("component_variances", "seaMass_sigma", function(object, components = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) component_variances(block, components, summary, input, chains, as.data.table = T)))
+  #if (!is.null(DT)) DT[, Block := factor(Block, levels = names(blocks(object)))]
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Gets the model component deviations as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("component_deviations", "seaMass_sigma", function(object, components = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) component_deviations(block, components, summary, input, chains, as.data.table = T)))
+  if (!is.null(DT)) DT[, Block := factor(Block, levels = names(blocks(object)))]
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the model assay deviations as a \link{data.frame}.
+#' @import doRNG
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("assay_deviations", "seaMass_sigma", function(object, assays = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), assay_deviations(block, assays, summary, input, chains, as.data.table = T)))
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the model raw group quantifications as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("raw_group_quants", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) raw_group_quants(block, groups, summary, input, chains, as.data.table = T)))
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the model standardised group quantifications as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("standardised_group_quants", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) standardised_group_quants(block, groups, summary, input, chains, as.data.table = T)))
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the model normalised group quantifications as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("normalised_group_quants", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block)  normalised_group_quants(block, groups, summary, input, chains, as.data.table = T)))
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the model normalised group variances as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("normalised_group_variances", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) normalised_group_variances(block, groups, summary, input, chains, as.data.table = T)))
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("read_samples", "seaMass_sigma", function(object, input, type, items = NULL, chains = 1:control(object)@model.nchain, summary = NULL, summary.func = "summarise_normal_robust_samples", as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) read_samples(block, input, type, items, chains, summary, summary.func, as.data.table = T)))
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
 })

@@ -1,3 +1,284 @@
+#' Robust PCA plot
+#'
+#' @param object .
+#' @param data .
+#' @param data.summary .
+#' @param data.design .
+#' @param contours .
+#' @param robust .
+#' @return A ggplot2 object .
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_pca", "seaMass", function(
+  object,
+  data.design = assay_design(object),
+  input = "model1",
+  type = "normalised.group.quants",
+  robust = TRUE,
+  contours = 1:2,
+  aspect.ratio = 9/16,
+  labels = TRUE,
+  colour = "Assay.SD",
+  fill = "Condition",
+  shape = NULL,
+  ...
+) {
+  # this is needed to stop foreach massive memory leak!!!
+  rm("...")
+
+  # ensure Assay/Block combinations in our processed design
+  DT.design <- as.data.table(data.design)
+  if (!is.factor(DT.design$Assay)) DT.design[, Assay := factor(Assay, levels = levels(assay_design(object, as.data.table = T)$Assay))]
+  if (!("Block" %in% colnames(DT.design))) DT.design <- merge(DT.design, assay_design(object, as.data.table = T), by = "Assay", sort = F, suffixes = c("", ".old"))
+
+  # determine which individuals and variables to use
+  DT.summary <- read_samples(object, input, type, summary = T, summary.func = "dist_lst_samples", as.data.table = T)
+  summary.cols <- setdiff(colnames(DT.summary)[1:(which(colnames(DT.summary) == "m") - 1)], c("Assay", "Block"))
+  DT.individuals <- merge(DT.summary[, .(use = var(m, na.rm = T) >= 1e-5), keyby = .(Assay, Block)][use == T, .(Assay, Block)], DT.design[, .(Assay, Block)], by = c("Assay", "Block"), sort = F)
+  DT.use <- dcast(DT.summary, paste(paste(summary.cols, collapse = " + "), "~ Assay + Block"), value.var = "m")
+  nvariable <- nrow(DT.use)
+  DT.use <- DT.use[complete.cases(DT.use), summary.cols, with = F]
+  nvariable.complete <- nrow(DT.use)
+  DT.use <- merge(DT.individuals[,c(k = 1, .SD)], DT.use[,c(k = 1, .SD)], by = "k", all = T, allow.cartesian = T)[, k := NULL]
+
+  # row and column weights
+  if (robust) {
+    # can row.w and col.w calculation be improved?
+    DT.summary.se <- merge(DT.summary, DT.use, by = colnames(DT.use), sort = F)
+    DT.summary.se <- dcast(DT.summary.se, paste("Assay + Block ~", paste(summary.cols, collapse = " + ")), value.var = "s")
+    DT.summary.se <- merge(DT.design[, .(Assay, Block)], DT.summary.se, by = c("Assay", "Block"), sort = F) # ensure Assay order
+    DT.summary.se[, c("Assay", "Block") := NULL]
+    row.weights <- as.numeric(1.0 / apply(DT.summary.se, 1, median)^2)
+    col.weights <- as.numeric(1.0 / apply(DT.summary.se, 2, median)^2)
+    rm(DT.summary.se)
+  }
+
+  # prepare PCA input
+  DT.summary <- merge(DT.summary, DT.use, by = colnames(DT.use))
+  DT.summary <- dcast(DT.summary, paste("Assay + Block ~", paste(summary.cols, collapse = " + ")), value.var = "m")
+  DT.summary <- merge(DT.design[, .(Assay, Block)], DT.summary, by = c("Assay", "Block"), sort = F) # ensure Assay order
+  DT.summary[, c("Assay", "Block") := NULL]
+
+  # run PCA
+  if (robust) {
+    fit <- FactoMineR::PCA(DT.summary, scale.unit = F, row.w = row.weights, col.w = col.weights, graph = F)
+  } else {
+    fit <- FactoMineR::PCA(DT.summary, scale.unit = F, graph = F)
+  }
+  pc1 <- fit$eig[1, "percentage of variance"]
+  pc2 <- fit$eig[2, "percentage of variance"]
+  rm(DT.summary)
+
+  # extract results
+  DT.design <- merge(DT.design, cbind(DT.individuals, data.table(x = fit$ind$coord[,1], y = fit$ind$coord[,2])), by = c("Assay", "Block"))
+  rm(fit)
+  DT.design[, label := factor(paste0(Sample, " [", Block, ":", Assay, "]"))]
+
+  # calculate limits for the aspect ratio
+  min.x <- min(DT.design$x)
+  min.y <- min(DT.design$y)
+  max.x <- max(DT.design$x)
+  max.y <- max(DT.design$y)
+  mid <- 0.5 * c(max.x + min.x, max.y + min.y)
+  if (aspect.ratio * (max.x - min.x) > max.y - min.y) {
+    span <- 0.55 * (max.x - min.x) * c(1, aspect.ratio)
+  } else {
+    span <- 0.55 * (max.y - min.y) * c(1/aspect.ratio, 1)
+  }
+
+  # plot
+  if (!is.null(colour) && !(colour %in% colnames(DT.design))) colour <- NULL
+  if (!is.null(fill) && !(fill %in% colnames(DT.design))) fill <- NULL
+  if (!is.null(shape) && !(shape %in% colnames(DT.design))) shape <- NULL
+  g <- ggplot2::ggplot(DT.design, ggplot2::aes(x = x, y = y))
+  g <- g + ggplot2::geom_vline(xintercept = 0, colour = "grey")
+  g <- g + ggplot2::geom_hline(yintercept = 0, colour = "grey")
+  if (labels) g <- g + ggrepel::geom_label_repel(ggplot2::aes_string(label = "label", fill = fill), size = 2.5)
+  g <- g + ggplot2::geom_point(ggplot2::aes_string(colour = colour, shape = shape), size = 1.5)
+  g <- g + ggplot2::xlab(paste0("PC1 (", format(round(pc1, 2), nsmall = 2), "%)"))
+  g <- g + ggplot2::ylab(paste0("PC2 (", format(round(pc2, 2), nsmall = 2), "%)"))
+  g <- g + ggplot2::coord_cartesian(xlim = mid[1] + c(-span[1], span[1]), ylim = mid[2] + c(-span[2], span[2]))
+  g <- g + ggplot2::theme(aspect.ratio = aspect.ratio)
+  if (!is.null(colour)) {
+    if (is.numeric(DT.design[, get(colour)])) {
+      g <- g + ggplot2::scale_colour_gradient2(low = "blue", mid = "black", high = "red", limits = c(min(0, DT.design[, get(colour)]), max(0, DT.design[, get(colour)])))
+    }
+  }
+  if (!is.null(fill)) {
+    if (!is.numeric(DT.design[, get(fill)])) {
+      g <- g + ggplot2::scale_fill_hue(l = 90, c = 50)
+    } else {
+      g <- g + ggplot2::scale_fill_gradient2(low = scales::muted("blue", l = 90), mid = "white", high = scales::muted("red", l = 90), limits = c(min(0, DT.design[, get(fill)]), max(0, DT.design[, get(fill)])))
+    }
+  }
+  g <- g + ggplot2::ggtitle(paste0(gsub("\\.", " ", type), " PCA using ", nvariable.complete, " complete variables out of ", nvariable, " used"))
+
+  return(g)
+})
+
+
+  # # this is needed to stop foreach massive memory leak!!!
+  # rm("...")
+  #
+  # if (!(is.null(contours) || length(contours) == 0)) cat(paste0("[", Sys.time(), "]    plotting PCA for ", gsub("\\.", " ", type), "\n"))
+  #
+  # # prepare summary
+  # DT.design <- as.data.table(data.design)
+  # DT.summary <- read_samples(object, input, type, summary = T, summary.func = "dist_lst_samples", as.data.table = T)
+  # if (is.null(DT.summary)) stop("data for that input and type does not exist")
+  # summary.cols <- setdiff(colnames(DT.summary)[1:(which(colnames(DT.summary) == "m") - 1)], c("Assay", "Block"))
+  #
+  # # individuals with zero variance (pure reference samples) and variables with missing values, to remove later also
+  # DT.individuals <- DT.summary[, .(use = var(m, na.rm = T) >= 1e-5), by = .(Assay, Block)][use == T, .(Assay, Block)]
+  # DT.individuals <- merge(DT.individuals, DT.design[, .(Block, Assay)], by = c("Assay", "Block"))
+  # nvariable <- nrow(unique(DT.summary[, summary.cols, with = F]))
+  # DT.variables <- dcast(DT.summary, paste(paste(summary.cols, collapse = " + "), "~ Assay + Block"), value.var = "m")
+  # DT.variables <- DT.variables[complete.cases(DT.variables), summary.cols, with = F]
+  # if (nrow(DT.variables) > max.variables) DT.variables <- DT.variables[sample(1:nrow(DT.variables), max.variables)]
+  # DT.use <- setkey(DT.individuals[,c(k = 1, .SD)], k)[DT.variables[,c(k = 1, .SD)], allow.cartesian = T][, k := NULL]
+  #
+  # # setup MCMC samples for contours
+  # if (!(is.null(contours) || length(contours) == 0)) {
+  #   cat(paste0("[", Sys.time(), "]     preparing MCMC...\n"))
+  #
+  #   # load crossjoin of DT.variables and DT.individuals
+  #   DT <- read_samples(object, input, type, items = DT.use, as.data.table = T)
+  #   for (col in summary.cols) DT[, (col) := as.integer(get(col))]
+  #   DT[, rowname := Reduce(function(...) paste(..., sep = "."), .SD[, mget(c("Assay", "Block", "chain", "sample"))])]
+  #   DT[, Assay := NULL]
+  #   DT[, Block := NULL]
+  #   DT <- dcast(DT, paste("rowname ~", paste(summary.cols, collapse = " + ")), value.var = "value")
+  #
+  #   # Need rownames but data.table not like
+  #   setDF(DT)
+  #   rownames(DT) <- DT$rowname
+  #   DT$rowname <- NULL
+  # }
+  #
+  # # format for FactoMineR
+  # DT.summary[, rowname := paste(as.integer(Assay), as.integer(Block), sep = ".")]
+  #
+  # if (robust) {
+  #   # can row.w and col.w calculation be improved?
+  #   DT.se <- merge(DT.summary, DT.use, by = colnames(DT.use))
+  #   for (col in summary.cols) DT.se[, (col) := as.integer(get(col))]
+  #   DT.se <- dcast(DT.se, paste("rowname ~", paste(summary.cols, collapse = " + ")), value.var = "s")
+  #   DT.se[, rowname := NULL]
+  #   row.weights <- as.numeric(1.0 / apply(DT.se, 1, median)^2)
+  #   col.weights <- as.numeric(1.0 / apply(DT.se, 2, median)^2)
+  #   rm(DT.se)
+  # }
+  #
+  # DT.summary <- merge(DT.summary, DT.use, by = colnames(DT.use))
+  # for (col in summary.cols) DT.summary[, (col) := as.integer(get(col))]
+  # DT.summary <- dcast(DT.summary, paste("rowname ~", paste(summary.cols, collapse = " + ")), value.var = "m")
+  # setDF(DT.summary)
+  # rownames(DT.summary) <- DT.summary$rowname
+  # DT.summary$rowname <- NULL
+  #
+  # # FactoMineR PCA
+  # if (is.null(contours) || length(contours) == 0) {
+  #
+  #   if (robust) {
+  #     fit <- FactoMineR::PCA(DT.summary, scale.unit = F, row.w = row.weights, col.w = col.weights, graph = F)
+  #   } else {
+  #     fit <- FactoMineR::PCA(DT.summary, scale.unit = F, graph = F)
+  #   }
+  #
+  #   # extract main results
+  #   DT <- data.table(
+  #     x = fit$ind$coord[,1],
+  #     y = fit$ind$coord[,2],
+  #     individual = factor(rownames(fit$ind$coord), levels = levels(DT.design$individual))
+  #   )
+  #
+  # } else {
+  #   cat(paste0("[", Sys.time(), "]     running PCA...\n"))
+  #
+  #   DT <- rbind(DT.summary, DT)
+  #   if (robust) {
+  #     fit <- FactoMineR::PCA(DT, scale.unit = F, ind.sup = (length(individuals) + 1):nrow(DT), row.w = row.weights, col.w = col.weights, graph = F)
+  #   } else {
+  #     fit <- FactoMineR::PCA(DT, scale.unit = F, ind.sup = (length(individuals) + 1):nrow(DT), graph = F)
+  #   }
+  #
+  #   # extract 'supplementary' MCMC results
+  #   DT <- data.table(
+  #     x = fit$ind.sup$coord[,1],
+  #     y = fit$ind.sup$coord[,2],
+  #     individual = factor(sub("\\.[0-9]+\\.[0-9]+$", "", rownames(fit$ind.sup$coord)))
+  #   )
+  #
+  # }
+  # pc1 <- fit$eig[1, "percentage of variance"]
+  # pc2 <- fit$eig[2, "percentage of variance"]
+  # rm(fit)
+  #
+  # # central point of each assay
+  # DT.point <- DT[, .(x = median(x), y = median(y)), by = individual]
+  # # calculate limits for the aspect ratio
+  # min.x <- min(DT.point$x)
+  # min.y <- min(DT.point$y)
+  # max.x <- max(DT.point$x)
+  # max.y <- max(DT.point$y)
+  # mid <- 0.5 * c(max.x + min.x, max.y + min.y)
+  # if (aspect.ratio * (max.x - min.x) > max.y - min.y) {
+  #   span <- 0.55 * (max.x - min.x) * c(1, aspect.ratio)
+  # } else {
+  #   span <- 0.55 * (max.y - min.y) * c(1/aspect.ratio, 1)
+  # }
+  #
+  # # merge with design
+  # DT.design[, label := factor(paste0(Sample, " [", individual, "]"))]
+  # DT.point <- merge(DT.point, DT.design, by = "individual")
+  #
+  # # plot
+  # if (!(colour %in% colnames(DT.point))) colour <- NULL
+  # if (!(shape %in% colnames(DT.point))) shape <- NULL
+  # g <- ggplot2::ggplot(DT.point, ggplot2::aes(x = x, y = y))
+  #
+  # # MCMC contours
+  # if (!(is.null(contours) || length(contours) == 0)) {
+  #   cat(paste0("[", Sys.time(), "]     generating plot...\n"))
+  #
+  #   # kde bandwidth across all assays
+  #   H <- ks::Hpi(cbind(DT$x, DT$y))
+  #
+  #   # generate density contours
+  #   DT <- DT[x > mid[1] - 1.5 * span[1] & x < mid[1] + 1.5 * span[1] & y > mid[2] - 1.5 * span[2] & y < mid[2] + 1.5 * span[2]]
+  #   DT <- rbindlist(lapply(split(DT, drop = T, by = "individual"), function(DT.in) {
+  #     DT <- NULL
+  #     try({
+  #       dens <- ks::kde(cbind(DT.in$x, DT.in$y), H, xmin = mid - 1.5 * span, xmax = mid + 1.5 * span)
+  #       DT <- data.table(
+  #         individual = DT.in$individual[1],
+  #         expand.grid(x = dens$eval.points[[1]], y = dens$eval.points[[2]]),
+  #         z1 = as.vector(dens$estimate) / dens$cont["32%"],
+  #         z2 = as.vector(dens$estimate) / dens$cont["5%"],
+  #         z3 = as.vector(dens$estimate) / dens$cont["1%"]
+  #       )
+  #     })
+  #     return(DT)
+  #   }))
+  #   DT <- merge(DT, DT.design, by = "individual")
+  #
+  #   if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z1"), breaks = 1, alpha = 0.5)
+  #   if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z2"), breaks = 1, alpha = 0.25)
+  #   if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z3"), breaks = 1, alpha = 0.125)
+  # }
+  #
+  # if (labels) g <- g + ggrepel::geom_label_repel(ggplot2::aes_string(label = "label", colour = colour), size = 2.5)
+  # g <- g + ggplot2::geom_point(ggplot2::aes_string(colour = colour, shape = shape), size = 2)
+  # g <- g + ggplot2::xlab(paste0("PC1 (", format(round(pc1, 2), nsmall = 2), "%)"))
+  # g <- g + ggplot2::ylab(paste0("PC2 (", format(round(pc2, 2), nsmall = 2), "%)"))
+  # g <- g + ggplot2::coord_cartesian(xlim = mid[1] + c(-span[1], span[1]), ylim = mid[2] + c(-span[2], span[2]))
+  # g <- g + ggplot2::theme(aspect.ratio = aspect.ratio)
+  # g <- g + ggplot2::ggtitle(paste0(gsub("\\.", " ", type), " PCA using ", length(variables), " complete variables out of ", nvariable, " total"))
+  #
+  # return(g)
+
+
 #' @import data.table
 #' @export
 plot_group_quants <- function(object, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(object), group = NULL) {

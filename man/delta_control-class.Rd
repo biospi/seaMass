@@ -8,8 +8,7 @@
 \usage{
 delta_control(
   component.deviations = FALSE,
-  keep = c("raw.group.quants", "normalised.group.quants", "normalised.group.variances",
-    "group.de", "group.fdr", "component.deviations", "component.deviations.de",
+  keep = c("group.de", "group.fdr", "component.deviations.de",
     "component.deviations.fdr"),
   norm.model = "theta",
   norm.nwarmup = 256,

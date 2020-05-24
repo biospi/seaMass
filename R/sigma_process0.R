@@ -1,9 +1,7 @@
-setGeneric("process0", function(object, ...) standardGeneric("process0"))
-
-
 #' @import data.table
 #' @include generics.R
-setMethod("process0", "sigma_fit", function(object, chain) {
+#' @include sigma_block.R
+setMethod("process0", "sigma_block", function(object, chain) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))
       stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
@@ -15,76 +13,87 @@ setMethod("process0", "sigma_fit", function(object, chain) {
     # PROCESS OUTPUT
     cat(paste0("[", Sys.time(), "]   OUTPUT0 block=", sub("^.*sigma\\.(.*)$", "\\1", object@filepath), "\n"))
 
-    # Measurement EB prior
-    cat(paste0("[", Sys.time(), "]    measurement prior...\n"))
-    set.seed(ctrl@random.seed)
-    DT.priors <- data.table(Effect = "Measurements", measurement_variances(object, input = "model0", summary = T, as.data.table = T)[, squeeze_var(v, df)])
-    # delete measurement variances if not in 'keep'
-    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "measurement.variances*"), recursive = T)
-
-    # Component EB prior
-    if(!is.null(ctrl@component.model)) {
-      cat(paste0("[", Sys.time(), "]    component prior...\n"))
-      set.seed(ctrl@random.seed)
-      DT.priors <- rbind(DT.priors, data.table(Effect = "Components", component_variances(object, input = "model0", summary = T, as.data.table = T)[, squeeze_var(v, df)]))
-    }
-    # delete component variances if not in 'keep'
-    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "component.variances*"), recursive = T)
-
     # Assay EB priors
     if(ctrl@assay.model != "") {
       cat(paste0("[", Sys.time(), "]    assay prior...\n"))
-      items <- assay_deviations(object, input = "model0", as.data.table = T)
-      items <- items[mcmcID %% (ctrl@model.nsample / ctrl@assay.eb.nsample) == 0]
-      if ("Measurement" %in% colnames(items)) setnames(items, "Measurement", "Item")
-      if ("Component" %in% colnames(items)) setnames(items, "Component", "Item")
-      items <- rbindlist(lapply(1:ctrl@model.nchain, function(i) {
-        DT <- copy(items)
-        DT[, chainID := i]
-        return(DT)
-      }))
-      items <- split(items, by = c("Assay", "chainID"))
 
-      DT.assay.prior <- rbindlist(parallel_lapply(items, function(item, ctrl) {
-        item <- droplevels(item)
+      items <- split(CJ(Assay = unique(na.omit(assay_design(object, as.data.table = T)[, Assay])), chain = 1:ctrl@model.nchain), by = c("Assay", "chain"), drop = T)
+      DT.assay.prior <- rbindlist(parallel_lapply(items, function(item, object) {
+        ctrl <- control(object)
+        DT <- assay_deviations(object, item[1, Assay], input = "model0", as.data.table = T)
+        DT <- DT[sample %% (ctrl@model.nsample / ctrl@assay.eb.nsample) == 0]
+        if ("Measurement" %in% colnames(DT)) {
+          DT[, Item := factor(paste(as.integer(Group), as.integer(Component), as.integer(Measurement), sep = "."))]
+        } else {
+          DT[, Item := factor(paste(as.integer(Group), as.integer(Component), sep = "."))]
+        }
 
         # our Bayesian model
-        set.seed(ctrl@random.seed + item[, chainID])
+        set.seed(ctrl@random.seed + item[, chain])
         model <- MCMCglmm::MCMCglmm(
           value ~ 1,
           random = ~ Item,
           rcov = ~ idh(Item):units,
-          data = item,
+          data = DT,
           prior = list(
             B = list(mu = 0, V = 1e-20),
             G = list(list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2)),
-            R = list(V = diag(nlevels(item$Item)), nu = 2e-4)
+            R = list(V = diag(nlevels(DT$Item)), nu = 2e-4)
           ),
           burnin = ctrl@model.nwarmup,
           nitt = ctrl@model.nwarmup + (ctrl@model.nsample * ctrl@model.thin) / ctrl@model.nchain,
           thin = ctrl@model.thin,
+          singular.ok = T,
           verbose = F
         )
 
-        return(data.table(Assay = item[1, Assay], chainID = item[1, chainID], mcmcID = 1:nrow(model$VCV), value = model$VCV[, "Item"]))
+        rm(DT)
+        return(data.table(Assay = item[1, Assay], chain = item[1, chain], sample = 1:nrow(model$VCV), value = model$VCV[, "Item"]))
       }, nthread = ctrl@nthread))
 
-      DT.assay.prior <- DT.assay.prior[, dist_invchisq_mcmc(chainID, mcmcID, value), by = Assay]
-      DT.assay.prior <- merge(DT.assay.prior, fst::read.fst(file.path(object@filepath, "meta", "design.fst"), as.data.table = T)[, .(AssayID, Assay)], by = "Assay")
-      DT.assay.prior[, Effect := paste("Assay", Assay)]
-      DT.assay.prior[, Assay := NULL]
-      DT.priors <- rbind(DT.priors, DT.assay.prior, use.names = T, fill = T)
+      DT.assay.prior <- data.table(Effect = "Assay", DT.assay.prior[, dist_invchisq_samples(chain, sample, value), by = Assay])
     }
     # delete assay deviations if not in 'keep'
-    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "assay.deviations*"), recursive = T)
+    if (!("assay.deviations" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "assay.deviations*"), recursive = T)
 
-    # SAVE PRIORS
-    fst::write.fst(DT.priors, file.path(object@filepath, "model1", "priors.fst"))
-    fwrite(DT.priors, file.path(dirname(object@filepath), "output", basename(object@filepath), "model_priors.csv"))
+    # Component EB prior
+    if(ctrl@component.model != "") {
+      cat(paste0("[", Sys.time(), "]    component prior...\n"))
+      set.seed(ctrl@random.seed)
+      DT.component.prior <- component_variances(object, input = "model0", summary = T, as.data.table = T)
+      DT.component.prior <- data.table(Effect = "Components", DT.component.prior[, squeeze_var(v, df)])
+    }
+    # delete component variances if not in 'keep'
+    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "component.variances*"), recursive = T)
 
-    # PLOT PRIORS
-    plot_priors(DT.priors, by = "Effect", xlab = "log2 Standard Deviation", trans = sqrt, inv.trans = function(x) x^2)
-    suppressWarnings(ggplot2::ggsave(file.path(dirname(object@filepath), "output", basename(object@filepath), "qc_stdevs.pdf"), width = 4, height = 0.5 + 1 * nrow(DT.priors), limitsize = F))
+    # Measurement EB prior
+    cat(paste0("[", Sys.time(), "]    measurement prior...\n"))
+    set.seed(ctrl@random.seed)
+    DT.measurement.prior <- measurement_variances(object, input = "model0", summary = T, as.data.table = T)
+    DT.measurement.prior <- data.table(Effect = "Measurements", DT.measurement.prior[, squeeze_var(v, df)])
+    # delete measurement variances if not in 'keep'
+    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "measurement.variances*"), recursive = T)
+
+    # update design with variances
+    DT.design <- DT.assay.prior[, .(Assay, Assay.SD = sqrt(v), Measurement.SD = sqrt(DT.measurement.prior[, v]), Components.SD = sqrt(DT.component.prior[, v]))]
+    DT.design <- merge(assay_design(object, as.data.table = T), DT.design, by = "Assay", sort = F, all.x = T)
+    fst::write.fst(DT.design, file.path(object@filepath, "design.fst"))
+
+    # save priors
+    if(ctrl@component.model != "") DT.measurement.prior <- rbind(DT.measurement.prior, DT.component.prior, use.names = T, fill = T)
+    if(ctrl@assay.model != "") DT.measurement.prior <- rbind(DT.measurement.prior, DT.assay.prior, use.names = T, fill = T)
+    fst::write.fst(DT.measurement.prior, file.path(object@filepath, "model1", "priors.fst"))
+
+    # plot PCA
+    cat(paste0("[", Sys.time(), "]    summarising assay deviations and plotting PCA\n"))
+
+    ellipsis <- ctrl@ellipsis
+    ellipsis$object <- object
+    ellipsis$data.design <- merge(assay_design(object, as.data.table = T), DT.assay.prior[, .(Assay, Stdev = sqrt(v))], by = "Assay")
+    ellipsis$input <- "model0"
+    ellipsis$type <- "assay.deviations"
+    do.call("plot_pca", ellipsis)
+    ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_assay_deviations_pca__block_", name(object), ".pdf")), width = 300, height = 300 * 9/16, units = "mm")
   }
 
   return(invisible(NULL))

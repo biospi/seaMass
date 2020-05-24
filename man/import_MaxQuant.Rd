@@ -7,10 +7,10 @@
 import_MaxQuant(
   proteinGroups.file = NULL,
   evidence.file = NULL,
-  filter.shared.peptides = TRUE,
-  filter.only.identified.by.site = TRUE,
-  filter.reverse = TRUE,
-  filter.potential.contaminant = TRUE,
+  use.shared.peptides = FALSE,
+  use.only.identified.by.site = FALSE,
+  use.reverse = FALSE,
+  use.potential.contaminant = FALSE,
   proteinGroups.data = NULL,
   evidence.data = NULL
 )
