@@ -129,7 +129,7 @@ import_ProteinPilot <- function(
 
   # filtering
   DT.raw[, Use := T]
-  if (use.min.conf == "auto") min.conf <- DT.raw[Annotation == "auto", min(Conf)]
+  if (min.conf == "auto") min.conf <- DT.raw[Annotation == "auto", min(Conf)]
   DT.raw[Conf < min.conf, Use := F]
   if (!use.decoys) DT.raw[grepl("^RRRRR.*", DT.raw$Accessions), Use := F]
   if (!use.shared.peptides) DT.raw[Annotation == "auto - shared MS/MS", Use := F]

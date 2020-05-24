@@ -210,5 +210,3 @@ data.fdr <- group_fdr(fit.delta)
 data.fdr <- add_seaMass_spikein_truth(data.fdr)
 plot_pr(data.fdr)
 ```
-
-
