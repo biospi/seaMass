@@ -116,13 +116,13 @@ run(fit.sigma)
 
 Note, if you are not doing this from the HPC submit node, instead of *run(sigma)* you can copy the output folder *Tutorial_SLURM.seaMass* to your HPC submit node and execute *Tutorial_SLURM.seaMass/submit.sh* from the command prompt.
 
+### Tutorial 2 - fractionated iTraq/TMT experiment
 
+In this tutorial we will analyse a fractionated ProteinPilot iTraq study conducted over two multiplexed runs 
 
 ```
-library(seaMass)
-
 # Import tutorial iTraq dataset.
-file <- system.file(file.path("demo", "Tutorial_PeptideSummary.txt.bz2"), package = "seaMass")
+file <- system.file("PeptideSummary.txt.bz2", package = "seaMass")
 data <- import_ProteinPilot(file)
 ```
 

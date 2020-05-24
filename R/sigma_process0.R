@@ -9,7 +9,7 @@ setMethod("process0", "sigma_block", function(object, chain) {
   # EXECUTE MODEL
   model(object, "model0", chain)
 
-  if (all(sapply(1:ctrl@model.nchain, function(chain) file.exists(file.path(object@filepath, "model0", paste(".complete", chain, sep = ".")))))) {
+  if (all(sapply(1:ctrl@model.nchain, function(chain) file.exists(file.path(object@filepath, "model0", paste("complete", chain, sep = ".")))))) {
     # PROCESS OUTPUT
     cat(paste0("[", Sys.time(), "]   OUTPUT0 block=", sub("^.*sigma\\.(.*)$", "\\1", object@filepath), "\n"))
 
@@ -85,7 +85,7 @@ setMethod("process0", "sigma_block", function(object, chain) {
     fst::write.fst(DT.measurement.prior, file.path(object@filepath, "model1", "priors.fst"))
 
     # plot PCA
-    cat(paste0("[", Sys.time(), "]    summarising assay deviations and plotting PCA\n"))
+    cat(paste0("[", Sys.time(), "]    summarising assay deviations and plotting\n"))
 
     ellipsis <- ctrl@ellipsis
     ellipsis$object <- object

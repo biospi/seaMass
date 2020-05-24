@@ -701,7 +701,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     outputs$DT.group.quants <- NULL
   }
 
-  write.table(data.frame(), file.path(filepath(object), input, paste(".complete", chain, sep = ".")), col.names = F)
+  write.table(data.frame(), file.path(filepath(object), input, paste("complete", chain, sep = ".")), col.names = F)
 
   return(invisible(NULL))
 })

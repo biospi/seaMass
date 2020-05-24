@@ -32,11 +32,19 @@ setMethod("control", "sigma_block", function(object) {
 })
 
 
+#' @describeIn sigma_block Get the \link{seaMass_sigma} object for this block.
+#' @export
+#' @include generics.R
+setMethod("parent", "sigma_block", function(object) {
+  return(open_sigma(dirname(filepath(object)), force = T))
+})
+
+
 #' @describeIn sigma_block Get the list of \link{sigma_block} obejcts for the blocks.
 #' @export
 #' @include generics.R
 setMethod("blocks", "sigma_block", function(object) {
-  return(blocks(open_sigma(dirname(filepath(object)), force = T)))
+  return(blocks(parent(object)))
 })
 
 

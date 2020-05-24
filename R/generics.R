@@ -32,6 +32,7 @@ if (!exists("norm_median")) setGeneric("norm_median", function(object, ...) stan
 if (!exists("norm_quantile")) setGeneric("norm_quantile", function(object, ...) standardGeneric("norm_quantile"))
 if (!exists("model")) setGeneric("model", function(object, ...) standardGeneric("model"))
 if (!exists("open_deltas")) setGeneric("open_deltas", function(object, ...) standardGeneric("open_deltas"))
+if (!exists("parent")) setGeneric("parent", function(object, ...) standardGeneric("parent"))
 if (!exists("plot_assay_exposures")) setGeneric("plot_assay_exposures", function(object, ...) standardGeneric("plot_assay_exposures"))
 if (!exists("plot_pca")) setGeneric("plot_pca", function(object, ...) standardGeneric("plot_pca"))
 if (!exists("plots")) setGeneric("plots", function(object, ...) standardGeneric("plots"))
