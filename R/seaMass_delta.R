@@ -166,9 +166,9 @@ setMethod("run", "seaMass_delta", function(object) {
     if (!("component.deviations.fdr" %in% ctrl@keep)) unlink(file.path(filepath(object), "component.deviations.fdr*"), recursive = T)
   }
 
-
   # set complete
   write.table(data.frame(), file.path(filepath(object), "complete"), col.names = F)
+  cat(paste0("[", Sys.time(), "] seaMass-delta finished!\n"))
 
   return(object@name)
 })
@@ -287,7 +287,7 @@ add_seaMass_spikein_truth <- function(data.fdr) {
   # ground truth
   data.truth <- rbind(
     data.frame(set = "Rat [1:1]",      truth =           0, grep = "_RAT$"),
-    data.frame(set = "E.coli [10:16]", truth = log2(16/10), grep = "_ECOLX$"),
+    data.frame(set = "E.coli [10:16]", truth = log2(16/10), grep = "_ECOL[I|X]$"),
     data.frame(set = "[3:1]",          truth =   log2(1/3), grep = "^sp\\|P00330\\|ADH1_YEAST$"),
     data.frame(set = "[5:3]",          truth =   log2(3/5), grep = "^sp\\|P08603\\|CFAH_HUMAN$"),
     data.frame(set = "[3:2]",          truth =   log2(2/3), grep = "^sp\\|P02769\\|ALBU_BOVIN$|^sp\\|P00698\\|LYSC_CHICK$|^sp\\|P00711\\|LALBA_BOVIN$|^sp\\|P00915\\|CAH1_HUMAN$"),

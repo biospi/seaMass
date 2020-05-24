@@ -110,3 +110,11 @@ setMethod("read_samples", "seaMass", function(object, input, type, items = NULL,
   return(DT)
 })
 
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("finish", "seaMass", function(object) {
+  # reserved for future use
+  return(invisible(NULL))
+})

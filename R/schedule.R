@@ -515,7 +515,7 @@ hpc_process0 <- function(task) {
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running process0 for name=", name(fit.sigma), "...\n"))
   process0(blocks(fit.sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
-  cat(paste0("[", Sys.time(), "] finished!\n"))
+  cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
 
   return(invisible(0))
@@ -528,7 +528,7 @@ hpc_process1 <- function(task) {
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running process1 for name=", name(fit.sigma), "...\n"))
   process1(blocks(fit.sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
-  cat(paste0("[", Sys.time(), "] finished!\n"))
+  cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
 
   return(invisible(0))
@@ -541,7 +541,7 @@ hpc_plots <- function(task) {
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running plots for name=", name(fit.sigma), "...\n"))
   plots(blocks(fit.sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
-  cat(paste0("[", Sys.time(), "] finished!\n"))
+  cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
 
   return(invisible(0))
@@ -553,7 +553,7 @@ hpc_delta <- function(task) {
   cat(paste0("[", Sys.time(), "] seaMass-delta v", control(fit.delta)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running name=", name(fit.delta), "...\n"))
   run(fit.delta)
-  cat(paste0("[", Sys.time(), "] finished!\n"))
+  cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
 
   return(invisible(0))
@@ -565,7 +565,7 @@ hpc_finish <- function(task) {
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  finishing..."))
   finish(fit.sigma)
-  cat(paste0("[", Sys.time(), "] finished!\n"))
+  cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
 
   return(invisible(0))

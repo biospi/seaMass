@@ -320,15 +320,6 @@ setMethod("imported_data", "seaMass_sigma", function(object, as.data.table = FAL
 })
 
 
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("finish", "seaMass_sigma", function(object) {
-  # reserved for future use
-  return(invisible(NULL))
-})
-
-
 #' @describeIn seaMass_sigma-class Is completed?
 #' @export
 #' @include generics.R

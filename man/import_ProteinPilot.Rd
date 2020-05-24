@@ -6,25 +6,28 @@
 \usage{
 import_ProteinPilot(
   file = NULL,
-  shared = F,
   min.conf = "auto",
-  filter = c("discordant component type", "no iTRAQ", "weak signal"),
+  use.decoys = FALSE,
+  use.shared.peptides = FALSE,
+  use.discordant.component.type = FALSE,
+  use.no.itraq = FALSE,
+  use.weak.signal = FALSE,
   data = NULL
 )
 }
 \arguments{
 \item{file}{Location of the \code{ComponentSummary.txt} file.}
 
-\item{shared}{Include shared components?}
-
 \item{min.conf}{Measurements with component ID confidence less than \code{min.conf} (between 0 - 100) are filtered out. The default
 \code{"auto"} uses the ProteinPilot default threshold.}
 
-\item{filter}{Other filters to use, which can include \code{"discordant component type"}, \code{"no iTRAQ" and
-\code{"weak signal"}}}
-
 \item{data}{Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
 \link[data.table]{fread} default parameters.}
+
+\item{shared}{Include shared components?}
+
+\item{filter}{Other filters to use, which can include \code{"discordant component type"}, \code{"no iTRAQ" and
+\code{"weak signal"}}}
 }
 \value{
 A \link{data.frame} for input into \link{seaMass_sigma}.

@@ -133,7 +133,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
 
     if (all(sapply(blocks(object), function(block) file.exists(file.path(filepath(block), "complete"))))) {
       # FINISH
-      cat(paste0("[", Sys.time(), "]  writing our results and plots...\n"))
+      cat(paste0("[", Sys.time(), "]  writing out results and plots...\n"))
 
       fit.sigma <- parent(object)
 
@@ -281,12 +281,11 @@ setMethod("process1", "sigma_block", function(object, chain) {
         do.call("plot_pca", ellipsis)
         ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_normalised_group_quants_pca.pdf")), width = 300, height = 300 * 9/16, units = "mm")
       }
+
+      # set complete
+      write.table(data.frame(), file.path(filepath(fit.sigma), "complete"), col.names = F)
+      cat(paste0("[", Sys.time(), "] seaMass-sigma finished!\n"))
     }
-
-    # set complete
-    write.table(data.frame(), file.path(filepath(fit.sigma), "complete"), col.names = F)
-
-    cat(paste0("[", Sys.time(), "] seaMass-sigma finished!\n"))
   }
 
   return(invisible(NULL))

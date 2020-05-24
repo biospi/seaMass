@@ -94,7 +94,7 @@ data.fdr <- add_seaMass_spikein_truth(data.fdr)
 plot_pr(data.fdr)
 ```
 
-### Tutorial 2 - HPC
+### Tutorial 2 - running on a HPC cluster
 
 To run seaMass on a HPC cluster, add a *schedule_slurm*, *schedule_pbs* or *schedule_sge* object to *sigma_control*. We also can specify the path of the output directory, in this case to 'hpc':
 
@@ -116,9 +116,9 @@ run(fit.sigma)
 
 Note, if you are not doing this from the HPC submit node, instead of *run(sigma)* you can copy the output folder *Tutorial_SLURM.seaMass* to your HPC submit node and execute *Tutorial_SLURM.seaMass/submit.sh* from the command prompt.
 
-### Tutorial 2 - fractionated iTraq/TMT experiment
+### Tutorial 3 - more advanced analysis
 
-In this tutorial we will analyse a fractionated ProteinPilot iTraq study conducted over two multiplexed runs 
+In this tutorial we will analyse a fractionated ProteinPilot iTraq study conducted over three multiplexed runs, removing one of these runs. 
 
 ```
 # Import tutorial iTraq dataset.
@@ -126,7 +126,7 @@ file <- system.file("PeptideSummary.txt.bz2", package = "seaMass")
 data <- import_ProteinPilot(file)
 ```
 
-Unfortunately the input file does not contain information for linking fractions to runs, so seaMass allows you to update the imported data with this information. If your study does not employ fractionation, you can skip this section.
+Unfortunately the input file does not contain information for linking fractions to runs, so seaMass allows you to update the imported data with this information.
 
 ```
 # Get skeleton injection-run table from imported data.
@@ -182,10 +182,10 @@ Next, run the seaMass-Σ model. Specifying TRUE for summaries will generate csv 
 
 ```
 # run seaMass-Σ
-sigma <- seaMass_sigma(
+fit.sigma <- seaMass_sigma(
   data,
   data.design,
-  path = "Tutorial",
+  path = "tutorial",
   control = sigma_control(nthread = 4)
 )
 ```
@@ -194,8 +194,8 @@ Finally, run seaMass-Δ. Internal control parameters can be specified through a 
 
 ```
 # run seaMass-Δ
-delta <- seaMass_delta(
-  sigma,
+fit.delta <- seaMass_delta(
+  fit.sigma,
   control = delta_control(random.seed = 0)
 )
 ```
@@ -203,9 +203,11 @@ delta <- seaMass_delta(
 Since we know the ground truth, lets visualise our performance with a Precision-Recall plot.
 
 ```
-# set ground truth and plot
-data.fdr <- group_fdr(delta)
-data.fdr$truth <- ifelse(grepl("_RAT$", data.fdr$Group), 0, log2(1.6))
+# get protein group FDR results
+data.fdr <- group_fdr(fit.delta)
+
+# add ground truth and plot precision-recall curve
+data.fdr <- add_seaMass_spikein_truth(data.fdr)
 plot_pr(data.fdr)
 ```
 

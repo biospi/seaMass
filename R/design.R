@@ -33,7 +33,7 @@ runs <- function(data) {
   DT.runs <- DT.runs[complete.cases(DT.runs)]
   if (!is.factor(DT.runs$Injection)) DT.runs[, Injection := factor(Injection)]
   if (!is.factor(DT.runs$Run)) DT.runs[, Run := factor(Run)]
-  DT <- merge(DT, DT.runs, by = "Injection")
+  DT <- merge(DT, DT.runs, by = "Injection", sort = F)
 
   if (!data.is.data.table) setDF(data)
   setDF(DT)
