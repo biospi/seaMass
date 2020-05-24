@@ -230,7 +230,8 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
       }
 
       return(NULL)
-    }, nthread = ctrl@nthread, .packages = c("seaMass", "emmeans"))
+    #}, nthread = ctrl@nthread, .packages = c("seaMass", "emmeans"))
+  }, nthread = 1, .packages = c("seaMass", "emmeans"))
 
     # save index
     if (chain == 1) {
