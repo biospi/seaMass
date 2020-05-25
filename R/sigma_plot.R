@@ -88,9 +88,10 @@ setMethod("plot_pca", "seaMass", function(
   }
 
   # plot
-  if (!is.null(colour) && !(colour %in% colnames(DT.design))) colour <- NULL
-  if (!is.null(fill) && !(fill %in% colnames(DT.design))) fill <- NULL
-  if (!is.null(shape) && !(shape %in% colnames(DT.design))) shape <- NULL
+  if (!(!is.null(colour) && colour %in% colnames(DT.design) && any(!is.na(DT.design[, get(colour)])))) colour <- NULL
+  if (!(!is.null(fill) && fill %in% colnames(DT.design) && any(!is.na(DT.design[, get(fill)])))) fill <- NULL
+  if (!(!is.null(shape) && shape %in% colnames(DT.design) && any(!is.na(DT.design[, get(shape)])))) shape <- NULL
+
   g <- ggplot2::ggplot(DT.design, ggplot2::aes(x = x, y = y))
   g <- g + ggplot2::geom_vline(xintercept = 0, colour = "grey")
   g <- g + ggplot2::geom_hline(yintercept = 0, colour = "grey")

@@ -164,7 +164,19 @@ data.design$RefWeight <- c(
 )
 ```
 
-By default, differential expression analysis functions look for columns *Sample* and *Condition* in *data.design*. If you want to perform differential expression analysis, assign samples to assays, and conditions to samples:
+Next, run the seaMass-Σ model. Specifying TRUE for summaries will generate csv reports in the directory specified by the *seaMass-sigma* *path* parameter, and any internal control parameters (such as the number of CPU threads to use) can be specified through a *sigma_control* object. 
+
+```
+# run seaMass-Σ
+fit.sigma <- seaMass_sigma(
+  data,
+  data.design,
+  path = "tutorial",
+  control = sigma_control(nthread = 4)
+)
+```
+
+You can add columns to *data.design* after seaMass-Σ and supply it to seaMass-Δ for different differential analyses:
 
 ```
 # Define Sample and Condition mappings
@@ -178,25 +190,14 @@ data.design$Condition <- factor(c(
 ))
 ```
 
-Next, run the seaMass-Σ model. Specifying TRUE for summaries will generate csv reports in the directory specified by the *seaMass-sigma* *path* parameter, and any internal control parameters (such as the number of CPU threads to use) can be specified through a *sigma_control* object. 
-
-```
-# run seaMass-Σ
-fit.sigma <- seaMass_sigma(
-  data,
-  data.design,
-  path = "tutorial",
-  control = sigma_control(nthread = 4)
-)
-```
-
-Finally, run seaMass-Δ. Internal control parameters can be specified through a *delta_control* object. 
+Using [MCMCglmm](https://cran.r-project.org/package=MCMCglmm) formula syntax you define all kinds of different models (note that the prior specification is the most difficult part to get right!). For example, to perform a standard t-test rather than a Welch's t-test, do: 
 
 ```
 # run seaMass-Δ
 fit.delta <- seaMass_delta(
-  fit.sigma,
-  control = delta_control(random.seed = 0)
+  fit.sigma, data.design,
+  rcov = ~ units,
+  prior = list(R = list(V = 1, nu = 2e-4))  
 )
 ```
 

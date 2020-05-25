@@ -12,7 +12,7 @@ setMethod("standardise_group_quants", "sigma_block", function(object, data.desig
     DT <- raw_group_quants(object, chain = item, as.data.table = T)[, Block := NULL]
 
     # add in zeros for the baselines
-    DT <- rbind(DT, unique(DT[, .(Assay = Baseline, Baseline, chain, sample, value = 0), by = Group]))
+    DT <- rbind(DT, unique(DT[, .(Baseline, Assay = Baseline, chain, sample, value = 0), by = Group]))
 
     # need to NA groups/baseline combos where any RefWeight>0 assays are missing
     ref.assays <- DT.refweights[RefWeight > 0, Assay]

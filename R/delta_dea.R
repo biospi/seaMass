@@ -7,11 +7,11 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
   object,
   type = "group.de",
   emmeans = revpairwise ~ Condition,
-  fixed = ~Condition,
+  fixed = ~ Condition,
   random = NULL,
-  rcov = ~units,
+  rcov = ~ idh(Condition):units,
   start = NULL,
-  prior = list(R = list(V = nlevels(factor(assay_design(object)$Condition)), nu = 2e-4)),
+  prior = list(R = list(V = diag(nlevels(factor(assay_design(object)$Condition))), nu = 2e-4)),
   tune = NULL,
   pedigree = NULL,
   nodes = "ALL",
@@ -228,8 +228,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
       }
 
       return(NULL)
-    #}, nthread = ctrl@nthread, .packages = c("seaMass", "emmeans"))
-  }, nthread = 1, .packages = c("seaMass", "emmeans"))
+    }, nthread = ctrl@nthread, .packages = c("seaMass", "emmeans"))
 
     # save index
     if (chain == 1) {

@@ -6,8 +6,8 @@
 \usage{
 import_OpenSWATH(
   file = NULL,
-  shared = FALSE,
   m_score.cutoff = 0.05,
+  use.shared.peptides = FALSE,
   data = NULL
 )
 }

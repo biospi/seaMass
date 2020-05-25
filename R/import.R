@@ -157,8 +157,8 @@ import_ProteinPilot <- function(
   if("Area 121" %in% colnames(DT.raw)) DT$Channel.121 <- DT.raw$`Area 121`
   rm(DT.raw)
 
-  # group ambiguous PSMs so seaMass treats them as a single component per group
-  DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement)]
+  # we can get a spectrum assigned to multiple peptides in a protein - if this occurs, assign the spectrum as a 'new' ambiguous peptide
+  DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement, Use)]
   DT <- unique(DT)
 
   # melt
@@ -192,68 +192,56 @@ import_ProteinPilot <- function(
 #' @export
 import_OpenSWATH <- function(
   file = NULL,
-  shared = FALSE,
   m_score.cutoff = 0.05,
-  #missing.cutoff = 0.5,
+  use.shared.peptides = FALSE,
   data = NULL
 ) {
-  suppressWarnings(suppressMessages(library(R.oo)))
-
   if (is.null(file) && is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
   if (!is.null(data)) file <- data
 
   DT <- rbindlist(lapply(file, function(f) {
     if (is.data.frame(f)) {
-      DT.raw <- as.data.file(data)
+      DT <- as.data.file(data)
     } else {
-      DT.raw <- fread(file = f, showProgress = T)
+      DT <- fread(file = f, showProgress = T)
     }
 
-    # remove decoys and > m_score.cutoff
-    DT.raw <- DT.raw[decoy == 0,]
-    DT.raw <- DT.raw[m_score <= m_score.cutoff,]
+    # filter
+    DT[, Use := T]
+    DT[decoy != 0, Use := F]
+    DT[m_score > m_score.cutoff, Use := F]
+    DT[!grepl("^1/", DT$ProteinName), Use := F]
 
     # create long data table
-    DT <- DT.raw[, .(
+    DT <- DT[, .(
       Group = ProteinName,
       Component = FullPeptideName,
       Measurement = gsub(";", ";bayesprot;", aggr_Fragment_Annotation),
       Run = paste(run_id, tools::file_path_sans_ext(basename(filename)), sep = ";"),
-      Count = gsub(";", ";bayesprot;", aggr_Peak_Area)
+      Count = gsub(";", ";bayesprot;", aggr_Peak_Area),
+      Use
     )]
     DT <- DT[, lapply(.SD, function(x) unlist(tstrsplit(x, ";bayesprot;", fixed = T)))]
+    DT[, Group := sub("^1/", "", Group)]
+    DT[, Group := factor(Group, levels = unique(Group))]
+    DT[, Component := factor(Component, levels = unique(Component))]
+    DT[, Measurement := factor(Measurement, levels = unique(Measurement))]
+    DT[, Run := factor(Run, levels = unique(Run))]
     DT[, Count := as.numeric(Count)]
-    DT
+    DT[, Use := as.logical(Use)]
+
+    return(DT)
   }))
 
   # remove measurements that have more than one identification in any assay
   DT[, N := .N, by = .(Measurement, Run)]
-  DT <- DT[N == 1]
+  DT[N != 1, Use := F]
   DT[, N := NULL]
-  assays <- unique(DT$Run)
-
-  # create wide data table
-  DT <- dcast(DT, Group + Component + Measurement ~ Run, value.var = "Count")
-
-  # remove transitions that are present is less than missing.cutoff assays
-  #DT <- DT[rowSums(is.na(DT)) < missing.cutoff * length(assays)]
-
-  # remove shared
-  if (!shared) DT <- DT[grepl("^1/", DT$Group)]
-
-  # group ambiguous transitions so seaMass-Delta treats them as a single component per group ## UNNECCESARY?
-  DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement)]
-  DT <- unique(DT)
-
-  # melt
-  DT[, GroupInfo := factor(Group)]
-  DT[, Group := factor(sub("^1/", "", Group))]
-  DT[, Component := factor(Component)]
-  DT[, Measurement := factor(Measurement)]
-  DT <- melt(DT, variable.name = "Run", value.name = "Count", measure.vars = assays)
-  DT[, Injection := Run]
+  DT[, GroupInfo := ""]
   DT[, Channel := factor("1")]
-  setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Injection", "Channel"))
+
+  setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Channel"))
+  setorder(DT, Group, Component, Measurement, Run, Channel)
 
   setDF(DT)
   return(DT[])

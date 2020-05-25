@@ -58,6 +58,15 @@ seaMass_delta <- function(
 
   # get design into the format we need
   DT.design <- as.data.table(data.design)[!is.na(Assay)]
+  DT.sigma.design <- assay_design(fit, as.data.table = T)[, .(Assay, Block)]
+  if ("Block" %in% colnames(DT.design)) {
+    DT.design <- merge(DT.design, DT.sigma.design, by = c("Assay", "Block"), sort = F)
+  } else {
+    DT.design <- merge(DT.design, DT.sigma.design, by = "Assay", sort = F, allow.cartesian = T)
+    setcolorder(DT.design, c("Assay", "Block"))
+  }
+  if (!is.factor(DT.design$Assay)) DT.design[, Assay := factor(Assay, levels = levels(DT.sigma.design$Assay))]
+  if (!is.factor(DT.design$Block)) DT.design[, Block := factor(Block, levels = levels(DT.sigma.design$Block))]
   blocks <- grep("^Block\\.", colnames(DT.design))
   if (length(blocks) > 0) set(DT.design, j = blocks, value = NULL)
   cols <- which(colnames(DT.design) %in% c("qG", "uG", "nG", "qC", "uC", "nC", "qM", "uM", "nM", "qD", "uD", "nD"))
