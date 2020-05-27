@@ -1,4 +1,4 @@
-#' Robust PCA plot
+#' Robust PCA plot with uncertainty contours
 #'
 #' @param object .
 #' @param data .
@@ -10,18 +10,19 @@
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_pca", "seaMass", function(
+setMethod("plot_pca_contours", "seaMass", function(
   object,
   data.design = assay_design(object),
+  variables = NULL,
   input = "model1",
   type = "normalised.group.quants",
   robust = TRUE,
   contours = 1:2,
-  aspect.ratio = 9/16,
-  labels = TRUE,
+  aspect.ratio = 3/4,
+  labels = 25,
   colour = "Assay.SD",
   fill = "Condition",
-  shape = NULL,
+  shape = "Condition",
   ...
 ) {
   # this is needed to stop foreach massive memory leak!!!
@@ -33,7 +34,7 @@ setMethod("plot_pca", "seaMass", function(
   if (!("Block" %in% colnames(DT.design))) DT.design <- merge(DT.design, assay_design(object, as.data.table = T), by = "Assay", sort = F, suffixes = c("", ".old"))
 
   # determine which individuals and variables to use
-  DT.summary <- read_samples(object, input, type, summary = T, summary.func = "dist_lst_samples", as.data.table = T)
+  DT.summary <- read_samples(object, input, type, variables, summary = T, summary.func = "dist_lst_samples", as.data.table = T)
   summary.cols <- setdiff(colnames(DT.summary)[1:(which(colnames(DT.summary) == "m") - 1)], c("Assay", "Block"))
   DT.individuals <- merge(DT.summary[, .(use = var(m, na.rm = T) >= 1e-5), keyby = .(Assay, Block)][use == T, .(Assay, Block)], DT.design[, .(Assay, Block)], by = c("Assay", "Block"), sort = F)
   DT.variables <- dcast(DT.summary, paste(paste(summary.cols, collapse = " + "), "~ Assay + Block"), value.var = "m")
@@ -72,7 +73,14 @@ setMethod("plot_pca", "seaMass", function(
 
   # extract results
   DT.design <- merge(DT.design, cbind(DT.individuals, data.table(x = fit$ind$coord[,1], y = fit$ind$coord[,2])), by = c("Assay", "Block"))
-  DT.design[, label := factor(paste0(Sample, " [", Block, ":", Assay, "]"))]
+  if (is.numeric(labels)) labels <- ifelse(nrow(DT.design) <= labels, T, F)
+  if (labels) {
+    if (nlevels(DT.design$Block) > 1) {
+      DT.design[, label := factor(paste0(Sample, " [", Block, ":", Assay, "]"))]
+    } else {
+      DT.design[, label := factor(paste0(Sample, " [", Assay, "]"))]
+    }
+  }
 
   # calculate limits for the aspect ratio
   min.x <- min(DT.design$x)
@@ -92,28 +100,39 @@ setMethod("plot_pca", "seaMass", function(
   if (!(!is.null(shape) && shape %in% colnames(DT.design) && any(!is.na(DT.design[, get(shape)])))) shape <- NULL
 
   g <- ggplot2::ggplot(DT.design, ggplot2::aes(x = x, y = y))
+  if (!is.null(colour)) {
+    if (is.numeric(DT.design[, get(colour)])) {
+      g <- g + ggplot2::scale_colour_gradient2(low = "blue", mid = "black", high = "red", limits = c(min(0, DT.design[, get(colour)]), max(0, DT.design[, get(colour)])))
+    }
+  }
+  if (!is.null(fill)) {
+    if (!is.numeric(DT.design[, get(fill)])) {
+      g <- g + ggplot2::scale_fill_hue(l = 90, c = 50)
+    } else {
+      g <- g + ggplot2::scale_fill_gradient2(low = scales::muted("blue", l = 90), mid = "white", high = scales::muted("red", l = 90), limits = c(min(0, DT.design[, get(fill)]), max(0, DT.design[, get(fill)])))
+    }
+  }
+  if (!is.null(shape)) g <- g + ggplot2::scale_shape_manual(values = c(1:25, 33:127)[1:uniqueN(DT.design[, get(shape)])])
   g <- g + ggplot2::geom_vline(xintercept = 0, colour = "grey")
   g <- g + ggplot2::geom_hline(yintercept = 0, colour = "grey")
 
   # contours
   if (!(is.null(contours) || length(contours) == 0)) {
-    cat(paste0("[", Sys.time(), "]     generating contours...\n"))
-
-    # read in samples
-    DT <- read_samples(object, input, type, DT.variables, as.data.table = T)
-    DT <- batch_split(DT, c("Block", "Assay"), nrow(DT.individuals), drop = T, keep.by = F)
+    cat(paste0("[", Sys.time(), "]     transforming samples...\n"))
 
     # predict from PCA fit
-    DT <- rbindlist(lapply(DT, function(DT1.samples) {
-      block <- DT1.samples[1, Block]
-      assay <- DT1.samples[1, Assay]
-      DT1 <- dcast(DT1.samples, paste("chain + sample ~", paste(summary.cols, collapse = " + ")), value.var = "value")
+    DT <- rbindlist(parallel_lapply(batch_split(DT.individuals, c("Block", "Assay"), nrow(DT.individuals), drop = T, keep.by = F), function(item, DT.variables, summary.cols, fit) {
+      DT1 <- merge(item[,c(k = 1, .SD)], DT.variables[,c(k = 1, .SD)], by = "k", all = T, allow.cartesian = T)[, k := NULL]
+      DT1 <- read_samples(object, input, type, DT1, as.data.table = T)
+      DT1 <- dcast(DT1, paste("chain + sample ~", paste(summary.cols, collapse = " + ")), value.var = "value")
       DT1[, c("chain", "sample") := NULL]
       pred <- predict(fit, DT1)
-      DT1 <- data.table(Block = factor(block), Assay = factor(assay), x = pred$coord[,1], y = pred$coord[,2])
+      DT1 <- data.table(Block = item[1, Block], Assay = item[1, Assay], x = pred$coord[,1], y = pred$coord[,2])
       rm(pred)
       return(DT1)
-    }))
+    }, nthread = control(object)@nthread, .packages = c("seaMass", "FactoMineR")))
+
+    cat(paste0("[", Sys.time(), "]     generating contours...\n"))
 
     # kde bandwidth across all assays
     H <- ks::Hpi(cbind(DT$x, DT$y))
@@ -124,7 +143,7 @@ setMethod("plot_pca", "seaMass", function(
       DT1 <- NULL
       dens <- NULL
       try({
-        dens <- ks::kde(cbind(DT1.in$x, DT1.in$y), H, xmin = mid - 1.5 * span, xmax = mid + 1.5 * span)
+        dens <- ks::kde(cbind(DT1.in$x, DT1.in$y), H, xmin = mid - 1.5 * span, xmax = mid + 1.5 * span, binned = T, bgridsize = c(401, 401))
         DT1 <- data.table(
           Block = DT1.in[1, Block],
           Assay = DT1.in[1, Assay],
@@ -152,21 +171,39 @@ setMethod("plot_pca", "seaMass", function(
   g <- g + ggplot2::ylab(paste0("PC2 (", format(round(pc2, 2), nsmall = 2), "%)"))
   g <- g + ggplot2::coord_cartesian(xlim = mid[1] + c(-span[1], span[1]), ylim = mid[2] + c(-span[2], span[2]))
   g <- g + ggplot2::theme(aspect.ratio = aspect.ratio)
-  if (!is.null(colour)) {
-    if (is.numeric(DT.design[, get(colour)])) {
-      g <- g + ggplot2::scale_colour_gradient2(low = "blue", mid = "black", high = "red", limits = c(min(0, DT.design[, get(colour)]), max(0, DT.design[, get(colour)])))
-    }
-  }
-  if (!is.null(fill)) {
-    if (!is.numeric(DT.design[, get(fill)])) {
-      g <- g + ggplot2::scale_fill_hue(l = 90, c = 50)
-    } else {
-      g <- g + ggplot2::scale_fill_gradient2(low = scales::muted("blue", l = 90), mid = "white", high = scales::muted("red", l = 90), limits = c(min(0, DT.design[, get(fill)]), max(0, DT.design[, get(fill)])))
-    }
-  }
   g <- g + ggplot2::ggtitle(paste0(gsub("\\.", " ", type), " PCA using ", nvariable.complete, " complete variables out of ", nvariable, " used"))
 
   return(g)
+})
+
+
+#' Robust PCA plot
+#'
+#' @param object .
+#' @param data .
+#' @param data.summary .
+#' @param data.design .
+#' @param contours .
+#' @param robust .
+#' @return A ggplot2 object .
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_pca", "seaMass", function(
+  object,
+  data.design = assay_design(object),
+  variables = NULL,
+  input = "model1",
+  type = "normalised.group.quants",
+  robust = TRUE,
+  aspect.ratio = 3/4,
+  labels = 25,
+  colour = "Assay.SD",
+  fill = "Condition",
+  shape = "Condition",
+  ...
+) {
+  return(plot_pca_contours(object, data.design, variables, input, type, robust, NULL, aspect.ratio, labels, colour, fill, shape, ...))
 })
 
 

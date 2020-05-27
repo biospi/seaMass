@@ -40,7 +40,7 @@ setMethod("standardise_group_quants", "sigma_block", function(object, data.desig
     fst::write.fst(DT, file.path(filepath(object), input, "standardised.group.quants", paste0(item, ".fst")))
 
     return(NULL)
-  }, nthread = ctrl@nthread)
+  }, nthread = 1) # this doesn't take long so lets avoid a spike in memory usage
 
   return(invisible(object))
 })

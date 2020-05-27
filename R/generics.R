@@ -35,6 +35,7 @@ if (!exists("open_deltas")) setGeneric("open_deltas", function(object, ...) stan
 if (!exists("parent")) setGeneric("parent", function(object, ...) standardGeneric("parent"))
 if (!exists("plot_assay_exposures")) setGeneric("plot_assay_exposures", function(object, ...) standardGeneric("plot_assay_exposures"))
 if (!exists("plot_pca")) setGeneric("plot_pca", function(object, ...) standardGeneric("plot_pca"))
+if (!exists("plot_pca_contours")) setGeneric("plot_pca_contours", function(object, ...) standardGeneric("plot_pca_contours"))
 if (!exists("plots")) setGeneric("plots", function(object, ...) standardGeneric("plots"))
 if (!exists("prepare_sigma")) setGeneric("prepare_sigma", function(object, ...) standardGeneric("prepare_sigma"))
 if (!exists("prepare_delta")) setGeneric("prepare_delta", function(object, ...) standardGeneric("prepare_delta"))

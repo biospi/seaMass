@@ -28,8 +28,12 @@ setMethod("read_samples", "seaMass", function(object, input, type, items = NULL,
       DT[, Block := factor(name(object), levels = names(blocks(object)))]
       setcolorder(DT, "Block")
     }
-    if (is.data.frame(items)) DT <- merge(DT, items, by = colnames(items), sort = F)
-    else if (!is.null(items)) DT <- DT[get(colnames(DT)[2]) %in% items]
+    if (is.data.frame(items)) {
+      DT <- merge(DT, items, by = colnames(items), sort = F)
+    }
+    else if (!is.null(items)) {
+      DT <- DT[get(colnames(DT)[2]) %in% items]
+    }
   } else {
     # load and filter index
     filename.index <- file.path(filepath(object), input, paste(type, "index.fst", sep = "."))
@@ -39,8 +43,11 @@ setMethod("read_samples", "seaMass", function(object, input, type, items = NULL,
       DT.index[, Block := factor(name(object), levels = names(blocks(object)))]
       setcolorder(DT.index, "Block")
     }
-    if (is.data.frame(items)) DT.index <- merge(DT.index, items, by = colnames(items), sort = F)
-    else if (!is.null(items)) DT.index <- DT.index[get(colnames(DT.index)[2]) %in% items]
+    if (is.data.frame(items)) {
+      DT.index <- merge(DT.index, items, by = colnames(items), sort = F)
+    }  else if (!is.null(items)) {
+      DT.index <- DT.index[get(colnames(DT.index)[2]) %in% items]
+    }
     DT.index <- DT.index[complete.cases(DT.index)]
     if (nrow(DT.index) == 0) return(NULL)
     setkey(DT.index, file, from)
@@ -53,7 +60,7 @@ setMethod("read_samples", "seaMass", function(object, input, type, items = NULL,
     if (is.null(summary)) {
       DTs.index <- list(DTs.index)
     } else {
-      DTs.index <- batch_split(DTs.index, summary.cols, 4 * ctrl@nthread, keep.by = F)
+      DTs.index <- batch_split(DTs.index, summary.cols, 16 * ctrl@nthread, keep.by = F)
     }
 
     fp <- filepath(object)
