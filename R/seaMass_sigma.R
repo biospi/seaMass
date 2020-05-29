@@ -119,7 +119,7 @@ seaMass_sigma <- function(
   # use pre-trained regression model to estimate how long each Group will take to process
   # Intercept, uC, uM, uC^2, uM^2, uC*uM
   a <- c(5.338861e-01, 9.991205e-02, 2.871998e-01, 4.294391e-05, 6.903229e-04, 2.042114e-04)
-  DT.groups[, pred := a[1] + a[2]*uC + a[3]*uM + a[4]*uC*uC- + a[5]*uM*uM + a[6]*uC*uM]
+  DT.groups[, pred := a[1] + a[2]*uC + a[3]*uM + a[4]*uC*uC + a[5]*uM*uM + a[6]*uC*uM]
   fst::write.fst(DT.groups, file.path(path, "meta", "groups.fst"))
 
   # write Component index
