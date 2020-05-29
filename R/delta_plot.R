@@ -1,51 +1,106 @@
-#' Add together two numbers.
+
+#' Volcano plot
 #'
-#' @param datafile A number.
-#' @return The sum of \code{x} and \code{y}.
+#' @param data.fdr .
+#' @return A ggplot2 object.
 #' @import data.table
 #' @export
-#'
-setMethod("plot_assay_exposures", "seaMass_delta", function(object, data = normalised_group_quants(object), data.design = assay_design(object)) {
-  DT <- as.data.table(data)
-  DT.design <- as.data.table(data.design)
-
-  DT.assay.exposures <- DT[, head(.SD, 1), by = .(Assay, chainID, mcmcID)][, .(Assay, chainID, mcmcID, value = exposure)]
-  # add minute amount of noise so that stdev > 0
-  DT.assay.exposures[, value := rnorm(.N, value, 1e-10)]
-
-  assay.exposures.meta <- function(x) {
-    m = median(x)
-    data.table(median = m, fc = paste0("  ", ifelse(m < 0, format(-2^-m, digits = 3), format(2^m, digits = 3)), "fc"))
+#' @include generics.R
+plot_volcano <- function(
+  data.fdr,
+  contours = 1:3,
+  error.bars = TRUE,
+  labels = 25,
+  plot.fdp = FALSE
+) {
+  DT.fdr <- as.data.table(data.fdr)
+  if ("truth" %in% colnames(data.fdr)) {
+    if (plot.fdp) {
+      # compute FDP
+      DT.fdr[, FD := ifelse(truth == 0 | m * truth < 0, 1, 0)]
+      DT.fdr[, Discoveries := 1:nrow(DT.fdr)]
+      DT.fdr[, TrueDiscoveries := cumsum(1 - FD)]
+      DT.fdr[, y := (0.5 + cumsum(FD)) / Discoveries]
+      DT.fdr[, y := rev(cummin(rev(y)))]
+    }
+  } else {
+    DT.fdr[, truth := 0]
+    DT.fdr[, y := qvalue]
   }
-  DT.assay.exposures.meta <- DT.assay.exposures[, as.list(assay.exposures.meta(value)), by = Assay]
+  DT.fdr <- DT.fdr[complete.cases(DT.fdr)]
+  DT.fdr[, lower := extraDistr::qlst(0.025, df, m, s)]
+  DT.fdr[, upper := extraDistr::qlst(0.975, df, m, s)]
+  DT.fdr[, variable := Reduce(function(...) paste(..., sep = " : "), .SD[, (which(colnames(DT.fdr) == "Baseline") + 1):(which(colnames(DT.fdr) == "m") - 1)])]
+  DT.fdr[, Set := factor(truth)]
+  DT.fdr[, label := NA_character_]
+  if (labels > 0) DT.fdr[1:labels, label := variable]
+  DT.meta <- DT.fdr[, .(median = median(m, na.rm = T), .N), by = truth]
 
-  assay.exposures.density <- function(x) {
-    as.data.table(density(x, n = 4096)[c("x","y")])
+  # transform y
+  DT.fdr[, y := -log10(y)]
+
+  # contours
+  DT.density <- NULL
+  if (!(is.null(contours) || length(contours) == 0)) {
+    DT <- DT.fdr[, .(x = extraDistr::rlst(16, df, m, s), y), by = 1:nrow(DT.fdr)]
+
+    # bandwidth from all data
+    try({
+      H <- ks::Hpi(cbind(DT[, x], DT[, y]))
+      xmin.kde <- c(1.1 * min(DT[, x]), 0)
+      xmax.kde <- c(1.1 * max(DT[, x]), 1.1 * max(DT[, y]))
+
+      # generate density contour line
+      DT.density <- DT.fdr[, {
+        try(if (length(y) >= 5) {
+          dens <- ks::kde.boundary(cbind(x, y), H, xmin = xmin.kde, xmax = xmax.kde, binned = T, bgridsize = c(1001, 1001))
+          DT <- data.table(
+            expand.grid(x = dens$eval.points[[1]], y = dens$eval.points[[2]]),
+            z1 = as.vector(dens$estimate) / dens$cont["32%"],
+            z2 = as.vector(dens$estimate) / dens$cont["5%"],
+            z3 = as.vector(dens$estimate) / dens$cont["1%"]
+          )
+        })
+      }, by = Set]
+    }, silent = T)
+    rm(DT)
   }
-  DT.assay.exposures.density <- DT.assay.exposures[, as.list(assay.exposures.density(value)), by = Assay]
 
-  x.max <- max(0.5, max(abs(DT.assay.exposures.density$x)))
-  g <- ggplot2::ggplot(DT.assay.exposures.density, ggplot2::aes(x = x, y = y))
-  g <- g + ggplot2::theme_bw()
-  g <- g + ggplot2::theme(panel.border = ggplot2::element_rect(colour = "black", size = 1),
-                          panel.grid.major = ggplot2::element_line(size = 0.5),
-                          axis.ticks = ggplot2::element_blank(),
-                          axis.text.y = ggplot2::element_blank(),
-                          plot.title = ggplot2::element_text(size = 10),
-                          strip.background = ggplot2::element_blank(),
-                          strip.text.y = ggplot2::element_text(angle = 0))
-  g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
-  g <- g + ggplot2::scale_y_continuous(expand = c(0, 0))
-  g <- g + ggplot2::coord_cartesian(xlim = c(-x.max, x.max) * 1.1, ylim = c(0, max(DT.assay.exposures.density$y) * 1.35))
-  g <- g + ggplot2::facet_grid(Assay ~ .)
-  g <- g + ggplot2::xlab(expression('Log2 Ratio'))
-  g <- g + ggplot2::ylab("Probability Density")
-  g <- g + ggplot2::geom_vline(xintercept = 0,size = 1/2, colour = "darkgrey")
-  g <- g + ggplot2::geom_ribbon(data = DT.assay.exposures.density, ggplot2::aes(x = x, ymax = y), ymin = 0, size = 1/2, alpha = 0.3)
-  g <- g + ggplot2::geom_line(data = DT.assay.exposures.density, ggplot2::aes(x = x,y = y), size = 1/2)
-  g <- g + ggplot2::geom_vline(data = DT.assay.exposures.meta, ggplot2::aes(xintercept = median), size = 1/2)
-  g <- g + ggplot2::geom_text(data = DT.assay.exposures.meta, ggplot2::aes(x = median, label = fc), y = max(DT.assay.exposures.density$y) * 1.25, hjust = 0, vjust = 1, size = 3)
-})
+  # plot
+  xlim.plot <- quantile(DT.fdr$m, probs = c(0.005, 0.995))
+  xlim.plot <- c(-1, 1) * max(xlim.plot[1], xlim.plot[2])
+  ylim.plot <- quantile(DT.fdr$y, probs = c(0.005, 0.995))
+  if (ylim.plot[2] < 2) ylim.plot[2] <- 2
+  DT.fdr[m <= xlim.plot[1], m := -Inf]
+  DT.fdr[m >= xlim.plot[2], m := Inf]
+  DT.fdr[y <= ylim.plot[1], y := -Inf]
+  DT.fdr[y >= ylim.plot[2], y := Inf]
+
+  g <- ggplot2::ggplot(DT.fdr, ggplot2::aes(x = m, y = y), colour = Set)
+  if (!is.null(DT.density)) {
+    if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z1, colour = Set), breaks = 1, alpha = 1)
+    if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z2, colour = Set), breaks = 1, alpha = 0.5)
+    if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z3, colour = Set), breaks = 1, alpha = 0.25)
+  }
+  if ("truth" %in% colnames(data.fdr)) {
+    g <- g + ggplot2::geom_vline(ggplot2::aes(color = factor(truth), xintercept = truth), DT.meta[N >= 5])
+    g <- g + ggplot2::geom_vline(ggplot2::aes(color = factor(truth), xintercept = median), DT.meta[N >= 5], lty = "longdash")
+    g <- g + ggplot2::theme(legend.position = "top")
+  } else {
+    g <- g + ggplot2::theme(legend.position = "none")
+  }
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = -log10(0.01)), linetype = "dotted")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = -log10(0.05)), linetype = "dotted")
+  if (error.bars) g <- g + ggplot2::geom_errorbarh(ggplot2::aes(color = factor(truth), xmin = lower, xmax = upper), size = 1, alpha = 0.1)
+  g <- g + ggplot2::geom_point(ggplot2::aes(color = factor(truth)), size = 1)
+  g <- g + ggplot2::geom_vline(xintercept = 0)
+  g <- g + ggplot2::geom_hline(yintercept = ylim.plot[1])
+  g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = label), size = 2.5, na.rm = T)
+  g <- g + ggplot2::xlab("log2(Fold Change)")
+  g <- g + ggplot2::ylab(paste0("-log10(qvalue)"))
+  g <- g + ggplot2::coord_cartesian(xlim = xlim.plot, ylim = ylim.plot, expand = F)
+  g
+}
 
 
 #' Add together two numbers.
@@ -143,80 +198,73 @@ plot_pr <- function(
 }
 
 
-#' Volcano plot
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#' Add together two numbers.
 #'
-#' @param data.fdr .
-#' @return A ggplot2 object.
+#' @param datafile A number.
+#' @return The sum of \code{x} and \code{y}.
 #' @import data.table
 #' @export
-#' @include generics.R
-plot_volcano <- function(
-  data.fdr,
-  contours = 1:2,
-  plot.fdp = F
-) {
-  if ("truth" %in% colnames(data.fdr)) {
-    DT.fdr <- as.data.table(data.fdr)[, .(m, truth, y = qvalue)]
+#'
+setMethod("plot_assay_exposures", "seaMass_delta", function(object, data = normalised_group_quants(object), data.design = assay_design(object)) {
+  stop("todo: needs updating")
+  DT <- as.data.table(data)
+  DT.design <- as.data.table(data.design)
 
-    if (plot.fdp) {
-      # compute FDP
-      DT.fdr[, FD := ifelse(truth == 0 | m * truth < 0, 1, 0)]
-      DT.fdr[, Discoveries := 1:nrow(DT.fdr)]
-      DT.fdr[, TrueDiscoveries := cumsum(1 - FD)]
-      DT.fdr[, y := (0.5 + cumsum(FD)) / Discoveries]
-      DT.fdr[, y := rev(cummin(rev(y)))]
-    }
-  } else {
-    DT.fdr <- as.data.table(data.fdr)[, .(m, y = qvalue)]
-    DT.fdr[, truth := 0]
+  DT.assay.exposures <- DT[, head(.SD, 1), by = .(Assay, chainID, mcmcID)][, .(Assay, chainID, mcmcID, value = exposure)]
+  # add minute amount of noise so that stdev > 0
+  DT.assay.exposures[, value := rnorm(.N, value, 1e-10)]
+
+  assay.exposures.meta <- function(x) {
+    m = median(x)
+    data.table(median = m, fc = paste0("  ", ifelse(m < 0, format(-2^-m, digits = 3), format(2^m, digits = 3)), "fc"))
   }
-  DT.fdr <- DT.fdr[complete.cases(DT.fdr)]
-  DT.fdr[, Group := factor(truth)]
-  DT.meta <- DT.fdr[, .(median = median(m, na.rm = T), .N), by = truth]
+  DT.assay.exposures.meta <- DT.assay.exposures[, as.list(assay.exposures.meta(value)), by = Assay]
 
-  # transform y
-  DT.fdr[, y := -log10(y)]
+  assay.exposures.density <- function(x) {
+    as.data.table(density(x, n = 4096)[c("x","y")])
+  }
+  DT.assay.exposures.density <- DT.assay.exposures[, as.list(assay.exposures.density(value)), by = Assay]
 
-  # bandwidth from all data
-  H <- ks::Hpi(cbind(DT.fdr[, m], DT.fdr[, y]))
-  min.lim <- c(1.1 * min(DT.fdr[, m]), 0)
-  max.lim <- c(1.1 * max(DT.fdr[, m]), 1.1 * max(DT.fdr[, y]))
-  # generate density contour line
-  DT.density <- DT.fdr[, {
-    DT <- NULL
-    try(if (length(y) >= 5) {
-        #dens <- ks::kde(cbind(m, get(yvar)), H, xmin = min.lim, xmax = max.lim)
-        #dens <- ks::kde.boundary(cbind(m, y), H, xmin = min.lim, xmax = max.lim)
-        dens <- ks::kde.boundary(cbind(m, y), H)
-        DT <- data.table(
-          expand.grid(x = dens$eval.points[[1]], y = dens$eval.points[[2]]),
-          z1 = as.vector(dens$estimate) / dens$cont["32%"],
-          z2 = as.vector(dens$estimate) / dens$cont["5%"],
-          z3 = as.vector(dens$estimate) / dens$cont["1%"]
-        )
-    })
-  }, by = Group]
+  x.max <- max(0.5, max(abs(DT.assay.exposures.density$x)))
+  g <- ggplot2::ggplot(DT.assay.exposures.density, ggplot2::aes(x = x, y = y))
+  g <- g + ggplot2::theme_bw()
+  g <- g + ggplot2::theme(panel.border = ggplot2::element_rect(colour = "black", size = 1),
+                          panel.grid.major = ggplot2::element_line(size = 0.5),
+                          axis.ticks = ggplot2::element_blank(),
+                          axis.text.y = ggplot2::element_blank(),
+                          plot.title = ggplot2::element_text(size = 10),
+                          strip.background = ggplot2::element_blank(),
+                          strip.text.y = ggplot2::element_text(angle = 0))
+  g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
+  g <- g + ggplot2::scale_y_continuous(expand = c(0, 0))
+  g <- g + ggplot2::coord_cartesian(xlim = c(-x.max, x.max) * 1.1, ylim = c(0, max(DT.assay.exposures.density$y) * 1.35))
+  g <- g + ggplot2::facet_grid(Assay ~ .)
+  g <- g + ggplot2::xlab(expression('Log2 Ratio'))
+  g <- g + ggplot2::ylab("Probability Density")
+  g <- g + ggplot2::geom_vline(xintercept = 0,size = 1/2, colour = "darkgrey")
+  g <- g + ggplot2::geom_ribbon(data = DT.assay.exposures.density, ggplot2::aes(x = x, ymax = y), ymin = 0, size = 1/2, alpha = 0.3)
+  g <- g + ggplot2::geom_line(data = DT.assay.exposures.density, ggplot2::aes(x = x,y = y), size = 1/2)
+  g <- g + ggplot2::geom_vline(data = DT.assay.exposures.meta, ggplot2::aes(xintercept = median), size = 1/2)
+  g <- g + ggplot2::geom_text(data = DT.assay.exposures.meta, ggplot2::aes(x = median, label = fc), y = max(DT.assay.exposures.density$y) * 1.25, hjust = 0, vjust = 1, size = 3)
+})
 
-  # plot
-  #ymax <- max(DT.fdr[, get(yvar)])
-  g <- ggplot2::ggplot(DT.fdr, ggplot2::aes(x = m, y = y), colour = Group)
-  g <- g + ggplot2::geom_vline(xintercept = 0)
-  if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z1, colour = Group), breaks = 1, alpha = 1)
-  if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z2, colour = Group), breaks = 1, alpha = 0.5)
-  if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z3, colour = Group), breaks = 1, alpha = 0.25)
-  g <- g + ggplot2::geom_vline(aes(color = factor(truth), xintercept = truth), DT.meta[N >= 5])
-  g <- g + ggplot2::geom_vline(aes(color = factor(truth), xintercept = median), DT.meta[N >= 5], lty = "longdash")
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype = "dotted")
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype = "dotted")
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype = "dotted")
-  g <- g + ggplot2::geom_point(aes(color = factor(truth)), size = 1, alpha = 0.5)
-  #g <- g + ggplot2::scale_y_continuous(expand = expansion(mult = c(0, 0.05), add = c(0, 0)))
-  #g <- g + ggplot2::scale_y_reverse(limits = c(ymax, 0))
-  g <- g + ggplot2::theme(legend.position = "top")
-  g <- g + ggplot2::xlab("Fold Change")
-  g <- g + ggplot2::ylab(paste0("-log10(qvalue)"))
-  g
-}
+
 
 
 #' Add together two numbers.
@@ -226,6 +274,7 @@ plot_volcano <- function(
 #' @import data.table
 #' @export
 plot_fits <- function(data, data.fits = NULL, ci = c(0.05, 0.95), by = NULL, xlab = "v", ylim = NULL, trans = identity, inv.trans = identity, show.input = T) {
+  stop("todo: needs updating")
   DT <- as.data.table(data)
   DT.fits <- as.data.table(data.fits)
 
@@ -283,6 +332,7 @@ plot_fits <- function(data, data.fits = NULL, ci = c(0.05, 0.95), by = NULL, xla
 #' @import data.table
 #' @export
 plot_priors <- function(data.fits = NULL, ci = c(0.05, 0.95), by = NULL, xlab = "v", ylim = NULL, trans = identity, inv.trans = identity, show.input = T) {
+  stop("todo: needs updating")
   DT.fits <- as.data.table(data.fits)
   xlim <- c(0, max(2 * DT.fits$v))
   DT.fits <- DT.fits[, .(v, df, z = seq(trans(xlim[1]), trans(xlim[2]), length.out = 10001)), by = by]
@@ -308,6 +358,7 @@ plot_priors <- function(data.fits = NULL, ci = c(0.05, 0.95), by = NULL, xlab = 
 #' @import data.table
 #' @export
 plot_volcano2 <- function(data, data.design, data.meta = NULL, data.truth = NULL, xaxis = "identity", yaxis = "t-test.p", xlim = NULL, ylim = NULL) {
+  stop("todo: needs updating")
   # debug stuff
   if (!exists("data.meta")) data.meta <- NULL
   if (!exists("data.truth")) data.truth <- NULL

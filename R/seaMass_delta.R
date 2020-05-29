@@ -139,7 +139,10 @@ setMethod("run", "seaMass_delta", function(object) {
       fwrite(DTs.fdr[[name]], file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_group_de", gsub("\\s", "_", name), "csv", sep = ".")))
       # plot fdr
       plot_fdr(DTs.fdr[[name]])
-      ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_group_de", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
+      ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_group_de_fdr", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
+      # plot volcano
+      plot_volcano(DTs.fdr[[name]])
+      ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_group_de_volcano", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
     }
   }
   if (!("group.fdr" %in% ctrl@keep)) unlink(file.path(filepath(object), "group.fdr*"), recursive = T)
@@ -169,7 +172,10 @@ setMethod("run", "seaMass_delta", function(object) {
         fwrite(DTs.fdr[[name]], file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_component_deviations_de", gsub("\\s", "_", name), "csv", sep = ".")))
         # plot fdr
         plot_fdr(DTs.fdr[[name]])
-        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_component_deviations_de", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
+        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_component_deviations_de_fdr", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
+        # plot volcano
+        plot_volcano(DTs.fdr[[name]])
+        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_component_deviations_de_volcano", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
       }
     }
     if (!("component.deviations.fdr" %in% ctrl@keep)) unlink(file.path(filepath(object), "component.deviations.fdr*"), recursive = T)

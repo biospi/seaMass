@@ -94,34 +94,12 @@ setMethod("plot_pca_contours", "seaMass", function(
     span <- 0.55 * (max.y - min.y) * c(1/aspect.ratio, 1)
   }
 
-  # plot
-  if (!(!is.null(colour) && colour %in% colnames(DT.design) && any(!is.na(DT.design[, get(colour)])))) colour <- NULL
-  if (!(!is.null(fill) && fill %in% colnames(DT.design) && any(!is.na(DT.design[, get(fill)])))) fill <- NULL
-  if (!(!is.null(shape) && shape %in% colnames(DT.design) && any(!is.na(DT.design[, get(shape)])))) shape <- NULL
-
-  g <- ggplot2::ggplot(DT.design, ggplot2::aes(x = x, y = y))
-  if (!is.null(colour)) {
-    if (is.numeric(DT.design[, get(colour)])) {
-      g <- g + ggplot2::scale_colour_gradient2(low = "blue", mid = "black", high = "red", limits = c(min(0, DT.design[, get(colour)]), max(0, DT.design[, get(colour)])))
-    }
-  }
-  if (!is.null(fill)) {
-    if (!is.numeric(DT.design[, get(fill)])) {
-      g <- g + ggplot2::scale_fill_hue(l = 90, c = 50)
-    } else {
-      g <- g + ggplot2::scale_fill_gradient2(low = scales::muted("blue", l = 90), mid = "white", high = scales::muted("red", l = 90), limits = c(min(0, DT.design[, get(fill)]), max(0, DT.design[, get(fill)])))
-    }
-  }
-  if (!is.null(shape)) g <- g + ggplot2::scale_shape_manual(values = c(1:25, 33:127)[1:uniqueN(DT.design[, get(shape)])])
-  g <- g + ggplot2::geom_vline(xintercept = 0, colour = "grey")
-  g <- g + ggplot2::geom_hline(yintercept = 0, colour = "grey")
-
   # contours
   if (!(is.null(contours) || length(contours) == 0)) {
     cat(paste0("[", Sys.time(), "]     transforming samples...\n"))
 
     # predict from PCA fit
-    DT <- rbindlist(parallel_lapply(batch_split(DT.individuals, c("Block", "Assay"), nrow(DT.individuals), drop = T, keep.by = F), function(item, DT.variables, summary.cols, fit) {
+    DT <- rbindlist(parallel_lapply(batch_split(DT.individuals, c("Block", "Assay"), nrow(DT.individuals), drop = T, keep.by = F), function(item, DT.variables, object, input, type, summary.cols, fit) {
       DT1 <- merge(item[,c(k = 1, .SD)], DT.variables[,c(k = 1, .SD)], by = "k", all = T, allow.cartesian = T)[, k := NULL]
       DT1 <- read_samples(object, input, type, DT1, as.data.table = T)
       DT1 <- dcast(DT1, paste("chain + sample ~", paste(summary.cols, collapse = " + ")), value.var = "value")
@@ -131,6 +109,9 @@ setMethod("plot_pca_contours", "seaMass", function(
       rm(pred)
       return(DT1)
     }, nthread = control(object)@nthread, .packages = c("seaMass", "FactoMineR")))
+
+    # replace centre point
+    DT.design <- merge(DT.design[, !c("x", "y")], DT[, .(x = median(x), y = median(y)), by = .(Block, Assay)], by = c("Block", "Assay"), sort = F)
 
     cat(paste0("[", Sys.time(), "]     generating contours...\n"))
 
@@ -158,12 +139,36 @@ setMethod("plot_pca_contours", "seaMass", function(
     }))
     DT <- merge(DT, DT.design[, !c("x", "y")], by = c("Block", "Assay"))
     DT[, individual := interaction(Block, Assay, drop = T)]
+  }
+  rm(fit)
 
+  # plot
+  if (!(!is.null(colour) && colour %in% colnames(DT.design) && any(!is.na(DT.design[, get(colour)])))) colour <- NULL
+  if (!(!is.null(fill) && fill %in% colnames(DT.design) && any(!is.na(DT.design[, get(fill)])))) fill <- NULL
+  if (!(!is.null(shape) && shape %in% colnames(DT.design) && any(!is.na(DT.design[, get(shape)])))) shape <- NULL
+
+  g <- ggplot2::ggplot(DT.design, ggplot2::aes(x = x, y = y))
+  if (!is.null(colour)) {
+    if (is.numeric(DT.design[, get(colour)])) {
+      g <- g + ggplot2::scale_colour_gradient2(low = "blue", mid = "black", high = "red", limits = c(min(0, DT.design[, get(colour)]), max(0, DT.design[, get(colour)])))
+    }
+  }
+  if (!is.null(fill)) {
+    if (!is.numeric(DT.design[, get(fill)])) {
+      g <- g + ggplot2::scale_fill_hue(l = 90, c = 50)
+    } else {
+      g <- g + ggplot2::scale_fill_gradient2(low = scales::muted("blue", l = 90), mid = "white", high = scales::muted("red", l = 90), limits = c(min(0, DT.design[, get(fill)]), max(0, DT.design[, get(fill)])))
+    }
+  }
+  if (!is.null(shape)) g <- g + ggplot2::scale_shape_manual(values = c(1:25, 33:127)[1:uniqueN(DT.design[, get(shape)])])
+  g <- g + ggplot2::geom_vline(xintercept = 0, colour = "grey")
+  g <- g + ggplot2::geom_hline(yintercept = 0, colour = "grey")
+
+  if (!(is.null(contours) || length(contours) == 0)) {
     if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z1"), breaks = 1, alpha = 0.5)
     if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z2"), breaks = 1, alpha = 0.25)
     if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z3"), breaks = 1, alpha = 0.125)
   }
-  rm(fit)
 
   if (labels) g <- g + ggrepel::geom_label_repel(ggplot2::aes_string(label = "label", fill = fill), size = 2.5)
   g <- g + ggplot2::geom_point(ggplot2::aes_string(colour = colour, shape = shape), size = 1.5)
@@ -207,9 +212,20 @@ setMethod("plot_pca", "seaMass", function(
 })
 
 
+
+
+
+
+
+
+
+
+
+
 #' @import data.table
 #' @export
 plot_group_quants <- function(object, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(object), group = NULL) {
+  stop("todo: needs updating")
   if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
   DT.group.quants <- group_quants(object, groupID, group, summary = F, as.data.table = T)
@@ -251,6 +267,7 @@ plot_group_quants <- function(object, groupID = NULL, log2FC.lim = NULL, data.de
 #' @import data.table
 #' @export
 plot_component_deviations <- function(object, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(object), group = NULL) {
+  stop("todo: needs updating")
   if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
   DT.component.deviations <- component_deviations(object, groupID, group, summary = F, as.data.table = T)
@@ -292,6 +309,7 @@ plot_component_deviations <- function(object, groupID = NULL, log2FC.lim = NULL,
 #' @import data.table
 #' @export
 plot_component_stdevs <- function(object, groupID = NULL, log2SD.lim = NULL, data.design = assay_design(object), group = NULL) {
+  stop("todo: needs updating")
   if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
   DT.component.stdevs <- component_stdevs(object, groupID, group, summary = F, as.data.table = T)
@@ -330,6 +348,7 @@ plot_component_stdevs <- function(object, groupID = NULL, log2SD.lim = NULL, dat
 #' @import data.table
 #' @export
 plot_measurement_stdevs <- function(object, groupID = NULL, log2SD.lim = NULL, data.design = assay_design(object), group = NULL) {
+  stop("todo: needs updating")
   if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
   DT.measurement.stdevs <- measurement_stdevs(object, groupID, group, summary = F, as.data.table = T)
@@ -370,6 +389,7 @@ plot_measurement_stdevs <- function(object, groupID = NULL, log2SD.lim = NULL, d
 #' @import data.table
 #' @export
 plot_raw_quants <- function(object, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(object), group = NULL) {
+  stop("todo: needs updating")
   if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
   DT.groups <- groups(object, as.data.table = T)
@@ -422,6 +442,7 @@ plot_raw_quants <- function(object, groupID = NULL, log2FC.lim = NULL, data.desi
 #' @import ggplot2
 #' @export
 plot_components <- function(object, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(object), group = NULL) {
+  stop("todo: needs updating")
   if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
   DT.groups <- groups(object, as.data.table = T)

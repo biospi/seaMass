@@ -4,7 +4,13 @@
 \alias{plot_volcano}
 \title{Volcano plot}
 \usage{
-plot_volcano(data.fdr, contours = 1:2, plot.fdp = F)
+plot_volcano(
+  data.fdr,
+  contours = 1:3,
+  error.bars = TRUE,
+  labels = 25,
+  plot.fdp = FALSE
+)
 }
 \arguments{
 \item{data.fdr}{.}
