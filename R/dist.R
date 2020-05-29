@@ -1,7 +1,7 @@
 #' summarise using median/mad
 #'
 #' @export
-summarise_normal_robust <- function(value) {
+dist_normal_robust <- function(value) {
   return(list(m = median(value, na.rm = T), s = mad(value, na.rm = T), df = Inf))
 }
 
@@ -9,8 +9,8 @@ summarise_normal_robust <- function(value) {
 #' fit normal distribution with fitdistrplus
 #'
 #' @export
-summarise_normal_robust_samples <- function(chain, sample, value) {
-  return(c(summarise_normal_robust(value), list(rhat = rhat(chain, sample, value, T))))
+dist_normal_robust_samples <- function(chain, sample, value) {
+  return(c(dist_normal_robust(value), list(rhat = rhat(chain, sample, value, T))))
 }
 
 
@@ -33,7 +33,7 @@ rhat <- function(chain, sample, value, transform = FALSE) {
 #'
 #' @export
 dist_normal <- function(value, plots = FALSE, ...) {
-  est <- summarise_normal_robust(value)
+  est <- dist_normal_robust(value)
 
   if (!is.na(est$s) && est$s > 1e-16) {
     tryCatch({
@@ -61,7 +61,7 @@ dist_normal_samples <- function(chain, sample, value, ...) {
 #'
 #' @export
 dist_lst <- function(value, min.df = 0, plots = FALSE, ...) {
-  est <- summarise_normal_robust(value)
+  est <- dist_normal_robust(value)
   est$df <- Inf
 
   if (!is.na(est$s) && est$s > 1e-16) {
@@ -122,7 +122,7 @@ dist_lst_samples_ash <- function(chain, sample, value, ...) {
 #'
 #' @export
 dist_invchisq <- function(value, plots = FALSE, ...) {
-  est <- summarise_normal_robust(log(value))
+  est <- dist_normal_robust(log(value))
   est <- list(v = exp(est$m), df = 2.0 * est$s^-2)
 
   if (!is.na(est$df) && !is.infinite(est$df)) {

@@ -12,7 +12,9 @@ schedule_slurm(
   cpus_per_task = NULL,
   mem = NULL,
   time = NULL,
-  mail_user = NULL
+  mail_user = NULL,
+  pre = NULL,
+  post = NULL
 )
 }
 \arguments{

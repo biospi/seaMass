@@ -1,6 +1,38 @@
+#' Import DIA-NN data
+#'
+#' Reads in DIA-NN \code{report.tsv} for processing.
+#'
+#' @param proteinGroups.file Location of the \code{proteinGroups.txt} file.
+#' @param evidence.file Location of the \code{evidence.txt} file.
+#' @param shared Include shared peptides?
+#' @param data Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
+#'   \link[data.table]{fread} default parameters.
+#' @return A \link{data.frame} for input into \link{bayesprot}.
+#' @import data.table
+#' @export
+import_DIANN <- function(
+  file = NULL,
+  use.shared.peptides = FALSE,
+  data = NULL
+) {
+  stop("todo: not implemented yet")
+
+  # load wide raw
+  if (is.null(file)) {
+    if (is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
+    DT <- setDT(data)
+  } else {
+    DT <- fread(file = file, showProgress = T)
+  }
+
+  setDF(DT)
+  return(DT)
+}
+
+
 #' Import MaxQuant LF data
 #'
-#' Reads in MaxQuant \code{evidence.txt} and \code{proteinGroups.txt}for processing with \link{bayesprot}.
+#' Reads in MaxQuant \code{evidence.txt} and \code{proteinGroups.txt}.
 #'
 #' @param proteinGroups.file Location of the \code{proteinGroups.txt} file.
 #' @param evidence.file Location of the \code{evidence.txt} file.
@@ -181,7 +213,7 @@ import_ProteinPilot <- function(
 
 #' Import OpenSWATH data
 #'
-#' Reads in the output of an OpenSWATH -> PyProphet -> TRIC pipeline for processing with \link{seaMass_sigma}.
+#' Reads in the output of an OpenSWATH -> PyProphet -> TRIC pipeline.
 #'
 #' @param files A \code{csv} file to import.
 #' @param m_score.cutoff Include only measurements with PyProphet m_score >= than this?
@@ -250,7 +282,7 @@ import_OpenSWATH <- function(
 
 #' Import Thermo ProteomeDiscoverer data
 #'
-#' Reads in a Thermo ProteomeDiscoverer \code{PSMs.txt} file for processing with \link{seaMass_sigma}.
+#' Reads in a Thermo ProteomeDiscoverer \code{PSMs.txt} file.
 #'
 #' @param file Location of the \code{PSMs.txt} file.
 #' @param shared Include shared components?
@@ -346,7 +378,7 @@ import_ProteomeDiscoverer <- function(
 
 #' Import Waters Progenesis data
 #'
-#' Reads in a Waters Progenesis \code{pep_ion_measurements.csv} file for processing with \link{seaMass_sigma}.
+#' Reads in a Waters Progenesis \code{pep_ion_measurements.csv} file.
 #'
 #' @param file Location of the \code{pep_ion_measurements.csv} file.
 #' @param used Include only measurements marked as used by Progenesis?
@@ -431,7 +463,7 @@ import_Progenesis <- function(
 
 #' Import MaxQuant LF data
 #'
-#' Reads in MaxQuant \code{peptides.txt} and \code{proteinGroups.txt}for processing with \link{bayesprot}.
+#' Reads in MaxQuant \code{peptides.txt} and \code{proteinGroups.txt}.
 #'
 #' @param proteinGroups.file Location of the \code{proteinGroups.txt} file.
 #' @param peptides.file Location of the \code{peptides.txt} file.
@@ -520,7 +552,7 @@ import_MaxQuant_peptides <- function(
 
 #' Import MaxQuant LF data
 #'
-#' Reads in MaxQuant \code{evidence.txt} and \code{proteinGroups.txt}for processing with \link{bayesprot}.
+#' Reads in MaxQuant \code{evidence.txt} and \code{proteinGroups.txt}.
 #'
 #' @param proteinGroups.file Location of the \code{proteinGroups.txt} file.
 #' @param evidence.file Location of the \code{evidence.txt} file.
@@ -644,7 +676,7 @@ import_MaxQuant_evidence0 <- function(
 
 #' Import MaxQuant LF data
 #'
-#' Reads in MaxQuant \code{evidence.txt} and \code{proteinGroups.txt}for processing with \link{bayesprot}.
+#' Reads in MaxQuant \code{evidence.txt} and \code{proteinGroups.txt}.
 #'
 #' @param proteinGroups.file Location of the \code{proteinGroups.txt} file.
 #' @param evidence.file Location of the \code{evidence.txt} file.
@@ -726,7 +758,7 @@ import_MSqRob <- function(
 
 #' Import data outputed by an MSstats import routine
 #'
-#' Reads in a set of \code{_with_dscore} datasets processed by OpenSWATH and PyProphet for processing with \link{seaMass_sigma}.
+#' Reads in a set of \code{_with_dscore} datasets processed by OpenSWATH and PyProphet.
 #'
 #' @param data MSstats output
 #'   \link[data.table]{fread} default parameters.

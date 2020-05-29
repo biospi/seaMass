@@ -14,5 +14,5 @@ import_MSstats(data)
 A \link{data.frame} for input into \link{seaMass_sigma}.
 }
 \description{
-Reads in a set of \code{_with_dscore} datasets processed by OpenSWATH and PyProphet for processing with \link{seaMass_sigma}.
+Reads in a set of \code{_with_dscore} datasets processed by OpenSWATH and PyProphet.
 }

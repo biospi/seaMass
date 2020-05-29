@@ -27,5 +27,5 @@ import_MaxQuant_evidence0(
 A \link{data.frame} for input into \link{bayesprot}.
 }
 \description{
-Reads in MaxQuant \code{evidence.txt} and \code{proteinGroups.txt}for processing with \link{bayesprot}.
+Reads in MaxQuant \code{evidence.txt} and \code{proteinGroups.txt}.
 }

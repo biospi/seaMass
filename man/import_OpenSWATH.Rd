@@ -23,5 +23,5 @@ import_OpenSWATH(
 A \link{data.frame} for input into \link{seaMass_sigma}.
 }
 \description{
-Reads in the output of an OpenSWATH -> PyProphet -> TRIC pipeline for processing with \link{seaMass_sigma}.
+Reads in the output of an OpenSWATH -> PyProphet -> TRIC pipeline.
 }

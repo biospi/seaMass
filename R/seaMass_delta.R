@@ -242,7 +242,7 @@ setMethod("del", "seaMass_delta", function(object) {
 #' @export
 #' @include generics.R
 setMethod("group_de", "seaMass_delta", function(object, groups = NULL, summary = FALSE, chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- read_samples(object, ".", "group.de", groups, chains, summary, summary.func = "dist_lst_samples", as.data.table = as.data.table)
+  DT <- read_samples(object, ".", "group.de", groups, chains, summary, summary.func = "dist_normal_robus_samples", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -255,7 +255,7 @@ setMethod("group_de", "seaMass_delta", function(object, groups = NULL, summary =
 #' @export
 #' @include generics.R
 setMethod("component_deviations_de", "seaMass_delta", function(object, components = NULL, summary = FALSE, chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- read_samples(object, ".", "component.deviations.de", components, chains, summary, summary.func = "dist_lst_samples", as.data.table = as.data.table)
+  DT <- read_samples(object, ".", "component.deviations.de", components, chains, summary, summary.func = "dist_normal_robus_samples", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
   else DT[]

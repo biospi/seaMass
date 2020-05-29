@@ -18,5 +18,5 @@ import_Progenesis(file = NULL, used = T, data = NULL)
 A \link{data.frame} for input into \link{seaMass_sigma}.
 }
 \description{
-Reads in a Waters Progenesis \code{pep_ion_measurements.csv} file for processing with \link{seaMass_sigma}.
+Reads in a Waters Progenesis \code{pep_ion_measurements.csv} file.
 }

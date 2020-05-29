@@ -20,5 +20,5 @@ import_ProteomeDiscoverer(file = NULL, shared = F, used = T, data = NULL)
 A \link{data.frame} for input into \link{seaMass_sigma}.
 }
 \description{
-Reads in a Thermo ProteomeDiscoverer \code{PSMs.txt} file for processing with \link{seaMass_sigma}.
+Reads in a Thermo ProteomeDiscoverer \code{PSMs.txt} file.
 }

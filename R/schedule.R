@@ -64,7 +64,9 @@ setClass("schedule_slurm", contains = "schedule", slots = c(
   cpus_per_task = "integer",
   mem = "character",
   time = "character",
-  mail_user = "character"
+  mail_user = "character",
+  pre = "character",
+  post = "character"
 ))
 
 
@@ -81,7 +83,9 @@ schedule_slurm <- function(
   cpus_per_task = NULL,
   mem = NULL,
   time = NULL,
-  mail_user = NULL
+  mail_user = NULL,
+  pre = NULL,
+  post = NULL
 ) {
   params <- list("schedule_slurm")
 
@@ -91,6 +95,8 @@ schedule_slurm <- function(
   if (is.null(time)) params$time <- NA_character_ else params$time <- as.character(time)
   if (is.null(mem)) params$mem <- NA_character_ else params$mem <- as.character(mem)
   if (is.null(mail_user)) params$mail_user <- NA_character_ else params$mail_user <- as.character(mail_user)
+  if (is.null(pre)) params$pre <- NA_character_ else params$pre <- as.character(pre)
+  if (is.null(post)) params$post <- NA_character_ else params$post <- as.character(post)
 
   return(do.call(new, params))
 }
@@ -124,7 +130,9 @@ setMethod("config", "schedule_slurm", function(object, prefix, name, n, notify, 
     ifelse(is.na(object@time), "", paste0("#SBATCH --time=", object@time, "\n")),
     ifelse(is.na(object@mail_user), "", paste0("#SBATCH --mail-user=", object@mail_user, "\n")),
     ifelse(is.na(object@mail_user), "", ifelse(notify, "#SBATCH --mail-type=END,FAIL\n", "#SBATCH --mail-type=FAIL\n")),
-    paste0("srun Rscript --vanilla -e seaMass:::", func, "\\(${SLURM_ARRAY_TASK_ID}\\)\n")
+    ifelse(is.na(object@pre), "", paste0(paste(object@pre, collapse = "\n"), "\n")),
+    paste0("srun Rscript --vanilla -e seaMass:::", func, "\\(${SLURM_ARRAY_TASK_ID}\\)\n"),
+    ifelse(is.na(object@post), "", paste0(paste(object@post, collapse = "\n"), "\n"))
   ))
 })
 
@@ -217,7 +225,9 @@ setClass("schedule_pbs", contains = "schedule", slots = c(
   mem = "character",
   walltime = "character",
   l = "character",
-  M = "character"
+  M = "character",
+  pre = "character",
+  post = "character"
 ))
 
 
@@ -235,7 +245,9 @@ schedule_pbs <- function(
   mem = NULL,
   walltime = NULL,
   l = NULL,
-  M = NULL
+  M = NULL,
+  pre = NULL,
+  post = NULL
 ) {
   params <- list("schedule_pbs")
 
@@ -246,6 +258,8 @@ schedule_pbs <- function(
   if (is.null(mem)) params$mem <- NA_character_ else params$mem <- as.character(mem)
   params$l <- as.character(l)
   if (is.null(M)) params$M <- NA_character_ else params$M <- as.character(M)
+  if (is.null(pre)) params$pre <- NA_character_ else params$pre <- as.character(pre)
+  if (is.null(post)) params$post <- NA_character_ else params$post <- as.character(post)
 
   return(do.call(new, params))
 }
@@ -275,8 +289,10 @@ setMethod("config", "schedule_pbs", function(object, prefix, name, n, notify, fu
     ifelse(length(object@l) == 0, "", paste0(paste0("#PBS -l ", object@l, "\n"), collapse = "")),
     ifelse(is.na(object@M), "", paste0("#PBS -M ", object@M, "\n")),
     ifelse(is.na(object@M), "", ifelse(notify, "#PBS -m ae\n", "#PBS -m a\n")),
+    ifelse(is.na(object@pre), "", paste0(paste(object@pre, collapse = "\n"), "\n")),
     "cd $PBS_O_WORKDIR\n",
-    paste0("Rscript --vanilla -e seaMass:::", func, "\\(${PBS_ARRAYID}\\)\n")
+    paste0("Rscript --vanilla -e seaMass:::", func, "\\(${PBS_ARRAYID}\\)\n"),
+    ifelse(is.na(object@post), "", paste0(paste(object@post, collapse = "\n"), "\n"))
   ))
 })
 
@@ -369,7 +385,9 @@ setClass("schedule_sge", contains = "schedule", slots = c(
   mem = "character",
   walltime = "character",
   l = "character",
-  M = "character"
+  M = "character",
+  pre = "character",
+  post = "character"
 ))
 
 
@@ -387,7 +405,9 @@ schedule_sge <- function(
   mem = NULL,
   walltime = NULL,
   l = NULL,
-  M = NULL
+  M = NULL,
+  pre = NULL,
+  post = NULL
 ) {
   params <- list("schedule_sge")
 
@@ -398,6 +418,8 @@ schedule_sge <- function(
   if (is.null(walltime)) params$walltime <- NA_character_ else params$walltime <- as.character(walltime)
   params$l <- as.character(l)
   if (is.null(M)) params$M <- NA_character_ else params$M <- as.character(M)
+  if (is.null(pre)) params$pre <- NA_character_ else params$pre <- as.character(pre)
+  if (is.null(post)) params$post <- NA_character_ else params$post <- as.character(post)
 
   return(do.call(new, params))
 }
@@ -417,6 +439,7 @@ setValidity("schedule_sge", function(object) {
 
 setMethod("config", "schedule_sge", function(object, prefix, name, n, notify, func) {
   return(paste0(
+    paste0("#!/bin/bash --login\n"),
     paste0("#$ -N sm", prefix, ".", name, "\n"),
     paste0("#$ -t 1-", n, "\n"),
     ifelse(is.na(object@q), "", paste0("#$ -q ", object@q, "\n")),
@@ -427,7 +450,9 @@ setMethod("config", "schedule_sge", function(object, prefix, name, n, notify, fu
     ifelse(is.na(object@M), "", paste0("#$ -M ", object@M, "\n")),
     ifelse(is.na(object@M), "", ifelse(notify, "#$ -m ae\n", "#$ -m a\n")),
     "#$ -cwd\n",
-    paste0("Rscript --vanilla -e seaMass:::", func, "\\(${SGE_TASK_ID}\\)\n")
+    ifelse(is.na(object@pre), "", paste0(paste(object@pre, collapse = "\n"), "\n")),
+    paste0("Rscript --vanilla -e seaMass:::", func, "\\(${SGE_TASK_ID}\\)\n"),
+    ifelse(is.na(object@post), "", paste0(paste(object@post, collapse = "\n"), "\n"))
   ))
 })
 

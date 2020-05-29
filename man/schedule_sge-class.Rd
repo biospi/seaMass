@@ -13,7 +13,9 @@ schedule_sge(
   mem = NULL,
   walltime = NULL,
   l = NULL,
-  M = NULL
+  M = NULL,
+  pre = NULL,
+  post = NULL
 )
 }
 \arguments{

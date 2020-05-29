@@ -31,9 +31,9 @@ setMethod("fdr_ash", "seaMass_delta", function(
   cat(paste0("[", Sys.time(), "]    getting summaries...\n"))
 
   if (type == "group.fdr") {
-    DT <- group_de(object, summary = "lst_samples_ash", as.data.table = T)
+    DT <- group_de(object, summary = "normal_robust_samples", as.data.table = T)
   } else if (type == "component.deviations.fdr") {
-    DT <- component_deviations_de(object, summary = "lst_samples_ash", as.data.table = T)
+    DT <- component_deviations_de(object, summary = "normal_robust_samples", as.data.table = T)
   } else {
     stop("unknown type")
   }
