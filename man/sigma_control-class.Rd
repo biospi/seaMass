@@ -7,12 +7,13 @@
 \title{Control parameters for seaMass-Σ}
 \usage{
 sigma_control(
-  summarise = c("measurement.variances", "component.variances", "raw.group.quants",
-    "normalised.group.quants", "normalised.group.variances"),
+  summarise = c("measurement.variances", "component.variances", "component.deviations",
+    "raw.group.quants", "normalised.group.quants", "normalised.group.variances"),
   keep = c("model0", "measurement.variances", "component.variances",
     "component.deviations", "assay.deviations", "raw.group.quants",
     "normalised.group.quants", "normalised.group.variances"),
-  plot = c("assay.deviations.pca", "normalised.group.quants.pca"),
+  plot = c("assay.deviations.pca", "component.deviations.pca",
+    "normalised.group.quants.pca"),
   measurement.model = "independent",
   measurement.eb.min = 2,
   component.model = "independent",
