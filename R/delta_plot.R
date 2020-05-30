@@ -42,7 +42,8 @@ plot_volcano <- function(
   # contours
   DT.density <- NULL
   if (!(is.null(contours) || length(contours) == 0)) {
-    DT <- DT.fdr[, .(x = extraDistr::rlst(16, df, m, s), y), by = 1:nrow(DT.fdr)]
+    DT <- DT.fdr[, .(x = extraDistr::rlst(16, df, m, s), y, Set), by = 1:nrow(DT.fdr)]
+    DT <- DT[is.finite(x) & is.finite(y)]
 
     # bandwidth from all data
     try({
@@ -51,10 +52,10 @@ plot_volcano <- function(
       xmax.kde <- c(1.1 * max(DT[, x]), 1.1 * max(DT[, y]))
 
       # generate density contour line
-      DT.density <- DT.fdr[, {
+      DT.density <- DT[, {
         try(if (length(y) >= 5) {
           dens <- ks::kde.boundary(cbind(x, y), H, xmin = xmin.kde, xmax = xmax.kde, binned = T, bgridsize = c(1001, 1001))
-          DT <- data.table(
+          data.table(
             expand.grid(x = dens$eval.points[[1]], y = dens$eval.points[[2]]),
             z1 = as.vector(dens$estimate) / dens$cont["32%"],
             z2 = as.vector(dens$estimate) / dens$cont["5%"],
@@ -67,9 +68,9 @@ plot_volcano <- function(
   }
 
   # plot
-  xlim.plot <- quantile(DT.fdr$m, probs = c(0.005, 0.995))
-  xlim.plot <- c(-1, 1) * max(xlim.plot[1], xlim.plot[2])
-  ylim.plot <- quantile(DT.fdr$y, probs = c(0.005, 0.995))
+  xlim.plot <- quantile(DT.fdr[is.finite(m), m], probs = c(0.005, 0.995))
+  xlim.plot <- c(-1.5, 1.5) * max(xlim.plot[1], xlim.plot[2])
+  ylim.plot <- quantile(DT.fdr[is.finite(y), y], probs = c(0.005, 0.995))
   if (ylim.plot[2] < 2) ylim.plot[2] <- 2
   DT.fdr[m <= xlim.plot[1], m := -Inf]
   DT.fdr[m >= xlim.plot[2], m := Inf]
@@ -83,16 +84,16 @@ plot_volcano <- function(
     if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z3, colour = Set), breaks = 1, alpha = 0.25)
   }
   if ("truth" %in% colnames(data.fdr)) {
-    g <- g + ggplot2::geom_vline(ggplot2::aes(color = factor(truth), xintercept = truth), DT.meta[N >= 5])
-    g <- g + ggplot2::geom_vline(ggplot2::aes(color = factor(truth), xintercept = median), DT.meta[N >= 5], lty = "longdash")
+    g <- g + ggplot2::geom_vline(ggplot2::aes(color = Set, xintercept = truth), DT.meta[N >= 5])
+    g <- g + ggplot2::geom_vline(ggplot2::aes(color = Set, xintercept = median), DT.meta[N >= 5], lty = "longdash")
     g <- g + ggplot2::theme(legend.position = "top")
   } else {
     g <- g + ggplot2::theme(legend.position = "none")
   }
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = -log10(0.01)), linetype = "dotted")
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = -log10(0.05)), linetype = "dotted")
-  if (error.bars) g <- g + ggplot2::geom_errorbarh(ggplot2::aes(color = factor(truth), xmin = lower, xmax = upper), size = 1, alpha = 0.1)
-  g <- g + ggplot2::geom_point(ggplot2::aes(color = factor(truth)), size = 1)
+  if (error.bars) g <- g + ggplot2::geom_errorbarh(ggplot2::aes(color = Set, xmin = lower, xmax = upper), size = 1, alpha = 0.1)
+  g <- g + ggplot2::geom_point(ggplot2::aes(shape = Set), size = 1)
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = -log10(0.01)), linetype = "dashed")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = -log10(0.05)), linetype = "dashed")
   g <- g + ggplot2::geom_vline(xintercept = 0)
   g <- g + ggplot2::geom_hline(yintercept = ylim.plot[1])
   g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = label), size = 2.5, na.rm = T)
