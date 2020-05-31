@@ -6,7 +6,8 @@
 setMethod("dea_MCMCglmm", "seaMass_delta", function(
   object,
   type = "group.de",
-  emmeans = revpairwise ~ Condition,
+  specs = ~ Condition,
+  contrasts = list(method = "revpairwise"),
   fixed = ~ Condition,
   random = NULL,
   rcov = ~ idh(Condition):units,
@@ -34,6 +35,8 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
 
   # prepare
   ctrl <- control(object)
+  if (!inherits(specs, "formula")) stop("only formula input for emmeans 'specs' argument is currently supported")
+  if (!all(sapply(contrasts, is.list))) contrasts <- list(contrasts)
   fixed1 <- as.formula(paste("m", deparse(fixed, width.cutoff = 500), collapse=""))
   if (type == "group.de") {
     DTs <- normalised_group_quants(object@fit, summary = T, as.data.table = T)
@@ -57,7 +60,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
   for (chain in 1:ctrl@model.nchain) {
     cat(paste0("[", Sys.time(), "]    chain ", chain ,"/", ctrl@model.nchain, "...\n"))
 
-    DT.index <- parallel_lapply(DTs, function(item, object, type, chain, emmeans, fixed1, random, rcov, start, prior, tune, pedigree, nodes, scale, pr, pl, DIC, saveX, saveZ, saveXL, slice, ginverse, trunc) {
+    DT.index <- parallel_lapply(DTs, function(item, object, type, chain, specs, contrasts, fixed1, random, rcov, start, prior, tune, pedigree, nodes, scale, pr, pl, DIC, saveX, saveZ, saveXL, slice, ginverse, trunc) {
       ctrl <- control(object)
       batch <- item[1, Batch]
 
@@ -83,6 +86,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
         DT[, Assay := factor(Assay, levels = 1:nlevels(DT.design[, Assay]), labels = levels(DT.design[, Assay]))]
         DT[, Block := factor(Block, levels = 1:nlevels(DT.design[, Block]), labels = levels(DT.design[, Block]))]
         DT <- merge(DT, DT.design, all.y = T, by = c("Block", "Assay"), sort = F)
+        DT <- droplevels(DT[complete.cases(DT[, !c("m", "s", "df", "rhat")])])
 
         # run MCMCglmm
         output <- list()
@@ -131,19 +135,36 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
             prior$R$nu <- prior$R$nu * 2
           }
 
-          # run emmeans.args
-          emmGrid <- do.call("emmeans", c(list(model), revpairwise ~ Condition, list(data = DT)))
+          # run emmeans
+          emmMeans <- do.call("emmeans", c(list(model), specs, list(data = DT)))
+          emmContrasts <- NULL
+          if (is.list(emmMeans)) {
+            if ("contrasts" %in% names(emmGrid)) emmContrasts <- emmGrid$contrasts
+            emmMeans <- emmGrid$emmeans
+          }
 
-          # just do contrasts for now (note: we assume they exist)
-          output$DT.de <- as.data.table(emmeans::as.mcmc.emmGrid(emmGrid$contrasts))
-          output$DT.de[, sample := .I]
-          output$DT.de <- melt(output$DT.de, id.vars = "sample", variable.name = "Baseline")
+          # add additional contrasts
+          if (!is.null(contrasts)) {
+            emmContrasts <- c(emmContrasts, lapply(1:length(contrasts), function(i) {
+              call.args <- contrasts[[i]]
+              call.args$object <- emmMeans
+              return(do.call("contrast", call.args))
+            }))
+          }
+
+          # get samples
+          output$DT.de <- rbindlist(lapply(emmContrasts, function(emmGrid) {
+            DT1.de <- as.data.table(as.mcmc.emmGrid(emmGrid))
+            DT1.de[, sample := .I]
+            DT1.de <- melt(DT1.de, id.vars = "sample", variable.name = "Baseline")
+            DT1.de[, Effect := paste(paste(colnames(emmGrid@misc$orig.grid)), collapse = ":")]
+            DT1.de[, Contrast := sub("^contrast (.*) - .*$", "\\1", Baseline)]
+            DT1.de[, Baseline := sub("^contrast .* - (.*)$", "\\1", Baseline)]
+            return(DT1.de)
+          }))
           output$DT.de[, chain := chain]
-          output$DT.de[, Effect := paste(paste(colnames(emmGrid$contrasts@misc$orig.grid)), collapse = ":")]
           output$DT.de[, Effect := factor(Effect, levels = unique(Effect))]
-          output$DT.de[, Contrast := sub("^contrast (.*) - .*$", "\\1", Baseline)]
           output$DT.de[, Contrast := factor(Contrast, levels = unique(Contrast))]
-          output$DT.de[, Baseline := sub("^contrast .* - (.*)$", "\\1", Baseline)]
           output$DT.de[, Baseline := factor(Baseline, levels = unique(Baseline))]
           output$DT.de[, Group := DT[1, Group]]
           if (type == "group.de") setcolorder(output$DT.de, c("Group", "Effect", "Contrast", "Baseline", "chain"))
@@ -152,6 +173,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
             setcolorder(output$DT.de, c("Group", "Component", "Effect", "Contrast", "Baseline", "chain"))
           }
 
+          # TODO: handle interactions?
           if (chain == 1) {
             # calculate metadata (this is rubbish but works)
             output$DT.meta <- unique(rbind(output$DT.de[, .(Effect, Level = Contrast)], output$DT.de[, .(Effect, Level = Baseline)]))[!is.na(Level)]

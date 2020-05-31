@@ -1,4 +1,3 @@
-
 #' Volcano plot
 #'
 #' @param data.fdr .
@@ -8,52 +7,62 @@
 #' @include generics.R
 plot_volcano <- function(
   data.fdr,
-  contours = 1:3,
+  contours = NULL,
   error.bars = TRUE,
   labels = 25,
-  plot.fdp = FALSE
+  x.col = "PosteriorMean",
+  s.col = "PosteriorSD",
+  y.col = "qvalue"
 ) {
   DT.fdr <- as.data.table(data.fdr)
+  DT.fdr[, s := get(s.col)]
+  DT.fdr[, x := get(x.col)]
   if ("truth" %in% colnames(data.fdr)) {
-    if (plot.fdp) {
+    if (tolower(y.col) == "fdp") {
       # compute FDP
-      DT.fdr[, FD := ifelse(truth == 0 | m * truth < 0, 1, 0)]
+      DT.fdr[, FD := ifelse(truth == 0 | x * truth < 0, 1, 0)]
       DT.fdr[, Discoveries := 1:nrow(DT.fdr)]
       DT.fdr[, TrueDiscoveries := cumsum(1 - FD)]
       DT.fdr[, y := (0.5 + cumsum(FD)) / Discoveries]
       DT.fdr[, y := rev(cummin(rev(y)))]
+    } else {
+      DT.fdr[, y := get(y.col)]
     }
   } else {
     DT.fdr[, truth := 0]
-    DT.fdr[, y := qvalue]
+    DT.fdr[, y := get(y.col)]
   }
   DT.fdr <- DT.fdr[complete.cases(DT.fdr)]
-  DT.fdr[, lower := extraDistr::qlst(0.025, df, m, s)]
-  DT.fdr[, upper := extraDistr::qlst(0.975, df, m, s)]
+  DT.fdr[, lower := extraDistr::qlst(0.025, df, x, s)]
+  DT.fdr[, upper := extraDistr::qlst(0.975, df, x, s)]
   DT.fdr[, variable := Reduce(function(...) paste(..., sep = " : "), .SD[, (which(colnames(DT.fdr) == "Baseline") + 1):(which(colnames(DT.fdr) == "m") - 1)])]
-  DT.fdr[, Set := factor(truth)]
+  DT.fdr[, Truth := factor(truth)]
   DT.fdr[, label := NA_character_]
   if (labels > 0) DT.fdr[1:labels, label := variable]
-  DT.meta <- DT.fdr[, .(median = median(m, na.rm = T), .N), by = truth]
+  DT.meta <- DT.fdr[, .(median = median(x, na.rm = T), .N), by = .(truth, Truth)]
 
   # transform y
-  DT.fdr[, y := -log10(y)]
+  if (y.col == "s") {
+    DT.fdr[, y := -log2(y)]
+  } else {
+    DT.fdr[, y := -log10(y)]
+  }
 
   # contours
   DT.density <- NULL
   if (!(is.null(contours) || length(contours) == 0)) {
-    DT <- DT.fdr[, .(x = extraDistr::rlst(16, df, m, s), y, Set), by = 1:nrow(DT.fdr)]
+    DT <- DT.fdr[, .(x = rnorm(16, x, s), y, Truth), by = 1:nrow(DT.fdr)]
     DT <- DT[is.finite(x) & is.finite(y)]
 
     # bandwidth from all data
     try({
       H <- ks::Hpi(cbind(DT[, x], DT[, y]))
-      xmin.kde <- c(1.1 * min(DT[, x]), 0)
-      xmax.kde <- c(1.1 * max(DT[, x]), 1.1 * max(DT[, y]))
+      xmin.kde <- c(min(DT[, x]), ifelse(y.col == "s" || y.col == "PosteriorSD", min(DT[, y]), 0))
+      xmax.kde <- c(max(DT[, x]), max(DT[, y]))
 
       # generate density contour line
       DT.density <- DT[, {
-        try(if (length(y) >= 5) {
+        try(if (length(y) >= 5 * 16) {
           dens <- ks::kde.boundary(cbind(x, y), H, xmin = xmin.kde, xmax = xmax.kde, binned = T, bgridsize = c(1001, 1001))
           data.table(
             expand.grid(x = dens$eval.points[[1]], y = dens$eval.points[[2]]),
@@ -62,43 +71,55 @@ plot_volcano <- function(
             z3 = as.vector(dens$estimate) / dens$cont["1%"]
           )
         })
-      }, by = Set]
+      }, by = Truth]
     }, silent = T)
     rm(DT)
   }
 
   # plot
-  xlim.plot <- quantile(DT.fdr[is.finite(m), m], probs = c(0.005, 0.995))
+  xlim.plot <- c(-1.5, 1.5) * quantile(DT.fdr[is.finite(x), x], probs = c(0.005, 0.995))
   xlim.plot <- c(-1.5, 1.5) * max(xlim.plot[1], xlim.plot[2])
   ylim.plot <- quantile(DT.fdr[is.finite(y), y], probs = c(0.005, 0.995))
   if (ylim.plot[2] < 2) ylim.plot[2] <- 2
-  DT.fdr[m <= xlim.plot[1], m := -Inf]
-  DT.fdr[m >= xlim.plot[2], m := Inf]
+  DT.fdr[x <= xlim.plot[1], x := -Inf]
+  DT.fdr[x >= xlim.plot[2], x := Inf]
   DT.fdr[y <= ylim.plot[1], y := -Inf]
   DT.fdr[y >= ylim.plot[2], y := Inf]
 
-  g <- ggplot2::ggplot(DT.fdr, ggplot2::aes(x = m, y = y), colour = Set)
+  g <- ggplot2::ggplot(DT.fdr, ggplot2::aes(x = x, y = y), colour = Truth)
   if (!is.null(DT.density)) {
-    if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z1, colour = Set), breaks = 1, alpha = 1)
-    if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z2, colour = Set), breaks = 1, alpha = 0.5)
-    if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z3, colour = Set), breaks = 1, alpha = 0.25)
+    if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z1, colour = Truth), breaks = 1, alpha = 1)
+    if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z2, colour = Truth), breaks = 1, alpha = 0.5)
+    if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z3, colour = Truth), breaks = 1, alpha = 0.25)
   }
   if ("truth" %in% colnames(data.fdr)) {
-    g <- g + ggplot2::geom_vline(ggplot2::aes(color = Set, xintercept = truth), DT.meta[N >= 5])
-    g <- g + ggplot2::geom_vline(ggplot2::aes(color = Set, xintercept = median), DT.meta[N >= 5], lty = "longdash")
+    g <- g + ggplot2::geom_vline(ggplot2::aes(color = Truth, xintercept = truth), DT.meta[N >= 5])
+    g <- g + ggplot2::geom_vline(ggplot2::aes(color = Truth, xintercept = median), DT.meta[N >= 5], lty = "longdash")
     g <- g + ggplot2::theme(legend.position = "top")
   } else {
     g <- g + ggplot2::theme(legend.position = "none")
   }
-  if (error.bars) g <- g + ggplot2::geom_errorbarh(ggplot2::aes(color = Set, xmin = lower, xmax = upper), size = 1, alpha = 0.1)
-  g <- g + ggplot2::geom_point(ggplot2::aes(shape = Set), size = 1)
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = -log10(0.01)), linetype = "dashed")
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = -log10(0.05)), linetype = "dashed")
+  if (error.bars) g <- g + ggplot2::geom_errorbarh(ggplot2::aes(color = Truth, xmin = lower, xmax = upper), size = 1, alpha = 0.1)
+  g <- g + ggplot2::geom_point(ggplot2::aes(colour = Truth), size = 1)
   g <- g + ggplot2::geom_vline(xintercept = 0)
   g <- g + ggplot2::geom_hline(yintercept = ylim.plot[1])
   g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = label), size = 2.5, na.rm = T)
-  g <- g + ggplot2::xlab("log2(Fold Change)")
-  g <- g + ggplot2::ylab(paste0("-log10(qvalue)"))
+  if (x.col == "m") {
+    g <- g + ggplot2::xlab("log2(Fold Change)")
+  } else if (x.col == "PosteriorMean") {
+    g <- g + ggplot2::xlab("log2(Moderated Fold Change)")
+  } else {
+    g <- g + ggplot2::xlab(paste0("log2(", x.col, ")"))
+  }
+  if (y.col == "s") {
+    g <- g + ggplot2::ylab(paste0("-log2(Standard Deviation)"))
+  } else if (y.col == "PosteriorSD") {
+    g <- g + ggplot2::ylab(paste0("-log2(Moderated Standard Deviation)"))
+  } else {
+    g <- g + ggplot2::ylab(paste0(paste0("-log10(", y.col, ")")))
+    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = -log10(0.01)), linetype = "dashed")
+    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = -log10(0.05)), linetype = "dashed")
+  }
   g <- g + ggplot2::coord_cartesian(xlim = xlim.plot, ylim = ylim.plot, expand = F)
   g
 }

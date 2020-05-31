@@ -325,7 +325,9 @@ add_seaMass_spikein_truth <- function(data.fdr) {
   # remove groups that have multiple truths
   data <- data[!duplicated(data$Group) & !duplicated(data$Group, fromLast = T),]
   # merge
+  cols <- colnames(data.fdr)
   data <- merge(data.fdr, data[, c("Group", "truth")], by = "Group", sort = F, all.x = T)
+  setcolorder(data, cols)
 
   return(data)
 }

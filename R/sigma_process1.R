@@ -133,7 +133,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
 
     if (all(sapply(blocks(object), function(block) file.exists(file.path(filepath(block), "complete"))))) {
       # FINISH
-      cat(paste0("[", Sys.time(), "]  writing out results and plots...\n"))
+      cat(paste0("[", Sys.time(), "]  writing out results...\n"))
 
       fit.sigma <- parent(object)
 
@@ -256,6 +256,8 @@ setMethod("process1", "sigma_block", function(object, chain) {
       }
 
       if ("component.deviations.pca" %in% ctrl@plot) {
+        cat(paste0("[", Sys.time(), "]  component deviations plots...\n"))
+
         ellipsis <- ctrl@ellipsis
         ellipsis$object <- fit.sigma
         ellipsis$type <- "component.deviations"
@@ -270,6 +272,8 @@ setMethod("process1", "sigma_block", function(object, chain) {
       }
 
       if ("normalised.group.quants.pca" %in% ctrl@plot) {
+        cat(paste0("[", Sys.time(), "]  normalised group quants plots...\n"))
+
         ellipsis <- ctrl@ellipsis
         ellipsis$object <- fit.sigma
         do.call("plot_pca_contours", ellipsis)

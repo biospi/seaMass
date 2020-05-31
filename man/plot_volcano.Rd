@@ -6,10 +6,12 @@
 \usage{
 plot_volcano(
   data.fdr,
-  contours = 1:3,
+  contours = NULL,
   error.bars = TRUE,
   labels = 25,
-  plot.fdp = FALSE
+  x.col = "PosteriorMean",
+  s.col = "PosteriorSD",
+  y.col = "qvalue"
 )
 }
 \arguments{
