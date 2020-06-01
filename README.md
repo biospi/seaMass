@@ -96,7 +96,7 @@ plot_pr(data.fdr)
 
 ### Tutorial 2 - running on a HPC cluster
 
-To run seaMass on a HPC cluster, add a *schedule_slurm*, *schedule_pbs* or *schedule_sge* object to *sigma_control*. We also can specify the path of the output directory, in this case to 'hpc':
+To run seaMass on a HPC cluster, make sure that R and the seaMass R package is installed on the cluster nodes. Then you need to add a *schedule_slurm*, *schedule_pbs* or *schedule_sge* object to *sigma_control*. We also can specify the path of the output directory, in this case to 'hpc':
 
 ```
 # prepare seaMass-Σ

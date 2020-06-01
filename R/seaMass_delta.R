@@ -331,3 +331,34 @@ add_seaMass_spikein_truth <- function(data.fdr) {
 
   return(data)
 }
+
+
+#' @describeIn seaMass_delta-class Add Navarro spikein ground truth to the object of \code{group_fdr} pr \code{component_deviations_fdr}.
+#' @import data.table
+#' @export
+add_Navarro_spikein_truth <- function(data.fdr) {
+  # ground truth
+  data.truth <- rbind(
+    data.frame(set = "Human [1:1]",  truth = 0, grep = "_HUMAN$"),
+    data.frame(set = "E.coli [1:4]", truth = 2, grep = "_ECOLI$"),
+    data.frame(set = "Yeast [2:1]",  truth = -1, grep = "_YEAS8$")
+  )
+
+  # unlist proteins from protein groups
+  s <- strsplit(as.character(data.fdr$Group), split = ";")
+  data <- data.frame(Group = rep(data.fdr$Group, sapply(s, length)), Protein = unlist(s))
+  # initialize new varible with NAs
+  data$truth <- NA
+  # fill in matching indices
+  for (i in 1:nrow(data.truth)) data$truth[grepl(data.truth$grep[i], data$Protein)] <- data.truth$truth[i]
+  # remove duplicates
+  data <- data[!duplicated(data[, c("Group", "truth")]),]
+  # remove groups that have multiple truths
+  data <- data[!duplicated(data$Group) & !duplicated(data$Group, fromLast = T),]
+  # merge
+  cols <- colnames(data.fdr)
+  data <- merge(data.fdr, data[, c("Group", "truth")], by = "Group", sort = F, all.x = T)
+  setcolorder(data, cols)
+
+  return(data)
+}

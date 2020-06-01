@@ -10,12 +10,12 @@ plot_volcano <- function(
   contours = NULL,
   error.bars = TRUE,
   labels = 25,
+  stdev.col = "PosteriorSD",
   x.col = "PosteriorMean",
-  s.col = "PosteriorSD",
   y.col = "qvalue"
 ) {
   DT.fdr <- as.data.table(data.fdr)
-  DT.fdr[, s := get(s.col)]
+  DT.fdr[, s := get(stdev.col)]
   DT.fdr[, x := get(x.col)]
   if ("truth" %in% colnames(data.fdr)) {
     if (tolower(y.col) == "fdp") {
@@ -80,6 +80,7 @@ plot_volcano <- function(
   xlim.plot <- c(-1.5, 1.5) * quantile(DT.fdr[is.finite(x), x], probs = c(0.005, 0.995))
   xlim.plot <- c(-1.5, 1.5) * max(xlim.plot[1], xlim.plot[2])
   ylim.plot <- quantile(DT.fdr[is.finite(y), y], probs = c(0.005, 0.995))
+  ebh <- (ylim.plot[2] - ylim.plot[1]) / 500
   if (ylim.plot[2] < 2) ylim.plot[2] <- 2
   DT.fdr[x <= xlim.plot[1], x := -Inf]
   DT.fdr[x >= xlim.plot[2], x := Inf]
@@ -88,9 +89,9 @@ plot_volcano <- function(
 
   g <- ggplot2::ggplot(DT.fdr, ggplot2::aes(x = x, y = y), colour = Truth)
   if (!is.null(DT.density)) {
-    if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z1, colour = Truth), breaks = 1, alpha = 1)
-    if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z2, colour = Truth), breaks = 1, alpha = 0.5)
-    if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z3, colour = Truth), breaks = 1, alpha = 0.25)
+    if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z1, colour = Truth), breaks = 1)
+    if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z2, colour = Truth), breaks = 1)
+    if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z3, colour = Truth), breaks = 1)
   }
   if ("truth" %in% colnames(data.fdr)) {
     g <- g + ggplot2::geom_vline(ggplot2::aes(color = Truth, xintercept = truth), DT.meta[N >= 5])
@@ -99,7 +100,7 @@ plot_volcano <- function(
   } else {
     g <- g + ggplot2::theme(legend.position = "none")
   }
-  if (error.bars) g <- g + ggplot2::geom_errorbarh(ggplot2::aes(color = Truth, xmin = lower, xmax = upper), size = 1, alpha = 0.1)
+  if (error.bars) g <- g + ggplot2::geom_rect(ggplot2::aes(fill = Truth, xmin = lower, xmax = upper, ymin = y-ebh, ymax = y+ebh), size = 0, alpha = 0.2)
   g <- g + ggplot2::geom_point(ggplot2::aes(colour = Truth), size = 1)
   g <- g + ggplot2::geom_vline(xintercept = 0)
   g <- g + ggplot2::geom_hline(yintercept = ylim.plot[1])
@@ -121,6 +122,8 @@ plot_volcano <- function(
     g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = -log10(0.05)), linetype = "dashed")
   }
   g <- g + ggplot2::coord_cartesian(xlim = xlim.plot, ylim = ylim.plot, expand = F)
+  g <- g + ggplot2::scale_colour_hue(l = 50)
+  g <- g + ggplot2::scale_fill_discrete(guide = NULL)
   g
 }
 
@@ -180,6 +183,7 @@ plot_pr <- function(
 
   for (method in names(DTs.pr)) {
     DT.pr <- setDT(DTs.pr[[method]])
+    DT.pr <- DT.pr[!is.na(truth)]
     if (is.null(DT.pr$qvalue.lower)) DT.pr[, qvalue.lower := qvalue]
     if (is.null(DT.pr$qvalue.upper)) DT.pr[, qvalue.upper := qvalue]
     DT.pr <- DT.pr[, .(qvalue.lower, qvalue, qvalue.upper, FD = ifelse(truth == 0, 1, 0))]

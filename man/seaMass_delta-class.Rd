@@ -16,6 +16,7 @@
 \alias{group_fdr,seaMass_delta-method}
 \alias{component_deviations_fdr,seaMass_delta-method}
 \alias{add_seaMass_spikein_truth}
+\alias{add_Navarro_spikein_truth}
 \alias{standardised_group_quants,sigma_block-method}
 \title{seaMass-Δ}
 \usage{
@@ -62,6 +63,8 @@ open_delta(fit, name = "fit", quiet = FALSE, force = FALSE)
 \S4method{component_deviations_fdr}{seaMass_delta}(object, as.data.table = FALSE)
 
 add_seaMass_spikein_truth(data.fdr)
+
+add_Navarro_spikein_truth(data.fdr)
 
 \S4method{standardised_group_quants}{sigma_block}(
   object,
@@ -116,6 +119,8 @@ quants output by seaMass-Σ
 \item \code{component_deviations_fdr,seaMass_delta-method}: Get the false discovery rate corrected component deviations differential expression as a \link{data.frame}.
 
 \item \code{add_seaMass_spikein_truth}: Add our spikein ground truth to the object of \code{group_fdr} pr \code{component_deviations_fdr}.
+
+\item \code{add_Navarro_spikein_truth}: Add Navarro spikein ground truth to the object of \code{group_fdr} pr \code{component_deviations_fdr}.
 
 \item \code{standardised_group_quants,sigma_block-method}: Get the model standardised group quantifications as a \link{data.frame}.
 }}
