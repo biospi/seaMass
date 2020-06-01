@@ -143,6 +143,9 @@ setMethod("run", "seaMass_delta", function(object) {
       # plot volcano
       plot_volcano(DTs.fdr[[name]])
       ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_group_de_volcano", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
+      # plot fc_vs_stdev
+      plot_volcano(DTs.fdr[[name]], y.col = "s")
+      ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_group_de_fc_vs_stdev", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
     }
   }
   if (!("group.fdr" %in% ctrl@keep)) unlink(file.path(filepath(object), "group.fdr*"), recursive = T)
@@ -176,6 +179,9 @@ setMethod("run", "seaMass_delta", function(object) {
         # plot volcano
         plot_volcano(DTs.fdr[[name]])
         ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_component_deviations_de_volcano", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
+        # plot fc_vs_stdev
+        plot_volcano(DTs.fdr[[name]], y.col = "s")
+        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_component_deviations_de_fc_vs_stdev", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
       }
     }
     if (!("component.deviations.fdr" %in% ctrl@keep)) unlink(file.path(filepath(object), "component.deviations.fdr*"), recursive = T)

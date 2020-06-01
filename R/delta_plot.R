@@ -10,8 +10,8 @@ plot_volcano <- function(
   contours = NULL,
   error.bars = TRUE,
   labels = 25,
-  stdev.col = "PosteriorSD",
-  x.col = "PosteriorMean",
+  stdev.col = "s",
+  x.col = "m",
   y.col = "qvalue"
 ) {
   DT.fdr <- as.data.table(data.fdr)

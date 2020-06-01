@@ -9,8 +9,8 @@ plot_volcano(
   contours = NULL,
   error.bars = TRUE,
   labels = 25,
-  stdev.col = "PosteriorSD",
-  x.col = "PosteriorMean",
+  stdev.col = "s",
+  x.col = "m",
   y.col = "qvalue"
 )
 }
