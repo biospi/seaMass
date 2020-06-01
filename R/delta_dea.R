@@ -86,7 +86,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
         DT[, Assay := factor(Assay, levels = 1:nlevels(DT.design[, Assay]), labels = levels(DT.design[, Assay]))]
         DT[, Block := factor(Block, levels = 1:nlevels(DT.design[, Block]), labels = levels(DT.design[, Block]))]
         DT <- merge(DT, DT.design, all.y = T, by = c("Block", "Assay"), sort = F)
-        DT <- droplevels(DT[complete.cases(DT[, !c("m", "s", "df", "rhat")])])
+        #DT <- droplevels(DT[complete.cases(DT[, !c("m", "s", "df", "rhat")])])
 
         # run MCMCglmm
         output <- list()

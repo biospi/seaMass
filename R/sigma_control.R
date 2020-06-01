@@ -30,6 +30,7 @@ setClass("sigma_control", slots = c(
   nthread = "integer",
   schedule = "schedule",
   version = "character",
+  blocks = "character",
   ellipsis = "list"
 ))
 

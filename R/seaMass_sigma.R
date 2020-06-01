@@ -38,18 +38,15 @@ seaMass_sigma <- function(
 
   ### INIT
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control@version, "\n"))
-  control@ellipsis <- list(...)
-  validObject(control)
   data.table::setDTthreads(control@nthread)
   fst::threads_fst(control@nthread)
 
-  # check if exists and save control
+  # check if exists
   if (!grepl("\\.seaMass$", path)) path <- paste0(path, ".seaMass")
   if (file.exists(path)) unlink(path, recursive = T)
   dir.create(file.path(path, "output"), recursive = T)
   path <- normalizePath(path)
   dir.create(file.path(path, "meta"))
-  saveRDS(control, file.path(path, "meta", "control.rds"))
 
   # init DT
   data.is.data.table <- is.data.table(data)
@@ -148,17 +145,22 @@ seaMass_sigma <- function(
   fwrite(DT.measurements, file.path(path, "output", "measurements.csv"))
   rm(DT.measurements)
 
-  # process each block independently
+  # extract blocks and save control
   block.cols <- colnames(DT.design)[grep("^Block\\.(.*)$", colnames(DT.design))]
-  blocks <- sub("^Block\\.(.*)$", "\\1", block.cols)
-  DT.design <- rbindlist(lapply(1:length(blocks), function(i) {
-    cat(paste0("[", Sys.time(), "]  preparing block=", blocks[i], "...\n"))
-    blockpath <- file.path(path, paste0("sigma.", blocks[i]))
+  control@blocks <- sub("^Block\\.(.*)$", "\\1", block.cols)
+  control@ellipsis <- list(...)
+  validObject(control)
+  saveRDS(control, file.path(path, "meta", "control.rds"))
+
+  # process each block independently
+  DT.design <- rbindlist(lapply(1:length(control@blocks), function(i) {
+    cat(paste0("[", Sys.time(), "]  preparing block=", control@blocks[i], "...\n"))
+    blockpath <- file.path(path, paste0("sigma.", control@blocks[i]))
 
     # design for this block
     DT.design.block <- DT.design[as.logical(get(block.cols[i]))]
     DT.design.block[, (block.cols) := NULL]
-    DT.design.block[, Block := factor(blocks[i])]
+    DT.design.block[, Block := factor(control@blocks[i])]
     setcolorder(DT.design.block, "Block")
 
     # data for this block
@@ -290,21 +292,25 @@ open_sigma <- function(
   quiet = FALSE,
   force = FALSE
 ) {
-  if (dir.exists(paste0(path, ".seaMass"))) path <- paste0(path, ".seaMass")
-
-  blocks <- list.dirs(path, full.names = F, recursive = F)
-  blocks <- blocks[grep("^sigma\\.", blocks)]
-
-  if(length(blocks) > 0 && (force || all(file.exists(file.path(path, blocks, "complete"))))) {
-     return(new("seaMass_sigma", filepath = normalizePath(path)))
-  } else {
+  path2 <- ifelse(dir.exists(path), path, paste0(path, ".seaMass"))
+  if (!dir.exists(path2)) {
     if (quiet) {
       return(NULL)
     } else {
-      if (force) stop("'", path, "' does not contain seaMass-sigma blocks")
-      else stop("'", path, "' does not contain a full set of completed seaMass-Σ blocks")
+      stop("'", path, "' does not exist")
     }
   }
+
+  object <- new("seaMass_sigma", filepath = normalizePath(path2))
+  if (!force && !completed(object)) {
+    if (quiet) {
+      return(NULL)
+    } else {
+      stop("'", path, "' is not complete")
+    }
+  }
+
+  return(object)
 }
 
 
@@ -438,13 +444,12 @@ setMethod("measurements", "seaMass_sigma", function(object, as.data.table = FALS
 #' @export
 #' @include generics.R
 setMethod("blocks", "seaMass_sigma", function(object) {
-  blocks <- list.dirs(filepath(object), full.names = F, recursive = F)
-  blocks <- blocks[grep("^sigma\\.", blocks)]
+  blocks <- control(object)@blocks
   if (length(blocks) == 0)
     stop(paste0("seaMass-sigma output '", sub("\\.seaMass$", "", basename(filepath(object))), "' is missing"))
 
-  blocks <- lapply(blocks, function(block) new("sigma_block", filepath = normalizePath(file.path(filepath(object), block))))
-  names(blocks) <- sapply(blocks, function(block) name(block))
+  names(blocks) <- blocks
+  blocks <- lapply(blocks, function(block) new("sigma_block", filepath = normalizePath(file.path(filepath(object), paste0("sigma.", block)))))
   return(blocks)
 })
 
