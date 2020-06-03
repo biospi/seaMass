@@ -79,51 +79,61 @@ setMethod("process1", "sigma_block", function(object, chain) {
       standardise_group_quants(object)
 
       # normalise group quants
-      ellipsis <- ctrl@ellipsis
-      ellipsis$object <- object
-      do.call(paste0("norm_", ctrl@norm.model), ellipsis)
-      unlink(file.path(filepath(object), "standardised.group.quants*"), recursive = T)
+      type <- "standardised.group.quants"
+      if (ctrl@norm.model != "") {
+        type <- "normalised.group.quants"
+        ellipsis <- ctrl@ellipsis
+        ellipsis$object <- object
+        do.call(paste0("norm_", ctrl@norm.model), ellipsis)
+        unlink(file.path(filepath(object), "standardised.group.quants*"), recursive = T)
 
-      cat(paste0("[", Sys.time(), "]    getting normalised group variance summaries...\n"))
-      DT.normalised.group.variances <- normalised_group_variances(object, summary = T, as.data.table = T)
-      if (!is.null(DT.normalised.group.variances)) {
-        DT.normalised.group.variances[, Block := NULL]
+        cat(paste0("[", Sys.time(), "]    getting normalised group variance summaries...\n"))
+        DT.normalised.group.variances <- normalised_group_variances(object, summary = T, as.data.table = T)
+        if (!is.null(DT.normalised.group.variances)) {
+          DT.normalised.group.variances[, Block := NULL]
 
-        # update priors
-        DT.group.prior <- DT.normalised.group.variances[, squeeze_var(v, df)]
-        fst::write.fst(rbind(priors(object, as.data.table = T)[, Block := NULL], data.table(Effect = "Groups", DT.group.prior), fill = T), file.path(object@filepath, "model1", "priors.fst"))
+          # update priors
+          DT.group.prior <- DT.normalised.group.variances[, squeeze_var(v, df)]
+          fst::write.fst(rbind(priors(object, as.data.table = T)[, Block := NULL], data.table(Effect = "Groups", DT.group.prior), fill = T), file.path(object@filepath, "model1", "priors.fst"))
 
-        # update design
-        DT.design <- assay_design(object, as.data.table = T)[, Block := NULL]
-        DT.design[!is.na(Assay), Groups.SD := sqrt(DT.group.prior$v)]
-        fst::write.fst(DT.design, file.path(filepath(object), "design.fst"))
+          # update design
+          DT.design <- assay_design(object, as.data.table = T)[, Block := NULL]
+          DT.design[!is.na(Assay), Groups.SD := sqrt(DT.group.prior$v)]
+          fst::write.fst(DT.design, file.path(filepath(object), "design.fst"))
 
-        rm(DT.normalised.group.variances)
-      }
-
-      cat(paste0("[", Sys.time(), "]    getting assay exposure summaries...\n"))
-      DT.design <- assay_design(object, as.data.table = T)[, Block := NULL]
-      DT.design <- merge(DT.design, assay_exposures(object, summary = T, as.data.table = T)[, .(Assay, Exposure = m)], by = "Assay", sort = F, all.x = T)
-      fst::write.fst(DT.design, file.path(filepath(object), "design.fst"))
-
-      if ("normalised.group.quants" %in% ctrl@summarise || "normalised.group.quants.pca" %in% ctrl@plot) {
-        cat(paste0("[", Sys.time(), "]    getting normalised group quant summaries...\n"))
-        DT.normalised.group.quants <- normalised_group_quants(object, summary = T, as.data.table = T)
-        rm(DT.normalised.group.quants)
-
-        if ("normalised.group.quants.pca" %in% ctrl@plot && length(blocks(object)) > 1) {
-          do.call("plot_pca_contours", ellipsis)
-          ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_normalised_group_quants_pca__assay_sd__block_", name(object), ".pdf")), width = 300, height = 300 * 9/16, units = "mm")
-          ellipsis$colour <- "Exposure"
-          do.call("plot_pca_contours", ellipsis)
-          ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_normalised_group_quants_pca__assay_exposure__block_", name(object), ".pdf")), width = 300, height = 300 * 9/16, units = "mm")
+          rm(DT.normalised.group.variances)
         }
+
+        cat(paste0("[", Sys.time(), "]    getting assay exposure summaries...\n"))
+        DT.design <- assay_design(object, as.data.table = T)[, Block := NULL]
+        DT.design <- merge(DT.design, assay_exposures(object, summary = T, as.data.table = T)[, .(Assay, Exposure = m)], by = "Assay", sort = F, all.x = T)
+        fst::write.fst(DT.design, file.path(filepath(object), "design.fst"))
+      }
+    }
+
+    if ("normalised.group.quants" %in% ctrl@summarise || "normalised.group.quants.pca" %in% ctrl@plot) {
+      cat(paste0("[", Sys.time(), "]    getting group quant summaries...\n"))
+      DT.group.quants <- read_samples(object, input = "model1", type = type, summary = T, as.data.table = T)
+      rm(DT.group.quants)
+
+      if ("normalised.group.quants.pca" %in% ctrl@plot && length(blocks(object)) > 1) {
+        ellipsis <- ctrl@ellipsis
+        ellipsis$object <- object
+        ellipsis$type <- type
+        do.call("plot_pca_contours", ellipsis)
+        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_normalised_group_quants_pca__assay_sd__block_", name(object), ".pdf")), width = 300, height = 300 * 9/16, units = "mm")
+        ellipsis$colour <- "Exposure"
+        do.call("plot_pca_contours", ellipsis)
+        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_normalised_group_quants_pca__assay_exposure__block_", name(object), ".pdf")), width = 300, height = 300 * 9/16, units = "mm")
       }
     }
 
     # delete group quants if not in 'keep'
     if (!("raw.group.quants" %in% ctrl@keep)) unlink(file.path(filepath(object), "model1", "group.quants*"), recursive = T)
-    if (!("normalised.group.quants" %in% ctrl@keep)) unlink(file.path(filepath(object), "normalised.group.quants*"), recursive = T)
+    if (!("normalised.group.quants" %in% ctrl@keep)) {
+      if(file.exists(file.path(filepath(object), "standardised.group.quants"))) unlink(file.path(filepath(object), "standardised.group.quants*"), recursive = T)
+      unlink(file.path(filepath(object), "normalised.group.quants*"), recursive = T)
+    }
     if (!("normalised.group.variances" %in% ctrl@keep)) {
       if(file.exists(file.path(filepath(object), "normalised.group.variances"))) unlink(file.path(filepath(object), "normalised.group.variances*"), recursive = T)
     }
@@ -243,16 +253,26 @@ setMethod("process1", "sigma_block", function(object, chain) {
 
       # write out normalised group quants
       if ("normalised.group.quants" %in% ctrl@summarise) {
+        type <- "normalised.group.quants"
         DT <- normalised_group_quants(fit.sigma, summary = T, as.data.table = T)
-        DT <- dcast(DT, Group ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
-        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_normalised_group_quants.csv"))
+        if (is.null(DT)) {
+          type <- "standardised.group.quants"
+          DT <- standardised_group_quants(fit.sigma, summary = T, as.data.table = T)
+        }
+
+        if (!is.null(DT)) {
+          DT <- dcast(DT, Group ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
+          fwrite(DT, file.path(filepath(fit.sigma), "output", paste0("log2_", gsub("\\.", "_", type), ".csv")))
+        }
       }
 
       # write out normalised group variances
       if ("normalised.group.variances" %in% ctrl@summarise) {
         DT <- normalised_group_variances(fit.sigma, summary = T, as.data.table = T)
-        DT <- dcast(DT, Group ~ Block, value.var = c("v", "df", "rhat"))
-        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_normalised_group_variances.csv"))
+        if (!is.null(DT)) {
+          DT <- dcast(DT, Group ~ Block, value.var = c("v", "df", "rhat"))
+          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_normalised_group_variances.csv"))
+        }
       }
 
       if ("component.deviations.pca" %in% ctrl@plot) {
@@ -263,9 +283,11 @@ setMethod("process1", "sigma_block", function(object, chain) {
         ellipsis$type <- "component.deviations"
         do.call("plot_pca_contours", ellipsis)
         ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_component_deviations_pca__assay_sd.pdf")), width = 300, height = 300 * 9/16, units = "mm")
-        ellipsis$colour <- "Exposure"
-        do.call("plot_pca_contours", ellipsis)
-        ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_component_deviations_pca__assay_exposure.pdf")), width = 300, height = 300 * 9/16, units = "mm")
+        if ("Exposure" %in% colnames(assay_design(object))) {
+          ellipsis$colour <- "Exposure"
+          do.call("plot_pca_contours", ellipsis)
+          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_component_deviations_pca__assay_exposure.pdf")), width = 300, height = 300 * 9/16, units = "mm")
+        }
         ellipsis$colour <- "Condition"
         do.call("plot_pca_contours", ellipsis)
         ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_component_deviations_pca.pdf")), width = 300, height = 300 * 9/16, units = "mm")
@@ -273,17 +295,28 @@ setMethod("process1", "sigma_block", function(object, chain) {
 
       if ("normalised.group.quants.pca" %in% ctrl@plot) {
         cat(paste0("[", Sys.time(), "]  normalised group quants plots...\n"))
+        type <- "normalised.group.quants"
+        DT <- normalised_group_quants(fit.sigma, summary = T, as.data.table = T)
+        if(is.null(DT)) {
+          type <- "standardised.group.quants"
+          DT <- standardised_group_quants(fit.sigma, summary = T, as.data.table = T)
+        }
 
-        ellipsis <- ctrl@ellipsis
-        ellipsis$object <- fit.sigma
-        do.call("plot_pca_contours", ellipsis)
-        ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_normalised_group_quants_pca__assay_sd.pdf")), width = 300, height = 300 * 9/16, units = "mm")
-        ellipsis$colour <- "Exposure"
-        do.call("plot_pca_contours", ellipsis)
-        ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_normalised_group_quants_pca__assay_exposure.pdf")), width = 300, height = 300 * 9/16, units = "mm")
-        ellipsis$colour <- "Condition"
-        do.call("plot_pca_contours", ellipsis)
-        ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_normalised_group_quants_pca.pdf")), width = 300, height = 300 * 9/16, units = "mm")
+        if (!is.null(DT)) {
+          ellipsis <- ctrl@ellipsis
+          ellipsis$object <- fit.sigma
+          ellipsis$type <- type
+          do.call("plot_pca_contours", ellipsis)
+          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_", gsub("\\.", "_", type), "_pca__assay_sd.pdf")), width = 300, height = 300 * 9/16, units = "mm")
+          if ("Exposure" %in% colnames(assay_design(object))) {
+            ellipsis$colour <- "Exposure"
+            do.call("plot_pca_contours", ellipsis)
+            ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_", gsub("\\.", "_", type), "_pca__assay_exposure.pdf")), width = 300, height = 300 * 9/16, units = "mm")
+          }
+          ellipsis$colour <- "Condition"
+          do.call("plot_pca_contours", ellipsis)
+          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_", gsub("\\.", "_", type), "_pca.pdf")), width = 300, height = 300 * 9/16, units = "mm")
+        }
       }
 
       # set complete

@@ -93,8 +93,6 @@ setMethod("components", "sigma_block", function(object, as.data.table = FALSE) {
 #' @include generics.R
 setMethod("assay_design", "sigma_block", function(object, as.data.table = FALSE) {
   DT <- fst::read.fst(file.path(filepath(object), "design.fst"), as.data.table = T)
-  DT[, Block := factor(name(object), levels = names(blocks(object)))]
-  setcolorder(DT, "Block")
 
   if (!as.data.table) setDF(DT)
   else DT[]

@@ -52,6 +52,8 @@ seaMass_sigma <- function(
   data.is.data.table <- is.data.table(data)
   DT <- setDT(data)
 
+  cat(paste0("[", Sys.time(), "] preparing metadata...\n"))
+
   # if poission model only integers are allowed, plus apply missingness.threshold
   if (control@error.model == "poisson") {
     DT[, Count0 := round(Count)]
@@ -160,7 +162,7 @@ seaMass_sigma <- function(
     # design for this block
     DT.design.block <- DT.design[as.logical(get(block.cols[i]))]
     DT.design.block[, (block.cols) := NULL]
-    DT.design.block[, Block := factor(control@blocks[i])]
+    DT.design.block[, Block := factor(control@blocks[i], levels = control@blocks)]
     setcolorder(DT.design.block, "Block")
 
     # data for this block
@@ -240,7 +242,7 @@ seaMass_sigma <- function(
 
     # create output directory
     dir.create(blockpath)
-    fst::write.fst(DT.design.block[, Block := NULL], file.path(blockpath, "design.fst"))
+    fst::write.fst(DT.design.block, file.path(blockpath, "design.fst"))
 
     # save random access indices
     dir.create(file.path(blockpath, "model0"))
@@ -470,7 +472,7 @@ setMethod("open_deltas", "seaMass_sigma", function(object, quiet = FALSE, force 
 #' @include generics.R
 setMethod("assay_design", "seaMass_sigma", function(object, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) assay_design(block, as.data.table = T)))
-  DT[, Block := factor(Block, levels = names(blocks(object)))]
+  if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -484,7 +486,7 @@ setMethod("assay_design", "seaMass_sigma", function(object, as.data.table = FALS
 #' @include generics.R
 setMethod("timings", "seaMass_sigma", function(object, input = "model1", as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) timings(block, input, as.data.table = T)))
-  #if (!is.null(DT)) DT[, Block := factor(Block, levels = names(blocks(object)))]
+  if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -498,7 +500,7 @@ setMethod("timings", "seaMass_sigma", function(object, input = "model1", as.data
 #' @include generics.R
 setMethod("assay_variances", "seaMass_sigma", function(object, input = "model1", as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) assay_variances(block, input, as.data.table = T)))
-  #if (!is.null(DT)) DT[, Block := factor(Block, levels = names(blocks(object)))]
+  if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -512,7 +514,7 @@ setMethod("assay_variances", "seaMass_sigma", function(object, input = "model1",
 #' @include generics.R
 setMethod("measurement_variances", "seaMass_sigma", function(object, measurements = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) measurement_variances(block, measurements, summary, input, chains, as.data.table = T)))
-  #if (!is.null(DT)) DT[, Block := factor(Block, levels = names(blocks(object)))]
+  if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -526,7 +528,7 @@ setMethod("measurement_variances", "seaMass_sigma", function(object, measurement
 #' @include generics.R
 setMethod("component_variances", "seaMass_sigma", function(object, components = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) component_variances(block, components, summary, input, chains, as.data.table = T)))
-  #if (!is.null(DT)) DT[, Block := factor(Block, levels = names(blocks(object)))]
+  if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -540,7 +542,7 @@ setMethod("component_variances", "seaMass_sigma", function(object, components = 
 #' @include generics.R
 setMethod("component_deviations", "seaMass_sigma", function(object, components = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) component_deviations(block, components, summary, input, chains, as.data.table = T)))
-  if (!is.null(DT)) DT[, Block := factor(Block, levels = names(blocks(object)))]
+  if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -555,6 +557,7 @@ setMethod("component_deviations", "seaMass_sigma", function(object, components =
 #' @include generics.R
 setMethod("assay_deviations", "seaMass_sigma", function(object, assays = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), assay_deviations(block, assays, summary, input, chains, as.data.table = T)))
+  if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -568,6 +571,7 @@ setMethod("assay_deviations", "seaMass_sigma", function(object, assays = NULL, s
 #' @include generics.R
 setMethod("raw_group_quants", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) raw_group_quants(block, groups, summary, input, chains, as.data.table = T)))
+  if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -581,6 +585,7 @@ setMethod("raw_group_quants", "seaMass_sigma", function(object, groups = NULL, s
 #' @include generics.R
 setMethod("standardised_group_quants", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) standardised_group_quants(block, groups, summary, input, chains, as.data.table = T)))
+  if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -594,6 +599,7 @@ setMethod("standardised_group_quants", "seaMass_sigma", function(object, groups 
 #' @include generics.R
 setMethod("normalised_group_quants", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block)  normalised_group_quants(block, groups, summary, input, chains, as.data.table = T)))
+  if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -607,6 +613,7 @@ setMethod("normalised_group_quants", "seaMass_sigma", function(object, groups = 
 #' @include generics.R
 setMethod("normalised_group_variances", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) normalised_group_variances(block, groups, summary, input, chains, as.data.table = T)))
+  if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -619,6 +626,7 @@ setMethod("normalised_group_variances", "seaMass_sigma", function(object, groups
 #' @include generics.R
 setMethod("read_samples", "seaMass_sigma", function(object, input, type, items = NULL, chains = 1:control(object)@model.nchain, summary = NULL, summary.func = "dist_normal_robust_samples", as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) read_samples(block, input, type, items, chains, summary, summary.func, as.data.table = T)))
+  if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
   else DT[]

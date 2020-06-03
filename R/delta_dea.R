@@ -122,7 +122,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
                 pl = pl,
                 verbose = F,
                 DIC = DIC,
-                singular.ok = T,
+                #singular.ok = T,
                 saveX = saveX,
                 saveZ = saveZ,
                 saveXL = saveXL,
@@ -184,10 +184,10 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
             output$DT.meta[, qS := 0]
             output$DT.meta[, uS := 0]
             for (i in 1:nrow(output$DT.meta)) {
-              if (type == "group.de") output$DT.meta$qC[i] <- max(0, DT[get(as.character(output$DT.meta[i, Effect])) == output$DT.meta[i, Level], qC], na.rm = T)
-              output$DT.meta$qM[i] <- max(0, DT[get(as.character(output$DT.meta[i, Effect])) == output$DT.meta[i, Level], qM], na.rm = T)
-              output$DT.meta$qS[i] <- length(unique(DT[get(as.character(output$DT.meta[i, Effect])) == output$DT.meta[i, Level] & !is.na(m) & qM > 0, Sample]))
-              output$DT.meta$uS[i] <- length(unique(DT[get(as.character(output$DT.meta[i, Effect])) == output$DT.meta[i, Level] & !is.na(m), Sample]))
+              if (type == "group.de") output$DT.meta$qC[i] <- max(0, DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]), qC], na.rm = T)
+              output$DT.meta$qM[i] <- max(0, DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]), qM], na.rm = T)
+              output$DT.meta$qS[i] <- length(unique(DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]) & !is.na(m) & qM > 0, Sample]))
+              output$DT.meta$uS[i] <- length(unique(DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]) & !is.na(m), Sample]))
             }
           }
         }
