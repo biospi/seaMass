@@ -106,16 +106,16 @@ plot_volcano <- function(
   g <- g + ggplot2::geom_hline(yintercept = ylim.plot[1])
   g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = label), size = 2.5, na.rm = T)
   if (x.col == "m") {
-    g <- g + ggplot2::xlab("log2(Fold Change)")
+    g <- g + ggplot2::xlab("log2(Fold Change) Posterior Mean")
   } else if (x.col == "PosteriorMean") {
-    g <- g + ggplot2::xlab("log2(Moderated Fold Change)")
+    g <- g + ggplot2::xlab("log2(Shrunk Fold Change) Posterior Mean")
   } else {
     g <- g + ggplot2::xlab(paste0("log2(", x.col, ")"))
   }
   if (y.col == "s") {
-    g <- g + ggplot2::ylab(paste0("-log2(Standard Deviation)"))
+    g <- g + ggplot2::ylab(paste0("-log2(Fold Change) Posterior Standard Deviation"))
   } else if (y.col == "PosteriorSD") {
-    g <- g + ggplot2::ylab(paste0("-log2(Moderated Standard Deviation)"))
+    g <- g + ggplot2::ylab(paste0("-log2(Shrunk Fold Change) Posterior Standard Deviation"))
   } else {
     g <- g + ggplot2::ylab(paste0(paste0("-log10(", y.col, ")")))
     g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = -log10(0.01)), linetype = "dashed")

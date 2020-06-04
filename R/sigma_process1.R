@@ -90,14 +90,12 @@ setMethod("process1", "sigma_block", function(object, chain) {
         cat(paste0("[", Sys.time(), "]    getting normalised group variance summaries...\n"))
         DT.normalised.group.variances <- normalised_group_variances(object, summary = T, as.data.table = T)
         if (!is.null(DT.normalised.group.variances)) {
-          DT.normalised.group.variances[, Block := NULL]
-
           # update priors
           DT.group.prior <- DT.normalised.group.variances[, squeeze_var(v, df)]
-          fst::write.fst(rbind(priors(object, as.data.table = T)[, Block := NULL], data.table(Effect = "Groups", DT.group.prior), fill = T), file.path(object@filepath, "model1", "priors.fst"))
+          fst::write.fst(rbind(priors(object, as.data.table = T), data.table(Effect = "Groups", DT.group.prior), fill = T), file.path(object@filepath, "model1", "priors.fst"))
 
           # update design
-          DT.design <- assay_design(object, as.data.table = T)[, Block := NULL]
+          DT.design <- assay_design(object, as.data.table = T)
           DT.design[!is.na(Assay), Groups.SD := sqrt(DT.group.prior$v)]
           fst::write.fst(DT.design, file.path(filepath(object), "design.fst"))
 
@@ -105,7 +103,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
         }
 
         cat(paste0("[", Sys.time(), "]    getting assay exposure summaries...\n"))
-        DT.design <- assay_design(object, as.data.table = T)[, Block := NULL]
+        DT.design <- assay_design(object, as.data.table = T)
         DT.design <- merge(DT.design, assay_exposures(object, summary = T, as.data.table = T)[, .(Assay, Exposure = m)], by = "Assay", sort = F, all.x = T)
         fst::write.fst(DT.design, file.path(filepath(object), "design.fst"))
       }
