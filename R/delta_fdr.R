@@ -6,7 +6,6 @@ setMethod("fdr_ash", "seaMass_delta", function(
   type = "group.fdr",
   by.effect = TRUE,
   by.contrast = TRUE,
-  use.df = FALSE,
   min.components = 1,
   min.components.per.condition = 0,
   min.measurements = 1,
@@ -15,7 +14,9 @@ setMethod("fdr_ash", "seaMass_delta", function(
   min.used.samples.per.condition = 2,
   min.quantified.samples = 1,
   min.quantified.samples.per.condition = 0,
-  mixcompdist = "halfnormal",
+  summary = "normal_robust_samples",
+  mixcompdist = "halfuniform",
+  sort.col = "qvalue",
   ...
 ) {
   # this is needed to stop foreach massive memory leak!!!
@@ -31,9 +32,9 @@ setMethod("fdr_ash", "seaMass_delta", function(
   cat(paste0("[", Sys.time(), "]    getting summaries...\n"))
 
   if (type == "group.fdr") {
-    DT <- group_de(object, summary = "normal_robust_samples", as.data.table = T)
+    DT <- group_de(object, summary = summary, as.data.table = T)
   } else if (type == "component.deviations.fdr") {
-    DT <- component_deviations_de(object, summary = "normal_robust_samples", as.data.table = T)
+    DT <- component_deviations_de(object, summary = summary, as.data.table = T)
   } else {
     stop("unknown type")
   }
@@ -61,10 +62,10 @@ setMethod("fdr_ash", "seaMass_delta", function(
   }
 
   cat(paste0("[", Sys.time(), "]    running model...\n"))
-  DT <- rbindlist(parallel_lapply(split(DT, by = "Batch"), function(item, use.df, mixcompdist, type) {
+  DT <- rbindlist(parallel_lapply(split(DT, by = "Batch"), function(item, mixcompdist, type) {
     if (nrow(item[use == T]) > 0) {
       # run ash, but allowing variable DF
-      if (use.df) {
+      if (!all(is.infinite(item$df))) {
         lik_ts = list(
           name = "t",
           const = length(unique(item[use == T, df])) == 1,
@@ -101,7 +102,7 @@ setMethod("fdr_ash", "seaMass_delta", function(
     }
   }, nthread = control(object)@nthread))
 
-  setorder(DT, Batch, qvalue, na.last = T)
+  setorderv(DT, c("Batch", sort.col), na.last = T)
   fst::write.fst(DT, file.path(filepath(object), paste0(type, ".fst")))
 
   options(warn = warn)
