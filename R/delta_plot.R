@@ -143,7 +143,7 @@ plot_fdr <- function(data.fdr, y.max = NULL) {
 
   pi <- y.max <- max(DT[, qvalue])
   if (is.null(y.max)) y.max <- pi
-  xmax <- max(DT[qvalue <= ymax, Discoveries])
+  xmax <- max(DT[qvalue <= y.max, Discoveries])
   ylabels <- function() function(x) format(x, digits = 2)
 
   g <- ggplot2::ggplot(DT, ggplot2::aes(x = Discoveries, y = qvalue))
