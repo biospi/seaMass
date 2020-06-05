@@ -134,15 +134,15 @@ plot_volcano <- function(
 #' @return The sum of \code{x} and \code{y}.
 #' @import data.table
 #' @export
-plot_fdr <- function(data.fdr, ymax = NULL) {
+plot_fdr <- function(data.fdr, y.max = NULL) {
   DT <- as.data.table(data.fdr)
   DT <- DT[!is.na(qvalue)]
   DT <- rbind(DT[1], DT)
   DT[1, qvalue := 0]
   DT[, Discoveries := 0:(.N-1)]
 
-  pi <- ymax <- max(DT[, qvalue])
-  if (is.null(ymax)) ymax <- pi
+  pi <- y.max <- max(DT[, qvalue])
+  if (is.null(y.max)) y.max <- pi
   xmax <- max(DT[qvalue <= ymax, Discoveries])
   ylabels <- function() function(x) format(x, digits = 2)
 
@@ -153,7 +153,7 @@ plot_fdr <- function(data.fdr, ymax = NULL) {
   g <- g + ggplot2::geom_step(direction = "vh")
   g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
   g <- g + ggplot2::scale_y_reverse(breaks = sort(c(pi, 0.0, 0.01, 0.05, 0.1, 0.2, 0.5, 1.0)), labels = ylabels(), expand = c(0.001, 0.001))
-  g <- g + ggplot2::coord_cartesian(xlim = c(0, xmax), ylim = c(ymax, 0))
+  g <- g + ggplot2::coord_cartesian(xlim = c(0, xmax), ylim = c(y.max, 0))
   g <- g + ggplot2::xlab("Number of Discoveries")
   g <- g + ggplot2::ylab("False Discovery Rate")
   g
@@ -163,15 +163,16 @@ plot_fdr <- function(data.fdr, ymax = NULL) {
 #' Precision-Recall plot
 #'
 #' @param data.fdr .
-#' @param ymax .
+#' @param y.max .
 #' @return A ggplot2 object.
 #' @import data.table
 #' @export
 plot_pr <- function(
   data.fdr,
   plot.fdr = T,
-  ymax = NULL,
-  legend.nrow = 1
+  y.max = NULL,
+  legend.nrow = 1,
+  y.col = "qvalue"
 ) {
   if (is.data.frame(data.fdr)) {
     DTs.pr <- list(unknown = data.fdr)
@@ -184,9 +185,10 @@ plot_pr <- function(
   for (method in names(DTs.pr)) {
     DT.pr <- setDT(DTs.pr[[method]])
     DT.pr <- DT.pr[!is.na(truth)]
-    if (is.null(DT.pr$qvalue.lower)) DT.pr[, qvalue.lower := qvalue]
-    if (is.null(DT.pr$qvalue.upper)) DT.pr[, qvalue.upper := qvalue]
-    DT.pr <- DT.pr[, .(qvalue.lower, qvalue, qvalue.upper, FD = ifelse(truth == 0, 1, 0))]
+    if (is.null(DT.pr$lower)) DT.pr[, lower := get(y.col)]
+    if (is.null(DT.pr$upper)) DT.pr[, upper := get(y.col)]
+    DT.pr <- DT.pr[, .(lower, y = get(y.col), upper, FD = ifelse(truth == 0, 1, 0))]
+    setorder(DT.pr, y, na.last = T)
     DT.pr[, Discoveries := 1:nrow(DT.pr)]
     DT.pr[, TrueDiscoveries := cumsum(1 - FD)]
     DT.pr[, FDP := cumsum(FD) / Discoveries]
@@ -200,18 +202,18 @@ plot_pr <- function(
   ylabels <- function() function(x) format(x, digits = 2)
 
   pi <- 1.0 - max(DTs.pr$TrueDiscoveries) / max(DTs.pr$Discoveries)
-  if (is.null(ymax)) ymax <- pi
+  if (is.null(y.max)) y.max <- pi
 
   g <- ggplot2::ggplot(DTs.pr, ggplot2::aes(x = TrueDiscoveries, y = FDP, colour = Method, fill = Method, linetype = Method))
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype = "dotted")
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype = "dotted")
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype = "dotted")
-  g <- g + ggplot2::geom_ribbon(ggplot2::aes(ymin = qvalue.lower, ymax = qvalue.upper), colour = NA, alpha = 0.3)
-  if (plot.fdr) g <- g + ggplot2::geom_line(ggplot2::aes(y = qvalue), lty = "dashed")
+  g <- g + ggplot2::geom_ribbon(ggplot2::aes(ymin = lower, ymax = upper), colour = NA, alpha = 0.3)
+  if (plot.fdr) g <- g + ggplot2::geom_line(ggplot2::aes(y = y), lty = "dashed")
   g <- g + ggplot2::geom_step(direction = "vh")
   g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
   g <- g + ggplot2::scale_y_reverse(breaks = sort(c(pi, 0.0, 0.01, 0.05, 0.1, 0.2, 0.5, 1.0)), labels = ylabels(), expand = c(0.001, 0.001))
-  g <- g + ggplot2::coord_cartesian(xlim = c(0, max(DTs.pr$TrueDiscoveries)), ylim = c(ymax, 0))
+  g <- g + ggplot2::coord_cartesian(xlim = c(0, max(DTs.pr$TrueDiscoveries)), ylim = c(y.max, 0))
   g <- g + ggplot2::xlab(paste0("True Discoveries [ Sensitivity x ", max(DTs.pr$TrueDiscoveries), " ] from ", max(DTs.pr$Discoveries), " total groups"))
   g <- g + ggplot2::ylab("Solid Line: False Discovery Proportion [ 1 - Precision ], Dashed Line: FDR")
   g <- g + ggplot2::scale_linetype_manual(values = rep("solid", length(levels(DTs.pr$Method))))

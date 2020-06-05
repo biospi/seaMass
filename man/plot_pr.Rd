@@ -4,12 +4,18 @@
 \alias{plot_pr}
 \title{Precision-Recall plot}
 \usage{
-plot_pr(data.fdr, plot.fdr = T, ymax = NULL, legend.nrow = 1)
+plot_pr(
+  data.fdr,
+  plot.fdr = T,
+  y.max = NULL,
+  legend.nrow = 1,
+  y.col = "qvalue"
+)
 }
 \arguments{
 \item{data.fdr}{.}
 
-\item{ymax}{.}
+\item{y.max}{.}
 }
 \value{
 A ggplot2 object.
