@@ -574,11 +574,13 @@ hpc_plots <- function(task) {
 
 
 hpc_delta <- function(task) {
+  fit.sigma <- open_sigma(".", force = T)
   fit.deltas <- open_deltas(open_sigma(".", force = T), force = T)
-  nchain <- control(fit.deltas[[task]]@fit)@model.nchain
-  cat(paste0("[", Sys.time(), "] seaMass-delta v", control(fit.deltas[[task]])@version, "\n"))
-  cat(paste0("[", Sys.time(), "]  running name=", name(fit.deltas[[task]]), "...\n"))
-  process(fit.deltas[[task]], (task-1) %% nchain + 1)
+  nchain <- control(fit.sigma)@model.nchain
+  fit.delta <- fit.deltas[[(task-1) %/% nchain + 1]]
+  cat(paste0("[", Sys.time(), "] seaMass-delta v", control(fit.delta)@version, "\n"))
+  cat(paste0("[", Sys.time(), "]  running name=", name(fit.delta), "...\n"))
+  process(fit.delta, (task-1) %% nchain + 1)
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
 
