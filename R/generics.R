@@ -39,6 +39,7 @@ if (!exists("plot_pca_contours")) setGeneric("plot_pca_contours", function(objec
 if (!exists("plots")) setGeneric("plots", function(object, ...) standardGeneric("plots"))
 if (!exists("prepare_sigma")) setGeneric("prepare_sigma", function(object, ...) standardGeneric("prepare_sigma"))
 if (!exists("prepare_delta")) setGeneric("prepare_delta", function(object, ...) standardGeneric("prepare_delta"))
+if (!exists("process")) setGeneric("process", function(object, ...) standardGeneric("process"))
 if (!exists("process0")) setGeneric("process0", function(object, ...) standardGeneric("process0"))
 if (!exists("process1")) setGeneric("process1", function(object, ...) standardGeneric("process1"))
 if (!exists("priors")) setGeneric("priors", function(object, ...) standardGeneric("priors"))

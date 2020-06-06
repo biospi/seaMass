@@ -23,8 +23,7 @@ setClass("delta_control", slots = c(
 
 #' @describeIn delta_control Generator function
 #' @param component.deviations Set this to \code{TRUE} to do differential expression analysis on the component deviations as well as the group quants.
-#' @param keep Outputs to keep MCMC samples for, \code{NULL} or a subset of
-#'   c("raw.group.quants", "normalised.group.quants", "normalised.group.variances", "group.de", "group.fdr", "component.deviations", "component.deviations.de", "component.deviations.fdr")
+#' @param keep Outputs to keep MCMC samples for, \code{NULL} or a subset of c("group.de", "component.deviations.de")
 #' @param norm.model Either \code{NULL} (no normalisation), \code{"median"}, \code{"quantile"} or \code{"theta"} (seaMass-theta Bayesian normalisation)
 #' @param norm.nwarmup Number of MCMC warmup iterations to run for each chain with seaMass-theta Bayesian normalisation.
 #' @param norm.thin MCMC thinning factor with seaMass-theta Bayesian normalisation.
@@ -37,7 +36,7 @@ setClass("delta_control", slots = c(
 #' @export delta_control
 delta_control <- function(
   component.deviations = FALSE,
-  keep = c("group.de", "group.fdr", "component.deviations.de", "component.deviations.fdr"),
+  keep = c("group.de", "component.deviations.de"),
   norm.model = "theta",
   norm.nwarmup = 256,
   norm.thin = 1,
@@ -67,7 +66,7 @@ delta_control <- function(
 
 setValidity("delta_control", function(object) {
   if (length(object@component.deviations) != 1) return("'component.deviations' is not valid!")
-  if (!(all(object@keep %in% c( "group.de", "group.fdr", "component.deviations.de", "component.deviations.fdr")))) return("'keep' is not valid!")
+  if (!(all(object@keep %in% c( "group.de", "component.deviations.de")))) return("'keep' is not valid!")
   if (length(object@norm.model) != 1 || !(object@norm.model %in% c("", "median", "quantile", "theta"))) return("'norm.model' is not valid!")
   if (length(object@norm.nwarmup) != 1 || object@norm.nwarmup < 0) return("'norm.nwarmup' must be non-negative!")
   if (length(object@norm.thin) != 1 || object@norm.thin <= 0) return("'norm.thin' must be positive!")

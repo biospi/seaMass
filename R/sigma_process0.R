@@ -51,7 +51,7 @@ setMethod("process0", "sigma_block", function(object, chain) {
         return(data.table(Assay = item[1, Assay], chain = item[1, chain], sample = 1:nrow(model$VCV), value = model$VCV[, "Item"]))
       }, nthread = ctrl@nthread))
 
-      DT.assay.prior <- data.table(Effect = "Assay", DT.assay.prior[, dist_invchisq_samples(chain, sample, value), by = Assay])
+      DT.assay.prior <- data.table(Effect = "Assay", DT.assay.prior[, dist_samples_invchisq(chain, sample, value), by = Assay])
     }
     # delete assay deviations if not in 'keep'
     if (!("assay.deviations" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "assay.deviations*"), recursive = T)

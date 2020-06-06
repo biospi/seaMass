@@ -201,7 +201,7 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, fit.sigma) {
 
 #' @include generics.R
 setMethod("prepare_delta", "schedule_slurm", function(object, fit.delta) {
-  cat(config(object, "D", name(fit.delta@fit), length(open_deltas(fit.delta@fit, force = T)), F, "hpc_delta"), file = file.path(filepath(fit.delta@fit), "submit.delta"))
+  cat(config(object, "D", name(fit.delta@fit), length(open_deltas(fit.delta@fit, force = T)) * control(fit.delta@fit)@model.nchain, F, "hpc_delta"), file = file.path(filepath(fit.delta@fit), "submit.delta"))
   return(invisible(object))
 })
 
@@ -361,7 +361,7 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, fit.sigma) {
 
 #' @include generics.R
 setMethod("prepare_delta", "schedule_pbs", function(object, fit.delta) {
-  cat(config(object, "D", name(fit.delta@fit), length(open_deltas(fit.delta@fit, force = T)), F, "hpc_delta"), file = file.path(filepath(fit.delta@fit), "submit.delta"))
+  cat(config(object, "D", name(fit.delta@fit), length(open_deltas(fit.delta@fit, force = T)) * control(fit.delta@fit)@model.nchain, F, "hpc_delta"), file = file.path(filepath(fit.delta@fit), "submit.delta"))
   return(invisible(object))
 })
 
@@ -520,7 +520,7 @@ setMethod("prepare_sigma", "schedule_sge", function(object, fit.sigma) {
 
 #' @include generics.R
 setMethod("prepare_delta", "schedule_sge", function(object, fit.delta) {
-  cat(config(object, "D", name(fit.delta@fit), length(open_deltas(fit.delta@fit, force = T)), F, "hpc_delta"), file = file.path(filepath(fit.delta@fit), "submit.delta"))
+  cat(config(object, "D", name(fit.delta@fit), length(open_deltas(fit.delta@fit, force = T)) * control(fit.delta@fit)@model.nchain, F, "hpc_delta"), file = file.path(filepath(fit.delta@fit), "submit.delta"))
 
   return(invisible(object))
 })
@@ -574,10 +574,11 @@ hpc_plots <- function(task) {
 
 
 hpc_delta <- function(task) {
-  fit.delta <- open_deltas(open_sigma(".", force = T), force = T)[[task]]
-  cat(paste0("[", Sys.time(), "] seaMass-delta v", control(fit.delta)@version, "\n"))
-  cat(paste0("[", Sys.time(), "]  running name=", name(fit.delta), "...\n"))
-  run(fit.delta)
+  fit.deltas <- open_deltas(open_sigma(".", force = T), force = T)
+  nchain <- control(fit.deltas[[task]]@fit)@model.nchain
+  cat(paste0("[", Sys.time(), "] seaMass-delta v", control(fit.deltas[[task]])@version, "\n"))
+  cat(paste0("[", Sys.time(), "]  running name=", name(fit.deltas[[task]]), "...\n"))
+  process(fit.deltas[[task]], (task-1) %% nchain + 1)
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
 

@@ -17,7 +17,7 @@ setClass("seaMass", contains = "VIRTUAL")
 setMethod("read_samples", "seaMass", function(object, input, type, items = NULL, chains = 1:control(object)@model.nchain, summary = NULL, summary.func = "robust_normal", as.data.table = FALSE) {
   if (is.null(summary) || summary == F) summary <- NULL
   if (!is.null(summary)) {
-    summary <- ifelse(summary == T, paste0("dist_samples_", summary.func), paste("dist", summary, sep = "_"))
+    summary <- ifelse(summary == T, paste0("dist_samples_", summary.func), paste0("dist_samples_", summary))
     filename <- file.path(filepath(object), input, paste(summary, type, "fst", sep = "."))
   }
 

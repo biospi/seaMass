@@ -3,7 +3,7 @@
 #' @export
 setMethod("fdr_ash", "seaMass_delta", function(
   object,
-  type = "group.fdr",
+  type = "group.de",
   by.effect = TRUE,
   by.contrast = TRUE,
   sort.col = "qvalue",
@@ -15,7 +15,7 @@ setMethod("fdr_ash", "seaMass_delta", function(
   min.used.samples.per.condition = 2,
   min.quantified.samples = 1,
   min.quantified.samples.per.condition = 0,
-  summary = "lst_ash",
+  summary.func = "lst_ash",
   mixcompdist = "halfuniform",
   optmethod = "mixSQP",
   nullweight = 10,
@@ -44,14 +44,7 @@ setMethod("fdr_ash", "seaMass_delta", function(
   cat(paste0("[", Sys.time(), "]   ash false discovery rate correction\n"))
   cat(paste0("[", Sys.time(), "]    getting summaries...\n"))
 
-  if (type == "group.fdr") {
-    DT <- group_de(object, summary = summary, as.data.table = T)
-  } else if (type == "component.deviations.fdr") {
-    DT <- component_deviations_de(object, summary = summary, as.data.table = T)
-  } else {
-    stop("unknown type")
-  }
-
+  DT <- read_samples(object, ".", type, summary = T, summary.func = summary.func, as.data.table = T)
   DT[, use :=
        (qM_Contrast >= min.measurements | qM_Baseline >= min.measurements) &
        (qM_Contrast >= min.measurements.per.condition & qM_Baseline >= min.measurements.per.condition) &
@@ -59,7 +52,7 @@ setMethod("fdr_ash", "seaMass_delta", function(
        (uS_Contrast >= min.used.samples.per.condition & uS_Baseline >= min.used.samples.per.condition) &
        (qS_Contrast + qS_Baseline >= min.quantified.samples) &
        (qS_Contrast >= min.quantified.samples.per.condition & qS_Baseline >= min.quantified.samples.per.condition)]
-  if (type == "group.fdr") {
+  if ("Group" %in% colnames(DT)) {
     DT[, use := use & (qC_Contrast >= min.components | qC_Baseline >= min.components) &
       (qC_Contrast >= min.components.per.condition & qC_Baseline >= min.components.per.condition)]
   }
@@ -74,10 +67,6 @@ setMethod("fdr_ash", "seaMass_delta", function(
     DT[, Batch := factor("all")]
   }
 
-
-
-
-
   cat(paste0("[", Sys.time(), "]    running model...\n"))
   DT <- rbindlist(parallel_lapply(split(DT, by = "Batch"), function(item, type, mixcompdist, optmethod, nullweight, pointmass, prior, mixsd, gridmult, g, fixg, mode, alpha, grange, control, pi_thresh) {
     if (nrow(item[use == T]) > 0) {
@@ -91,13 +80,30 @@ setMethod("fdr_ash", "seaMass_delta", function(
           etruncFUN = function(a,b) etrunct::e_trunct(a, b, df = item[use == T, df], r = 1),
           e2truncFUN = function(a,b) etrunct::e_trunct(a, b, df = item[use == T, df], r = 2)
         )
-        fit.fdr <- ashr::ash(item[use == T, m], item[use == T, s], mixcompdist, lik = lik_ts,
-          nullweight = nullweight, pointmass = pointmass, prior = prior, mixsd = mixsd, gridmult = gridmult, g = g, fixg = fixg, mode = mode, alpha = alpha, grange = grange, control = control, pi_thresh = pi_thresh)
+        if (is.null(g)) {
+          fit.fdr <- ashr::ash(
+            item[use == T, m], item[use == T, s], mixcompdist, lik = lik_ts, nullweight = nullweight, pointmass = pointmass, prior = prior,
+            mixsd = mixsd, gridmult = gridmult, fixg = fixg, mode = mode, alpha = alpha, grange = grange, control = control, pi_thresh = pi_thresh
+          )
+        } else {
+          fit.fdr <- ashr::ash(
+            item[use == T, m], item[use == T, s], mixcompdist, lik = lik_ts, nullweight = nullweight, pointmass = pointmass, prior = prior,
+            mixsd = mixsd, gridmult = gridmult, g = g, fixg = fixg, mode = mode, alpha = alpha, grange = grange, control = control, pi_thresh = pi_thresh
+          )
+        }
       } else {
-        fit.fdr <- ashr::ash(item[use == T, m], item[use == T, s], mixcompdist,
-          nullweight = nullweight, pointmass = pointmass, prior = prior, mixsd = mixsd, gridmult = gridmult, g = g, fixg = fixg, mode = mode, alpha = alpha, grange = grange, control = control, pi_thresh = pi_thresh)
+        if (is.null(g)) {
+          fit.fdr <- ashr::ash(
+            item[use == T, m], item[use == T, s], mixcompdist, nullweight = nullweight, pointmass = pointmass, prior = prior, mixsd = mixsd,
+            gridmult = gridmult, fixg = fixg, mode = mode, alpha = alpha, grange = grange, control = control, pi_thresh = pi_thresh
+          )
+        } else {
+          fit.fdr <- ashr::ash(
+            item[use == T, m], item[use == T, s], mixcompdist, nullweight = nullweight, pointmass = pointmass, prior = prior, mixsd = mixsd,
+            gridmult = gridmult, g = g, fixg = fixg, mode = mode, alpha = alpha, grange = grange, control = control, pi_thresh = pi_thresh
+          )
+        }
       }
-
       setDT(fit.fdr$result)
       fit.fdr$result[, betahat := NULL]
       fit.fdr$result[, sebetahat := NULL]
@@ -108,11 +114,7 @@ setMethod("fdr_ash", "seaMass_delta", function(
       fit.fdr$result[, Contrast := item[use == T, Contrast]]
       fit.fdr$result[, Baseline := item[use == T, Baseline]]
       fit.fdr$result[, Group := item[use == T, Group]]
-      if (type == "group.fdr") item <- merge(item, fit.fdr$result, all.x = T, by = c("Batch", "Effect", "Contrast", "Baseline", "Group"))
-      if (type == "component.deviations.fdr") {
-        fit.fdr$result[, Component := item[use == T, Component]]
-        item <- merge(item, fit.fdr$result, all.x = T, by = c("Batch", "Effect", "Contrast", "Baseline", "Group", "Component"))
-      }
+      item <- merge(item, fit.fdr$result, all.x = T, by = c("Batch", "Effect", "Contrast", "Baseline", colnames(item)[1:(which(colnames(item) == "Effect") - 1)]))
       item[, use := NULL]
 
       return(item)

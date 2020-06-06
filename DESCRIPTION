@@ -46,6 +46,7 @@ Collate:
     'delta_dea.R'
     'delta_fdr.R'
     'delta_plot.R'
+    'delta_process.R'
     'design.R'
     'dist.R'
     'import.R'

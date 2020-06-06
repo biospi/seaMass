@@ -26,6 +26,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
   slice = FALSE,
   ginverse = NULL,
   trunc = FALSE,
+  chains = 1:control(object)@model.nchain,
   ...
 ) {
   # this is needed to stop foreach massive memory leak!!!
@@ -57,7 +58,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
 
   # loop over all chains and all groups/components
   dir.create(file.path(filepath(object), type), showWarnings = F)
-  for (chain in 1:ctrl@model.nchain) {
+  for (chain in chains) {
     cat(paste0("[", Sys.time(), "]    chain ", chain ,"/", ctrl@model.nchain, "...\n"))
 
     DT.index <- parallel_lapply(DTs, function(item, object, type, chain, specs, contrasts, fixed1, random, rcov, start, prior, tune, pedigree, nodes, scale, pr, pl, DIC, saveX, saveZ, saveXL, slice, ginverse, trunc) {
