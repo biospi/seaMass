@@ -16,20 +16,20 @@ setMethod("fdr_ash", "seaMass_delta", function(
   min.quantified.samples = 1,
   min.quantified.samples.per.condition = 0,
   summary.func = "lst_ash",
-  mixcompdist = "halfuniform",
-  optmethod = "mixSQP",
-  nullweight = 10,
-  pointmass = TRUE,
-  prior = "nullbiased",
-  mixsd = NULL,
-  gridmult = sqrt(2),
-  g = NULL,
-  fixg = FALSE,
-  mode = 0,
-  alpha = 0,
-  grange = c(-Inf, Inf),
-  control = list(),
-  pi_thresh = 1e-10,
+  ash.mixcompdist = "halfuniform",
+  ash.optmethod = "mixSQP",
+  ash.nullweight = 10,
+  ash.pointmass = TRUE,
+  ash.prior = "nullbiased",
+  ash.mixsd = NULL,
+  ash.gridmult = sqrt(2),
+  ash.g = NULL,
+  ash.fixg = FALSE,
+  ash.mode = 0,
+  ash.alpha = 0,
+  ash.grange = c(-Inf, Inf),
+  ash.control = list(),
+  ash.pi_thresh = 1e-10,
   ...
 ) {
   # this is needed to stop foreach massive memory leak!!!
@@ -68,7 +68,7 @@ setMethod("fdr_ash", "seaMass_delta", function(
   }
 
   cat(paste0("[", Sys.time(), "]    running model...\n"))
-  DT <- rbindlist(parallel_lapply(split(DT, by = "Batch"), function(item, type, mixcompdist, optmethod, nullweight, pointmass, prior, mixsd, gridmult, g, fixg, mode, alpha, grange, control, pi_thresh) {
+  DT <- rbindlist(parallel_lapply(split(DT, by = "Batch"), function(item, type, ash.mixcompdist, ash.optmethod, ash.nullweight, ash.pointmass, ash.prior, ash.mixsd, ash.gridmult, ash.g, ash.fixg, ash.mode, ash.alpha, ash.grange, ash.control, ash.pi_thresh) {
     if (nrow(item[use == T]) > 0) {
       # run ash, but allowing variable DF
       if (!all(is.infinite(item$df))) {
@@ -80,27 +80,27 @@ setMethod("fdr_ash", "seaMass_delta", function(
           etruncFUN = function(a,b) etrunct::e_trunct(a, b, df = item[use == T, df], r = 1),
           e2truncFUN = function(a,b) etrunct::e_trunct(a, b, df = item[use == T, df], r = 2)
         )
-        if (is.null(g)) {
+        if (is.null(ash.g)) {
           fit.fdr <- ashr::ash(
-            item[use == T, m], item[use == T, s], mixcompdist, lik = lik_ts, nullweight = nullweight, pointmass = pointmass, prior = prior,
-            mixsd = mixsd, gridmult = gridmult, fixg = fixg, mode = mode, alpha = alpha, grange = grange, control = control, pi_thresh = pi_thresh
+            item[use == T, m], item[use == T, s], mixcompdist = ash.mixcompdist, lik = lik_ts, nullweight = ash.nullweight, pointmass = ash.pointmass, prior = ash.prior,
+            mixsd = ash.mixsd, gridmult = ash.gridmult, fixg = ash.fixg, mode = ash.mode, alpha = ash.alpha, grange = ash.grange, control = ash.control, pi_thresh = ash.pi_thresh
           )
         } else {
           fit.fdr <- ashr::ash(
-            item[use == T, m], item[use == T, s], mixcompdist, lik = lik_ts, nullweight = nullweight, pointmass = pointmass, prior = prior,
-            mixsd = mixsd, gridmult = gridmult, g = g, fixg = fixg, mode = mode, alpha = alpha, grange = grange, control = control, pi_thresh = pi_thresh
+            item[use == T, m], item[use == T, s], mixcompdist = ash.mixcompdist, lik = lik_ts, nullweight = ash.nullweight, pointmass = ash.pointmass, prior = ash.prior,
+            mixsd = ash.mixsd, gridmult = ash.gridmult, g = ash.g, fixg = ash.fixg, mode = ash.mode, alpha = ash.alpha, grange = ash.grange, control = ash.control, pi_thresh = ash.pi_thresh
           )
         }
       } else {
-        if (is.null(g)) {
+        if (is.null(ash.g)) {
           fit.fdr <- ashr::ash(
-            item[use == T, m], item[use == T, s], mixcompdist, nullweight = nullweight, pointmass = pointmass, prior = prior, mixsd = mixsd,
-            gridmult = gridmult, fixg = fixg, mode = mode, alpha = alpha, grange = grange, control = control, pi_thresh = pi_thresh
+            item[use == T, m], item[use == T, s], mixcompdist = ash.mixcompdist, nullweight = ash.nullweight, pointmass = ash.pointmass, prior = ash.prior, mixsd = ash.mixsd,
+            gridmult = ash.gridmult, fixg = ash.fixg, mode = ash.mode, alpha = ash.alpha, grange = ash.grange, control = ash.control, ash.pi_thresh = ash.pi_thresh
           )
         } else {
           fit.fdr <- ashr::ash(
-            item[use == T, m], item[use == T, s], mixcompdist, nullweight = nullweight, pointmass = pointmass, prior = prior, mixsd = mixsd,
-            gridmult = gridmult, g = g, fixg = fixg, mode = mode, alpha = alpha, grange = grange, control = control, pi_thresh = pi_thresh
+            item[use == T, m], item[use == T, s], mixcompdist = ash.mixcompdist, nullweight = ash.nullweight, pointmass = ash.pointmass, prior = ash.prior, mixsd = ash.mixsd,
+            gridmult = ash.gridmult, g = ash.g, fixg = ash.fixg, mode = ash.mode, alpha = ash.alpha, grange = ash.grange, control = ash.control, pi_thresh = ash.pi_thresh
           )
         }
       }
