@@ -9,7 +9,7 @@ dist_normal_robust <- function(value) {
 #' fit normal distribution with fitdistrplus
 #'
 #' @export
-dist_normal_robust_samples <- function(chain, sample, value) {
+dist_samples_robust_normal <- function(chain, sample, value) {
   return(c(dist_normal_robust(value), list(rhat = rhat(chain, sample, value, T))))
 }
 
@@ -52,7 +52,7 @@ dist_normal <- function(value, plots = FALSE, ...) {
 #' fit normal distribution with fitdistrplus
 #'
 #' @export
-dist_normal_samples <- function(chain, sample, value, ...) {
+dist_samples_normal <- function(chain, sample, value, ...) {
   return(c(dist_normal(value, method = "mge", gof = "CvM", ...), list(rhat = rhat(chain, sample, value, T))))
 }
 
@@ -105,7 +105,7 @@ dist_lst <- function(value, min.df = 0, plots = FALSE, ...) {
 #' fit location-scale t distribution
 #'
 #' @export
-dist_lst_samples <- function(chain, sample, value, ...) {
+dist_samples_lst <- function(chain, sample, value, ...) {
   return(c(dist_lst(value, method = "mge", gof = "CvM", ...), list(rhat = rhat(chain, sample, value, T))))
 }
 
@@ -113,7 +113,7 @@ dist_lst_samples <- function(chain, sample, value, ...) {
 #' fit location-scale t distribution for ash (minimum df = 2)
 #'
 #' @export
-dist_lst_samples_ash <- function(chain, sample, value, ...) {
+dist_samples_lst_ash <- function(chain, sample, value, ...) {
   return(c(dist_lst(value, method = "mge", gof = "CvM", min.df = 2, ...), list(rhat = rhat(chain, sample, value, T))))
 }
 
@@ -168,7 +168,7 @@ dist_invchisq <- function(value, plots = FALSE, ...) {
 #' Clarke et al 2012 ("A fast robust method for fitting gamma distributions") are right - CvM is about the only robust way to fit gamma distributions!!
 #'
 #' @export
-dist_invchisq_samples <- function(chain, sample, value, ...) {
+dist_samples_invchisq <- function(chain, sample, value, ...) {
   return(c(dist_invchisq(value, method = "mge", gof = "CvM", ...), list(rhat = rhat(chain, sample, value, T))))
 }
 

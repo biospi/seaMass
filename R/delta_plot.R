@@ -10,8 +10,8 @@ plot_volcano <- function(
   contours = NULL,
   error.bars = TRUE,
   labels = 25,
-  stdev.col = "s",
-  x.col = "m",
+  stdev.col = "PosteriorSD",
+  x.col = "PosteriorMean",
   y.col = "qvalue"
 ) {
   DT.fdr <- as.data.table(data.fdr)
@@ -93,18 +93,10 @@ plot_volcano <- function(
     if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z2, colour = Truth), breaks = 1)
     if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z3, colour = Truth), breaks = 1)
   }
-  if ("truth" %in% colnames(data.fdr)) {
-    g <- g + ggplot2::geom_vline(ggplot2::aes(color = Truth, xintercept = truth), DT.meta[N >= 5])
-    g <- g + ggplot2::geom_vline(ggplot2::aes(color = Truth, xintercept = median), DT.meta[N >= 5], lty = "longdash")
-    g <- g + ggplot2::theme(legend.position = "top")
-  } else {
-    g <- g + ggplot2::theme(legend.position = "none")
-  }
   if (error.bars) g <- g + ggplot2::geom_rect(ggplot2::aes(fill = Truth, xmin = lower, xmax = upper, ymin = y-ebh, ymax = y+ebh), size = 0, alpha = 0.2)
   g <- g + ggplot2::geom_point(ggplot2::aes(colour = Truth), size = 1)
   g <- g + ggplot2::geom_vline(xintercept = 0)
   g <- g + ggplot2::geom_hline(yintercept = ylim.plot[1])
-  g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = label), size = 2.5, na.rm = T)
   if (x.col == "m") {
     g <- g + ggplot2::xlab("log2(Fold Change) Posterior Mean")
   } else if (x.col == "PosteriorMean") {
@@ -121,6 +113,14 @@ plot_volcano <- function(
     g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = -log10(0.01)), linetype = "dashed")
     g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = -log10(0.05)), linetype = "dashed")
   }
+  if ("truth" %in% colnames(data.fdr)) {
+    g <- g + ggplot2::geom_vline(ggplot2::aes(color = Truth, xintercept = truth), DT.meta[N >= 5])
+    g <- g + ggplot2::geom_vline(ggplot2::aes(color = Truth, xintercept = median), DT.meta[N >= 5], lty = "longdash")
+    g <- g + ggplot2::theme(legend.position = "top")
+  } else {
+    g <- g + ggplot2::theme(legend.position = "none")
+  }
+  g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = label), size = 2.5, na.rm = T)
   g <- g + ggplot2::coord_cartesian(xlim = xlim.plot, ylim = ylim.plot, expand = F)
   g <- g + ggplot2::scale_colour_hue(l = 50)
   g <- g + ggplot2::scale_fill_discrete(guide = NULL)
@@ -134,19 +134,23 @@ plot_volcano <- function(
 #' @return The sum of \code{x} and \code{y}.
 #' @import data.table
 #' @export
-plot_fdr <- function(data.fdr, y.max = NULL) {
+plot_fdr <- function(
+  data.fdr,
+  y.max = NULL,
+  y.col = "qvalue"
+) {
   DT <- as.data.table(data.fdr)
-  DT <- DT[!is.na(qvalue)]
+  DT <- DT[!is.na(get(y.col))]
   DT <- rbind(DT[1], DT)
-  DT[1, qvalue := 0]
+  DT[1, (y.col) := 0]
   DT[, Discoveries := 0:(.N-1)]
 
-  pi <- y.max <- max(DT[, qvalue])
+  pi <- y.max <- max(DT[, get(y.col)])
   if (is.null(y.max)) y.max <- pi
-  xmax <- max(DT[qvalue <= y.max, Discoveries])
+  xmax <- max(DT[get(y.col) <= y.max, Discoveries])
   ylabels <- function() function(x) format(x, digits = 2)
 
-  g <- ggplot2::ggplot(DT, ggplot2::aes(x = Discoveries, y = qvalue))
+  g <- ggplot2::ggplot(DT, ggplot2::aes_string(x = "Discoveries", y = y.col))
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype = "dotted")
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype = "dotted")
   g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype = "dotted")
@@ -169,7 +173,7 @@ plot_fdr <- function(data.fdr, y.max = NULL) {
 #' @export
 plot_pr <- function(
   data.fdr,
-  plot.fdr = T,
+  plot.fdr = TRUE,
   y.max = NULL,
   legend.nrow = 1,
   y.col = "qvalue"
@@ -213,7 +217,7 @@ plot_pr <- function(
   g <- g + ggplot2::geom_step(direction = "vh")
   g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
   g <- g + ggplot2::scale_y_reverse(breaks = sort(c(pi, 0.0, 0.01, 0.05, 0.1, 0.2, 0.5, 1.0)), labels = ylabels(), expand = c(0.001, 0.001))
-  g <- g + ggplot2::coord_cartesian(xlim = c(0, max(DTs.pr$TrueDiscoveries)), ylim = c(y.max, 0))
+  g <- g + ggplot2::coord_cartesian(xlim = c(0, 1.1 * max(DTs.pr$TrueDiscoveries)), ylim = c(y.max, 0))
   g <- g + ggplot2::xlab(paste0("True Discoveries [ Sensitivity x ", max(DTs.pr$TrueDiscoveries), " ] from ", max(DTs.pr$Discoveries), " total groups"))
   g <- g + ggplot2::ylab("Solid Line: False Discovery Proportion [ 1 - Precision ], Dashed Line: FDR")
   g <- g + ggplot2::scale_linetype_manual(values = rep("solid", length(levels(DTs.pr$Method))))

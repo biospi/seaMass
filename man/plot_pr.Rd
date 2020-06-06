@@ -6,7 +6,7 @@
 \usage{
 plot_pr(
   data.fdr,
-  plot.fdr = T,
+  plot.fdr = TRUE,
   y.max = NULL,
   legend.nrow = 1,
   y.col = "qvalue"

@@ -4,7 +4,7 @@
 \alias{plot_fdr}
 \title{Add together two numbers.}
 \usage{
-plot_fdr(data.fdr, y.max = NULL)
+plot_fdr(data.fdr, y.max = NULL, y.col = "qvalue")
 }
 \arguments{
 \item{datafile}{A number.}
