@@ -294,13 +294,10 @@ import_OpenSWATH <- function(
 #' @export
 import_ProteomeDiscoverer <- function(
   file = NULL,
-  shared = F,
-  used = T,
+  use.shared.peptides = FALSE,
+  use.not.component.quan.usage = FALSE,
   data = NULL
 ) {
-  stop("todo: needs updating")
-  suppressWarnings(suppressMessages(library(R.oo)))
-
   if (is.null(file)) {
     if (is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
     DT.raw <- setDT(data)
@@ -309,23 +306,9 @@ import_ProteomeDiscoverer <- function(
   }
 
   # only use rows that ProteomeDiscoverer uses for quant
-  if (!shared) DT.raw <- DT.raw[`Quan Info` == "Unique",]
-  if (!used) DT.raw <- DT.raw[`Component Quan Usage` == "Use",]
-
-  # merge fraction info
-  #setnames(DT, "Spectrum File", "File")
-  #if (is.null(data.runs)) {
-  #  warning("No 'data.runs' parameter supplied, assuming no fractionation!")
-  #  DT[, Run := File]
-  #  DT[, Fraction := ""]
-  #} else {
-  #  DT <- merge(DT, setDT(data.runs), by = "File")
-  #}
-
-  # only retain the most confidenct and most intense spectrum for each measurement (TODO: make option)
-  #DT[, Measurement := factor(paste0(DT$Sequence, " : ", DT$Modifications, " : ", DT$Charge, "+ : ", DT$File))]
-  #setorder(DT, Measurement, Confidence, -Intensity)
-  #DT <- unique(DT, by = "Measurement")
+  DT.raw[, Use := T]
+  if (!use.shared.peptides) DT.raw[`Quan Info` == "Unique", Use := F]
+  if (!use.not.component.quan.usage) DT.raw[`Peptide Quan Usage` != "Use", Use := F]
 
   # create wide data table
   DT <- DT.raw[ , list(
@@ -333,7 +316,8 @@ import_ProteomeDiscoverer <- function(
     Group = `Master Protein Accessions`,
     Component = gsub(" ", "", paste0(Sequence, ",", Modifications)),
     Measurement = paste0(`Spectrum File`, ",", `First Scan`),
-    Injection = `Spectrum File`
+    Injection = `Spectrum File`,
+    Use
   )]
   if ("Light" %in% colnames(DT.raw)) DT$Channel.Light <- DT.raw$Light
   if ("Medium" %in% colnames(DT.raw)) DT$Channel.Medium <- DT.raw$Medium
@@ -357,8 +341,8 @@ import_ProteomeDiscoverer <- function(
   if ("131C" %in% colnames(DT.raw)) DT$Channel.131C <- DT.raw$`131C`
   if ("131" %in% colnames(DT.raw)) DT$Channel.131 <- DT.raw$`131`
 
-  # group ambiguous PSMs so seaMass-Delta treats them as a single component per group
-  DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement)]
+  # we can get a spectrum assigned to multiple peptides in a protein - if this occurs, assign the spectrum as a 'new' ambiguous peptide
+  DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement, Use)]
   DT <- unique(DT)
 
   # melt label counts
@@ -366,10 +350,13 @@ import_ProteomeDiscoverer <- function(
   DT[, Group := factor(Group)]
   DT[, Component := factor(Component)]
   DT[, Measurement := factor(Measurement)]
-  DT[, Injection := factor(Injection)]
   DT[, Run := factor("1")]
+  DT[, Injection := factor(Injection)]
   DT <- melt(DT, variable.name = "Channel", value.name = "Count", measure.vars = colnames(DT)[grep("^Channel\\.", colnames(DT))])
   levels(DT$Channel) <- sub("^Channel\\.", "", levels(DT$Channel))
+
+  setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Channel", "Count"))
+  setorder(DT, Group, Component, Measurement, Run, Channel)
 
   setDF(DT)
   return(DT[])

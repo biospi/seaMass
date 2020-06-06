@@ -4,17 +4,22 @@
 \alias{import_ProteomeDiscoverer}
 \title{Import Thermo ProteomeDiscoverer data}
 \usage{
-import_ProteomeDiscoverer(file = NULL, shared = F, used = T, data = NULL)
+import_ProteomeDiscoverer(
+  file = NULL,
+  use.shared.peptides = FALSE,
+  use.not.component.quan.usage = FALSE,
+  data = NULL
+)
 }
 \arguments{
 \item{file}{Location of the \code{PSMs.txt} file.}
 
+\item{data}{Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
+\link[data.table]{fread} default parameters.}
+
 \item{shared}{Include shared components?}
 
 \item{used}{Include only measurements marked as used by ProteomeDiscoverer?}
-
-\item{data}{Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
-\link[data.table]{fread} default parameters.}
 }
 \value{
 A \link{data.frame} for input into \link{seaMass_sigma}.
