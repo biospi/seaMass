@@ -11,12 +11,19 @@ setMethod("process", "seaMass_delta", function(object, chain) {
   ellipsis$chains <- chain
 
   # group dea
-  if (ctrl@dea.model != "" && !all(is.na(assay_design(object, as.data.table = T)$Condition))) do.call(paste("dea", ctrl@dea.model, sep = "_"), ellipsis)
+  if (ctrl@dea.model != "" && !all(is.na(assay_design(object, as.data.table = T)$Condition))) {
+    if (is.null(normalised_group_quants(fit.delta@fit, groups(fit.delta@fit, as.data.table = T)[1, Group]))) {
+      type <- "standardised.group.quants"
+    } else {
+      type <- "normalised.group.quants"
+    }
+    ellipsis$type <- type
+    do.call(paste("dea", ctrl@dea.model, sep = "_"), ellipsis)
+  }
 
-  # component deviations
+  # component deviation dea
   if (ctrl@component.deviations == T && control(object@fit)@component.model == "independent") {
-    # component deviation dea
-    ellipsis$type <- "component.deviations.de"
+    ellipsis$type <- "component.deviations"
     do.call(paste("dea", ctrl@dea.model, sep = "_"), ellipsis)
   }
 
@@ -24,60 +31,62 @@ setMethod("process", "seaMass_delta", function(object, chain) {
 
   if (all(sapply(1:ctrl@model.nchain, function(chain) file.exists(file.path(filepath(object), paste("complete", chain, sep = ".")))))) {
     # summarise group de and perform fdr correction
-    if (file.exists(file.path(filepath(object), "group.de.index.fst"))) {
+    if (file.exists(file.path(filepath(object), paste0(type, ".index.fst")))) {
       if(ctrl@fdr.model != "") {
+        ellipsis$type <- type
         do.call(paste("fdr", ctrl@fdr.model, sep = "_"), ellipsis)
       } else {
-        group_de(object, summary = T, as.data.table = T)
+        read_samples(object, ".", type, summary = T, as.data.table = T)
       }
     }
-    if (!("group.de" %in% ctrl@keep)) unlink(file.path(filepath(object), "group.de*"), recursive = T)
+    if (!(type %in% ctrl@keep)) unlink(file.path(filepath(object), paste0(type, "*")), recursive = T)
 
     # write out group fdr
-    if (file.exists(file.path(filepath(object), "group.de.fst"))) {
-      DTs.fdr <- split(group_fdr(object, as.data.table = T), drop = T, by = "Batch")
+    if (file.exists(file.path(filepath(object), paste0(type, ".fst")))) {
+      DTs.fdr <- fst::read.fst(file.path(filepath(object), paste0(type, ".fst")), as.data.table = T)
+      DTs.fdr <- split(DTs.fdr, drop = T, by = "Batch")
       for (name in names(DTs.fdr)) {
         # save
-        fwrite(DTs.fdr[[name]], file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_group_de", gsub("\\s", "_", name), "csv", sep = ".")))
+        fwrite(DTs.fdr[[name]], file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_", type, "_fdr", gsub("\\s", "_", name), "csv", sep = ".")))
         # plot fdr
         plot_fdr(DTs.fdr[[name]])
-        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_group_de_fdr", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
+        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2", type, "_fdr", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
         # plot volcano
         plot_volcano(DTs.fdr[[name]])
-        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_group_de_volcano", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
+        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2", type, "_fdr_volcano", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
         # plot fc_vs_stdev
         plot_volcano(DTs.fdr[[name]], y.col = "s")
-        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_group_de_fc_vs_stdev", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
+        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2", type, "_fdr_fc", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
       }
     }
 
     if (ctrl@component.deviations == T && control(object@fit)@component.model == "independent") {
       # summarise component deviation de and perform fdr correction
-      if (file.exists(file.path(filepath(object), "component.deviations.de.index.fst"))) {
+      if (file.exists(file.path(filepath(object), "component.deviations.index.fst"))) {
         if(ctrl@fdr.model != "") {
-          ellipsis$type <- "component.deviations.de"
+          ellipsis$type <- "component.deviations"
           do.call(paste("fdr", ctrl@fdr.model, sep = "_"), ellipsis)
         } else {
           component_deviations_de(object, summary = T, as.data.table = T)
         }
       }
-      if (!("component.deviations.de" %in% ctrl@keep)) unlink(file.path(filepath(object), "component.deviations.de*"), recursive = T)
+      if (!("component.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "component.deviations*"), recursive = T)
 
       # write out group fdr
-      if (file.exists(file.path(filepath(object), "component.deviations.fdr.fst"))) {
+      if (file.exists(file.path(filepath(object), "component.deviations.fst"))) {
         DTs.fdr <- split(component_deviations_fdr(object, as.data.table = T), drop = T, by = "Batch")
         for (name in names(DTs.fdr)) {
           # save
-          fwrite(DTs.fdr[[name]], file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_component_deviations_de", gsub("\\s", "_", name), "csv", sep = ".")))
+          fwrite(DTs.fdr[[name]], file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_component_deviations_fdr", gsub("\\s", "_", name), "csv", sep = ".")))
           # plot fdr
           plot_fdr(DTs.fdr[[name]])
-          ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_component_deviations_de_fdr", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
+          ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_component_deviations_fdr", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
           # plot volcano
           plot_volcano(DTs.fdr[[name]])
-          ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_component_deviations_de_volcano", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
+          ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_component_deviations_fdr_volcano", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
           # plot fc_vs_stdev
           plot_volcano(DTs.fdr[[name]], y.col = "s")
-          ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_component_deviations_de_fc_vs_stdev", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
+          ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste("log2_component_deviations_fdr_fc", gsub("\\s", "_", name), "pdf", sep = ".")), width = 8, height = 8)
         }
       }
     }

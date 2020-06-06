@@ -23,6 +23,7 @@ setMethod("plot_pca_contours", "seaMass", function(
   colour = "Assay.SD",
   fill = "Condition",
   shape = "Condition",
+  data = NULL,
   ...
 ) {
   # this is needed to stop foreach massive memory leak!!!
@@ -34,7 +35,11 @@ setMethod("plot_pca_contours", "seaMass", function(
   if (!("Block" %in% colnames(DT.design))) DT.design <- merge(DT.design, assay_design(object, as.data.table = T), by = "Assay", sort = F, suffixes = c("", ".old"))
 
   # determine which individuals and variables to use
-  DT.summary <- read_samples(object, input, type, variables, summary = T, summary.func = "robust_normal", as.data.table = T)
+  if (is.null(data)) {
+    DT.summary <- read_samples(object, input, type, variables, summary = T, summary.func = "robust_normal", as.data.table = T)
+  } else {
+    DT.summary <- as.data.table(data)
+  }
   summary.cols <- setdiff(colnames(DT.summary)[1:(which(colnames(DT.summary) == "m") - 1)], c("Assay", "Block"))
   DT.individuals <- merge(DT.summary[, .(use = var(m, na.rm = T) >= 1e-5), keyby = .(Assay, Block)][use == T, .(Assay, Block)], DT.design[, .(Assay, Block)], by = c("Assay", "Block"), sort = F)
   DT.variables <- dcast(DT.summary, paste(paste(summary.cols, collapse = " + "), "~ Assay + Block"), value.var = "m")
@@ -50,8 +55,8 @@ setMethod("plot_pca_contours", "seaMass", function(
     DT.summary.se <- dcast(DT.summary.se, paste("Assay + Block ~", paste(summary.cols, collapse = " + ")), value.var = "s")
     DT.summary.se <- merge(DT.design[, .(Assay, Block)], DT.summary.se, by = c("Assay", "Block"), sort = F) # ensure Assay order
     DT.summary.se[, c("Assay", "Block") := NULL]
-    row.weights <- as.numeric(1.0 / apply(DT.summary.se, 1, median)^2)
-    col.weights <- as.numeric(1.0 / apply(DT.summary.se, 2, median)^2)
+    row.weights <- as.numeric(1.0 / apply(DT.summary.se, 1, function(x) median(x, na.rm = T))^2)
+    col.weights <- as.numeric(1.0 / apply(DT.summary.se, 2, function(x) median(x, na.rm = T))^2)
     rm(DT.summary.se)
   }
   # prepare PCA input
@@ -62,7 +67,7 @@ setMethod("plot_pca_contours", "seaMass", function(
   rm(DT.use)
 
   # run PCA
-  if (robust) {
+  if (robust && !any(is.na(row.weights)) && !any(is.na(col.weights))) {
     fit <- FactoMineR::PCA(DT.summary, scale.unit = F, row.w = row.weights, col.w = col.weights, graph = F)
   } else {
     fit <- FactoMineR::PCA(DT.summary, scale.unit = F, graph = F)
@@ -95,7 +100,7 @@ setMethod("plot_pca_contours", "seaMass", function(
   }
 
   # contours
-  if (!(is.null(contours) || length(contours) == 0)) {
+  if (is.null(data) && (!(is.null(contours) || length(contours) == 0))) {
     cat(paste0("[", Sys.time(), "]     transforming samples...\n"))
 
     # predict from PCA fit
@@ -164,7 +169,7 @@ setMethod("plot_pca_contours", "seaMass", function(
   g <- g + ggplot2::geom_vline(xintercept = 0, colour = "grey")
   g <- g + ggplot2::geom_hline(yintercept = 0, colour = "grey")
 
-  if (!(is.null(contours) || length(contours) == 0)) {
+  if (is.null(data) && (!(is.null(contours) || length(contours) == 0))) {
     if (is.null(colour) || uniqueN(DT[, get(colour)]) <= 1) {
       if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z1"), colour = "black", breaks = 1, alpha = 0.5)
       if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z2"), colour = "black", breaks = 1, alpha = 0.25)
@@ -207,14 +212,16 @@ setMethod("plot_pca", "seaMass", function(
   input = "model1",
   type = "normalised.group.quants",
   robust = TRUE,
+  contours = 1:2,
   aspect.ratio = 3/4,
   labels = 25,
   colour = "Assay.SD",
   fill = "Condition",
   shape = "Condition",
+  data = NULL,
   ...
 ) {
-  return(plot_pca_contours(object, data.design, variables, input, type, robust, NULL, aspect.ratio, labels, colour, fill, shape, ...))
+  return(plot_pca_contours(object, data.design, variables, input, type, robust, NULL, aspect.ratio, labels, colour, fill, shape, data, ...))
 })
 
 

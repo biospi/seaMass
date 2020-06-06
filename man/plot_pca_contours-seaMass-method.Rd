@@ -17,6 +17,7 @@
   colour = "Assay.SD",
   fill = "Condition",
   shape = "Condition",
+  data = NULL,
   ...
 )
 }

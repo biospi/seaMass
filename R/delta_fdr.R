@@ -30,6 +30,7 @@ setMethod("fdr_ash", "seaMass_delta", function(
   ash.grange = c(-Inf, Inf),
   ash.control = list(),
   ash.pi_thresh = 1e-10,
+  data = NULL,
   ...
 ) {
   # this is needed to stop foreach massive memory leak!!!
@@ -44,17 +45,24 @@ setMethod("fdr_ash", "seaMass_delta", function(
   cat(paste0("[", Sys.time(), "]   ash false discovery rate correction\n"))
   cat(paste0("[", Sys.time(), "]    getting summaries...\n"))
 
-  DT <- read_samples(object, ".", type, summary = T, summary.func = summary.func, as.data.table = T)
-  DT[, use :=
+  if (is.null(data)) {
+    DT <- read_samples(object, ".", type, summary = T, summary.func = summary.func, as.data.table = T)
+  } else {
+    DT <- as.data.table(data)
+  }
+
+  if ("qM_Contrast" %in% colnames(DT)) {
+    DT[, use :=
        (qM_Contrast >= min.measurements | qM_Baseline >= min.measurements) &
        (qM_Contrast >= min.measurements.per.condition & qM_Baseline >= min.measurements.per.condition) &
        (uS_Contrast + uS_Baseline >= min.used.samples) &
        (uS_Contrast >= min.used.samples.per.condition & uS_Baseline >= min.used.samples.per.condition) &
        (qS_Contrast + qS_Baseline >= min.quantified.samples) &
        (qS_Contrast >= min.quantified.samples.per.condition & qS_Baseline >= min.quantified.samples.per.condition)]
-  if ("Group" %in% colnames(DT)) {
-    DT[, use := use & (qC_Contrast >= min.components | qC_Baseline >= min.components) &
-      (qC_Contrast >= min.components.per.condition & qC_Baseline >= min.components.per.condition)]
+    if ("qC_Contrast" %in% colnames(DT)) {
+      DT[, use := use & (qC_Contrast >= min.components | qC_Baseline >= min.components) &
+        (qC_Contrast >= min.components.per.condition & qC_Baseline >= min.components.per.condition)]
+    }
   }
 
   if (by.contrast && by.effect) {
@@ -95,7 +103,7 @@ setMethod("fdr_ash", "seaMass_delta", function(
         if (is.null(ash.g)) {
           fit.fdr <- ashr::ash(
             item[use == T, m], item[use == T, s], mixcompdist = ash.mixcompdist, nullweight = ash.nullweight, pointmass = ash.pointmass, prior = ash.prior, mixsd = ash.mixsd,
-            gridmult = ash.gridmult, fixg = ash.fixg, mode = ash.mode, alpha = ash.alpha, grange = ash.grange, control = ash.control, ash.pi_thresh = ash.pi_thresh
+            gridmult = ash.gridmult, fixg = ash.fixg, mode = ash.mode, alpha = ash.alpha, grange = ash.grange, control = ash.control, pi_thresh = ash.pi_thresh
           )
         } else {
           fit.fdr <- ashr::ash(
