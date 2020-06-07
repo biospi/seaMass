@@ -12,7 +12,7 @@ setMethod("process", "seaMass_delta", function(object, chain) {
 
   # group dea
   if (ctrl@dea.model != "" && !all(is.na(assay_design(object, as.data.table = T)$Condition))) {
-    if (is.null(normalised_group_quants(fit.delta@fit, groups(fit.delta@fit, as.data.table = T)[1, Group]))) {
+    if (is.null(normalised_group_quants(object@fit, groups(object@fit, as.data.table = T)[1, Group]))) {
       type <- "standardised.group.quants"
     } else {
       type <- "normalised.group.quants"
