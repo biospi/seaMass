@@ -77,9 +77,10 @@ plot_volcano <- function(
   }
 
   # plot
-  xlim.plot <- c(-1.5, 1.5) * quantile(DT.fdr[is.finite(x), x], probs = c(0.005, 0.995))
-  xlim.plot <- c(-1.5, 1.5) * max(xlim.plot[1], xlim.plot[2])
-  ylim.plot <- quantile(DT.fdr[is.finite(y), y], probs = c(0.005, 0.995))
+  xlim.plot <- c(min(DT.fdr[is.finite(x), x]), max(DT.fdr[is.finite(x), x]))
+  xlim.plot <- c(-1.1, 1.1) * max(-xlim.plot[1], xlim.plot[2])
+  ylim.plot <- c(min(DT.fdr[is.finite(y), y]), max(DT.fdr[is.finite(y), y]))
+  ylim.plot <- ylim.plot + c(-0.01, 0.01) * (ylim.plot[2] - ylim.plot[1])
   ebh <- (ylim.plot[2] - ylim.plot[1]) / 500
   if (ylim.plot[2] < 2) ylim.plot[2] <- 2
   DT.fdr[x <= xlim.plot[1], x := -Inf]
@@ -98,9 +99,9 @@ plot_volcano <- function(
   g <- g + ggplot2::geom_vline(xintercept = 0)
   g <- g + ggplot2::geom_hline(yintercept = ylim.plot[1])
   if (x.col == "m") {
-    g <- g + ggplot2::xlab("log2(Fold Change) Posterior Mean")
+    g <- g + ggplot2::xlab("log2(Fold Change)")
   } else if (x.col == "PosteriorMean") {
-    g <- g + ggplot2::xlab("log2(Shrunk Fold Change) Posterior Mean")
+    g <- g + ggplot2::xlab("log2(Shrunk Fold Change)")
   } else {
     g <- g + ggplot2::xlab(paste0("log2(", x.col, ")"))
   }

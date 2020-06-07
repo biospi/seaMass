@@ -93,7 +93,7 @@ setMethod("process0", "sigma_block", function(object, chain) {
     ellipsis$input <- "model0"
     ellipsis$type <- "assay.deviations"
     do.call("plot_pca_contours", ellipsis)
-    ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_assay_deviations_pca__block_", name(object), ".pdf")), width = 300, height = 300 * 9/16, units = "mm")
+    ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_assay_deviations_pca__block_", name(object), ".pdf")), width = 300, height = 200, units = "mm")
   }
 
   return(invisible(NULL))

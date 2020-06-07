@@ -3,7 +3,7 @@
 #' @export
 setMethod("fdr_ash", "seaMass_delta", function(
   object,
-  type = "group.de",
+  type = "normalised.group.quants",
   by.effect = TRUE,
   by.contrast = TRUE,
   sort.col = "qvalue",
@@ -42,7 +42,7 @@ setMethod("fdr_ash", "seaMass_delta", function(
   warn <- getOption("warn")
   options(warn = 1)
 
-  cat(paste0("[", Sys.time(), "]   ash false discovery rate correction\n"))
+  cat(paste0("[", Sys.time(), "]   ash false discovery rate correction for ", gsub("\\.", " ", type), "\n"))
   cat(paste0("[", Sys.time(), "]    getting summaries...\n"))
 
   if (is.null(data)) {
@@ -117,12 +117,8 @@ setMethod("fdr_ash", "seaMass_delta", function(
       fit.fdr$result[, sebetahat := NULL]
       rmcols <- which(colnames(item) %in% colnames(fit.fdr$result))
       if (length(rmcols) > 0) item <- item[, -rmcols, with = F]
-      fit.fdr$result[, Batch := item[use == T, Batch]]
-      fit.fdr$result[, Effect := item[use == T, Effect]]
-      fit.fdr$result[, Contrast := item[use == T, Contrast]]
-      fit.fdr$result[, Baseline := item[use == T, Baseline]]
-      fit.fdr$result[, Group := item[use == T, Group]]
-      item <- merge(item, fit.fdr$result, all.x = T, by = c("Batch", "Effect", "Contrast", "Baseline", colnames(item)[1:(which(colnames(item) == "Effect") - 1)]))
+      for (col in colnames(item)[1:(which(colnames(item) == "m") - 1)]) fit.fdr$result[, (col) := item[use == T, get(col)]]
+      item <- merge(item, fit.fdr$result, all.x = T, by = intersect(colnames(item), colnames(fit.fdr$result)), sort = F)
       item[, use := NULL]
 
       return(item)
@@ -131,6 +127,7 @@ setMethod("fdr_ash", "seaMass_delta", function(
     }
   }, nthread = control(object)@nthread))
 
+  setcolorder(DT, c("Batch", "Effect", "Contrast", "Baseline"))
   setorderv(DT, c("Batch", sort.col), na.last = T)
   fst::write.fst(DT, file.path(filepath(object), paste0(type, ".fst")))
 

@@ -168,7 +168,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
           output$DT.de[, Contrast := factor(Contrast, levels = unique(Contrast))]
           output$DT.de[, Baseline := factor(Baseline, levels = unique(Baseline))]
           output$DT.de[, Group := DT[1, Group]]
-          if ("Component" %in% colnames(output$DT.de)) {
+          if ("Component" %in% colnames(DT)) {
             output$DT.de[, Component := DT[1, Component]]
             setcolorder(output$DT.de, c("Group", "Component", "Effect", "Contrast", "Baseline", "chain"))
           } else if ("Group" %in% colnames(output$DT.de)) {
@@ -180,9 +180,9 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
             # calculate metadata (this is rubbish but works)
             output$DT.meta <- unique(rbind(output$DT.de[, .(Effect, Level = Contrast)], output$DT.de[, .(Effect, Level = Baseline)]))[!is.na(Level)]
             output$DT.meta[, Group := DT[1, Group]]
-            if ("Component" %in% colnames(output$DT.de)) {
+            if ("Component" %in% colnames(DT)) {
               output$DT.meta[, Component := DT[1, Component]]
-            } else if ("Group" %in% colnames(output$DT.de)) {
+            } else if ("Group" %in% colnames(DT)) {
               output$DT.meta[, qC := 0]
             }
             output$DT.meta[, qM := 0]
