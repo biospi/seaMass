@@ -6,13 +6,14 @@
 \usage{
 import_OpenSWATH(
   file = NULL,
-  m_score.cutoff = 0.05,
+  max.m_score = 0.05,
   use.shared.peptides = FALSE,
+  use.decoys = FALSE,
   data = NULL
 )
 }
 \arguments{
-\item{m_score.cutoff}{Include only measurements with PyProphet m_score >= than this?}
+\item{max.m_score}{Include only measurements with PyProphet m_score >= than this?}
 
 \item{data}{Advanced: Rather than specifying a \code{file}, you can enter a \link{data.frame} preloaded with
 \link[data.table]{fread} default parameters.}

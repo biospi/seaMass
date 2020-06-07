@@ -82,10 +82,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
         DT.design <- assay_design(object, as.data.table = T)
         DT[, Assay := factor(Assay, levels = 1:nlevels(DT.design[, Assay]), labels = levels(DT.design[, Assay]))]
         DT[, Block := factor(Block, levels = 1:nlevels(DT.design[, Block]), labels = levels(DT.design[, Block]))]
-        DT <- merge(DT, DT.design, all.y = T, by = c("Block", "Assay"), sort = F)
-
-        # need to remove where NA in predictors
-        DT <- DT[complete.cases(DT[, !c("m", "s", "df", "rhat")])]
+        DT <- merge(DT, DT.design[complete.cases(DT.design)], all.y = T, by = c("Block", "Assay"), sort = F)
 
         # run MCMCglmm
         output <- list()

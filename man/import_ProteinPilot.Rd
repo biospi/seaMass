@@ -9,29 +9,29 @@ import_ProteinPilot(
   min.conf = "auto",
   use.decoys = FALSE,
   use.shared.peptides = FALSE,
-  use.discordant.component.type = FALSE,
+  use.discordant.peptide.type = FALSE,
   use.no.itraq = FALSE,
   use.weak.signal = FALSE,
   data = NULL
 )
 }
 \arguments{
-\item{file}{Location of the \code{ComponentSummary.txt} file.}
+\item{file}{Location of the \code{PeptideSummary.txt} file.}
 
-\item{min.conf}{Measurements with component ID confidence less than \code{min.conf} (between 0 - 100) are filtered out. The default
+\item{min.conf}{Measurements with peptide ID confidence less than \code{min.conf} (between 0 - 100) are filtered out. The default
 \code{"auto"} uses the ProteinPilot default threshold.}
 
 \item{data}{Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
 \link[data.table]{fread} default parameters.}
 
-\item{shared}{Include shared components?}
+\item{shared}{Include shared peptides?}
 
-\item{filter}{Other filters to use, which can include \code{"discordant component type"}, \code{"no iTRAQ" and
+\item{filter}{Other filters to use, which can include \code{"discordant peptide type"}, \code{"no iTRAQ" and
 \code{"weak signal"}}}
 }
 \value{
 A \link{data.frame} for input into \link{seaMass_sigma}.
 }
 \description{
-Reads in a SCIEX ProteinPilot \code{ComponentSummary.txt} file for processing with \link{seaMass_sigma}.
+Reads in a SCIEX ProteinPilot \code{PeptideSummary.txt} file for processing with \link{seaMass_sigma}.
 }

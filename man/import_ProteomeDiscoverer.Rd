@@ -7,7 +7,9 @@
 import_ProteomeDiscoverer(
   file = NULL,
   use.shared.peptides = FALSE,
-  use.not.component.quan.usage = FALSE,
+  use.not.unique = TRUE,
+  use.excluded.by.method = FALSE,
+  use.redundant = FALSE,
   data = NULL
 )
 }
@@ -17,7 +19,7 @@ import_ProteomeDiscoverer(
 \item{data}{Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with
 \link[data.table]{fread} default parameters.}
 
-\item{shared}{Include shared components?}
+\item{shared}{Include shared peptides?}
 
 \item{used}{Include only measurements marked as used by ProteomeDiscoverer?}
 }
