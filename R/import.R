@@ -325,7 +325,7 @@ import_MaxQuant <- function(
   )]
   DT[, Measurement := factor(Measurement, levels = unique(Measurement))]
 
-  # expand out rows with shared features
+  # fold out rows with shared features
   DT[, Use := ifelse(grepl(";", GroupID), use.shared.peptides, T)]
   DT = merge(DT[, !"GroupID"], DT[, {
     groupID = strsplit(GroupID, ";")
