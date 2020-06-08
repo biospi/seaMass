@@ -20,9 +20,9 @@ setMethod("plot_pca_contours", "seaMass", function(
   contours = 1:2,
   aspect.ratio = 3/4,
   labels = 25,
-  colour = "Assay.SD",
+  colour = "Condition",
   fill = "Condition",
-  shape = "Condition",
+  shape = NULL,
   data = NULL,
   ...
 ) {

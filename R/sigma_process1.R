@@ -46,6 +46,8 @@ setMethod("process1", "sigma_block", function(object, chain) {
           ellipsis <- ctrl@ellipsis
           ellipsis$object <- object
           ellipsis$type <- "component.deviations"
+          ellipsis$colour <- "Assay.SD"
+          ellipsis$shape <- "Condition"
           do.call("plot_pca_contours", ellipsis)
           ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_component_deviations_pca__assay_sd__block_", name(object), ".pdf")), width = 300, height = 300 * 9/16, units = "mm")
           ellipsis$colour <- "Exposure"
@@ -119,6 +121,8 @@ setMethod("process1", "sigma_block", function(object, chain) {
         ellipsis$object <- object
         ellipsis$type <- type
         do.call("plot_pca_contours", ellipsis)
+        ellipsis$colour <- "Assay.SD"
+        ellipsis$shape <- "Condition"
         ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_normalised_group_quants_pca__assay_sd__block_", name(object), ".pdf")), width = 300, height = 300 * 9/16, units = "mm")
         ellipsis$colour <- "Exposure"
         do.call("plot_pca_contours", ellipsis)
@@ -280,15 +284,17 @@ setMethod("process1", "sigma_block", function(object, chain) {
         ellipsis$object <- fit.sigma
         ellipsis$type <- "component.deviations"
         do.call("plot_pca_contours", ellipsis)
-        ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_component_deviations_pca__assay_sd.pdf")), width = 300, height = 200, units = "mm")
+        ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_component_deviations_pca.pdf")), width = 300, height = 200, units = "mm")
         if ("Exposure" %in% colnames(assay_design(object))) {
           ellipsis$colour <- "Exposure"
+          ellipsis$shape <- "Condition"
           do.call("plot_pca_contours", ellipsis)
           ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_component_deviations_pca__assay_exposure.pdf")), width = 300, height = 200, units = "mm")
         }
-        ellipsis$colour <- "Condition"
+        ellipsis$colour <- "Assay.SD"
+        ellipsis$shape <- "Condition"
         do.call("plot_pca_contours", ellipsis)
-        ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_component_deviations_pca.pdf")), width = 300, height = 200, units = "mm")
+        ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_component_deviations_pca__assay_sd.pdf")), width = 300, height = 200, units = "mm")
       }
 
       if ("normalised.group.quants.pca" %in% ctrl@plot) {
@@ -305,15 +311,17 @@ setMethod("process1", "sigma_block", function(object, chain) {
           ellipsis$object <- fit.sigma
           ellipsis$type <- type
           do.call("plot_pca_contours", ellipsis)
-          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_", gsub("\\.", "_", type), "_pca__assay_sd.pdf")), width = 300, height = 200, units = "mm")
+          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_", gsub("\\.", "_", type), "_pca.pdf")), width = 300, height = 200, units = "mm")
           if ("Exposure" %in% colnames(assay_design(object))) {
             ellipsis$colour <- "Exposure"
+            ellipsis$shape <- "Condition"
             do.call("plot_pca_contours", ellipsis)
             ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_", gsub("\\.", "_", type), "_pca__assay_exposure.pdf")), width = 300, height = 200, units = "mm")
           }
-          ellipsis$colour <- "Condition"
+          ellipsis$colour <- "Assay.SD"
+          ellipsis$shape <- "Condition"
           do.call("plot_pca_contours", ellipsis)
-          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_", gsub("\\.", "_", type), "_pca.pdf")), width = 300, height = 200, units = "mm")
+          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_", gsub("\\.", "_", type), "_pca__assay_sd.pdf")), width = 300, height = 200, units = "mm")
         }
       }
 

@@ -33,12 +33,22 @@ plot_volcano <- function(
     DT.fdr[, y := get(y.col)]
   }
   DT.fdr <- DT.fdr[complete.cases(DT.fdr)]
-  DT.fdr[, lower := extraDistr::qlst(0.025, df, x, s)]
-  DT.fdr[, upper := extraDistr::qlst(0.975, df, x, s)]
+  suppressWarnings({
+    DT.fdr[, lower := extraDistr::qlst(0.025, df, x, s)]
+    DT.fdr[is.nan(lower), lower := x]
+    DT.fdr[, upper := extraDistr::qlst(0.975, df, x, s)]
+    DT.fdr[is.nan(upper), upper := x]
+  })
   DT.fdr[, variable := Reduce(function(...) paste(..., sep = " : "), .SD[, (which(colnames(DT.fdr) == "Baseline") + 1):(which(colnames(DT.fdr) == "m") - 1)])]
   DT.fdr[, Truth := factor(truth)]
   DT.fdr[, label := NA_character_]
-  if (labels > 0) DT.fdr[1:labels, label := variable]
+  if (labels > 0) {
+    if (y.col == "s" || y.col == "PosteriorSD") {
+      DT.fdr[1:labels, label := as.character(variable)]
+    } else {
+      DT.fdr[1:labels, label := ifelse(get(y.col) < 0.1, as.character(variable), NA_character_)]
+    }
+  }
   DT.meta <- DT.fdr[, .(median = median(x, na.rm = T), .N), by = .(truth, Truth)]
 
   # transform y
@@ -77,11 +87,12 @@ plot_volcano <- function(
   }
 
   # plot
-  xlim.plot <- c(min(DT.fdr[is.finite(x), x]), max(DT.fdr[is.finite(x), x]))
-  xlim.plot <- c(-1.1, 1.1) * max(-xlim.plot[1], xlim.plot[2])
+  xlim.plot <- c(min(DT.fdr[is.finite(x), lower]), max(DT.fdr[is.finite(x), upper]))
+  xlim.plot <- c(-1.01, 1.01) * max(-xlim.plot[1], xlim.plot[2])
   ylim.plot <- c(min(DT.fdr[is.finite(y), y]), max(DT.fdr[is.finite(y), y]))
   ylim.plot <- ylim.plot + c(-0.01, 0.01) * (ylim.plot[2] - ylim.plot[1])
   ebh <- (ylim.plot[2] - ylim.plot[1]) / 500
+  if (xlim.plot[2] < 1) xlim.plot <- c(-1, 1)
   if (ylim.plot[2] < 2) ylim.plot[2] <- 2
   DT.fdr[x <= xlim.plot[1], x := -Inf]
   DT.fdr[x >= xlim.plot[2], x := Inf]
