@@ -148,9 +148,29 @@ setMethod("plot_pca_contours", "seaMass", function(
   rm(fit)
 
   # plot
-  if (!(!is.null(colour) && colour %in% colnames(DT.design) && any(!is.na(DT.design[, get(colour)])))) colour <- NULL
-  if (!(!is.null(fill) && fill %in% colnames(DT.design) && any(!is.na(DT.design[, get(fill)])))) fill <- NULL
-  if (!(!is.null(shape) && shape %in% colnames(DT.design) && any(!is.na(DT.design[, get(shape)])))) shape <- NULL
+  if (!is.null(colour) && colour %in% colnames(DT.design)) {
+    if(all(is.na(DT.design[, get(colour)]))) {
+      colour <- NULL
+    } else if (!is.numeric(DT.design[, get(colour)])) {
+      DT.design[, (colour) := factor(get(colour), exclude = NULL)]
+    }
+  }
+
+  if (!is.null(fill) && fill %in% colnames(DT.design)) {
+    if(all(is.na(DT.design[, get(fill)]))) {
+      fill <- NULL
+    } else if (!is.numeric(DT.design[, get(fill)])) {
+      DT.design[, (fill) := factor(get(fill), exclude = NULL)]
+    }
+  }
+
+  if (!is.null(shape) && shape %in% colnames(DT.design)) {
+    if(all(is.na(DT.design[, get(shape)]))) {
+      shape <- NULL
+    } else if (!is.numeric(DT.design[, get(shape)])) {
+      DT.design[, (shape) := factor(get(shape), exclude = NULL)]
+    }
+  }
 
   g <- ggplot2::ggplot(DT.design, ggplot2::aes(x = x, y = y))
   if (!is.null(colour)) {
@@ -188,8 +208,7 @@ setMethod("plot_pca_contours", "seaMass", function(
   g <- g + ggplot2::coord_cartesian(xlim = mid[1] + c(-span[1], span[1]), ylim = mid[2] + c(-span[2], span[2]))
   g <- g + ggplot2::theme(aspect.ratio = aspect.ratio)
   g <- g + ggplot2::ggtitle(paste0(gsub("\\.", " ", type), " PCA using ", nvariable.complete, " complete variables out of ", nvariable, " used"))
-
-  return(g)
+  g
 })
 
 
@@ -215,9 +234,9 @@ setMethod("plot_pca", "seaMass", function(
   contours = 1:2,
   aspect.ratio = 3/4,
   labels = 25,
-  colour = "Assay.SD",
+  colour = "Condition",
   fill = "Condition",
-  shape = "Condition",
+  shape = NULL,
   data = NULL,
   ...
 ) {
