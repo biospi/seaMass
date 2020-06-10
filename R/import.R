@@ -14,7 +14,7 @@ import_ProteomeDiscoverer <- function(
   file = NULL,
   use.shared.peptides = FALSE,
   use.not.unique = TRUE,
-  use.excluded.by.method = FALSE,
+  use.excluded.by.method = TRUE,
   use.redundant = FALSE,
   data = NULL
 ) {
