@@ -68,13 +68,16 @@ new_assay_design <- function(data) {
   DT.blocks[, Run := NULL]
   DT.blocks[, Channel := NULL]
   DT.blocks[, N := 1]
-  DT.blocks <- setDF(dcast(DT.blocks, Measurement ~ Assay, sum, value.var = "N"))
+  DT.blocks <- dcast(DT.blocks, Measurement ~ Assay, sum, value.var = "N")
+  setcolorder(DT.blocks, DT.design$Assay)
+  setDF(DT.blocks)
   rownames(DT.blocks) <- paste0("_seaMass_.Measurement.", DT.blocks$Measurement)
   DT.blocks$Measurement <- NULL
   colnames(DT.blocks) <- paste0("_seaMass_.Assay.", colnames(DT.blocks))
   DT.blocks <- igraph::components(igraph::graph.incidence(DT.blocks))
   DT.blocks <- DT.blocks$membership[grep("^_seaMass_\\.Assay\\.", names(DT.blocks$membership))]
-  DT.blocks <- data.table(Assay = sub("^_seaMass_\\.Assay\\.", "", names(DT.blocks)), Block. = factor(DT.blocks))
+  # igraph using lexi order, get blocks back into assay order
+  DT.blocks <- data.table(Assay = sub("^_seaMass_\\.Assay\\.", "", names(DT.blocks)), Block. = factor(DT.blocks, levels = unique(DT.blocks), labels = 1:uniqueN(DT.blocks)))
   DT.design <- merge(DT.design, DT.blocks, by = "Assay", sort = F)
   if (nlevels(DT.design$Block.) == 1) {
     DT.design[,paste0("Block.", levels(DT.design$Block.)) := Block. == levels(DT.design$Block.)]

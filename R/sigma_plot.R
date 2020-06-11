@@ -79,13 +79,7 @@ setMethod("plot_pca_contours", "seaMass", function(
   # extract results
   DT.design <- merge(DT.design, cbind(DT.individuals, data.table(x = fit$ind$coord[,1], y = fit$ind$coord[,2])), by = c("Assay", "Block"))
   if (is.numeric(labels)) labels <- ifelse(nrow(DT.design) <= labels, T, F)
-  if (labels) {
-    if (nlevels(DT.design$Block) > 1) {
-      DT.design[, label := factor(paste0(Sample, " [", Block, ":", Assay, "]"))]
-    } else {
-      DT.design[, label := factor(paste0(Sample, " [", Assay, "]"))]
-    }
-  }
+  if (labels) DT.design[, label := factor(paste0(Sample, " [", Assay, "]"))]
 
   # calculate limits for the aspect ratio
   min.x <- min(DT.design$x)
