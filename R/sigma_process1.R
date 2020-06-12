@@ -27,7 +27,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
     if (!("measurement.variances" %in% ctrl@keep)) unlink(file.path(filepath(object), "model1", "measurement.variances*"), recursive = T)
 
     # component variances summary
-    if("component.variances" %in% ctrl@summarise && !is.null(ctrl@component.model)) {
+    if("component.variances" %in% ctrl@summarise && ctrl@component.model != "") {
       cat(paste0("[", Sys.time(), "]    getting component variance summaries...\n"))
       DT.component.variances <- component_variances(object, summary = T, as.data.table = T)
       rm(DT.component.variances)
@@ -36,7 +36,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
     if (!("component.variances" %in% ctrl@keep)) unlink(file.path(filepath(object), "model1", "component.variances*"), recursive = T)
 
     # component deviations summary
-    if (!is.null(ctrl@component.model) && ctrl@component.model == "independent") {
+    if (ctrl@component.model == "independent") {
       if ("component.deviations" %in% ctrl@summarise || "component.deviations.pca" %in% ctrl@plot) {
         cat(paste0("[", Sys.time(), "]    getting component deviation summaries...\n"))
         DT.component.deviations <- component_deviations(object, summary = T, as.data.table = T)
@@ -60,7 +60,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
     if (!("component.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "model1", "component.deviations*"), recursive = T)
 
     # assay deviations summary
-    if("assay.deviations" %in% ctrl@summarise && !is.null(ctrl@assay.model) && ctrl@assay.model == "component") {
+    if("assay.deviations" %in% ctrl@summarise && ctrl@assay.model == "component") {
       cat(paste0("[", Sys.time(), "]    getting assay deviation summaries...\n"))
       DT.assay.deviations <- assay_deviations(object, summary = T, as.data.table = T)
       rm(DT.assay.deviations)
@@ -220,21 +220,21 @@ setMethod("process1", "sigma_block", function(object, chain) {
       }
 
       # write out component variances
-      if ("component.variances" %in% ctrl@summarise) {
+      if (ctrl@component.model != "" & "component.variances" %in% ctrl@summarise) {
         DT <- component_variances(fit.sigma, summary = T, as.data.table = T)
         DT <- dcast(DT, Group + Component ~ Block, value.var = c("v", "df", "rhat"))
         fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_component_variances.csv"))
       }
 
       # write out component deviations
-      if ("component.deviations" %in% ctrl@summarise) {
+      if (ctrl@component.model == "independent" && "component.deviations" %in% ctrl@summarise) {
         DT <- component_deviations(fit.sigma, summary = T, as.data.table = T)
         DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
         fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_component_deviations.csv"))
       }
 
       # write out assay variances
-      if ("assay.variances" %in% ctrl@summarise) {
+      if (ctrl@assay.model != "" && "assay.variances" %in% ctrl@summarise) {
         DT <- assay_variances(fit.sigma, as.data.table = T)
         fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_variances.csv"))
       }
@@ -277,7 +277,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
         }
       }
 
-      if ("component.deviations.pca" %in% ctrl@plot) {
+      if (ctrl@component.model == "independent" && "component.deviations.pca" %in% ctrl@plot) {
         cat(paste0("[", Sys.time(), "]  component deviations plots...\n"))
 
         ellipsis <- ctrl@ellipsis

@@ -51,6 +51,7 @@ seaMass_sigma <- function(
   # init DT
   data.is.data.table <- is.data.table(data)
   DT <- setDT(data)
+  if (!("Component" %in% colnames(DT))) DT[, Component := Group]
 
   cat(paste0("[", Sys.time(), "] preparing metadata...\n"))
 
@@ -216,7 +217,7 @@ seaMass_sigma <- function(
 
     DT0.components <- unique(DT0[, .(Group, Component)])
     DT0.components[, nComponent := .N, by = Group]
-    DT0.components <- DT0.components[nComponent >= control@component.eb.min]
+    if (control@component.model != "") DT0.components <- DT0.components[nComponent >= control@component.eb.min]
     DT0.components[, nComponent := NULL]
     DT0 <- merge(DT0, DT0.components, by = c("Group", "Component"), sort = F)
 
@@ -556,7 +557,7 @@ setMethod("component_deviations", "seaMass_sigma", function(object, components =
 #' @export
 #' @include generics.R
 setMethod("assay_deviations", "seaMass_sigma", function(object, assays = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), assay_deviations(block, assays, summary, input, chains, as.data.table = T)))
+  DT <- rbindlist(lapply(blocks(object), function(block) assay_deviations(block, assays, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)

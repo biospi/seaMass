@@ -13,6 +13,29 @@ setMethod("process0", "sigma_block", function(object, chain) {
     # PROCESS OUTPUT
     cat(paste0("[", Sys.time(), "]   OUTPUT0 block=", sub("^.*sigma\\.(.*)$", "\\1", object@filepath), "\n"))
 
+    # Measurement EB prior
+    cat(paste0("[", Sys.time(), "]    measurement prior...\n"))
+    set.seed(ctrl@random.seed)
+    DT.measurement.prior <- measurement_variances(object, input = "model0", summary = T, as.data.table = T)
+    DT.measurement.prior <- data.table(Effect = "Measurements", DT.measurement.prior[, squeeze_var(v, df)])
+    # delete measurement variances if not in 'keep'
+    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "measurement.variances*"), recursive = T)
+
+    DT.design <- assay_design(object, as.data.table = T)
+    DT.design[, Measurement.SD := DT.measurement.prior[, sqrt(v)]]
+
+    # Component EB prior
+    if(ctrl@component.model != "") {
+      cat(paste0("[", Sys.time(), "]    component prior...\n"))
+      set.seed(ctrl@random.seed)
+      DT.component.prior <- component_variances(object, input = "model0", summary = T, as.data.table = T)
+      DT.component.prior <- data.table(Effect = "Components", DT.component.prior[, squeeze_var(v, df)])
+      DT.measurement.prior <- rbind(DT.measurement.prior, DT.component.prior, use.names = T, fill = T)
+      DT.design[, Component.SD := DT.component.prior[, sqrt(v)]]
+    }
+    # delete component variances if not in 'keep'
+    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "component.variances*"), recursive = T)
+
     # Assay EB priors
     if(ctrl@assay.model != "") {
       cat(paste0("[", Sys.time(), "]    assay prior...\n"))
@@ -52,36 +75,16 @@ setMethod("process0", "sigma_block", function(object, chain) {
       }, nthread = ctrl@nthread))
 
       DT.assay.prior <- data.table(Effect = "Assay", DT.assay.prior[, dist_samples_invchisq(chain, sample, value), by = Assay])
+      DT.measurement.prior <- rbind(DT.measurement.prior, DT.assay.prior, use.names = T, fill = T)
+      DT.design <- merge(DT.design, DT.assay.prior[, .(Assay, Assay.SD = sqrt(v))], by = "Assay", sort = F, all.x = T)
     }
     # delete assay deviations if not in 'keep'
     if (!("assay.deviations" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "assay.deviations*"), recursive = T)
 
-    # Component EB prior
-    if(ctrl@component.model != "") {
-      cat(paste0("[", Sys.time(), "]    component prior...\n"))
-      set.seed(ctrl@random.seed)
-      DT.component.prior <- component_variances(object, input = "model0", summary = T, as.data.table = T)
-      DT.component.prior <- data.table(Effect = "Components", DT.component.prior[, squeeze_var(v, df)])
-    }
-    # delete component variances if not in 'keep'
-    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "component.variances*"), recursive = T)
-
-    # Measurement EB prior
-    cat(paste0("[", Sys.time(), "]    measurement prior...\n"))
-    set.seed(ctrl@random.seed)
-    DT.measurement.prior <- measurement_variances(object, input = "model0", summary = T, as.data.table = T)
-    DT.measurement.prior <- data.table(Effect = "Measurements", DT.measurement.prior[, squeeze_var(v, df)])
-    # delete measurement variances if not in 'keep'
-    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "measurement.variances*"), recursive = T)
-
-    # update design with variances
-    DT.design <- DT.assay.prior[, .(Assay, Assay.SD = sqrt(v), Measurement.SD = sqrt(DT.measurement.prior[, v]), Components.SD = sqrt(DT.component.prior[, v]))]
-    DT.design <- merge(assay_design(object, as.data.table = T), DT.design, by = "Assay", sort = F, all.x = T)
+    # update design with standard deviations
     fst::write.fst(DT.design, file.path(object@filepath, "design.fst"))
 
     # save priors
-    if(ctrl@component.model != "") DT.measurement.prior <- rbind(DT.measurement.prior, DT.component.prior, use.names = T, fill = T)
-    if(ctrl@assay.model != "") DT.measurement.prior <- rbind(DT.measurement.prior, DT.assay.prior, use.names = T, fill = T)
     fst::write.fst(DT.measurement.prior, file.path(object@filepath, "model1", "priors.fst"))
 
     # plot PCA
