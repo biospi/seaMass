@@ -12,7 +12,7 @@ setMethod("process", "seaMass_delta", function(object, chain) {
 
   # group dea
   if (ctrl@dea.model != "" && !all(is.na(assay_design(object, as.data.table = T)$Condition))) {
-    if (is.null(normalised_group_quants(object@fit, groups(object@fit, as.data.table = T)[1, Group]))) {
+    if (is.null(normalised_group_quants(object@fit, groups(object@fit, as.data.table = T)[1, Group], summary = T))) {
       type <- "standardised.group.quants"
     } else {
       type <- "normalised.group.quants"
@@ -73,7 +73,7 @@ setMethod("process", "seaMass_delta", function(object, chain) {
       if (!("component.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "component.deviations*"), recursive = T)
 
       # write out group fdr
-      if (file.exists(file.path(filepath(object), "component.deviations.fst"))) {
+      if (file.exists(file.path(filepath(object), "fdr.component.deviations.fst"))) {
         DTs.fdr <- split(component_deviations_fdr(object, as.data.table = T), drop = T, by = "Batch")
         for (name in names(DTs.fdr)) {
           # save

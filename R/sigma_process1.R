@@ -57,7 +57,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
       }
     }
     # delete if not in 'keep'
-    if (!("component.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "model1", "component.deviations*"), recursive = T)
+    if (!("component.deviations" %in% ctrl@keep || "component.deviations.pca" %in% ctrl@plot)) unlink(file.path(filepath(object), "model1", "component.deviations*"), recursive = T)
 
     # assay deviations summary
     if("assay.deviations" %in% ctrl@summarise && ctrl@assay.model == "component") {
@@ -76,7 +76,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
     }
 
     # normalised group quants
-    if ("normalised.group.variances" %in% ctrl@summarise || "normalised.group.variances" %in% ctrl@keep || "normalised.group.quants" %in% ctrl@summarise || "normalised.group.quants" %in% ctrl@keep || "normalised.group.quants.pca" %in% ctrl@plot) {
+    if ("normalised.group.quants" %in% ctrl@summarise || "normalised.group.quants" %in% ctrl@keep || "normalised.group.quants.pca" %in% ctrl@plot) {
       # standardise quants using reference weights
       standardise_group_quants(object)
 
@@ -102,6 +102,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
           fst::write.fst(DT.design, file.path(filepath(object), "design.fst"))
 
           rm(DT.normalised.group.variances)
+          if (!("normalised.group.variances" %in% ctrl@keep)) unlink(file.path(filepath(object), "normalised.group.variances*"), recursive = T)
         }
 
         cat(paste0("[", Sys.time(), "]    getting assay exposure summaries...\n"))
@@ -110,6 +111,8 @@ setMethod("process1", "sigma_block", function(object, chain) {
         fst::write.fst(DT.design, file.path(filepath(object), "design.fst"))
       }
     }
+    # delete group quants if not in 'keep'
+    if (!("raw.group.quants" %in% ctrl@keep)) unlink(file.path(filepath(object), "model1", "raw.group.quants*"), recursive = T)
 
     if ("normalised.group.quants" %in% ctrl@summarise || "normalised.group.quants.pca" %in% ctrl@plot) {
       cat(paste0("[", Sys.time(), "]    getting group quant summaries...\n"))
@@ -130,14 +133,9 @@ setMethod("process1", "sigma_block", function(object, chain) {
       }
     }
 
-    # delete group quants if not in 'keep'
-    if (!("raw.group.quants" %in% ctrl@keep)) unlink(file.path(filepath(object), "model1", "group.quants*"), recursive = T)
-    if (!("normalised.group.quants" %in% ctrl@keep)) {
+    if (!("normalised.group.quants" %in% ctrl@keep || "normalised.group.quants.pca" %in% ctrl@plot)) {
       if(file.exists(file.path(filepath(object), "standardised.group.quants"))) unlink(file.path(filepath(object), "standardised.group.quants*"), recursive = T)
-      unlink(file.path(filepath(object), "normalised.group.quants*"), recursive = T)
-    }
-    if (!("normalised.group.variances" %in% ctrl@keep)) {
-      if(file.exists(file.path(filepath(object), "normalised.group.variances"))) unlink(file.path(filepath(object), "normalised.group.variances*"), recursive = T)
+      if(file.exists(file.path(filepath(object), "normalised.group.quants"))) unlink(file.path(filepath(object), "normalised.group.quants*"), recursive = T)
     }
 
     # set complete
@@ -220,7 +218,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
       }
 
       # write out component variances
-      if (ctrl@component.model != "" & "component.variances" %in% ctrl@summarise) {
+      if (ctrl@component.model != "" && "component.variances" %in% ctrl@summarise) {
         DT <- component_variances(fit.sigma, summary = T, as.data.table = T)
         DT <- dcast(DT, Group + Component ~ Block, value.var = c("v", "df", "rhat"))
         fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_component_variances.csv"))
@@ -231,50 +229,6 @@ setMethod("process1", "sigma_block", function(object, chain) {
         DT <- component_deviations(fit.sigma, summary = T, as.data.table = T)
         DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
         fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_component_deviations.csv"))
-      }
-
-      # write out assay variances
-      if (ctrl@assay.model != "" && "assay.variances" %in% ctrl@summarise) {
-        DT <- assay_variances(fit.sigma, as.data.table = T)
-        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_variances.csv"))
-      }
-
-      # write out assay deviations
-      if ("assay.deviations" %in% ctrl@summarise) {
-        DT <- assay_deviations(fit.sigma, summary = T, as.data.table = T)
-        DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
-        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_deviations.csv"))
-      }
-
-      # write out raw group quants
-      if ("raw.group.quants" %in% ctrl@summarise) {
-        DT <- raw_group_quants(fit.sigma, summary = T, as.data.table = T)
-        DT <- dcast(DT, Block + Group + Baseline ~ Assay, value.var = c("m", "s", "df", "rhat"))
-        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_raw_group_quants.csv"))
-      }
-
-      # write out normalised group quants
-      if ("normalised.group.quants" %in% ctrl@summarise) {
-        type <- "normalised.group.quants"
-        DT <- normalised_group_quants(fit.sigma, summary = T, as.data.table = T)
-        if (is.null(DT)) {
-          type <- "standardised.group.quants"
-          DT <- standardised_group_quants(fit.sigma, summary = T, as.data.table = T)
-        }
-
-        if (!is.null(DT)) {
-          DT <- dcast(DT, Group ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
-          fwrite(DT, file.path(filepath(fit.sigma), "output", paste0("log2_", gsub("\\.", "_", type), ".csv")))
-        }
-      }
-
-      # write out normalised group variances
-      if ("normalised.group.variances" %in% ctrl@summarise) {
-        DT <- normalised_group_variances(fit.sigma, summary = T, as.data.table = T)
-        if (!is.null(DT)) {
-          DT <- dcast(DT, Group ~ Block, value.var = c("v", "df", "rhat"))
-          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_normalised_group_variances.csv"))
-        }
       }
 
       if (ctrl@component.model == "independent" && "component.deviations.pca" %in% ctrl@plot) {
@@ -303,6 +257,52 @@ setMethod("process1", "sigma_block", function(object, chain) {
           ellipsis$shape <- "Condition"
           do.call("plot_pca_contours", ellipsis)
           ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_component_deviations_pca__blocks.pdf")), width = 300, height = 200, units = "mm")
+        }
+      }
+      # delete if not in 'keep'
+      if (!("component.deviations" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "component.deviations*"), recursive = T)
+
+      # write out assay variances
+      if (ctrl@assay.model != "" && "assay.variances" %in% ctrl@summarise) {
+        DT <- assay_variances(fit.sigma, as.data.table = T)
+        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_variances.csv"))
+      }
+
+      # write out assay deviations
+      if ("assay.deviations" %in% ctrl@summarise) {
+        DT <- assay_deviations(fit.sigma, summary = T, as.data.table = T)
+        DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
+        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_deviations.csv"))
+      }
+
+      # write out raw group quants
+      if ("raw.group.quants" %in% ctrl@summarise) {
+        DT <- raw_group_quants(fit.sigma, summary = T, as.data.table = T)
+        DT <- dcast(DT, Block + Group + Baseline ~ Assay, value.var = c("m", "s", "df", "rhat"))
+        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_raw_group_quants.csv"))
+      }
+
+      # write out normalised group variances
+      if ("normalised.group.variances" %in% ctrl@summarise) {
+        DT <- normalised_group_variances(fit.sigma, summary = T, as.data.table = T)
+        if (!is.null(DT)) {
+          DT <- dcast(DT, Group ~ Block, value.var = c("v", "df", "rhat"))
+          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_normalised_group_variances.csv"))
+        }
+      }
+
+      # write out normalised group quants
+      if ("normalised.group.quants" %in% ctrl@summarise) {
+        type <- "normalised.group.quants"
+        DT <- normalised_group_quants(fit.sigma, summary = T, as.data.table = T)
+        if (is.null(DT)) {
+          type <- "standardised.group.quants"
+          DT <- standardised_group_quants(fit.sigma, summary = T, as.data.table = T)
+        }
+
+        if (!is.null(DT)) {
+          DT <- dcast(DT, Group ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
+          fwrite(DT, file.path(filepath(fit.sigma), "output", paste0("log2_", gsub("\\.", "_", type), ".csv")))
         }
       }
 
@@ -340,6 +340,13 @@ setMethod("process1", "sigma_block", function(object, chain) {
             do.call("plot_pca_contours", ellipsis)
             ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_", gsub("\\.", "_", type), "_pca__blocks.pdf")), width = 300, height = 200, units = "mm")
           }
+        }
+      }
+      # delete if not in 'keep'
+      if (!("normalised.group.quants" %in% ctrl@keep)) {
+        for (block in blocks(object)) {
+          if(file.exists(file.path(filepath(block), "model1", "standardised.group.quants"))) unlink(file.path(filepath(block), "model1", "standardised.group.quants*"), recursive = T)
+          if(file.exists(file.path(filepath(block), "model1", "normalised.group.quants"))) unlink(file.path(filepath(block), "model1", "normalised.group.quants*"), recursive = T)
         }
       }
 

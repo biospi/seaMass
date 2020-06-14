@@ -215,8 +215,8 @@ setMethod("component_deviations", "seaMass_delta", function(object, type = "comp
 #' @export
 #' @include generics.R
 setMethod("standardised_group_quants_fdr", "seaMass_delta", function(object, type = "standardised.group.quants", as.data.table = FALSE) {
-  if (file.exists(file.path(filepath(object), paste0(type, ".fst")))) {
-    return(fst::read.fst(file.path(filepath(object), paste0(type, ".fst")), as.data.table = as.data.table))
+  if (file.exists(file.path(filepath(object), paste0("fdr.", type, ".fst")))) {
+    return(fst::read.fst(file.path(filepath(object), paste0("fdr.", type, ".fst")), as.data.table = as.data.table))
   } else {
     return(NULL)
   }
@@ -228,8 +228,8 @@ setMethod("standardised_group_quants_fdr", "seaMass_delta", function(object, typ
 #' @export
 #' @include generics.R
 setMethod("normalised_group_quants_fdr", "seaMass_delta", function(object, type = "normalised.group.quants", as.data.table = FALSE) {
-  if (file.exists(file.path(filepath(object), paste0(type, ".fst")))) {
-    return(fst::read.fst(file.path(filepath(object), paste0(type, ".fst")), as.data.table = as.data.table))
+  if (file.exists(file.path(filepath(object), paste0("fdr.", type, ".fst")))) {
+    return(fst::read.fst(file.path(filepath(object), paste0("fdr.", type, ".fst")), as.data.table = as.data.table))
   } else {
     return(NULL)
   }
@@ -241,8 +241,8 @@ setMethod("normalised_group_quants_fdr", "seaMass_delta", function(object, type 
 #' @export
 #' @include generics.R
 setMethod("component_deviations_fdr", "seaMass_delta", function(object, components = NULL, summary = FALSE, type = "component.deviations", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  if (file.exists(file.path(filepath(object), paste0(type, ".fst")))) {
-    return(fst::read.fst(file.path(filepath(object), paste0(type, ".fst")), as.data.table = as.data.table))
+  if (file.exists(file.path(filepath(object), paste0("fdr.", type, ".fst")))) {
+    return(fst::read.fst(file.path(filepath(object), paste0("fdr.", type, ".fst")), as.data.table = as.data.table))
   } else {
     return(NULL)
   }

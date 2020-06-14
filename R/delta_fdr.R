@@ -129,7 +129,7 @@ setMethod("fdr_ash", "seaMass_delta", function(
 
   setcolorder(DT, c("Batch", "Effect", "Contrast", "Baseline"))
   setorderv(DT, c("Batch", sort.col), na.last = T)
-  fst::write.fst(DT, file.path(filepath(object), paste0(type, ".fst")))
+  fst::write.fst(DT, file.path(filepath(object), paste0("fdr.", type, ".fst")))
 
   options(warn = warn)
 
