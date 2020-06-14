@@ -32,12 +32,6 @@ delta_control(
 
 \item{random.seed}{Random number seed}
 
-\item{norm.model}{Either \code{NULL} (no normalisation), \code{"median"}, \code{"quantile"} or \code{"theta"} (seaMass-theta Bayesian normalisation)}
-
-\item{norm.nwarmup}{Number of MCMC warmup iterations to run for each chain with seaMass-theta Bayesian normalisation.}
-
-\item{norm.thin}{MCMC thinning factor with seaMass-theta Bayesian normalisation.}
-
 \item{nthread}{Number of CPU threads to employ}
 }
 \description{

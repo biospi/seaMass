@@ -21,9 +21,6 @@ setClass("delta_control", slots = c(
 #' @describeIn delta_control Generator function
 #' @param component.deviations Set this to \code{TRUE} to do differential expression analysis on the component deviations as well as the group quants.
 #' @param keep Outputs to keep MCMC samples for, \code{NULL} or a subset of c("group.de", "component.deviations.de")
-#' @param norm.model Either \code{NULL} (no normalisation), \code{"median"}, \code{"quantile"} or \code{"theta"} (seaMass-theta Bayesian normalisation)
-#' @param norm.nwarmup Number of MCMC warmup iterations to run for each chain with seaMass-theta Bayesian normalisation.
-#' @param norm.thin MCMC thinning factor with seaMass-theta Bayesian normalisation.
 #' @param dea.model Either \code{NULL} (no differential expression analysis) or \code{"MCMCglmm"} (MCMCglmm differential expression analysis)
 #' @param dea.nwarmup Number of MCMC warmup iterations to run for each chain with MCMCglmm differential expression analysis.
 #' @param dea.thin MCMC thinning factor with MCMCglmm differential expression analysis.
@@ -44,9 +41,6 @@ delta_control <- function(
 
   params$component.deviations <- as.logical(component.deviations)
   if (!is.null(keep)) params$keep <- as.character(keep)
-  if (!is.null(norm.model)) params$norm.model <- norm.model else params$norm.model <- ""
-  params$norm.nwarmup <- as.integer(norm.nwarmup)
-  params$norm.thin <- as.integer(norm.thin)
   if (!is.null(dea.model)) params$dea.model <- dea.model else params$dea.model <- ""
   params$dea.nwarmup <- as.integer(dea.nwarmup)
   params$dea.thin <- as.integer(dea.thin)
