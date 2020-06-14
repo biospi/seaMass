@@ -42,8 +42,8 @@ setMethod("process", "seaMass_delta", function(object, chain) {
     if (!(type %in% ctrl@keep)) unlink(file.path(filepath(object), paste0(type, "*")), recursive = T)
 
     # write out group fdr
-    if (file.exists(file.path(filepath(object), paste0(type, ".fst")))) {
-      DTs.fdr <- fst::read.fst(file.path(filepath(object), paste0(type, ".fst")), as.data.table = T)
+    if (file.exists(file.path(filepath(object), paste0("fdr.", type, ".fst")))) {
+      DTs.fdr <- fst::read.fst(file.path(filepath(object), paste0("fdr.", type, ".fst")), as.data.table = T)
       DTs.fdr <- split(DTs.fdr, drop = T, by = "Batch")
       for (name in names(DTs.fdr)) {
         # save
