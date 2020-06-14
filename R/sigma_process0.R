@@ -79,8 +79,6 @@ setMethod("process0", "sigma_block", function(object, chain) {
       DT.measurement.prior <- rbind(DT.measurement.prior, DT.assay.prior, use.names = T, fill = T)
       DT.design <- merge(DT.design, DT.assay.prior[, .(Assay, Assay.SD = sqrt(v))], by = "Assay", sort = F, all.x = T)
     }
-    # delete assay deviations if not in 'keep'
-    if (!("assay.deviations" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "assay.deviations*"), recursive = T)
 
     # update design with standard deviations
     fst::write.fst(DT.design, file.path(object@filepath, "design.fst"))
@@ -89,17 +87,22 @@ setMethod("process0", "sigma_block", function(object, chain) {
     fst::write.fst(DT.measurement.prior, file.path(object@filepath, "model1", "priors.fst"))
 
     # plot PCA
-    cat(paste0("[", Sys.time(), "]    summarising assay deviations and plotting\n"))
+    if ("assay.deviations.pca" %in% ctrl@plot) {
+      cat(paste0("[", Sys.time(), "]    summarising assay deviations...\n"))
 
-    ellipsis <- ctrl@ellipsis
-    ellipsis$object <- object
-    ellipsis$data.design <- merge(assay_design(object, as.data.table = T), DT.assay.prior[, .(Assay, Stdev = sqrt(v))], by = "Assay")
-    ellipsis$input <- "model0"
-    ellipsis$type <- "assay.deviations"
-    ellipsis$colour <- "Assay.SD"
-    ellipsis$shape <- "Condition"
-    do.call("plot_pca_contours", ellipsis)
-    ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_assay_deviations_pca__block_", name(object), ".pdf")), width = 300, height = 200, units = "mm")
+      ellipsis <- ctrl@ellipsis
+      ellipsis$object <- object
+      ellipsis$data.design <- merge(assay_design(object, as.data.table = T), DT.assay.prior[, .(Assay, Stdev = sqrt(v))], by = "Assay")
+      ellipsis$input <- "model0"
+      ellipsis$type <- "assay.deviations"
+      ellipsis$colour <- "Assay.SD"
+      ellipsis$shape <- "Condition"
+      do.call("plot_pca_contours", ellipsis)
+      ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_assay_deviations_pca__block_", name(object), ".pdf")), width = 300, height = 200, units = "mm")
+    }
+
+    # delete assay deviations if not in 'keep'
+    if (!("assay.deviations" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "assay.deviations*"), recursive = T)
   }
 
   return(invisible(NULL))

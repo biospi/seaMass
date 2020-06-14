@@ -64,7 +64,7 @@ setClass("sigma_control", slots = c(
 sigma_control <- function(
   summarise = c( "measurement.variances", "component.variances", "component.deviations", "raw.group.quants", "normalised.group.quants", "normalised.group.variances"),
   keep = c("model0", "measurement.variances", "component.variances", "component.deviations", "assay.deviations", "raw.group.quants", "normalised.group.quants", "normalised.group.variances"),
-  plot = c("assay.deviations.pca", "normalised.group.quants.pca"),
+  plot = c("normalised.group.quants.pca"),
   measurement.model = "independent",
   measurement.eb.min = 2,
   component.model = "independent",
