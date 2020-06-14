@@ -50,7 +50,7 @@ setMethod("process0", "sigma_block", function(object, chain) {
         } else {
           DT[, Item := factor(paste(as.integer(Group), as.integer(Component), sep = "."))]
         }
-        DT <- DT[as.integer(DT$Item) <= ctrl@eb.max]
+        DT <- droplevels(DT[as.integer(DT$Item) <= ctrl@eb.max])
 
         # our Bayesian model
         set.seed(ctrl@random.seed + item[, chain])

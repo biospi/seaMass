@@ -10,9 +10,6 @@ delta_control(
   component.deviations = FALSE,
   keep = c("standardised.group.quants", "normalised.group.quants",
     "component.deviations"),
-  norm.model = "theta",
-  norm.nwarmup = 256,
-  norm.thin = 1,
   dea.model = "MCMCglmm",
   dea.nwarmup = 4096,
   dea.thin = 256,
@@ -25,12 +22,6 @@ delta_control(
 
 \item{keep}{Outputs to keep MCMC samples for, \code{NULL} or a subset of c("group.de", "component.deviations.de")}
 
-\item{norm.model}{Either \code{NULL} (no normalisation), \code{"median"}, \code{"quantile"} or \code{"theta"} (seaMass-theta Bayesian normalisation)}
-
-\item{norm.nwarmup}{Number of MCMC warmup iterations to run for each chain with seaMass-theta Bayesian normalisation.}
-
-\item{norm.thin}{MCMC thinning factor with seaMass-theta Bayesian normalisation.}
-
 \item{dea.model}{Either \code{NULL} (no differential expression analysis) or \code{"MCMCglmm"} (MCMCglmm differential expression analysis)}
 
 \item{dea.nwarmup}{Number of MCMC warmup iterations to run for each chain with MCMCglmm differential expression analysis.}
@@ -40,6 +31,12 @@ delta_control(
 \item{fdr.model}{Either \code{NULL} (no false discovery rate correction) or \code{"ash"} (ash false discovery rate correction)}
 
 \item{random.seed}{Random number seed}
+
+\item{norm.model}{Either \code{NULL} (no normalisation), \code{"median"}, \code{"quantile"} or \code{"theta"} (seaMass-theta Bayesian normalisation)}
+
+\item{norm.nwarmup}{Number of MCMC warmup iterations to run for each chain with seaMass-theta Bayesian normalisation.}
+
+\item{norm.thin}{MCMC thinning factor with seaMass-theta Bayesian normalisation.}
 
 \item{nthread}{Number of CPU threads to employ}
 }
