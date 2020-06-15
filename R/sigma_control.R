@@ -63,7 +63,7 @@ setClass("sigma_control", slots = c(
 #' @export sigma_control
 sigma_control <- function(
   summarise = c( "measurement.variances", "component.variances", "component.deviations", "raw.group.quants", "normalised.group.quants", "normalised.group.variances"),
-  keep = c("model0", "measurement.variances", "component.variances", "component.deviations", "assay.deviations", "raw.group.quants", "normalised.group.quants", "normalised.group.variances"),
+  keep = c("model0", "measurement.variances", "component.variances", "component.deviations", "assay.deviations", "raw.group.quants", "normalised.group.quants", "normalised.group.variances", "summaries"),
   plot = c("normalised.group.quants.pca"),
   measurement.model = "independent",
   measurement.eb.min = 2,
@@ -123,7 +123,7 @@ sigma_control <- function(
 
 setValidity("sigma_control", function(object) {
   if (!(all(object@summarise %in% c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "assay.deviations", "raw.group.quants", "normalised.group.quants", "normalised.group.variances")))) return("'summarise' is not valid!")
-  if (!(all(object@keep %in% c("model0", "measurement.variances", "component.variances", "component.deviations", "assay.deviations", "raw.group.quants", "normalised.group.quants", "normalised.group.variances")))) return("'keep' is not valid!")
+  if (!(all(object@keep %in% c("model0", "measurement.variances", "component.variances", "component.deviations", "assay.deviations", "raw.group.quants", "normalised.group.quants", "normalised.group.variances", "summaries")))) return("'keep' is not valid!")
   if (!(all(object@plot %in% c("assay.deviations.pca", "component.deviations.pca", "normalised.group.quants.pca")))) return("'plot' is not valid!")
   if (length(object@measurement.model) != 1 || !(object@measurement.model %in% c("single", "independent"))) return("'measurement.model' is not valid!")
   if (length(object@measurement.eb.min) != 1 || object@measurement.eb.min <= 0) return("'measurement.eb.min' must be positive!")

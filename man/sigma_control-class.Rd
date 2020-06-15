@@ -11,7 +11,7 @@ sigma_control(
     "raw.group.quants", "normalised.group.quants", "normalised.group.variances"),
   keep = c("model0", "measurement.variances", "component.variances",
     "component.deviations", "assay.deviations", "raw.group.quants",
-    "normalised.group.quants", "normalised.group.variances"),
+    "normalised.group.quants", "normalised.group.variances", "summaries"),
   plot = c("normalised.group.quants.pca"),
   measurement.model = "independent",
   measurement.eb.min = 2,

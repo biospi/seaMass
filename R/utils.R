@@ -63,7 +63,7 @@ parallel_lapply <- function(items, func, nthread = 0, pred = rep(1, length(items
     # parallel
     outputs <- foreach::foreach(
       item = iterators::iter(items),
-      .inorder = F,
+      #.inorder = F,
       .packages = .packages,
       .export = c("func", names(func.args)[func.args != "item"]),
       .options.snow = list(

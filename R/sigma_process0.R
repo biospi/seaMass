@@ -15,8 +15,8 @@ setMethod("process0", "sigma_block", function(object, chain) {
 
     # Measurement EB prior
     cat(paste0("[", Sys.time(), "]    measurement prior...\n"))
-    set.seed(ctrl@random.seed)
     DT.measurement.prior <- measurement_variances(object, input = "model0", summary = T, as.data.table = T)
+    set.seed(ctrl@random.seed)
     DT.measurement.prior <- data.table(Effect = "Measurements", DT.measurement.prior[, squeeze_var(v, df)])
     # delete measurement variances if not in 'keep'
     if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "measurement.variances*"), recursive = T)
@@ -27,8 +27,8 @@ setMethod("process0", "sigma_block", function(object, chain) {
     # Component EB prior
     if(ctrl@component.model != "") {
       cat(paste0("[", Sys.time(), "]    component prior...\n"))
-      set.seed(ctrl@random.seed)
       DT.component.prior <- component_variances(object, input = "model0", summary = T, as.data.table = T)
+      set.seed(ctrl@random.seed)
       DT.component.prior <- data.table(Effect = "Components", DT.component.prior[, squeeze_var(v, df)])
       DT.measurement.prior <- rbind(DT.measurement.prior, DT.component.prior, use.names = T, fill = T)
       DT.design[, Component.SD := DT.component.prior[, sqrt(v)]]

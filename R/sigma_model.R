@@ -2,7 +2,6 @@
 #' @include generics.R
 setMethod("model", "sigma_block", function(object, input, chain = 1) {
   ctrl <- control(object)
-  set.seed(ctrl@random.seed + chain-1)
   cat(paste0("[", Sys.time(), "]   ", toupper(input), " block=", sub("^.*sigma\\.(.*)$", "\\1", filepath(object)), " chain=", chain, "/", ctrl@model.nchain, "\n"))
 
   # load metadata
@@ -17,7 +16,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
   dir.create(file.path(filepath(object), input, "component.variances"), showWarnings = F)
   if (input != "model0") dir.create(file.path(filepath(object), input, "component.deviations"), showWarnings = F)
   dir.create(file.path(filepath(object), input, "assay.deviations"), showWarnings = F)
-  dir.create(file.path(filepath(object), input, "summaries"), showWarnings = F)
+  if ("summaries" %in% ctrl@keep) dir.create(file.path(filepath(object), input, "summaries"), showWarnings = F)
   dir.create(file.path(filepath(object), input, "timings"), showWarnings = F)
 
   cat(paste0("[", Sys.time(), "]    modelling ngroup=", nrow(DT.index), " nitt=", nitt, "...\n"))
@@ -168,6 +167,8 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       if ("Count1" %in% colnames(DT)) DT[2, Count1 := NA]
     }
 
+    if ("summaries" %in% ctrl@keep) output$DT.summaries <- as.character(Sys.time())
+
     # MCMCglmm can very rarely fail on a dataset, try again with slightly perturbed values
     model <- NULL
     attempt <- 1
@@ -183,6 +184,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
         }
       }
 
+      set.seed(ctrl@random.seed + chain-1)
       try(output$DT.timings <- system.time(model <- MCMCglmm::MCMCglmm(
         fixed, random, rcov, family, data = DT, prior = prior,
         nitt = nitt, burnin = ctrl@model.nwarmup, thin = ctrl@model.thin, pr = T, verbose = F, singular.ok = T
@@ -193,8 +195,10 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     if (is.null(model)) stop("ERROR: MCMCglmm failed more than 10 times")
     output$DT.timings <- data.table(Group = group, chain = chain, as.data.table(t(as.matrix(output$DT.timings))))
 
-    options(max.print = 99999)
-    output$DT.summaries <- data.table(Group = group, chain = chain, Summary = paste(c(output$DT.summaries, capture.output(print(summary(model))), as.character(Sys.time())), collapse = "\n"))
+    if ("summaries" %in% ctrl@keep) {
+      options(max.print = 99999)
+      output$DT.summaries <- data.table(Group = group, chain = chain, Summary = paste(c(output$DT.summaries, capture.output(print(summary(model))), as.character(Sys.time())), collapse = "\n"))
+    }
 
     ### EXTRACT GROUP QUANTS
     if (input == "model1" && ("raw.group.quants" %in% ctrl@summarise || "raw.group.quants" %in% ctrl@keep)) {
@@ -465,10 +469,12 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
   DT.design <- assay_design(object, as.data.table = T)
 
   # write out summaries
-  outputs$DT.summaries[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
-  setkey(outputs$DT.summaries, Group, chain)
-  fst::write.fst(outputs$DT.summaries, file.path(filepath(object), input, file.path("summaries", paste0(chain, ".fst"))))
-  outputs$DT.summaries <- NULL
+  if ("summaries" %in% ctrl@keep) {
+    outputs$DT.summaries[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
+    setkey(outputs$DT.summaries, Group, chain)
+    fst::write.fst(outputs$DT.summaries, file.path(filepath(object), input, file.path("summaries", paste0(chain, ".fst"))))
+    outputs$DT.summaries <- NULL
+  }
 
   # write out timings
   outputs$DT.timing[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]

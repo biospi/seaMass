@@ -103,6 +103,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
             if (attempt > 1) print(attempt)
             tryCatch({
               # run MCMCglmm
+              set.seed(ctrl@random.seed + chain-1)
               model <- MCMCglmm::MCMCglmm(
                 fixed = fixed1,
                 random = random,

@@ -125,9 +125,12 @@ setMethod("priors", "sigma_block", function(object, input = "model1", as.data.ta
 #' @include generics.R
 setMethod("summary", "sigma_block", function(object, group, chain, input = "model1") {
   DT <- fst::read.fst(file.path(filepath(object), input, "summaries", paste0(chain, ".fst")), as.data.table = T)
-  group <- as.integer(groups(object, as.data.table = T)[Group == group, Group])
 
-  return(cat(DT[Group == group, Summary]))
+  if (is.null(DT)) {
+    return(NULL)
+  } else {
+    return(cat(DT[Group == group, Summary]))
+  }
 })
 
 

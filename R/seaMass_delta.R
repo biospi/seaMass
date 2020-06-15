@@ -43,7 +43,6 @@ seaMass_delta <- function(
 
   data.table::setDTthreads(control@nthread)
   fst::threads_fst(control@nthread)
-  set.seed(control@random.seed)
 
   # create fit and output directories
   object <- new("seaMass_delta", fit = fit, name = paste0("delta.", name))
