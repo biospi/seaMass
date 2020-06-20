@@ -183,19 +183,6 @@ setMethod("standardised_group_quants", "seaMass_delta", function(object, groups 
 })
 
 
-#' @describeIn seaMass_delta-class Get the model differential expression as a \link{data.frame}.
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("normalised_group_quants", "seaMass_delta", function(object, groups = NULL, summary = FALSE, type = "normalised.group.quants", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- read_samples(object, ".", type, groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
-
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
-})
-
-
 #' @describeIn seaMass_delta-class Get the component deviations differential expression as a \link{data.frame}.
 #' @import data.table
 #' @export
@@ -214,19 +201,6 @@ setMethod("component_deviations", "seaMass_delta", function(object, type = "comp
 #' @export
 #' @include generics.R
 setMethod("standardised_group_quants_fdr", "seaMass_delta", function(object, type = "standardised.group.quants", as.data.table = FALSE) {
-  if (file.exists(file.path(filepath(object), paste0("fdr.", type, ".fst")))) {
-    return(fst::read.fst(file.path(filepath(object), paste0("fdr.", type, ".fst")), as.data.table = as.data.table))
-  } else {
-    return(NULL)
-  }
-})
-
-
-#' @describeIn seaMass_delta-class Get the model differential expression as a \link{data.frame}.
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("normalised_group_quants_fdr", "seaMass_delta", function(object, type = "normalised.group.quants", as.data.table = FALSE) {
   if (file.exists(file.path(filepath(object), paste0("fdr.", type, ".fst")))) {
     return(fst::read.fst(file.path(filepath(object), paste0("fdr.", type, ".fst")), as.data.table = as.data.table))
   } else {

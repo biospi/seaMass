@@ -1,12 +1,12 @@
 #' @include generics.R
 #' @export
-setMethod("standardise_group_quants", "sigma_block", function(object, data.design = assay_design(object), input = "model1") {
+setMethod("standardise_group_quants", "sigma_block", function(object, data.design = assay_design(object), input = "model1", type = "standardised.group.quants0") {
   cat(paste0("[", Sys.time(), "]    standardising raw group quants...\n"))
 
   ctrl <- control(object)
   DT.refweights <- as.data.table(data.design)[, .(Assay, RefWeight)]
   DT.refweights <- DT.refweights[complete.cases(DT.refweights)]
-  dir.create(file.path(filepath(object), input, "standardised.group.quants"), showWarnings = F)
+  dir.create(file.path(filepath(object), input, type), showWarnings = F)
 
   parallel_lapply(as.list(1:ctrl@model.nchain), function(item, object, ctrl, DT.refweights, input) {
     DT <- raw_group_quants(object, chain = item, as.data.table = T)[, Block := NULL]
@@ -34,10 +34,35 @@ setMethod("standardise_group_quants", "sigma_block", function(object, data.desig
 
     # write
     setorder(DT, Group, Assay)
-    if (item == 1) fst::write.fst(DT[, .(file = file.path("standardised.group.quants", "1.fst"), from = min(.I), to = max(.I)), by = .(Group, Assay)], file.path(filepath(object), input, "standardised.group.quants.index.fst"))
+    if (item == 1) fst::write.fst(DT[, .(file = file.path(type, "1.fst"), from = min(.I), to = max(.I)), by = .(Group, Assay)], file.path(filepath(object), input, paste0(type, ".index.fst")))
     DT[, Group := as.integer(Group)]
     DT[, Assay := as.integer(Assay)]
-    fst::write.fst(DT, file.path(filepath(object), input, "standardised.group.quants", paste0(item, ".fst")))
+    fst::write.fst(DT, file.path(filepath(object), input, type, paste0(item, ".fst")))
+
+    return(NULL)
+  }, nthread = 1) # this doesn't take long so lets avoid a spike in memory usage
+
+  return(invisible(object))
+})
+
+
+#' @include generics.R
+#' @export
+setMethod("centre_group_quants", "seaMass", function(object, input = "model1", type = "centred.group.quants") {
+  cat(paste0("[", Sys.time(), "]    centring standardised group quants...\n"))
+
+  ctrl <- control(object)
+  dir.create(file.path(filepath(object), input, type), showWarnings = F)
+
+  parallel_lapply(as.list(1:ctrl@model.nchain), function(item, object, ctrl, input) {
+    DT <- standardised_group_quants(object, chain = item, as.data.table = T)[, Block := NULL]
+    DT[, value := value - mean(value), by = .(Group, chain, sample)]
+
+    # write
+    if (item == 1) fst::write.fst(DT[, .(file = file.path(type, "1.fst"), from = min(.I), to = max(.I)), by = .(Group, Assay)], file.path(filepath(object), input, paste0(type, ".index.fst")))
+    DT[, Group := as.integer(Group)]
+    DT[, Assay := as.integer(Assay)]
+    fst::write.fst(DT, file.path(filepath(object), input, type, paste0(item, ".fst")))
 
     return(NULL)
   }, nthread = 1) # this doesn't take long so lets avoid a spike in memory usage

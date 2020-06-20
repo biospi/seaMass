@@ -9,7 +9,8 @@
   data.design = assay_design(object),
   variables = NULL,
   input = "model1",
-  type = "normalised.group.quants",
+  type = "standardised.group.quants",
+  scale = FALSE,
   robust = TRUE,
   contours = 1:2,
   aspect.ratio = 3/4,
@@ -17,7 +18,6 @@
   colour = "Condition",
   fill = "Condition",
   shape = NULL,
-  data = NULL,
   ...
 )
 }

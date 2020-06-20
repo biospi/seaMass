@@ -27,8 +27,8 @@
 \alias{assay_deviations,seaMass_sigma-method}
 \alias{raw_group_quants,seaMass_sigma-method}
 \alias{standardised_group_quants,seaMass_sigma-method}
-\alias{normalised_group_quants,seaMass_sigma-method}
-\alias{normalised_group_variances,seaMass_sigma-method}
+\alias{centred_group_quants,seaMass_sigma-method}
+\alias{standardised_group_variances,seaMass_sigma-method}
 \alias{name,sigma_block-method}
 \title{seaMass-Σ}
 \usage{
@@ -129,7 +129,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
   as.data.table = FALSE
 )
 
-\S4method{normalised_group_quants}{seaMass_sigma}(
+\S4method{centred_group_quants}{seaMass_sigma}(
   object,
   groups = NULL,
   summary = FALSE,
@@ -138,7 +138,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
   as.data.table = FALSE
 )
 
-\S4method{normalised_group_variances}{seaMass_sigma}(
+\S4method{standardised_group_variances}{seaMass_sigma}(
   object,
   groups = NULL,
   summary = FALSE,
@@ -219,9 +219,9 @@ Fits the seaMass-Σ Bayesian group-level quantification model to imported data.
 
 \item \code{standardised_group_quants,seaMass_sigma-method}: Get the model standardised group quantifications as a \link{data.frame}.
 
-\item \code{normalised_group_quants,seaMass_sigma-method}: Get the model normalised group quantifications as a \link{data.frame}.
+\item \code{centred_group_quants,seaMass_sigma-method}: Get the model standardised group quantifications as a \link{data.frame}.
 
-\item \code{normalised_group_variances,seaMass_sigma-method}: Get the model normalised group variances as a \link{data.frame}.
+\item \code{standardised_group_variances,seaMass_sigma-method}: Get the model standardised group variances as a \link{data.frame}.
 
 \item \code{name,sigma_block-method}: Get the block name.
 }}

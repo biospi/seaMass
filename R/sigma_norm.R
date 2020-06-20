@@ -1,11 +1,11 @@
 #' @include generics.R
 #' @export
-setMethod("norm_theta", "sigma_block", function(object, norm.groups = NULL, input = "model1", ...) {
+setMethod("exposure_theta", "sigma_block", function(object, exposure.groups = NULL, input = "model1",  ...) {
   cat(paste0("[", Sys.time(), "]    seaMass-theta normalisation\n"))
 
   ctrl <- control(object)
-  dir.create(file.path(filepath(object), input, "normalised.group.quants"), showWarnings = F)
-  dir.create(file.path(filepath(object), input, "normalised.group.variances"), showWarnings = F)
+  dir.create(file.path(filepath(object), input, "standardised.group.quants"), showWarnings = F)
+  dir.create(file.path(filepath(object), input, "standardised.group.variances"), showWarnings = F)
   dir.create(file.path(filepath(object), input, "assay.exposures"), showWarnings = F)
 
   # precompute summaries if needed
@@ -14,9 +14,9 @@ setMethod("norm_theta", "sigma_block", function(object, norm.groups = NULL, inpu
   rm(DT)
 
   cat(paste0("[", Sys.time(), "]     running model...\n"))
-  if (!is.null(norm.groups)) norm.groups <- groups(object, as.data.table = T)[grep(norm.groups, Group), Group]
-  parallel_lapply(as.list(1:ctrl@model.nchain), function(item, object, ctrl, norm.groups, input) {
-    DT <- droplevels(standardised_group_quants(object, norm.groups, summary = T, as.data.table = T)[, .(Group, Assay, m, s)])
+  if (!is.null(exposure.groups)) exposure.groups <- groups(object, as.data.table = T)[grep(exposure.groups, Group), Group]
+  parallel_lapply(as.list(1:ctrl@model.nchain), function(item, object, ctrl, exposure.groups, input) {
+    DT <- droplevels(read_samples(object, input, "standardised.group.quants0", exposure.groups, summary = T, as.data.table = T)[, .(Group, Assay, m, s)])
 
     # seaMass-Θ Bayesian model
     set.seed(ctrl@random.seed + item)
@@ -26,9 +26,9 @@ setMethod("norm_theta", "sigma_block", function(object, norm.groups = NULL, inpu
       rcov = ~ idh(Group):units,
       data = DT,
       prior = list(R = list(V = diag(nlevels(DT[, Group])), nu = 2e-4)),
-      burnin = ctrl@norm.nwarmup,
-      nitt = ctrl@norm.nwarmup + (ctrl@model.nsample * ctrl@norm.thin) / ctrl@model.nchain,
-      thin = ctrl@norm.thin,
+      burnin = ctrl@exposure.nwarmup,
+      nitt = ctrl@exposure.nwarmup + (ctrl@model.nsample * ctrl@exposure.thin) / ctrl@model.nchain,
+      thin = ctrl@exposure.thin,
       singular.ok = T,
       verbose = F
     )
@@ -46,9 +46,9 @@ setMethod("norm_theta", "sigma_block", function(object, norm.groups = NULL, inpu
 
     # write groups variances
     setorder(DT, Group)
-    if (item == 1) fst::write.fst(DT[, .(file = factor(file.path("normalised.group.variances", "1.fst")), from = min(.I), to = max(.I)), by = Group], file.path(filepath(object), input, "normalised.group.variances.index.fst"))
+    if (item == 1) fst::write.fst(DT[, .(file = factor(file.path("standardised.group.variances", "1.fst")), from = min(.I), to = max(.I)), by = Group], file.path(filepath(object), input, "standardised.group.variances.index.fst"))
     DT[, Group := as.integer(Group)]
-    fst::write.fst(DT, file.path(filepath(object), input, "normalised.group.variances", paste(item, "fst", sep = ".")))
+    fst::write.fst(DT, file.path(filepath(object), input, "standardised.group.variances", paste(item, "fst", sep = ".")))
 
     # extract exposures
     DT.exposures <- as.data.table(model$Sol[, grep("^Assay", colnames(model$Sol)), drop = F])
@@ -60,16 +60,19 @@ setMethod("norm_theta", "sigma_block", function(object, norm.groups = NULL, inpu
     setorder(DT.exposures, Assay)
 
     # normalise
-    DT <- merge(standardised_group_quants(object, chain = item, as.data.table = T)[, Block := NULL], DT.exposures, by = c("Assay", "chain", "sample"), sort = F)
+    DT <- merge(
+      read_samples(object, input, "standardised.group.quants0", chain = item, as.data.table = T)[, Block := NULL],
+      DT.exposures, by = c("Assay", "chain", "sample"), sort = F
+    )
     DT[, value := value - exposure]
     DT[, exposure := NULL]
     setcolorder(DT, "Group")
 
-    # write normalised group quants
-    if (item == 1) fst::write.fst(DT[, .(file = file.path("normalised.group.quants", "1.fst"), from = min(.I), to = max(.I)), by = .(Group, Assay)], file.path(filepath(object), input, "normalised.group.quants.index.fst"))
+    # write standardised group quants
+    if (item == 1) fst::write.fst(DT[, .(file = file.path("standardised.group.quants", "1.fst"), from = min(.I), to = max(.I)), by = .(Group, Assay)], file.path(filepath(object), input, "standardised.group.quants.index.fst"))
     DT[, Group := as.integer(Group)]
     DT[, Assay := as.integer(Assay)]
-    fst::write.fst(DT, file.path(filepath(object), input, "normalised.group.quants", paste(item, "fst", sep = ".")))
+    fst::write.fst(DT, file.path(filepath(object), input, "standardised.group.quants", paste(item, "fst", sep = ".")))
 
     # write exposures
     setnames(DT.exposures, "exposure", "value")
@@ -86,18 +89,18 @@ setMethod("norm_theta", "sigma_block", function(object, norm.groups = NULL, inpu
 
 #' @include generics.R
 #' @export
-setMethod("norm_median", "sigma_block", function(object, norm.groups = NULL, input = "model1", ...) {
+setMethod("exposure_median", "sigma_block", function(object, exposure.groups = NULL, input = "model1", ...) {
   cat(paste0("[", Sys.time(), "]    median normalisation...\n"))
 
-  dir.create(file.path(filepath(object), input, "normalised.group.quants"), showWarnings = F)
+  dir.create(file.path(filepath(object), input, "standardised.group.quants"), showWarnings = F)
   dir.create(file.path(filepath(object), input, "assay.exposures"), showWarnings = F)
-  if (is.null(norm.groups)) norm.groups <- ".*"
+  if (is.null(exposure.groups)) exposure.groups <- ".*"
 
-  parallel_lapply(as.list(1:control(object)@model.nchain), function(item, object, norm.groups, input) {
-    DT <- standardised_group_quants(object, input = input, chain = item, as.data.table = T)[, Block := NULL]
+  parallel_lapply(as.list(1:control(object)@model.nchain), function(item, object, exposure.groups, input) {
+    DT <- read_samples(object, input, "standardised.group.quants0", chain = item, as.data.table = T)[, Block := NULL]
 
     # median normalisation
-    DT.exposures <- DT[, .(exposure = median(value[grep(norm.groups, Group)])), by = .(Assay, chain, sample)]
+    DT.exposures <- DT[, .(exposure = median(value[grep(exposure.groups, Group)])), by = .(Assay, chain, sample)]
 
     # normalise
     DT <- merge(DT, DT.exposures, by = c("Assay", "chain", "sample"), sort = F)
@@ -105,11 +108,11 @@ setMethod("norm_median", "sigma_block", function(object, norm.groups = NULL, inp
     DT[, exposure := NULL]
     setcolorder(DT, "Group")
 
-    # write normalised group quants
-    if (item == 1) fst::write.fst(DT[, .(file = file.path("normalised.group.quants", "1.fst"), from = min(.I), to = max(.I)), by = .(Group, Assay)], file.path(filepath(object), input, paste("normalised.group.quants", "index.fst", sep = ".")))
+    # write standardised group quants
+    if (item == 1) fst::write.fst(DT[, .(file = file.path("standardised.group.quants", "1.fst"), from = min(.I), to = max(.I)), by = .(Group, Assay)], file.path(filepath(object), input, "standardised.group.quants.index.fst"))
     DT[, Group := as.integer(Group)]
     DT[, Assay := as.integer(Assay)]
-    fst::write.fst(DT, file.path(filepath(object), input, "normalised.group.quants", paste(item, "fst", sep = ".")))
+    fst::write.fst(DT, file.path(filepath(object), input, "standardised.group.quants", paste(item, "fst", sep = ".")))
 
     # write exposures
     setnames(DT.exposures, "exposure", "value")
@@ -126,13 +129,14 @@ setMethod("norm_median", "sigma_block", function(object, norm.groups = NULL, inp
 
 #' @include generics.R
 #' @export
-setMethod("norm_quantile", "sigma_block", function(object, input = "model1", ...) {
+setMethod("exposure_quantile", "sigma_block", function(object, input = "model1", ...) {
   cat(paste0("[", Sys.time(), "]    quantile normalisation...\n"))
 
-  dir.create(file.path(filepath(object), input, "normalised.group.quants"), showWarnings = F)
+  dir.create(file.path(filepath(object), input, "standardised.group.quants"), showWarnings = F)
+  dir.create(file.path(filepath(object), input, "assay.exposures"), showWarnings = F)
 
-  parallel_lapply(as.list(1:control(object)@model.nchain), function(item, object, norm.groups, input) {
-    DT <- standardised_group_quants(object, input = input, chain = item, as.data.table = T)[, Block := NULL]
+  parallel_lapply(as.list(1:control(object)@model.nchain), function(item, object, input) {
+    DT <- read_samples(object, input, "standardised.group.quants0", chain = item, as.data.table = T)[, Block := NULL]
 
     # quantile normalisation
     DT[, exposure := value]
@@ -151,11 +155,11 @@ setMethod("norm_quantile", "sigma_block", function(object, input = "model1", ...
     # mean exposures (for visualisation)
     DT.exposures <- DT[, .(value = mean(exposure)), by = .(Assay, chain, sample)]
 
-    # write normalised group quants
-    if (item == 1) fst::write.fst(DT[, .(file = file.path("normalised.group.quants", "1.fst"), from = min(.I), to = max(.I)), by = .(Group, Assay)], file.path(filepath(object), input, paste("normalised.group.quants", "index.fst", sep = ".")))
+    # write standardised group quants
+    if (item == 1) fst::write.fst(DT[, .(file = file.path("standardised.group.quants", "1.fst"), from = min(.I), to = max(.I)), by = .(Group, Assay)], file.path(filepath(object), input, "standardised.group.quants.index.fst"))
     DT[, Group := as.integer(Group)]
     DT[, Assay := as.integer(Assay)]
-    fst::write.fst(DT, file.path(filepath(object), input, "normalised.group.quants", paste(item, "fst", sep = ".")))
+    fst::write.fst(DT, file.path(filepath(object), input, "standardised.group.quants", paste(item, "fst", sep = ".")))
 
     # write mean exposures
     if (item == 1) fst::write.fst(DT.exposures[, .(file = file.path("assay.exposures", "1.fst"), from = min(.I), to = max(.I)), by = Assay], file.path(filepath(object), input, "assay.exposures.index.fst"))
@@ -167,4 +171,5 @@ setMethod("norm_quantile", "sigma_block", function(object, input = "model1", ...
 
   return(invisible(object))
 })
+
 

@@ -118,6 +118,60 @@ setMethod("read_samples", "seaMass", function(object, input, type, items = NULL,
 })
 
 
+#' @include generics.R
+#' @export
+# setMethod("centre_group_quants", "seaMass", function(object, input = "model1") {
+#   cat(paste0("[", Sys.time(), "]    centring normalised group quants...\n"))
+#
+#   ctrl <- control(object)
+#   dir.create(file.path(filepath(object), input, "centred.group.quants"), showWarnings = F)
+#
+#   parallel_lapply(as.list(1:ctrl@model.nchain), function(item, object, ctrl, input) {
+#     DT <- raw_group_quants(object, chain = item, as.data.table = T)[, Block := NULL]
+#
+#     # add in zeros for the baselines
+#     DT <- rbind(DT, unique(DT[, .(Baseline, Assay = Baseline, chain, sample, value = 0), by = Group]))
+#
+#     # need to NA groups/baseline combos where any RefWeight>0 assays are missing
+#     ref.assays <- DT.refweights[RefWeight > 0, Assay]
+#     DT[, complete := all(ref.assays %in% Assay), by = .(Group, Baseline)]
+#     DT[complete == F, value := NA]
+#     DT[, complete := NULL]
+#
+#     # now standardise using RefWeighted mean of assays as denominator
+#     DT <- merge(DT, DT.refweights[, .(Assay, RefWeight)], by = "Assay", sort = F)
+#     DT[, value := value - {
+#       x <- weighted.mean(value, RefWeight)
+#       ifelse(is.na(x), 0, x)
+#     }, by = .(Group, Baseline, chain, sample)]
+#     DT <- DT[!is.nan(value)]
+#
+#     DT[, Baseline := NULL]
+#     DT[, RefWeight := NULL]
+#     setcolorder(DT, c("Group", "Assay"))
+#
+#     # write
+#     setorder(DT, Group, Assay)
+#     if (item == 1) fst::write.fst(DT[, .(file = file.path("standardised.group.quants", "1.fst"), from = min(.I), to = max(.I)), by = .(Group, Assay)], file.path(filepath(object), input, "standardised.group.quants.index.fst"))
+#     DT[, Group := as.integer(Group)]
+#     DT[, Assay := as.integer(Assay)]
+#     fst::write.fst(DT, file.path(filepath(object), input, "standardised.group.quants", paste0(item, ".fst")))
+#
+#     return(NULL)
+#   }, nthread = 1) # this doesn't take long so lets avoid a spike in memory usage
+#
+#   return(invisible(object))
+# })
+# if (centre) {
+#   DT.summary <- read_samples(object, input, type, variables, as.data.table = T)
+#   DT.summary[, value := value - mean(value), by = .(Group, chain, sample)]
+#   summary.cols <- colnames(DT.summary)[1:(which(colnames(DT.summary) == "chain") - 1)]
+#   DT.summary <- DT.summary[, dist_samples_robust_normal(chain, sample, value), by = summary.cols]
+# } else {
+
+
+
+
 #' @import data.table
 #' @export
 #' @include generics.R

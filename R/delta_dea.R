@@ -6,7 +6,7 @@
 setMethod("dea_MCMCglmm", "seaMass_delta", function(
   object,
   input = "model1",
-  type = "normalised.group.quants",
+  type = "standardised.group.quants",
   specs = ~ Condition,
   contrasts = list(method = "revpairwise"),
   fixed = ~ Condition,

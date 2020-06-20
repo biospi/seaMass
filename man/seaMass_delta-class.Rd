@@ -12,14 +12,13 @@
 \alias{assay_design,seaMass_delta-method}
 \alias{del,seaMass_delta-method}
 \alias{standardised_group_quants,seaMass_delta-method}
-\alias{normalised_group_quants,seaMass_delta-method}
 \alias{component_deviations,seaMass_delta-method}
 \alias{standardised_group_quants_fdr,seaMass_delta-method}
-\alias{normalised_group_quants_fdr,seaMass_delta-method}
 \alias{component_deviations_fdr,seaMass_delta-method}
 \alias{add_seaMass_spikein_truth}
 \alias{add_Navarro_spikein_truth}
 \alias{standardised_group_quants,sigma_block-method}
+\alias{centred_group_quants,sigma_block-method}
 \title{seaMass-Δ}
 \usage{
 seaMass_delta(
@@ -53,15 +52,6 @@ open_delta(fit, name = "fit", quiet = FALSE, force = FALSE)
   as.data.table = FALSE
 )
 
-\S4method{normalised_group_quants}{seaMass_delta}(
-  object,
-  groups = NULL,
-  summary = FALSE,
-  type = "normalised.group.quants",
-  chains = 1:control(object)@model.nchain,
-  as.data.table = FALSE
-)
-
 \S4method{component_deviations}{seaMass_delta}(
   object,
   type = "component.deviations",
@@ -71,12 +61,6 @@ open_delta(fit, name = "fit", quiet = FALSE, force = FALSE)
 \S4method{standardised_group_quants_fdr}{seaMass_delta}(
   object,
   type = "standardised.group.quants",
-  as.data.table = FALSE
-)
-
-\S4method{normalised_group_quants_fdr}{seaMass_delta}(
-  object,
-  type = "normalised.group.quants",
   as.data.table = FALSE
 )
 
@@ -94,6 +78,15 @@ add_seaMass_spikein_truth(data.fdr)
 add_Navarro_spikein_truth(data.fdr)
 
 \S4method{standardised_group_quants}{sigma_block}(
+  object,
+  groups = NULL,
+  summary = FALSE,
+  input = "model1",
+  chains = 1:control(object)@model.nchain,
+  as.data.table = FALSE
+)
+
+\S4method{centred_group_quants}{sigma_block}(
   object,
   groups = NULL,
   summary = FALSE,
@@ -139,13 +132,9 @@ quants output by seaMass-Σ
 
 \item \code{standardised_group_quants,seaMass_delta-method}: Get the model differential expression as a \link{data.frame}.
 
-\item \code{normalised_group_quants,seaMass_delta-method}: Get the model differential expression as a \link{data.frame}.
-
 \item \code{component_deviations,seaMass_delta-method}: Get the component deviations differential expression as a \link{data.frame}.
 
 \item \code{standardised_group_quants_fdr,seaMass_delta-method}: Get the model differential expression as a \link{data.frame}.
-
-\item \code{normalised_group_quants_fdr,seaMass_delta-method}: Get the model differential expression as a \link{data.frame}.
 
 \item \code{component_deviations_fdr,seaMass_delta-method}: Get the component deviations differential expression as a \link{data.frame}.
 
@@ -154,5 +143,7 @@ quants output by seaMass-Σ
 \item \code{add_Navarro_spikein_truth}: Add Navarro spikein ground truth to the object of \code{group_fdr} pr \code{component_deviations_fdr}.
 
 \item \code{standardised_group_quants,sigma_block-method}: Get the model standardised group quantifications as a \link{data.frame}.
+
+\item \code{centred_group_quants,sigma_block-method}: Get the model centred group quantifications as a \link{data.frame}.
 }}
 

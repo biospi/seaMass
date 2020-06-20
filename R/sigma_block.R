@@ -252,6 +252,32 @@ setMethod("standardised_group_quants", "sigma_block", function(object, groups = 
 })
 
 
+#' @describeIn seaMass_delta-class Get the model centred group quantifications as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("centred_group_quants", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- read_samples(object, input, "centred.group.quants", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn sigma_block Get the model standardised group variances as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("standardised_group_variances", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- read_samples(object, input, "standardised.group.variances", groups, chains, summary, summary.func = "invchisq", as.data.table = as.data.table)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
 #' @describeIn sigma_block Get the model assay exposures as a \link{data.frame}.
 #' @import data.table
 #' @export
@@ -265,27 +291,3 @@ setMethod("assay_exposures", "sigma_block", function(object, assays = NULL, summ
 })
 
 
-#' @describeIn sigma_block Get the model normalised group variances as a \link{data.frame}.
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("normalised_group_variances", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- read_samples(object, input, "normalised.group.variances", groups, chains, summary, summary.func = "invchisq", as.data.table = as.data.table)
-
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
-})
-
-
-#' @describeIn seaMass-class Get the model normalised group quantifications as a \link{data.frame}.
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("normalised_group_quants", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- read_samples(object, input, "normalised.group.quants", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
-
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
-})

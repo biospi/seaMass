@@ -594,12 +594,12 @@ setMethod("standardised_group_quants", "seaMass_sigma", function(object, groups 
 })
 
 
-#' @describeIn seaMass_sigma-class Get the model normalised group quantifications as a \link{data.frame}.
+#' @describeIn seaMass_sigma-class Get the model standardised group quantifications as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("normalised_group_quants", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block)  normalised_group_quants(block, groups, summary, input, chains, as.data.table = T)))
+setMethod("centred_group_quants", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) centred_group_quants(block, groups, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
@@ -608,12 +608,12 @@ setMethod("normalised_group_quants", "seaMass_sigma", function(object, groups = 
 })
 
 
-#' @describeIn seaMass_sigma-class Get the model normalised group variances as a \link{data.frame}.
+#' @describeIn seaMass_sigma-class Get the model standardised group variances as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("normalised_group_variances", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) normalised_group_variances(block, groups, summary, input, chains, as.data.table = T)))
+setMethod("standardised_group_variances", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) standardised_group_variances(block, groups, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)

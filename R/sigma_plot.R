@@ -15,7 +15,8 @@ setMethod("plot_pca_contours", "seaMass", function(
   data.design = assay_design(object),
   variables = NULL,
   input = "model1",
-  type = "normalised.group.quants",
+  type = "standardised.group.quants",
+  scale = FALSE,
   robust = TRUE,
   contours = 1:2,
   aspect.ratio = 3/4,
@@ -23,7 +24,6 @@ setMethod("plot_pca_contours", "seaMass", function(
   colour = "Condition",
   fill = "Condition",
   shape = NULL,
-  data = NULL,
   ...
 ) {
   # this is needed to stop foreach massive memory leak!!!
@@ -35,11 +35,7 @@ setMethod("plot_pca_contours", "seaMass", function(
   if (!("Block" %in% colnames(DT.design))) DT.design <- merge(DT.design, assay_design(object, as.data.table = T), by = "Assay", sort = F, suffixes = c("", ".old"))
 
   # determine which individuals and variables to use
-  if (is.null(data)) {
-    DT.summary <- read_samples(object, input, type, variables, summary = T, summary.func = "robust_normal", as.data.table = T)
-  } else {
-    DT.summary <- as.data.table(data)
-  }
+  DT.summary <- read_samples(object, input, type, variables, summary = T, summary.func = "robust_normal", as.data.table = T)
   summary.cols <- setdiff(colnames(DT.summary)[1:(which(colnames(DT.summary) == "m") - 1)], c("Assay", "Block"))
   DT.individuals <- merge(DT.summary[, .(use = var(m, na.rm = T) >= 1e-5), keyby = .(Assay, Block)][use == T, .(Assay, Block)], DT.design[, .(Assay, Block)], by = c("Assay", "Block"), sort = F)
   DT.variables <- dcast(DT.summary, paste(paste(summary.cols, collapse = " + "), "~ Assay + Block"), value.var = "m")
@@ -68,9 +64,9 @@ setMethod("plot_pca_contours", "seaMass", function(
 
   # run PCA
   if (robust && !any(is.na(row.weights)) && !any(is.na(col.weights))) {
-    fit <- FactoMineR::PCA(DT.summary, scale.unit = F, row.w = row.weights, col.w = col.weights, graph = F)
+    fit <- FactoMineR::PCA(DT.summary, scale.unit = scale, row.w = row.weights, col.w = col.weights, graph = F)
   } else {
-    fit <- FactoMineR::PCA(DT.summary, scale.unit = F, graph = F)
+    fit <- FactoMineR::PCA(DT.summary, scale.unit = scale, graph = F)
   }
   pc1 <- fit$eig[1, "percentage of variance"]
   pc2 <- fit$eig[2, "percentage of variance"]
@@ -94,7 +90,7 @@ setMethod("plot_pca_contours", "seaMass", function(
   }
 
   # contours
-  if (is.null(data) && (!(is.null(contours) || length(contours) == 0))) {
+  if (!(is.null(contours) || length(contours) == 0)) {
     cat(paste0("[", Sys.time(), "]     transforming samples...\n"))
 
     # predict from PCA fit
@@ -183,8 +179,8 @@ setMethod("plot_pca_contours", "seaMass", function(
   g <- g + ggplot2::geom_vline(xintercept = 0, colour = "grey")
   g <- g + ggplot2::geom_hline(yintercept = 0, colour = "grey")
 
-  if (is.null(data) && (!(is.null(contours) || length(contours) == 0))) {
-    if (is.null(colour) || uniqueN(DT[, get(colour)]) <= 1) {
+  if (!(is.null(contours) || length(contours) == 0)) {
+    if (is.null(colour) || uniqueN(DT.design[, get(colour)]) <= 1) {
       if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z1"), colour = "black", breaks = 1, alpha = 0.5)
       if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z2"), colour = "black", breaks = 1, alpha = 0.25)
       if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z3"), colour = "black", breaks = 1, alpha = 0.125)
@@ -223,7 +219,8 @@ setMethod("plot_pca", "seaMass", function(
   data.design = assay_design(object),
   variables = NULL,
   input = "model1",
-  type = "normalised.group.quants",
+  type = "standardised.group.quants",
+  scale = FALSE,
   robust = TRUE,
   contours = 1:2,
   aspect.ratio = 3/4,
@@ -234,7 +231,7 @@ setMethod("plot_pca", "seaMass", function(
   data = NULL,
   ...
 ) {
-  return(plot_pca_contours(object, data.design, variables, input, type, robust, NULL, aspect.ratio, labels, colour, fill, shape, data, ...))
+  return(plot_pca_contours(object, data.design, variables, input, type, scale, robust, NULL, aspect.ratio, labels, colour, fill, shape, data, ...))
 })
 
 

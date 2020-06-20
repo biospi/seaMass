@@ -12,12 +12,6 @@ setMethod("process", "seaMass_delta", function(object, chain) {
 
   # group dea
   if (ctrl@dea.model != "" && !all(is.na(assay_design(object, as.data.table = T)$Condition))) {
-    if (is.null(normalised_group_quants(object@fit, groups(object@fit, as.data.table = T)[1, Group], summary = T))) {
-      type <- "standardised.group.quants"
-    } else {
-      type <- "normalised.group.quants"
-    }
-    ellipsis$type <- type
     do.call(paste("dea", ctrl@dea.model, sep = "_"), ellipsis)
   }
 
@@ -31,32 +25,34 @@ setMethod("process", "seaMass_delta", function(object, chain) {
 
   if (all(sapply(1:ctrl@model.nchain, function(chain) file.exists(file.path(filepath(object), paste("complete", chain, sep = ".")))))) {
     # summarise group de and perform fdr correction
-    if (file.exists(file.path(filepath(object), paste0(type, ".index.fst")))) {
+    if (file.exists(file.path(filepath(object), "standardised.group.quants.index.fst"))) {
       if(ctrl@fdr.model != "") {
-        ellipsis$type <- type
+        ellipsis <- ctrl@ellipsis
+        ellipsis$object <- object
         do.call(paste("fdr", ctrl@fdr.model, sep = "_"), ellipsis)
       } else {
-        read_samples(object, ".", type, summary = T, as.data.table = T)
+        cat(paste0("[", Sys.time(), "]    getting standardised group quants differential expression...\n"))
+        standardised_group_quants(object, summary = T, as.data.table = T)
       }
     }
-    if (!(type %in% ctrl@keep)) unlink(file.path(filepath(object), paste0(type, "*")), recursive = T)
+    if (!("standardised.group.quants" %in% ctrl@keep)) unlink(file.path(filepath(object), "standardised.group.quants*"), recursive = T)
 
     # write out group fdr
-    if (file.exists(file.path(filepath(object), paste0("fdr.", type, ".fst")))) {
-      DTs.fdr <- fst::read.fst(file.path(filepath(object), paste0("fdr.", type, ".fst")), as.data.table = T)
+    if (file.exists(file.path(filepath(object), "fdr.standardised.group.quants.fst"))) {
+      DTs.fdr <- fst::read.fst(file.path(filepath(object), "fdr.standardised.group.quants.fst"), as.data.table = T)
       DTs.fdr <- split(DTs.fdr, drop = T, by = "Batch")
       for (name in names(DTs.fdr)) {
         # save
-        fwrite(DTs.fdr[[name]], file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_", gsub("\\.", "_", type), "_fdr.", gsub("\\.", "_", name), ".csv")))
+        fwrite(DTs.fdr[[name]], file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_standardised_group_quants_fdr.", gsub("\\.", "_", name), ".csv")))
         # plot fdr
         plot_fdr(DTs.fdr[[name]])
-        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_", gsub("\\.", "_", type), "_fdr.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
+        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_standardised_group_quants_fdr.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
         # plot volcano
         plot_volcano(DTs.fdr[[name]])
-        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_", gsub("\\.", "_", type), "_fdr_volcano.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
+        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_standardised_group_quants_fdr_volcano.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
         # plot fc
         plot_volcano(DTs.fdr[[name]], stdev.col = "s", x.col = "m", y.col = "s")
-        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_", gsub("\\.", "_", type), "_fdr_fc.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
+        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_standardised_group_quants_fdr_fc.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
       }
     }
 
@@ -64,9 +60,12 @@ setMethod("process", "seaMass_delta", function(object, chain) {
       # summarise component deviation de and perform fdr correction
       if (file.exists(file.path(filepath(object), "component.deviations.index.fst"))) {
         if(ctrl@fdr.model != "") {
+          ellipsis <- ctrl@ellipsis
+          ellipsis$object <- object
           ellipsis$type <- "component.deviations"
           do.call(paste("fdr", ctrl@fdr.model, sep = "_"), ellipsis)
         } else {
+          cat(paste0("[", Sys.time(), "]    getting component deviations differential expression summaries...\n"))
           component_deviations_de(object, summary = T, as.data.table = T)
         }
       }

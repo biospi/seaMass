@@ -23,9 +23,9 @@ setClass("sigma_control", slots = c(
   model.thin = "integer",
   model.nsample = "integer",
   eb.max = "integer",
-  norm.model = "character",
-  norm.nwarmup = "integer",
-  norm.thin = "integer",
+  exposure.model = "character",
+  exposure.nwarmup = "integer",
+  exposure.thin = "integer",
   random.seed = "numeric",
   nthread = "integer",
   schedule = "schedule",
@@ -36,11 +36,11 @@ setClass("sigma_control", slots = c(
 
 #' @describeIn sigma_control-class Generator function
 #' @param summarise Outputs to write csv summaries for, \code{NULL} or a subset of
-#'   \code{c("measurement.variances", "component.variances", "component.deviations", "assay.variances", "raw.group.quants", "normalised.group.quants", "normalised.group.variances"))}
+#'   \code{c("measurement.variances", "component.variances", "component.deviations", "assay.variances", "raw.group.quants", "standardised.group.quants", "standardised.group.variances"))}
 #' @param keep Outputs to keep MCMC samples for, \code{NULL} or a subset of
-#'   \code{c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "raw.group.quants", "normalised.group.quants", "normalised.group.variances"))}
+#'   \code{c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "raw.group.quants", "standardised.group.quants", "standardised.group.variances"))}
 #'   Note, you must keep \code{"raw.group.quants"} if you want to run seaMass-Δ!
-#' @param plot Outputs to plot, \code{NULL} or a subset of c("normalised.group.quants.pca", "component.deviations.pca")
+#' @param plot Outputs to plot, \code{NULL} or a subset of c("centred.group.quants.pca", "standardised.group.quants.pca", "component.deviations.pca")
 #' @param measurement.model Either \code{"single"} (single residual) or \code{"independent"} (per-measurement independent residuals)
 #' @param measurement.eb.min Minimum number of measurements per component to use for computing Empirical Bayes priors
 #' @param component.model Either \code{NULL} (no component model), \code{"single"} (single random effect) or \code{"independent"}
@@ -62,9 +62,9 @@ setClass("sigma_control", slots = c(
 #' @param schedule Either \link{schedule_local} (execute locally), \link{schedule_pbs} or \link{schedule_slurm} (prepare for submission to HPC cluster)
 #' @export sigma_control
 sigma_control <- function(
-  summarise = c( "measurement.variances", "component.variances", "component.deviations", "raw.group.quants", "normalised.group.quants", "normalised.group.variances"),
-  keep = c("model0", "measurement.variances", "component.variances", "component.deviations", "assay.deviations", "raw.group.quants", "normalised.group.quants", "normalised.group.variances", "summaries"),
-  plot = c("normalised.group.quants.pca"),
+  summarise = c( "measurement.variances", "component.variances", "component.deviations", "raw.group.quants", "standardised.group.quants", "standardised.group.variances"),
+  keep = c("model0", "measurement.variances", "component.variances", "component.deviations", "assay.deviations", "raw.group.quants", "standardised.group.quants", "standardised.group.variances", "summaries"),
+  plot = c("centred.group.quants.pca", "standardised.group.quants.pca"),
   measurement.model = "independent",
   measurement.eb.min = 2,
   component.model = "independent",
@@ -80,9 +80,9 @@ sigma_control <- function(
   model.thin = 4,
   model.nsample = 1024,
   eb.max = 1024,
-  norm.model = "theta",
-  norm.nwarmup = 256,
-  norm.thin = 1,
+  exposure.model = "theta",
+  exposure.nwarmup = 256,
+  exposure.thin = 1,
   random.seed = 0,
   nthread = parallel::detectCores() %/% 2,
   schedule = schedule_local()
@@ -110,9 +110,9 @@ sigma_control <- function(
   params$model.thin <- as.integer(model.thin)
   params$model.nsample <- as.integer(model.nsample)
   params$eb.max <- as.integer(eb.max)
-  if (!is.null(norm.model)) params$norm.model <- norm.model else params$norm.model <- ""
-  params$norm.nwarmup <- as.integer(norm.nwarmup)
-  params$norm.thin <- as.integer(norm.thin)
+  if (!is.null(exposure.model)) params$exposure.model <- exposure.model else params$exposure.model <- ""
+  params$exposure.nwarmup <- as.integer(exposure.nwarmup)
+  params$exposure.thin <- as.integer(exposure.thin)
   params$random.seed <- as.integer(random.seed)
   params$nthread <- as.integer(nthread)
   params$schedule <- schedule
@@ -122,9 +122,9 @@ sigma_control <- function(
 }
 
 setValidity("sigma_control", function(object) {
-  if (!(all(object@summarise %in% c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "assay.deviations", "raw.group.quants", "normalised.group.quants", "normalised.group.variances")))) return("'summarise' is not valid!")
-  if (!(all(object@keep %in% c("model0", "measurement.variances", "component.variances", "component.deviations", "assay.deviations", "raw.group.quants", "normalised.group.quants", "normalised.group.variances", "summaries")))) return("'keep' is not valid!")
-  if (!(all(object@plot %in% c("assay.deviations.pca", "component.deviations.pca", "normalised.group.quants.pca")))) return("'plot' is not valid!")
+  if (!(all(object@summarise %in% c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "assay.deviations", "raw.group.quants", "standardised.group.quants", "standardised.group.variances")))) return("'summarise' is not valid!")
+  if (!(all(object@keep %in% c("model0", "measurement.variances", "component.variances", "component.deviations", "assay.deviations", "raw.group.quants", "standardised.group.quants", "standardised.group.variances", "summaries")))) return("'keep' is not valid!")
+  if (!(all(object@plot %in% c("assay.deviations.pca", "component.deviations.pca", "centred.group.quants.pca", "standardised.group.quants.pca")))) return("'plot' is not valid!")
   if (length(object@measurement.model) != 1 || !(object@measurement.model %in% c("single", "independent"))) return("'measurement.model' is not valid!")
   if (length(object@measurement.eb.min) != 1 || object@measurement.eb.min <= 0) return("'measurement.eb.min' must be positive!")
   if (length(object@component.model) != 1 || !(object@component.model %in% c("", "single", "independent"))) return("'component.model' is not valid!")
@@ -140,9 +140,9 @@ setValidity("sigma_control", function(object) {
   if (length(object@model.thin) != 1 || object@model.thin <= 0) return("'model.thin' must be positive!")
   if (length(object@model.nsample) != 1 || object@model.nsample <= 0) return("'model.nsample' must be positive!")
   if (length(object@eb.max) != 1 || object@eb.max <= 0) return("'eb.max' must be positive!")
-  if (length(object@norm.model) != 1 || !(object@norm.model %in% c("", "median", "quantile", "theta"))) return("'norm.model' is not valid!")
-  if (length(object@norm.nwarmup) != 1 || object@norm.nwarmup < 0) return("'norm.nwarmup' must be non-negative!")
-  if (length(object@norm.thin) != 1 || object@norm.thin <= 0) return("'norm.thin' must be positive!")
+  if (length(object@exposure.model) != 1 || !(object@exposure.model %in% c("", "median", "quantile", "theta"))) return("'exposure.model' is not valid!")
+  if (length(object@exposure.nwarmup) != 1 || object@exposure.nwarmup < 0) return("'exposure.nwarmup' must be non-negative!")
+  if (length(object@exposure.thin) != 1 || object@exposure.thin <= 0) return("'exposure.thin' must be positive!")
   if (length(object@nthread) != 1 || object@nthread <= 0) return("'nthread' must be positive!")
 
   return(T)

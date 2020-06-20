@@ -66,11 +66,11 @@ Now you can run the seaMass-Σ model:
 fit.sigma <- seaMass_sigma(data, data.design)
 ```
 
-A directory has been created called *fit.seaMass* with a *output* subdirectory that contains csv results and QC plots. You can also get all these results in R. For example, you can output the normalised protein group quants and generate a PCA plot coloured by 'Assay.SD', which is the unexplained variation in each assay - the higher this is for an assay, the more uncertain the results are (but note, this tutorial study is well run, the highest Assay.SD of 0.06 is still considered very low): 
+A directory has been created called *fit.seaMass* with a *output* subdirectory that contains csv results and QC plots. You can also get all these results in R. For example, you can output the standardised protein group quants and generate a PCA plot coloured by 'Assay.SD', which is the unexplained variation in each assay - the higher this is for an assay, the more uncertain the results are (but note, this tutorial study is well run, the highest Assay.SD of 0.06 is still considered very low): 
 
 ```
-# output normalised group quant summaries
-normalised_group_quants(fit.sigma, summary = T)
+# output standardised group quant summaries
+standardised_group_quants(fit.sigma, summary = T)
 
 # plot PCA with "Assay.SD"
 plot_pca(fit.sigma)
@@ -87,7 +87,7 @@ Results and plots of this analysis are added to a new *delta.fit* subdirectory i
 
 ```
 # get protein group FDR results
-data.fdr <- normalised_group_quants_fdr(fit.delta)
+data.fdr <- standardised_group_quants_fdr(fit.delta)
 
 # add ground truth and plot precision-recall curve
 data.fdr <- add_seaMass_spikein_truth(data.fdr)
@@ -205,7 +205,7 @@ Since we know the ground truth, lets visualise our performance with a Precision-
 
 ```
 # get protein group FDR results
-data.fdr <- normalised_group_quants_fdr(fit.delta)
+data.fdr <- standardised_group_quants_fdr(fit.delta)
 
 # add ground truth and plot precision-recall curve
 data.fdr <- add_seaMass_spikein_truth(data.fdr)
