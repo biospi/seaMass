@@ -191,8 +191,8 @@ setMethod("plot_pca_contours", "seaMass", function(
     }
    }
 
-  if (labels) g <- g + ggrepel::geom_label_repel(ggplot2::aes_string(label = "label", fill = fill), size = 2.5)
-  g <- g + ggplot2::geom_point(ggplot2::aes_string(colour = colour, shape = shape), size = 1.5)
+  if (labels) g <- g + ggrepel::geom_label_repel(ggplot2::aes_string(label = "label", fill = fill), size = 2.5, show.legend = F)
+  g <- g + ggplot2::geom_point(ggplot2::aes_string(colour = colour, shape = shape, fill = fill), size = 1.5)
   g <- g + ggplot2::xlab(paste0("PC1 (", format(round(pc1, 2), nsmall = 2), "%)"))
   g <- g + ggplot2::ylab(paste0("PC2 (", format(round(pc2, 2), nsmall = 2), "%)"))
   g <- g + ggplot2::coord_cartesian(xlim = mid[1] + c(-span[1], span[1]), ylim = mid[2] + c(-span[2], span[2]))
