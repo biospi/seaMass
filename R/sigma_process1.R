@@ -51,19 +51,19 @@ setMethod("process1", "sigma_block", function(object, chain) {
             if ("Assay.SD" %in% colnames(DT.design)) {
               ellipsis$colour <- "Assay.SD"
               ellipsis$shape <- "Condition"
-              cat(paste0("[", Sys.time(), "]    plotting component deviations PCA with assay stdevs...\n"))
+              cat(paste0("[", Sys.time(), "]    plotting component deviations PCA with assay stdev contours...\n"))
               do.call("plot_pca_contours", ellipsis)
               ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_component_deviations_pca_block", name(object), "_assay_sd.pdf")), width = 300, height = 200, units = "mm")
             }
             if ("Exposure" %in% colnames(DT.design)) {
               ellipsis$colour <- "Exposure"
               ellipsis$shape <- "Condition"
-              cat(paste0("[", Sys.time(), "]    plotting component deviations PCA with exposures...\n"))
+              cat(paste0("[", Sys.time(), "]    plotting component deviations PCA with exposure contours...\n"))
               do.call("plot_pca_contours", ellipsis)
               ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_component_deviations_pca_block", name(object), "_assay_exposure.pdf")), width = 300, height = 200, units = "mm")
             }
           } else {
-            cat(paste0("[", Sys.time(), "]    plotting component deviations PCA...\n"))
+            cat(paste0("[", Sys.time(), "]    plotting component deviations PCA with condition contours...\n"))
             do.call("plot_pca_contours", ellipsis)
             ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_component_deviations_pca_block", name(object), ".pdf")), width = 300, height = 200, units = "mm")
           }
@@ -155,19 +155,19 @@ setMethod("process1", "sigma_block", function(object, chain) {
         if ("Assay.SD" %in% colnames(DT.design)) {
           ellipsis$colour <- "Assay.SD"
           ellipsis$shape <- "Condition"
-          cat(paste0("[", Sys.time(), "]    plotting centred group quant PCA with assay stdevs...\n"))
+          cat(paste0("[", Sys.time(), "]    plotting centred group quant PCA with assay stdev contours...\n"))
           do.call("plot_pca_contours", ellipsis)
           ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_centred_group_quants_pca_block", name(object), "_assay_sd.pdf")), width = 300, height = 200, units = "mm")
         }
         if ("Exposure" %in% colnames(DT.design)) {
           ellipsis$colour <- "Exposure"
           ellipsis$shape <- "Condition"
-          cat(paste0("[", Sys.time(), "]    plotting centred group quant PCA with exposures...\n"))
+          cat(paste0("[", Sys.time(), "]    plotting centred group quant PCA with exposure contours...\n"))
           do.call("plot_pca_contours", ellipsis)
           ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_centred_group_quants_pca_block", name(object), "_assay_exposure.pdf")), width = 300, height = 200, units = "mm")
         }
       } else {
-        cat(paste0("[", Sys.time(), "]    plotting centred group quant PCA...\n"))
+        cat(paste0("[", Sys.time(), "]    plotting centred group quant PCA with condition contours...\n"))
         do.call("plot_pca_contours", ellipsis)
         ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_centred_group_quants_pca_block", name(object), ".pdf")), width = 300, height = 200, units = "mm")
       }
@@ -274,7 +274,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
         ellipsis$object <- fit.sigma
         ellipsis$type <- "component.deviations"
 
-        cat(paste0("[", Sys.time(), "]    plotting component deviations PCA...\n"))
+        cat(paste0("[", Sys.time(), "]    plotting component deviations PCA with condition contours...\n"))
         do.call("plot_pca_contours", ellipsis)
         ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_component_deviations_pca.pdf")), width = 300, height = 200, units = "mm")
 
@@ -282,7 +282,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
         if ("Assay.SD" %in% colnames(DT.design)) {
           ellipsis$colour <- "Assay.SD"
           ellipsis$shape <- "Condition"
-          cat(paste0("[", Sys.time(), "]    plotting component deviations PCA with assay stdevs...\n"))
+          cat(paste0("[", Sys.time(), "]    plotting component deviations PCA with assay stdev contours...\n"))
           do.call("plot_pca_contours", ellipsis)
           ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_component_deviations_pca_assay_sd.pdf")), width = 300, height = 200, units = "mm")
         }
@@ -290,7 +290,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
         if ("Exposure" %in% colnames(DT.design)) {
           ellipsis$colour <- "Exposure"
           ellipsis$shape <- "Condition"
-          cat(paste0("[", Sys.time(), "]    plotting component deviations PCA with exposures...\n"))
+          cat(paste0("[", Sys.time(), "]    plotting component deviations PCA with exposure contours...\n"))
           do.call("plot_pca_contours", ellipsis)
           ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_component_deviations_pca_assay_exposure.pdf")), width = 300, height = 200, units = "mm")
         }
@@ -298,7 +298,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
         if (any(table(DT.design$Run) > 1) && uniqueN(DT.design$Run) > 1) {
           ellipsis$colour <- "Run"
           ellipsis$shape <- "Condition"
-          cat(paste0("[", Sys.time(), "]    plotting component deviations PCA with runs...\n"))
+          cat(paste0("[", Sys.time(), "]    plotting component deviations PCA with run contours...\n"))
           do.call("plot_pca_contours", ellipsis)
           ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_component_deviations_pca_runs.pdf"), width = 300, height = 200, units = "mm")
         }
@@ -306,7 +306,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
         if (nlevels(DT.design$Block) > 1 && nlevels(DT.design$Block) != nlevels(interaction(DT.design$Block, DT.design$Run, drop = T))) {
           ellipsis$colour <- "Block"
           ellipsis$shape <- "Condition"
-          cat(paste0("[", Sys.time(), "]    plotting component deviations PCA with blocks...\n"))
+          cat(paste0("[", Sys.time(), "]    plotting component deviations PCA with block contours...\n"))
           do.call("plot_pca_contours", ellipsis)
           ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_component_deviations_pca_blocks.pdf"), width = 300, height = 200, units = "mm")
         }
@@ -314,7 +314,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
         if (any(table(DT.design$Channel) > 1) && uniqueN(DT.design$Channel) > 1) {
           ellipsis$colour <- "Channel"
           ellipsis$shape <- "Condition"
-          cat(paste0("[", Sys.time(), "]    plotting component deviations PCA with assay channels...\n"))
+          cat(paste0("[", Sys.time(), "]    plotting component deviations PCA with assay channel contours...\n"))
           do.call("plot_pca_contours", ellipsis)
           ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_component_deviations_pca_channels.pdf"), width = 300, height = 200, units = "mm")
         }
@@ -366,7 +366,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
         if (!is.null(DT)) {
           ellipsis <- ctrl@ellipsis
           ellipsis$object <- fit.sigma
-          cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA...\n"))
+          cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA with condition contours...\n"))
           do.call("plot_pca_contours", ellipsis)
           ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca.pdf"), width = 300, height = 200, units = "mm")
 
@@ -374,7 +374,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
           if ("Assay.SD" %in% colnames(DT.design)) {
             ellipsis$colour <- "Assay.SD"
             ellipsis$shape <- "Condition"
-            cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA with assay stdevs...\n"))
+            cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA with assay stdev contours...\n"))
             do.call("plot_pca_contours", ellipsis)
             ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca_assay_sd.pdf"), width = 300, height = 200, units = "mm")
           }
@@ -382,7 +382,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
           if ("Exposure" %in% colnames(DT.design)) {
             ellipsis$colour <- "Exposure"
             ellipsis$shape <- "Condition"
-            cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA with exposures...\n"))
+            cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA with exposure contours...\n"))
             do.call("plot_pca_contours", ellipsis)
             ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca_assay_exposure.pdf"), width = 300, height = 200, units = "mm")
           }
@@ -390,7 +390,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
           if (any(table(DT.design$Run) > 1) && uniqueN(DT.design$Run) > 1) {
             ellipsis$colour <- "Run"
             ellipsis$shape <- "Condition"
-            cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA with runs...\n"))
+            cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA with run contours...\n"))
             do.call("plot_pca_contours", ellipsis)
             ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca__runs.pdf"), width = 300, height = 200, units = "mm")
           }
@@ -398,7 +398,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
           if (nlevels(DT.design$Block) > 1 && nlevels(DT.design$Block) != nlevels(interaction(DT.design$Block, DT.design$Run, drop = T))) {
             ellipsis$colour <- "Block"
             ellipsis$shape <- "Condition"
-            cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA with blocks...\n"))
+            cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA with block contours...\n"))
             do.call("plot_pca_contours", ellipsis)
             ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca__blocks.pdf"), width = 300, height = 200, units = "mm")
           }
@@ -406,7 +406,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
           if (any(table(DT.design$Channel) > 1) && uniqueN(DT.design$Channel) > 1) {
             ellipsis$colour <- "Channel"
             ellipsis$shape <- "Condition"
-            cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA with channels...\n"))
+            cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA with channel contours...\n"))
             do.call("plot_pca_contours", ellipsis)
             ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca__channels.pdf"), width = 300, height = 200, units = "mm")
           }

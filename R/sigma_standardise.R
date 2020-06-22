@@ -20,15 +20,16 @@ setMethod("standardise_theta", "sigma_block", function(object, data.design = ass
     DT.summary[, complete := all(ref.assays %in% Assay), by = .(Group, Baseline)]
     DT.summary <- DT.summary[complete == T]
     DT.summary[, complete := NULL]
+    DT <- droplevels(DT.summary)
 
     # seaMass-Θ Bayesian model
     set.seed(ctrl@random.seed + item)
     model <- MCMCglmm::MCMCglmm(
       m ~ Assay - 1,
-      mev = DT.summary[, s]^2,
+      mev = DT[, s]^2,
       rcov = ~ idh(Group):units,
-      data = droplevels(DT.summary),
-      prior = list(R = list(V = diag(nlevels(DT.summary[, Group])), nu = 2e-4)),
+      data = DT,
+      prior = list(R = list(V = diag(nlevels(DT[, Group])), nu = 2e-4)),
       burnin = ctrl@standardise.nwarmup,
       nitt = ctrl@standardise.nwarmup + (ctrl@model.nsample * ctrl@standardise.thin) / ctrl@model.nchain,
       thin = ctrl@standardise.thin,

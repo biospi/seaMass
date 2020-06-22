@@ -55,7 +55,6 @@ Collate:
     'sigma_block.R'
     'sigma_control.R'
     'sigma_model.R'
-    'sigma_norm.R'
     'sigma_plot.R'
     'sigma_plots.R'
     'sigma_process0.R'
