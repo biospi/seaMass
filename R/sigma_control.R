@@ -23,9 +23,9 @@ setClass("sigma_control", slots = c(
   model.thin = "integer",
   model.nsample = "integer",
   eb.max = "integer",
-  exposure.model = "character",
-  exposure.nwarmup = "integer",
-  exposure.thin = "integer",
+  standardise.model = "character",
+  standardise.nwarmup = "integer",
+  standardise.thin = "integer",
   random.seed = "numeric",
   nthread = "integer",
   schedule = "schedule",
@@ -80,9 +80,9 @@ sigma_control <- function(
   model.thin = 4,
   model.nsample = 1024,
   eb.max = 1024,
-  exposure.model = "theta",
-  exposure.nwarmup = 256,
-  exposure.thin = 1,
+  standardise.model = "theta",
+  standardise.nwarmup = 256,
+  standardise.thin = 1,
   random.seed = 0,
   nthread = parallel::detectCores() %/% 2,
   schedule = schedule_local()
@@ -110,9 +110,9 @@ sigma_control <- function(
   params$model.thin <- as.integer(model.thin)
   params$model.nsample <- as.integer(model.nsample)
   params$eb.max <- as.integer(eb.max)
-  if (!is.null(exposure.model)) params$exposure.model <- exposure.model else params$exposure.model <- ""
-  params$exposure.nwarmup <- as.integer(exposure.nwarmup)
-  params$exposure.thin <- as.integer(exposure.thin)
+  if (!is.null(standardise.model)) params$standardise.model <- standardise.model else params$standardise.model <- ""
+  params$standardise.nwarmup <- as.integer(standardise.nwarmup)
+  params$standardise.thin <- as.integer(standardise.thin)
   params$random.seed <- as.integer(random.seed)
   params$nthread <- as.integer(nthread)
   params$schedule <- schedule
@@ -140,9 +140,9 @@ setValidity("sigma_control", function(object) {
   if (length(object@model.thin) != 1 || object@model.thin <= 0) return("'model.thin' must be positive!")
   if (length(object@model.nsample) != 1 || object@model.nsample <= 0) return("'model.nsample' must be positive!")
   if (length(object@eb.max) != 1 || object@eb.max <= 0) return("'eb.max' must be positive!")
-  if (length(object@exposure.model) != 1 || !(object@exposure.model %in% c("", "median", "quantile", "theta"))) return("'exposure.model' is not valid!")
-  if (length(object@exposure.nwarmup) != 1 || object@exposure.nwarmup < 0) return("'exposure.nwarmup' must be non-negative!")
-  if (length(object@exposure.thin) != 1 || object@exposure.thin <= 0) return("'exposure.thin' must be positive!")
+  if (length(object@standardise.model) != 1 || !(object@standardise.model %in% c("", "median", "quantile", "theta"))) return("'standardise.model' is not valid!")
+  if (length(object@standardise.nwarmup) != 1 || object@standardise.nwarmup < 0) return("'standardise.nwarmup' must be non-negative!")
+  if (length(object@standardise.thin) != 1 || object@standardise.thin <= 0) return("'standardise.thin' must be positive!")
   if (length(object@nthread) != 1 || object@nthread <= 0) return("'nthread' must be positive!")
 
   return(T)

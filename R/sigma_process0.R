@@ -14,7 +14,7 @@ setMethod("process0", "sigma_block", function(object, chain) {
     cat(paste0("[", Sys.time(), "]   OUTPUT0 block=", sub("^.*sigma\\.(.*)$", "\\1", object@filepath), "\n"))
 
     # Measurement EB prior
-    cat(paste0("[", Sys.time(), "]    measurement prior...\n"))
+    cat(paste0("[", Sys.time(), "]    calculating measurement prior...\n"))
     DT.measurement.prior <- measurement_variances(object, input = "model0", summary = T, as.data.table = T)
     set.seed(ctrl@random.seed)
     DT.measurement.prior <- data.table(Effect = "Measurements", DT.measurement.prior[, squeeze_var(v, df)])
@@ -26,7 +26,7 @@ setMethod("process0", "sigma_block", function(object, chain) {
 
     # Component EB prior
     if(ctrl@component.model != "") {
-      cat(paste0("[", Sys.time(), "]    component prior...\n"))
+      cat(paste0("[", Sys.time(), "]    calculating component prior...\n"))
       DT.component.prior <- component_variances(object, input = "model0", summary = T, as.data.table = T)
       set.seed(ctrl@random.seed)
       DT.component.prior <- data.table(Effect = "Components", DT.component.prior[, squeeze_var(v, df)])
@@ -38,7 +38,7 @@ setMethod("process0", "sigma_block", function(object, chain) {
 
     # Assay EB priors
     if(ctrl@assay.model != "") {
-      cat(paste0("[", Sys.time(), "]    assay prior...\n"))
+      cat(paste0("[", Sys.time(), "]    calculating assay prior...\n"))
 
       items <- split(CJ(Assay = unique(na.omit(assay_design(object, as.data.table = T)[, Assay])), chain = 1:ctrl@model.nchain), by = c("Assay", "chain"), drop = T)
       DT.assay.prior <- rbindlist(parallel_lapply(items, function(item, object) {

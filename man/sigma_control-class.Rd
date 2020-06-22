@@ -28,9 +28,9 @@ sigma_control(
   model.thin = 4,
   model.nsample = 1024,
   eb.max = 1024,
-  exposure.model = "theta",
-  exposure.nwarmup = 256,
-  exposure.thin = 1,
+  standardise.model = "theta",
+  standardise.nwarmup = 256,
+  standardise.thin = 1,
   random.seed = 0,
   nthread = parallel::detectCores()\%/\%2,
   schedule = schedule_local()

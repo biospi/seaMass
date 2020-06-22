@@ -91,8 +91,6 @@ setMethod("plot_pca_contours", "seaMass", function(
 
   # contours
   if (!(is.null(contours) || length(contours) == 0)) {
-    cat(paste0("[", Sys.time(), "]     transforming samples...\n"))
-
     # predict from PCA fit
     DT <- rbindlist(parallel_lapply(batch_split(DT.individuals, c("Block", "Assay"), nrow(DT.individuals), drop = T, keep.by = F), function(item, DT.variables, object, input, type, summary.cols, fit) {
       DT1 <- merge(item[,c(k = 1, .SD)], DT.variables[,c(k = 1, .SD)], by = "k", all = T, allow.cartesian = T)[, k := NULL]

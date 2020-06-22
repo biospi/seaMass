@@ -291,7 +291,7 @@ setMethod("config", "schedule_pbs", function(object, prefix, name, n, notify, fu
     ifelse(is.na(object@M), "", ifelse(notify, "#PBS -m ae\n", "#PBS -m a\n")),
     ifelse(is.na(object@pre), "", paste0(paste(object@pre, collapse = "\n"), "\n")),
     "cd $PBS_O_WORKDIR\n",
-    paste0("Rscript --vanilla -e seaMass:::", func, "\\(${PBS_ARRAYID}\\)\n"),
+    paste0("for i in 1 2 3; do Rscript --vanilla -e seaMass:::", func, "\\(${PBS_ARRAYID}\\) && break; done\n"),
     ifelse(is.na(object@post), "", paste0(paste(object@post, collapse = "\n"), "\n"))
   ))
 })
@@ -451,7 +451,7 @@ setMethod("config", "schedule_sge", function(object, prefix, name, n, notify, fu
     ifelse(is.na(object@M), "", ifelse(notify, "#$ -m ae\n", "#$ -m a\n")),
     "#$ -cwd\n",
     ifelse(is.na(object@pre), "", paste0(paste(object@pre, collapse = "\n"), "\n")),
-    paste0("Rscript --vanilla -e seaMass:::", func, "\\(${SGE_TASK_ID}\\)\n"),
+    paste0("for i in 1 2 3; do Rscript --vanilla -e seaMass:::", func, "\\(${SGE_TASK_ID}\\) && break; done\n"),
     ifelse(is.na(object@post), "", paste0(paste(object@post, collapse = "\n"), "\n"))
   ))
 })
