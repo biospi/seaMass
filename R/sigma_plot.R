@@ -143,6 +143,7 @@ setMethod("plot_pca_contours", "seaMass", function(
       colour <- NULL
     } else if (!is.numeric(DT.design[, get(colour)])) {
       DT.design[, (colour) := factor(get(colour), exclude = NULL)]
+      levels(DT.design[[colour]]) <- ifelse(is.na(levels(DT.design[[colour]])), "<none>", levels(DT.design[[colour]]))
     }
   }
 
@@ -151,6 +152,7 @@ setMethod("plot_pca_contours", "seaMass", function(
       fill <- NULL
     } else if (!is.numeric(DT.design[, get(fill)])) {
       DT.design[, (fill) := factor(get(fill), exclude = NULL)]
+      levels(DT.design[[fill]]) <- ifelse(is.na(levels(DT.design[[fill]])), "<none>", levels(DT.design[[fill]]))
     }
   }
 
@@ -159,6 +161,7 @@ setMethod("plot_pca_contours", "seaMass", function(
       shape <- NULL
     } else if (!is.numeric(DT.design[, get(shape)])) {
       DT.design[, (shape) := factor(get(shape), exclude = NULL)]
+      levels(DT.design[[shape]]) <- ifelse(is.na(levels(DT.design[[shape]])), "<none>", levels(DT.design[[shape]]))
     }
   }
 

@@ -122,7 +122,6 @@ setMethod("config", "schedule_slurm", function(object, prefix, name, n, notify, 
     paste0("#SBATCH --output=sm", prefix, ".", name, "-%A_%a.out\n"),
     paste0("#SBATCH --error=sm", prefix, ".", name, "-%A_%a.err\n"),
     paste0("#SBATCH --array=1-", n, "\n"),
-    "#SBATCH --requeue\n",
     ifelse(is.na(object@partition), "", paste0("#SBATCH --partition=", object@partition, "\n")),
     "#SBATCH --nodes=1\n",
     "#SBATCH --ntasks-per-node=1\n",
@@ -132,7 +131,7 @@ setMethod("config", "schedule_slurm", function(object, prefix, name, n, notify, 
     ifelse(is.na(object@mail_user), "", paste0("#SBATCH --mail-user=", object@mail_user, "\n")),
     ifelse(is.na(object@mail_user), "", ifelse(notify, "#SBATCH --mail-type=END,FAIL\n", "#SBATCH --mail-type=FAIL\n")),
     ifelse(is.na(object@pre), "", paste0(paste(object@pre, collapse = "\n"), "\n")),
-    paste0("srun Rscript --vanilla -e seaMass:::", func, "\\(${SLURM_ARRAY_TASK_ID}\\)\n"),
+    paste0("for i in 1 2 3; do srun Rscript --vanilla -e seaMass:::", func, "\\(${SLURM_ARRAY_TASK_ID}\\) && break; done\n"),
     ifelse(is.na(object@post), "", paste0(paste(object@post, collapse = "\n"), "\n"))
   ))
 })

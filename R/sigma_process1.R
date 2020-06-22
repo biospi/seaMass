@@ -125,7 +125,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
         }
 
         cat(paste0("[", Sys.time(), "]    getting assay exposure summaries...\n"))
-        DT.design <- merge(DT.design, assay_exposures(object, summary = T, as.data.table = T)[, .(Assay, Exposure = m)], by = "Assay", sort = F, all.x = T)
+        DT.design <- merge(DT.design, assay_exposures(object, summary = T, as.data.table = T)[, .(Assay, Exposure = m)], by = "Assay", sort = F, all.x = T, suffixes = c("", "1"))
         fst::write.fst(DT.design, file.path(filepath(object), "design.fst"))
       }
     }
@@ -273,26 +273,42 @@ setMethod("process1", "sigma_block", function(object, chain) {
         do.call("plot_pca_contours", ellipsis)
         ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_component_deviations_pca.pdf")), width = 300, height = 200, units = "mm")
 
-        if ("Assay.SD" %in% colnames(assay_design(object))) {
+        DT.design <- assay_design(fit.sigma, as.data.table = T)
+        if ("Assay.SD" %in% colnames(DT.design)) {
           ellipsis$colour <- "Assay.SD"
           ellipsis$shape <- "Condition"
           do.call("plot_pca_contours", ellipsis)
           ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_component_deviations_pca_assay_sd.pdf")), width = 300, height = 200, units = "mm")
         }
 
-        if ("Exposure" %in% colnames(assay_design(object))) {
+        if ("Exposure" %in% colnames(DT.design)) {
           ellipsis$colour <- "Exposure"
           ellipsis$shape <- "Condition"
           do.call("plot_pca_contours", ellipsis)
           ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_component_deviations_pca_assay_exposure.pdf")), width = 300, height = 200, units = "mm")
         }
 
-        if (length(blocks(object)) > 1) {
+        if (uniqueN(DT.design$Run) > 1) {
+          ellipsis$colour <- "Run"
+          ellipsis$shape <- "Condition"
+          do.call("plot_pca_contours", ellipsis)
+          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_component_deviations_pca__runs.pdf"), width = 300, height = 200, units = "mm")
+        }
+
+        if (nlevels(DT.design$Block) != nlevels(interaction(DT.design$Block, DT.design$Run, drop = T))) {
           ellipsis$colour <- "Block"
           ellipsis$shape <- "Condition"
           do.call("plot_pca_contours", ellipsis)
-          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_component_deviations_pca_blocks.pdf")), width = 300, height = 200, units = "mm")
+          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_component_deviations_pca__blocks.pdf"), width = 300, height = 200, units = "mm")
         }
+
+        if (any(table(DT.design$Channel) > 1)) {
+          ellipsis$colour <- "Channel"
+          ellipsis$shape <- "Condition"
+          do.call("plot_pca_contours", ellipsis)
+          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_component_deviations_pca__channels.pdf"), width = 300, height = 200, units = "mm")
+        }
+
       }
       # delete if not in 'keep'
       if (!("component.deviations" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "component.deviations*"), recursive = T)
@@ -344,25 +360,40 @@ setMethod("process1", "sigma_block", function(object, chain) {
           do.call("plot_pca_contours", ellipsis)
           ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca.pdf"), width = 300, height = 200, units = "mm")
 
-          if ("Assay.SD" %in% colnames(assay_design(object))) {
+          DT.design <- assay_design(fit.sigma, as.data.table = T)
+          if ("Assay.SD" %in% colnames(DT.design)) {
             ellipsis$colour <- "Assay.SD"
             ellipsis$shape <- "Condition"
             do.call("plot_pca_contours", ellipsis)
             ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca_assay_sd.pdf"), width = 300, height = 200, units = "mm")
           }
 
-          if ("Exposure" %in% colnames(assay_design(object))) {
+          if ("Exposure" %in% colnames(DT.design)) {
             ellipsis$colour <- "Exposure"
             ellipsis$shape <- "Condition"
             do.call("plot_pca_contours", ellipsis)
             ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca_assay_exposure.pdf"), width = 300, height = 200, units = "mm")
           }
 
-          if (length(blocks(object)) > 1) {
+          if (uniqueN(DT.design$Run) > 1) {
+            ellipsis$colour <- "Run"
+            ellipsis$shape <- "Condition"
+            do.call("plot_pca_contours", ellipsis)
+            ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca__runs.pdf"), width = 300, height = 200, units = "mm")
+          }
+
+          if (nlevels(DT.design$Block) != nlevels(interaction(DT.design$Block, DT.design$Run, drop = T))) {
             ellipsis$colour <- "Block"
             ellipsis$shape <- "Condition"
             do.call("plot_pca_contours", ellipsis)
             ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca__blocks.pdf"), width = 300, height = 200, units = "mm")
+          }
+
+          if (any(table(DT.design$Channel) > 1)) {
+            ellipsis$colour <- "Channel"
+            ellipsis$shape <- "Condition"
+            do.call("plot_pca_contours", ellipsis)
+            ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca__channels.pdf"), width = 300, height = 200, units = "mm")
           }
         }
         # delete if not in 'keep'
