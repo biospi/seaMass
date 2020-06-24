@@ -292,21 +292,21 @@ setMethod("process1", "sigma_block", function(object, chain) {
           ellipsis$colour <- "Run"
           ellipsis$shape <- "Condition"
           do.call("plot_pca_contours", ellipsis)
-          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_component_deviations_pca__runs.pdf"), width = 300, height = 200, units = "mm")
+          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_component_deviations_pca_runs.pdf"), width = 300, height = 200, units = "mm")
         }
 
         if (nlevels(DT.design$Block) != nlevels(interaction(DT.design$Block, DT.design$Run, drop = T))) {
           ellipsis$colour <- "Block"
           ellipsis$shape <- "Condition"
           do.call("plot_pca_contours", ellipsis)
-          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_component_deviations_pca__blocks.pdf"), width = 300, height = 200, units = "mm")
+          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_component_deviations_pca_blocks.pdf"), width = 300, height = 200, units = "mm")
         }
 
         if (any(table(DT.design$Channel) > 1)) {
           ellipsis$colour <- "Channel"
           ellipsis$shape <- "Condition"
           do.call("plot_pca_contours", ellipsis)
-          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_component_deviations_pca__channels.pdf"), width = 300, height = 200, units = "mm")
+          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_component_deviations_pca_channels.pdf"), width = 300, height = 200, units = "mm")
         }
 
       }
@@ -379,21 +379,21 @@ setMethod("process1", "sigma_block", function(object, chain) {
             ellipsis$colour <- "Run"
             ellipsis$shape <- "Condition"
             do.call("plot_pca_contours", ellipsis)
-            ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca__runs.pdf"), width = 300, height = 200, units = "mm")
+            ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca_runs.pdf"), width = 300, height = 200, units = "mm")
           }
 
           if (nlevels(DT.design$Block) != nlevels(interaction(DT.design$Block, DT.design$Run, drop = T))) {
             ellipsis$colour <- "Block"
             ellipsis$shape <- "Condition"
             do.call("plot_pca_contours", ellipsis)
-            ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca__blocks.pdf"), width = 300, height = 200, units = "mm")
+            ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca_blocks.pdf"), width = 300, height = 200, units = "mm")
           }
 
           if (any(table(DT.design$Channel) > 1)) {
             ellipsis$colour <- "Channel"
             ellipsis$shape <- "Condition"
             do.call("plot_pca_contours", ellipsis)
-            ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca__channels.pdf"), width = 300, height = 200, units = "mm")
+            ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca_channels.pdf"), width = 300, height = 200, units = "mm")
           }
         }
         # delete if not in 'keep'

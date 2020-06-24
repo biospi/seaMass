@@ -82,7 +82,12 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
         DT.design <- assay_design(object, as.data.table = T)
         DT[, Assay := factor(Assay, levels = 1:nlevels(DT.design[, Assay]), labels = levels(DT.design[, Assay]))]
         DT[, Block := factor(Block, levels = 1:nlevels(DT.design[, Block]), labels = levels(DT.design[, Block]))]
-        DT <- merge(DT, DT.design[complete.cases(DT.design)], all.y = T, by = c("Block", "Assay"), sort = F)
+        DT <- merge(DT, DT.design, all.y = T, by = c("Block", "Assay"), sort = F)
+        # have to NA out the count of datapoints with missing fixed effects and put dummy level in the fixed effect...
+        for (col in labels(terms(fixed1))) {
+          DT[is.na(get(col)), m := NA]
+          DT[is.na(get(col)), (col) := levels(factor(DT[[col]]))[1]]
+        }
 
         # run MCMCglmm
         output <- list()
