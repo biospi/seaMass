@@ -393,7 +393,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
             ellipsis$shape <- "Condition"
             cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA with run contours...\n"))
             do.call("plot_pca_contours", ellipsis)
-            ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca__runs.pdf"), width = 300, height = 200, units = "mm")
+            ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca_runs.pdf"), width = 300, height = 200, units = "mm")
           }
 
           if (nlevels(DT.design$Block) > 1 && nlevels(DT.design$Block) != nlevels(interaction(DT.design$Block, DT.design$Run, drop = T))) {
@@ -401,7 +401,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
             ellipsis$shape <- "Condition"
             cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA with block contours...\n"))
             do.call("plot_pca_contours", ellipsis)
-            ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca__blocks.pdf"), width = 300, height = 200, units = "mm")
+            ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca_blocks.pdf"), width = 300, height = 200, units = "mm")
           }
 
           if (any(table(DT.design$Channel) > 1) && uniqueN(DT.design$Channel) > 1) {
@@ -409,7 +409,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
             ellipsis$shape <- "Condition"
             cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA with channel contours...\n"))
             do.call("plot_pca_contours", ellipsis)
-            ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca__channels.pdf"), width = 300, height = 200, units = "mm")
+            ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca_channels.pdf"), width = 300, height = 200, units = "mm")
           }
         }
         # delete if not in 'keep'

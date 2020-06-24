@@ -98,7 +98,7 @@ setMethod("process0", "sigma_block", function(object, chain) {
       ellipsis$colour <- "Assay.SD"
       ellipsis$shape <- "Condition"
       do.call("plot_pca_contours", ellipsis)
-      ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_assay_deviations_pca__block_", name(object), ".pdf")), width = 300, height = 200, units = "mm")
+      ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_assay_deviations_pca_block_", name(object), ".pdf")), width = 300, height = 200, units = "mm")
     }
 
     # delete assay deviations if not in 'keep'
