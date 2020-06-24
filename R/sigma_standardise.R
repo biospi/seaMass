@@ -12,20 +12,21 @@ setMethod("standardise_theta", "sigma_block", function(object, data.design = ass
 
   if (!is.null(exposure.groups)) exposure.groups <- groups(object, as.data.table = T)[grep(exposure.groups, Group), Group]
   parallel_lapply(as.list(1:ctrl@model.nchain), function(item, object, ctrl, DT.refweights, exposure.groups, input) {
-    DT.summary <- read_samples(object, input, "raw.group.quants", exposure.groups, summary = T, as.data.table = T)[, .(Group, Baseline, Assay, m, s)]
+    DT.summary <- read_samples(object, input, "raw.group.quants", exposure.groups, summary = T, as.data.table = T)[, .(Group, Assay, m, s)]
+    #DT.summary <- read_samples(object, input, "raw.group.quants", exposure.groups, summary = T, as.data.table = T)[, .(Group, Baseline, Assay, m, s)]
     # add in zeros for the baselines
-    DT.summary <- rbind(DT.summary, unique(DT.summary[, .(Baseline, Assay = Baseline, m = 0, s = 1e-5), by = Group]))
+    #DT.summary <- rbind(DT.summary, unique(DT.summary[, .(Baseline, Assay = Baseline, m = 0, s = 1e-5), by = Group]))
     # need to remove groups/baseline combos where any RefWeight>0 assays are missing
-    ref.assays <- DT.refweights[RefWeight > 0, Assay]
-    DT.summary[, complete := all(ref.assays %in% Assay), by = .(Group, Baseline)]
-    DT.summary <- DT.summary[complete == T]
-    DT.summary[, complete := NULL]
+    #ref.assays <- DT.refweights[RefWeight > 0, Assay]
+    #DT.summary[, complete := all(ref.assays %in% Assay), by = .(Group, Baseline)]
+    #DT.summary <- DT.summary[complete == T]
+    #DT.summary[, complete := NULL]
     DT <- droplevels(DT.summary)
 
     # seaMass-Θ Bayesian model
     set.seed(ctrl@random.seed + item)
     model <- MCMCglmm::MCMCglmm(
-      m ~ Assay - 1,
+      m ~ Assay,
       mev = DT[, s]^2,
       rcov = ~ idh(Group):units,
       data = DT,
@@ -36,6 +37,16 @@ setMethod("standardise_theta", "sigma_block", function(object, data.design = ass
       singular.ok = T,
       verbose = F
     )
+
+    # extract exposures
+    DT.exposures <- as.data.table(model$Sol[, grep("^Assay", colnames(model$Sol)), drop = F])
+    DT.exposures[, (paste0("Assay", levels(DT$Assay)[1])) := 0]
+    DT.exposures[, chain := item]
+    DT.exposures[, sample := 1:nrow(DT.exposures)]
+    DT.exposures <- melt(DT.exposures, variable.name = "Assay", value.name = "exposure", id.vars = c("chain", "sample"))
+    DT.exposures[, Assay := factor(sub("^Assay", "", as.character(Assay)), levels = levels(DT.summary[, Assay]))]
+    setcolorder(DT.exposures, "Assay")
+    setorder(DT.exposures, Assay)
 
     # extract group variances
     DT <- as.data.table(model$VCV[, grep("^Group.*\\.units", colnames(model$VCV))])
@@ -51,24 +62,15 @@ setMethod("standardise_theta", "sigma_block", function(object, data.design = ass
     DT[, Group := as.integer(Group)]
     fst::write.fst(DT, file.path(filepath(object), input, "standardised.group.variances", paste(item, "fst", sep = ".")))
 
-    # extract exposures
-    DT.exposures <- as.data.table(model$Sol[, grep("^Assay", colnames(model$Sol)), drop = F])
-    DT.exposures[, chain := item]
-    DT.exposures[, sample := 1:nrow(DT.exposures)]
-    DT.exposures <- melt(DT.exposures, variable.name = "Assay", value.name = "exposure", id.vars = c("chain", "sample"))
-    DT.exposures[, Assay := factor(sub("^Assay", "", as.character(Assay)), levels = levels(DT.summary[, Assay]))]
-    setcolorder(DT.exposures, "Assay")
-    setorder(DT.exposures, Assay)
-
     # read raw group quant samples
     DT <- read_samples(object, input, "raw.group.quants", chain = item, as.data.table = T)[, Block := NULL]
     # add in zeros for the baselines
-    DT <- rbind(DT, unique(DT[, .(Baseline, Assay = Baseline, chain, sample, value = 0), by = Group]))
+    #DT <- rbind(DT, unique(DT[, .(Baseline, Assay = Baseline, chain, sample, value = 0), by = Group]))
     # need to NA groups/baseline combos where any RefWeight>0 assays are missing
-    ref.assays <- DT.refweights[RefWeight > 0, Assay]
-    DT[, complete := all(ref.assays %in% Assay), by = .(Group, Baseline)]
-    DT[complete == F, value := NA]
-    DT[, complete := NULL]
+    #ref.assays <- DT.refweights[RefWeight > 0, Assay]
+    #DT[, complete := all(ref.assays %in% Assay), by = .(Group, Baseline)]
+    #DT[complete == F, value := NA]
+    #DT[, complete := NULL]
 
     # normalise
     DT <- merge(DT, DT.exposures, by = c("Assay", "chain", "sample"), sort = F)
@@ -77,14 +79,15 @@ setMethod("standardise_theta", "sigma_block", function(object, data.design = ass
     setcolorder(DT, "Group")
 
     # now standardise using RefWeighted mean of assays as denominator
-    DT <- merge(DT, DT.refweights[, .(Assay, RefWeight)], by = "Assay", sort = F)
-    DT[, value := value - {
-      x <- weighted.mean(value, RefWeight)
-      ifelse(is.na(x), 0, x)
-    }, by = .(Group, Baseline, chain, sample)]
-    DT <- DT[!is.nan(value)]
+    #DT <- merge(DT, DT.refweights[, .(Assay, RefWeight)], by = "Assay", sort = F)
+    #DT[, value := value - {
+    #  x <- weighted.mean(value, RefWeight)
+    #  ifelse(is.na(x), 0, x)
+    #}, by = .(Group, Baseline, chain, sample)]
+    #}, by = .(Group, chain, sample)]
+    #DT <- DT[!is.nan(value)]
 
-    DT[, Baseline := NULL]
+    #DT[, Baseline := NULL]
     DT[, RefWeight := NULL]
     setcolorder(DT, c("Group", "Assay"))
 

@@ -339,7 +339,8 @@ setMethod("process1", "sigma_block", function(object, chain) {
       # write out raw group quants
       if ("raw.group.quants" %in% ctrl@summarise) {
         DT <- raw_group_quants(fit.sigma, summary = T, as.data.table = T)
-        DT <- dcast(DT, Block + Group + Baseline ~ Assay, value.var = c("m", "s", "df", "rhat"))
+        #DT <- dcast(DT, Block + Group + Baseline ~ Assay, value.var = c("m", "s", "df", "rhat"))
+        DT <- dcast(DT, Block + Group ~ Assay, value.var = c("m", "s", "df", "rhat"))
         fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_raw_group_quants.csv"))
       }
 

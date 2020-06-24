@@ -55,10 +55,11 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     }
 
     # and now merge where the assay and the baseline are the same, as these effects are not identifiable
-    DT[, Quant := as.character(interaction(DT$Assay, DT$Baseline, lex.order = T, drop = T))]
-    DT[Assay == Baseline, Quant := "."]
-    DT[, Baseline := factor(Baseline, levels = levels(Assay))]
-    DT[, Quant := factor(Quant)]
+    #DT[, Quant := as.character(interaction(DT$Assay, DT$Baseline, lex.order = T, drop = T))]
+    #DT[Assay == Baseline, Quant := "."]
+    #DT[, Baseline := factor(Baseline, levels = levels(Assay))]
+    #DT[, Quant := factor(Quant)]
+    DT[, Quant := Assay]
 
     ### PREPARE
     nC <- nlevels(DT$Component)
@@ -66,7 +67,9 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     nQ <- nlevels(DT$Quant)
 
     # fixed effects
+    DT[, Count1 := NULL]
     fixed <- as.formula(paste(ifelse("Count1" %in% colnames(DT), "c(Count0, Count1)", "Count0"), "~ ", ifelse(nM == 1, "", "Measurement-1 +"), ifelse(nQ == 1, " 1", " Quant")))
+    #fixed <- as.formula(paste("Count1 ~ ", ifelse(nM == 1, "", "Measurement-1 +"), ifelse(nQ == 1, " 1", " Quant"))
 
     # measurement rcov
     if (nM == 1 || ctrl@measurement.model == "single") {
@@ -202,16 +205,26 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
 
     ### EXTRACT GROUP QUANTS
     if (input == "model1" && ("raw.group.quants" %in% ctrl@summarise || "raw.group.quants" %in% ctrl@keep)) {
-      # Add Quant effect
-      output$DT.group.quants <- as.data.table(model$Sol[, grep("^Quant.+\\..+$", colnames(model$Sol)), drop = F])
+      emm <- emmeans(model, ~ Quant, data = DT)
+      output$DT.group.quants <- as.data.table(coda::as.mcmc(emm))
       output$DT.group.quants[, sample := 1:nrow(output$DT.group.quants)]
-      output$DT.group.quants <- melt(output$DT.group.quants, variable.name = "Baseline", id.vars = "sample")
+      output$DT.group.quants <- melt(output$DT.group.quants, variable.name = "Assay", id.vars = "sample")
       output$DT.group.quants[, Group := group]
-      output$DT.group.quants[, Assay := as.integer(sub("^Quant(.+)\\..+$", "\\1", Baseline))]
-      output$DT.group.quants[, Baseline := as.integer(sub("^Quant.+\\.(.+)$", "\\1", Baseline))]
+      output$DT.group.quants[, Assay := as.integer(sub("^Quant (.+)$", "\\1", Assay))]
       output$DT.group.quants[, chain := chain]
       output$DT.group.quants[, value := value / log(2)]
-      setcolorder(output$DT.group.quants, c("Group", "Baseline", "Assay", "chain", "sample"))
+      setcolorder(output$DT.group.quants, c("Group", "Assay", "chain", "sample"))
+
+      # Add Quant effect
+      # output$DT.group.quants <- as.data.table(model$Sol[, grep("^Quant.+\\..+$", colnames(model$Sol)), drop = F])
+      # output$DT.group.quants[, sample := 1:nrow(output$DT.group.quants)]
+      # output$DT.group.quants <- melt(output$DT.group.quants, variable.name = "Baseline", id.vars = "sample")
+      # output$DT.group.quants[, Group := group]
+      # output$DT.group.quants[, Assay := as.integer(sub("^Quant(.+)\\..+$", "\\1", Baseline))]
+      # output$DT.group.quants[, Baseline := as.integer(sub("^Quant.+\\.(.+)$", "\\1", Baseline))]
+      # output$DT.group.quants[, chain := chain]
+      # output$DT.group.quants[, value := value / log(2)]
+      # setcolorder(output$DT.group.quants, c("Group", "Baseline", "Assay", "chain", "sample"))
     }
 
     ### EXTRACT COMPONENT DEVIATIONS
@@ -334,11 +347,11 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       if (chain == 1) {
         # construct index
         output$DT.index.group.quants <- output$DT.group.quants[, .(
-          from = .I[!duplicated(output$DT.group.quants, by = c("Group", "Baseline", "Assay"))],
-          to = .I[!duplicated(output$DT.group.quants, fromLast = T, by = c("Group", "Baseline", "Assay"))]
+          from = .I[!duplicated(output$DT.group.quants, by = c("Group", "Assay"))],
+          to = .I[!duplicated(output$DT.group.quants, fromLast = T, by = c("Group", "Assay"))]
         )]
         output$DT.index.group.quants <- cbind(
-          output$DT.group.quants[output$DT.index.group.quants$from, .(Group, Baseline, Assay)],
+          output$DT.group.quants[output$DT.index.group.quants$from, .(Group, Assay)],
           data.table(file = factor(filename)),
           output$DT.index.group.quants
         )
@@ -658,17 +671,17 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
   # write out group quants
   if ("DT.group.quants" %in% names(outputs)) {
     if (nrow(outputs$DT.group.quants) > 0) {
-      setorder(outputs$DT.group.quants, Group, Baseline, Assay, chain, sample)
+      setorder(outputs$DT.group.quants, Group, Assay, chain, sample)
       filename <- file.path("raw.group.quants", paste0(chain, ".fst"))
       fst::write.fst(outputs$DT.group.quants, file.path(filepath(object), input, filename))
       # finish index construction
       if (chain == 1) {
         DT.index.group.quants <- outputs$DT.group.quants[, .(
-          from = .I[!duplicated(outputs$DT.group.quants, by = c("Group", "Baseline", "Assay"))],
-          to = .I[!duplicated(outputs$DT.group.quants, fromLast = T, by = c("Group", "Baseline", "Assay"))]
+          from = .I[!duplicated(outputs$DT.group.quants, by = c("Group", "Assay"))],
+          to = .I[!duplicated(outputs$DT.group.quants, fromLast = T, by = c("Group", "Assay"))]
         )]
         outputs$DT.index.group.quants <- rbind(outputs$DT.index.group.quants, cbind(
-          outputs$DT.group.quants[DT.index.group.quants$from, .(Group, Baseline, Assay)],
+          outputs$DT.group.quants[DT.index.group.quants$from, .(Group, Assay)],
           data.table(file = factor(filename)),
           DT.index.group.quants
         ))
@@ -678,7 +691,6 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     # write index
     if (chain == 1) {
       outputs$DT.index.group.quants[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
-      outputs$DT.index.group.quants[, Baseline := factor(Baseline, levels = 1:nlevels(DT.design[, Assay]), labels = levels(DT.design[, Assay]))]
       outputs$DT.index.group.quants[, Assay := factor(Assay, levels = 1:nlevels(DT.design[, Assay]), labels = levels(DT.design[, Assay]))]
       setkey(outputs$DT.index.group.quants, Group, file, from)
       fst::write.fst(outputs$DT.index.group.quants, file.path(filepath(object), input, paste0("raw.group.quants.index.fst")))
