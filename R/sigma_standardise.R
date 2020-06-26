@@ -26,7 +26,7 @@ setMethod("standardise_theta", "sigma_block", function(object, data.design = ass
     # seaMass-Θ Bayesian model
     set.seed(ctrl@random.seed + item)
     model <- MCMCglmm::MCMCglmm(
-      m ~ Assay,
+      m ~ Group - 1 + Assay,
       mev = DT[, s]^2,
       rcov = ~ idh(Group):units,
       data = DT,

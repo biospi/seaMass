@@ -54,6 +54,13 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       DT[, Baseline := factor(levels(Assay)[1], levels = levels(Assay))]
     }
 
+    if (all(DT$Count0 == DT$Count1)) {
+      DT[, Count1 := NULL]
+    } else {
+      # workaround because emmeans can't mix gaussian and non-gaussian families
+      DT[Count1 < Count0 + 1, Count1 := Count1 + 1]
+    }
+
     # and now merge where the assay and the baseline are the same, as these effects are not identifiable
     #DT[, Quant := as.character(interaction(DT$Assay, DT$Baseline, lex.order = T, drop = T))]
     #DT[Assay == Baseline, Quant := "."]
@@ -67,7 +74,6 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     nQ <- nlevels(DT$Quant)
 
     # fixed effects
-    DT[, Count1 := NULL]
     fixed <- as.formula(paste(ifelse("Count1" %in% colnames(DT), "c(Count0, Count1)", "Count0"), "~ ", ifelse(nM == 1, "", "Measurement-1 +"), ifelse(nQ == 1, " 1", " Quant")))
     #fixed <- as.formula(paste("Count1 ~ ", ifelse(nM == 1, "", "Measurement-1 +"), ifelse(nQ == 1, " 1", " Quant"))
 
@@ -153,6 +159,8 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
          family <- "gaussian"
        }
     } else {
+      DT[, Count0 := ceiling(Count0)]
+      DT[, Count1 := ceiling(Count1)]
       if("Count1" %in% colnames(DT)) {
         family <- "cenpoisson"
       } else {
