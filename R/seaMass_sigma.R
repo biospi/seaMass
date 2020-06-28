@@ -55,7 +55,7 @@ seaMass_sigma <- function(
 
   cat(paste0("[", Sys.time(), "] preparing metadata...\n"))
 
-  # if poission model only integers are allowed, plus apply missingness.threshold
+  # if poisson model only integers are allowed, plus apply missingness.threshold
   if (control@error.model == "poisson") {
     DT[, Count0 := round(Count)]
     DT[, Count0 := ifelse(Count0 <= control@missingness.threshold, NA_real_, Count0)]
@@ -200,7 +200,6 @@ seaMass_sigma <- function(
           DT.block[, Count1 := min(Count0, na.rm = T), by = .(Group, Component,Measurement)]
           DT.block[, Count0 := ifelse(is.na(Count0), Count1, Count0)]
         }
-        DT.block[, Count1 := NA_real_]
       }
     }
 
@@ -495,6 +494,33 @@ setMethod("timings", "seaMass_sigma", function(object, input = "model1", as.data
 })
 
 
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("read_samples", "seaMass_sigma", function(object, input, type, items = NULL, chains = 1:control(object)@model.nchain, summary = NULL, summary.func = "robust_normal", as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) read_samples(block, input, type, items, chains, summary, summary.func, as.data.table = T)))
+  if (nrow(DT) == 0) return(NULL)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the model assay exposures as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("assay_exposures", "seaMass_sigma", function(object, input = "model1", as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) assay_exposures(block, input, as.data.table = T)))
+  if (nrow(DT) == 0) return(NULL)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
 #' @describeIn seaMass_sigma-class Get the model assay variances as a \link{data.frame}.
 #' @import data.table
 #' @export
@@ -509,12 +535,55 @@ setMethod("assay_variances", "seaMass_sigma", function(object, input = "model1",
 })
 
 
+#' @describeIn seaMass_sigma-class Get the model assay deviations as a \link{data.frame}.
+#' @import doRNG
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("assay_deviations", "seaMass_sigma", function(object, assays = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) assay_deviations(block, assays, summary, input, chains, as.data.table = T)))
+  if (nrow(DT) == 0) return(NULL)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the model measurement exposures as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("measurement_exposures", "seaMass_sigma", function(object, measurements = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) measurement_exposures(block, measurements, summary, input, chains, as.data.table = T)))
+  if (nrow(DT) == 0) return(NULL)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
 #' @describeIn seaMass_sigma-class Get the model measurement variances as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
 setMethod("measurement_variances", "seaMass_sigma", function(object, measurements = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) measurement_variances(block, measurements, summary, input, chains, as.data.table = T)))
+  if (nrow(DT) == 0) return(NULL)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the model component exposures as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("component_exposures", "seaMass_sigma", function(object, components = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) component_exposures(block, components, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
@@ -551,13 +620,12 @@ setMethod("component_deviations", "seaMass_sigma", function(object, components =
 })
 
 
-#' @describeIn seaMass_sigma-class Get the model assay deviations as a \link{data.frame}.
-#' @import doRNG
+#' @describeIn seaMass_sigma-class Get the model raw group quantifications as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("assay_deviations", "seaMass_sigma", function(object, assays = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) assay_deviations(block, assays, summary, input, chains, as.data.table = T)))
+setMethod("raw_group_quants", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) raw_group_quants(block, groups, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
@@ -566,12 +634,40 @@ setMethod("assay_deviations", "seaMass_sigma", function(object, assays = NULL, s
 })
 
 
-#' @describeIn seaMass_sigma-class Get the model raw group quantifications as a \link{data.frame}.
+#' @describeIn seaMass_sigma-class Get the model normalised group variances as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("raw_group_quants", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) raw_group_quants(block, groups, summary, input, chains, as.data.table = T)))
+setMethod("normalised_group_exposures", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) normalised_group_exposures(block, groups, summary, input, chains, as.data.table = T)))
+  if (nrow(DT) == 0) return(NULL)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the model normalised group variances as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("normalised_group_variances", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) normalised_group_variances(block, groups, summary, input, chains, as.data.table = T)))
+  if (nrow(DT) == 0) return(NULL)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the model standardised group quantifications as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("normalised_group_quants", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) normalised_group_quants(block, groups, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
@@ -594,42 +690,4 @@ setMethod("standardised_group_quants", "seaMass_sigma", function(object, groups 
 })
 
 
-#' @describeIn seaMass_sigma-class Get the model standardised group quantifications as a \link{data.frame}.
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("centred_group_quants", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) centred_group_quants(block, groups, summary, input, chains, as.data.table = T)))
-  if (nrow(DT) == 0) return(NULL)
 
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
-})
-
-
-#' @describeIn seaMass_sigma-class Get the model standardised group variances as a \link{data.frame}.
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("standardised_group_variances", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) standardised_group_variances(block, groups, summary, input, chains, as.data.table = T)))
-  if (nrow(DT) == 0) return(NULL)
-
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
-})
-
-
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("read_samples", "seaMass_sigma", function(object, input, type, items = NULL, chains = 1:control(object)@model.nchain, summary = NULL, summary.func = "robust_normal", as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) read_samples(block, input, type, items, chains, summary, summary.func, as.data.table = T)))
-  if (nrow(DT) == 0) return(NULL)
-
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
-})

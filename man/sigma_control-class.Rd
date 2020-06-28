@@ -7,12 +7,15 @@
 \title{Control parameters for seaMass-Σ}
 \usage{
 sigma_control(
-  summarise = c("measurement.variances", "component.variances", "component.deviations",
-    "raw.group.quants", "standardised.group.quants", "standardised.group.variances"),
-  keep = c("model0", "measurement.variances", "component.variances",
-    "component.deviations", "assay.deviations", "raw.group.quants",
-    "standardised.group.quants", "standardised.group.variances", "summaries"),
-  plot = c("centred.group.quants.pca", "standardised.group.quants.pca"),
+  summarise = c("measurement.exposures", "measurement.variances",
+    "component.exposures", "component.variances", "component.deviations",
+    "raw.group.quants", "normalised.group.exposures", "normalised.group.variances",
+    "standardised.group.quants"),
+  keep = c("model0", "measurement.exposures", "measurement.variances",
+    "component.exposures", "component.variances", "component.deviations",
+    "assay.deviations", "raw.group.quants", "normalised.group.exposures",
+    "normalised.group.variances", "standardised.group.quants", "summaries"),
+  plot = c("group.quants.pca"),
   measurement.model = "independent",
   measurement.eb.min = 2,
   component.model = "independent",
@@ -28,9 +31,9 @@ sigma_control(
   model.thin = 4,
   model.nsample = 1024,
   eb.max = 1024,
-  standardise.model = "theta",
-  standardise.nwarmup = 256,
-  standardise.thin = 1,
+  exposure.model = "theta",
+  exposure.nwarmup = 256,
+  exposure.thin = 1,
   random.seed = 0,
   nthread = parallel::detectCores()\%/\%2,
   schedule = schedule_local()
@@ -38,13 +41,13 @@ sigma_control(
 }
 \arguments{
 \item{summarise}{Outputs to write csv summaries for, \code{NULL} or a subset of
-\code{c("measurement.variances", "component.variances", "component.deviations", "assay.variances", "raw.group.quants", "standardised.group.quants", "standardised.group.variances"))}}
+\code{c("measurement.exposures", "measurement.variances", "component.exposures", "component.variances", "component.deviations", "raw.group.quants", "normalised.group.exposures", "normalised.group.variances", "standardised.group.quants")}}
 
 \item{keep}{Outputs to keep MCMC samples for, \code{NULL} or a subset of
-\code{c("measurement.variances", "component.variances", "component.deviations", "assay.deviations", "raw.group.quants", "standardised.group.quants", "standardised.group.variances"))}
-Note, you must keep \code{"raw.group.quants"} if you want to run seaMass-Δ!}
+\code{c("model0", "measurement.exposures", "measurement.variances", "component.exposures", "component.variances", "component.deviations", "assay.deviations", "raw.group.quants", "normalised.group.exposures", "normalised.group.variances", "standardised.group.quants", "summaries")}
+Note, you must keep \code{"standardised.group.quants"} if you want to run seaMass-Δ!}
 
-\item{plot}{Outputs to plot, \code{NULL} or a subset of c("centred.group.quants.pca", "standardised.group.quants.pca", "component.deviations.pca")}
+\item{plot}{Outputs to plot, \code{NULL} or a subset of c("group.quants.pca", component.deviations.pca")}
 
 \item{measurement.model}{Either \code{"single"} (single residual) or \code{"independent"} (per-measurement independent residuals)}
 

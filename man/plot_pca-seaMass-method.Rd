@@ -17,7 +17,7 @@
   labels = 25,
   colour = "Condition",
   fill = "Condition",
-  shape = NULL,
+  shape = "Condition",
   data = NULL,
   ...
 )

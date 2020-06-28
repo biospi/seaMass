@@ -11,13 +11,26 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
   DT.priors <- priors(object, input = input, as.data.table = T)
 
   # create subdirs
-  if (input != "model0") dir.create(file.path(filepath(object), input, "raw.group.quants"), showWarnings = F)
+  dir.create(file.path(filepath(object), input, "timings"), showWarnings = F)
+  if ("summaries" %in% ctrl@keep) dir.create(file.path(filepath(object), input, "summaries"), showWarnings = F)
+
+  unlink(file.path(filepath(object), input, "*.measurement.variances.fst"))
+  unlink(file.path(filepath(object), input, "*.component.variances.fst"))
+  unlink(file.path(filepath(object), input, "*.assay.deviations.fst"))
   dir.create(file.path(filepath(object), input, "measurement.variances"), showWarnings = F)
   dir.create(file.path(filepath(object), input, "component.variances"), showWarnings = F)
-  if (input != "model0") dir.create(file.path(filepath(object), input, "component.deviations"), showWarnings = F)
   dir.create(file.path(filepath(object), input, "assay.deviations"), showWarnings = F)
-  if ("summaries" %in% ctrl@keep) dir.create(file.path(filepath(object), input, "summaries"), showWarnings = F)
-  dir.create(file.path(filepath(object), input, "timings"), showWarnings = F)
+
+  if (input != "model0") {
+    unlink(file.path(filepath(object), input, "*.raw.group.quants.fst"))
+    unlink(file.path(filepath(object), input, "*.measurement.exposures.fst"))
+    unlink(file.path(filepath(object), input, "*.component.exposures.fst"))
+    unlink(file.path(filepath(object), input, "*.component.deviations.fst"))
+    dir.create(file.path(filepath(object), input, "raw.group.quants"), showWarnings = F)
+    dir.create(file.path(filepath(object), input, "measurement.exposures"), showWarnings = F)
+    dir.create(file.path(filepath(object), input, "component.exposures"), showWarnings = F)
+    dir.create(file.path(filepath(object), input, "component.deviations"), showWarnings = F)
+  }
 
   cat(paste0("[", Sys.time(), "]    modelling ngroup=", nrow(DT.index), " nitt=", nitt, "...\n"))
 
@@ -36,46 +49,12 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     DT[, Component := factor(Component)]
     DT[, Measurement := interaction(Component, factor(Measurement), drop = T, lex.order = T)]
     DT[, Assay := factor(Assay)]
-
-    # if we are emulating an ML model with missingness.model "rm", we need to drop unidentifiable quants
-    if (ctrl@missingness.model == "rm") {
-      DT[, N := 1]
-      DT.blocks <- setDF(dcast(DT, Measurement ~ Assay, sum, value.var = "N"))
-      DT[, N := NULL]
-      rownames(DT.blocks) <- paste0("_seaMass_.Measurement.", DT.blocks$Measurement)
-      DT.blocks$Measurement <- NULL
-      colnames(DT.blocks) <- paste0("_seaMass_.Assay.", colnames(DT.blocks))
-      DT.blocks <- igraph::components(igraph::graph.incidence(DT.blocks))
-      DT.blocks <- DT.blocks$membership[grep("^_seaMass_\\.Assay\\.", names(DT.blocks$membership))]
-      DT.blocks <- data.table(Assay = factor(sub("^_seaMass_\\.Assay\\.", "", names(DT.blocks)), levels = levels(DT$Assay)), Block = factor(DT.blocks))
-      DT.blocks[, Baseline := Assay[1], by = Block]
-      DT <- merge(DT, DT.blocks[, .(Assay, Baseline)], by = "Assay")
-    } else {
-      DT[, Baseline := factor(levels(Assay)[1], levels = levels(Assay))]
-    }
-
-    if (all(DT$Count0 == DT$Count1)) {
-      DT[, Count1 := NULL]
-    } else {
-      # workaround because emmeans can't mix gaussian and non-gaussian families
-      DT[Count1 < Count0 + 1, Count1 := Count1 + 1]
-    }
-
-    # and now merge where the assay and the baseline are the same, as these effects are not identifiable
-    #DT[, Quant := as.character(interaction(DT$Assay, DT$Baseline, lex.order = T, drop = T))]
-    #DT[Assay == Baseline, Quant := "."]
-    #DT[, Baseline := factor(Baseline, levels = levels(Assay))]
-    #DT[, Quant := factor(Quant)]
-    DT[, Quant := Assay]
-
-    ### PREPARE
     nC <- nlevels(DT$Component)
     nM <- nlevels(DT$Measurement)
-    nQ <- nlevels(DT$Quant)
+    nA <- nlevels(DT$Assay)
 
     # fixed effects
-    fixed <- as.formula(paste(ifelse("Count1" %in% colnames(DT), "c(Count0, Count1)", "Count0"), "~ ", ifelse(nM == 1, "", "Measurement-1 +"), ifelse(nQ == 1, " 1", " Quant")))
-    #fixed <- as.formula(paste("Count1 ~ ", ifelse(nM == 1, "", "Measurement-1 +"), ifelse(nQ == 1, " 1", " Quant"))
+    fixed <- as.formula(paste(ifelse("Count1" %in% colnames(DT), "c(Count0, Count1)", "Count0"), "~ ", ifelse(nM == 1, "", "Measurement-1 +"), ifelse(nA == 1, " 1", " Assay")))
 
     # measurement rcov
     if (nM == 1 || ctrl@measurement.model == "single") {
@@ -178,11 +157,10 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       if ("Count1" %in% colnames(DT)) DT[2, Count1 := NA]
     }
 
-    if ("summaries" %in% ctrl@keep) output$DT.summaries <- as.character(Sys.time())
-
     # MCMCglmm can very rarely fail on a dataset, try again with slightly perturbed values
     model <- NULL
     attempt <- 1
+    if ("summaries" %in% ctrl@keep) output$DT.summaries <- as.character(Sys.time())
     while (is.null(model) && attempt <= 10) {
       if (attempt != 1) {
         if (family == "poisson" || family == "cenpoisson") {
@@ -211,32 +189,87 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       output$DT.summaries <- data.table(Group = group, chain = chain, Summary = paste(c(output$DT.summaries, capture.output(print(summary(model))), as.character(Sys.time())), collapse = "\n"))
     }
 
-    ### EXTRACT GROUP QUANTS
-    if (input == "model1" && ("raw.group.quants" %in% ctrl@summarise || "raw.group.quants" %in% ctrl@keep)) {
-      emm <- emmeans(model, ~ Quant, data = DT)
-      output$DT.group.quants <- as.data.table(coda::as.mcmc(emm))
-      output$DT.group.quants[, sample := 1:nrow(output$DT.group.quants)]
-      output$DT.group.quants <- melt(output$DT.group.quants, variable.name = "Assay", id.vars = "sample")
-      output$DT.group.quants[, Group := group]
-      output$DT.group.quants[, Assay := as.integer(sub("^Quant (.+)$", "\\1", Assay))]
-      output$DT.group.quants[, chain := chain]
-      output$DT.group.quants[, value := value / log(2)]
-      setcolorder(output$DT.group.quants, c("Group", "Assay", "chain", "sample"))
+    # create emmeans ref grid
+    class(model) <- "MCMCglmm_seaMass"
+    frg <- emmeans::ref_grid(model, data = DT, nesting = NULL)
 
-      # Add Quant effect
-      # output$DT.group.quants <- as.data.table(model$Sol[, grep("^Quant.+\\..+$", colnames(model$Sol)), drop = F])
-      # output$DT.group.quants[, sample := 1:nrow(output$DT.group.quants)]
-      # output$DT.group.quants <- melt(output$DT.group.quants, variable.name = "Baseline", id.vars = "sample")
-      # output$DT.group.quants[, Group := group]
-      # output$DT.group.quants[, Assay := as.integer(sub("^Quant(.+)\\..+$", "\\1", Baseline))]
-      # output$DT.group.quants[, Baseline := as.integer(sub("^Quant.+\\.(.+)$", "\\1", Baseline))]
-      # output$DT.group.quants[, chain := chain]
-      # output$DT.group.quants[, value := value / log(2)]
-      # setcolorder(output$DT.group.quants, c("Group", "Baseline", "Assay", "chain", "sample"))
+    ### EXTRACT RAW GROUP QUANTS
+    if (input != "model0" && ("raw.group.quants" %in% ctrl@summarise || "raw.group.quants" %in% ctrl@keep)) {
+      if (nA == 1 && nM == 1) {
+        output$DT.raw.group.quants <- as.data.table(model$Sol[, 1])
+        colnames(output$DT.raw.group.quants) <- paste("Assay", DT[1, Assay])
+      } else {
+        emm <- emmeans::emmeans(frg, ifelse(nA == 1, "1", "Assay"))
+        output$DT.raw.group.quants <- as.data.table(coda::as.mcmc(emm))
+      }
+      if (nA == 1) {
+        colnames(output$DT.raw.group.quants) <- "value"
+        output$DT.raw.group.quants[, Assay := as.integer(as.character(DT[1, Assay]))]
+      }
+      output$DT.raw.group.quants[, sample := 1:nrow(output$DT.raw.group.quants)]
+      if (nA != 1) {
+        output$DT.raw.group.quants <- melt(output$DT.raw.group.quants, variable.name = "Assay", id.vars = "sample")
+        output$DT.raw.group.quants[, Assay := as.integer(sub("^Assay (.+)$", "\\1", Assay))]
+      }
+      output$DT.raw.group.quants[, Group := group]
+      output$DT.raw.group.quants[, chain := chain]
+      output$DT.raw.group.quants[, value := value / log(2)]
+      setcolorder(output$DT.raw.group.quants, c("Group", "Assay", "chain", "sample"))
+    }
+
+    ### EXTRACT MEASUREMENT exposures
+    if (input != "model0" && ("measurement.exposures" %in% ctrl@summarise || "measurement.exposures" %in% ctrl@keep)) {
+      if (nA == 1 && nM == 1) {
+        output$DT.measurement.exposures <- as.data.table(model$Sol[, 1])
+        colnames(output$DT.measurement.exposures) <- paste("Assay", DT[1, Assay])
+      } else {
+        emm <- emmeans::emmeans(frg, ifelse(nM == 1, "1", "Measurement"))
+        output$DT.measurement.exposures <- as.data.table(coda::as.mcmc(emm))
+      }
+      if (nM == 1) {
+        colnames(output$DT.measurement.exposures) <- "value"
+        output$DT.measurement.exposures[, Component := as.integer(sub("^Measurement (.+)\\..+$", "\\1", as.character(DT[1, Measurement])))]
+        output$DT.measurement.exposures[, Measurement := as.integer(as.character(DT[1, Measurement]))]
+      }
+      output$DT.measurement.exposures[, sample := 1:nrow(output$DT.measurement.exposures)]
+      if (nM != 1) {
+        output$DT.measurement.exposures <- melt(output$DT.measurement.exposures, variable.name = "Measurement", id.vars = "sample")
+        output$DT.measurement.exposures[, Component := as.integer(sub("^Measurement (.+)\\..+$", "\\1", Measurement))]
+        output$DT.measurement.exposures[, Measurement := as.integer(sub("^Measurement .+\\.(.+)$", "\\1", Measurement))]
+      }
+      output$DT.measurement.exposures[, chain := chain]
+      output$DT.measurement.exposures[, value := value / log(2)]
+      output$DT.measurement.exposures[, Group := group]
+      setcolorder(output$DT.measurement.exposures, c("Group", "Component", "Measurement", "chain", "sample"))
+    }
+
+    ### EXTRACT COMPONENT exposures
+    if (input != "model0" && ("component.exposures" %in% ctrl@summarise || "component.exposures" %in% ctrl@keep)) {
+      if (nA == 1 && nM == 1) {
+        output$DT.component.exposures <- as.data.table(model$Sol[, 1])
+        colnames(output$DT.component.exposures) <- paste("Assay", DT[1, Assay])
+      } else {
+        if (nM != 1) frg <- emmeans::add_grouping(frg, "Component", "Measurement", sub("\\..+$", "", levels(DT$Measurement)))
+        emm <- emmeans::emmeans(frg, ifelse(nM == 1, "1", "Component"))
+        output$DT.component.exposures <- as.data.table(coda::as.mcmc(emm))
+      }
+      if (nM == 1) {
+        colnames(output$DT.component.exposures) <- "value"
+        output$DT.component.exposures[, Component := as.integer(sub("^Measurement (.+)\\..+$", "\\1", as.character(DT[1, Measurement])))]
+      }
+      output$DT.component.exposures[, sample := 1:nrow(output$DT.component.exposures)]
+      if (nM != 1) {
+        output$DT.component.exposures <- melt(output$DT.component.exposures, variable.name = "Component", id.vars = "sample")
+        output$DT.component.exposures[, Component := as.integer(sub("^Component (.+)$", "\\1", Component))]
+      }
+      output$DT.component.exposures[, chain := chain]
+      output$DT.component.exposures[, value := value / log(2)]
+      output$DT.component.exposures[, Group := group]
+      setcolorder(output$DT.component.exposures, c("Group", "Component", "chain", "sample"))
     }
 
     ### EXTRACT COMPONENT DEVIATIONS
-    if (input == "model1" && ctrl@component.model == "independent" && ("component.deviations" %in% ctrl@summarise || "component.deviations" %in% ctrl@keep)) {
+    if (input != "model0" && ctrl@component.model == "independent" && ("component.deviations" %in% ctrl@summarise || "component.deviations" %in% ctrl@keep)) {
       if (nC == 1) {
         output$DT.component.deviations <- as.data.table(model$Sol[, grep("^Component:Assay\\..+\\..+$", colnames(model$Sol)), drop = F])
         output$DT.component.deviations[, sample := 1:nrow(output$DT.component.deviations)]
@@ -282,6 +315,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       }
     }
 
+    # conserve memory
     model$Sol <- NULL
 
     ### EXTRACT MEASUREMENT VARIANCES
@@ -347,27 +381,73 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
 
     ### WRITE OUT
 
-    # if large enough write out group quants now to conserve memory, otherwise don't to conserve disk space
-    if (object.size(output$DT.group.quants) > 2^18) {
+    # if large enough write out raw group quants now to conserve memory, otherwise don't to conserve disk space
+    if (object.size(output$DT.raw.group.quants) > 2^18) {
       filename <- file.path("raw.group.quants", paste0(chain, ".", group, ".fst"))
-      fst::write.fst(output$DT.group.quants, file.path(filepath(object), input, filename))
+      fst::write.fst(output$DT.raw.group.quants, file.path(filepath(object), input, filename))
 
       if (chain == 1) {
         # construct index
-        output$DT.index.group.quants <- output$DT.group.quants[, .(
-          from = .I[!duplicated(output$DT.group.quants, by = c("Group", "Assay"))],
-          to = .I[!duplicated(output$DT.group.quants, fromLast = T, by = c("Group", "Assay"))]
+        output$DT.index.raw.group.quants <- output$DT.raw.group.quants[, .(
+          from = .I[!duplicated(output$DT.raw.group.quants, by = c("Group", "Assay"))],
+          to = .I[!duplicated(output$DT.raw.group.quants, fromLast = T, by = c("Group", "Assay"))]
         )]
-        output$DT.index.group.quants <- cbind(
-          output$DT.group.quants[output$DT.index.group.quants$from, .(Group, Assay)],
+        output$DT.index.raw.group.quants <- cbind(
+          output$DT.raw.group.quants[output$DT.index.raw.group.quants$from, .(Group, Assay)],
           data.table(file = factor(filename)),
-          output$DT.index.group.quants
+          output$DT.index.raw.group.quants
         )
       }
 
-      output$DT.group.quants <- data.table()
+      output$DT.raw.group.quants <- data.table()
     } else {
-      if (chain == 1) output$DT.index.group.quants <- data.table()
+      if (chain == 1) output$DT.index.raw.group.quants <- data.table()
+    }
+
+    # if large enough write out measurement exposures now to conserve memory, otherwise don't to conserve disk space
+    if (object.size(output$DT.measurement.exposures) > 2^18) {
+      filename <- file.path("measurement.exposures", paste0(chain, ".", group, ".fst"))
+      fst::write.fst(output$DT.measurement.exposures, file.path(filepath(object), input, filename))
+
+      if (chain == 1) {
+        # construct index
+        output$DT.index.measurement.exposures <- output$DT.measurement.exposures[, .(
+          from = .I[!duplicated(output$DT.measurement.exposures, by = c("Group", "Component", "Measurement"))],
+          to = .I[!duplicated(output$DT.measurement.exposures, fromLast = T, by = c("Group", "Component", "Measurement"))]
+        )]
+        output$DT.index.measurement.exposures <- cbind(
+          output$DT.measurement.exposures[output$DT.index.measurement.exposures$from, .(Group, Component, Measurement)],
+          data.table(file = factor(filename)),
+          output$DT.index.measurement.exposures
+        )
+      }
+
+      output$DT.measurement.exposures <- data.table()
+    } else {
+      if (chain == 1) output$DT.index.measurement.exposures <- data.table()
+    }
+
+    # if large enough write out component exposures now to conserve memory, otherwise don't to conserve disk space
+    if (object.size(output$DT.component.exposures) > 2^18) {
+      filename <- file.path("component.exposures", paste0(chain, ".", group, ".fst"))
+      fst::write.fst(output$DT.component.exposures, file.path(filepath(object), input, filename))
+
+      if (chain == 1) {
+        # construct index
+        output$DT.index.component.exposures <- output$DT.component.exposures[, .(
+          from = .I[!duplicated(output$DT.component.exposures, by = c("Group", "Component"))],
+          to = .I[!duplicated(output$DT.component.exposures, fromLast = T, by = c("Group", "Component"))]
+        )]
+        output$DT.index.component.exposures <- cbind(
+          output$DT.component.exposures[output$DT.index.component.exposures$from, .(Group, Component)],
+          data.table(file = factor(filename)),
+          output$DT.index.component.exposures
+        )
+      }
+
+      output$DT.component.exposures <- data.table()
+    } else {
+      if (chain == 1) output$DT.index.component.exposures <- data.table()
     }
 
     # if large enough write out component deviations now to conserve memory, otherwise don't to conserve disk space
@@ -502,6 +582,94 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
   setkey(outputs$DT.timings, Group, chain)
   fst::write.fst(outputs$DT.timings, file.path(filepath(object), input, file.path("timings", paste0(chain, ".fst"))))
   outputs$DT.timings <- NULL
+
+  # write out raw group quants
+  if ("DT.raw.group.quants" %in% names(outputs)) {
+    if (nrow(outputs$DT.raw.group.quants) > 0) {
+      setorder(outputs$DT.raw.group.quants, Group, Assay, chain, sample)
+      filename <- file.path("raw.group.quants", paste0(chain, ".fst"))
+      fst::write.fst(outputs$DT.raw.group.quants, file.path(filepath(object), input, filename))
+      # finish index construction
+      if (chain == 1) {
+        DT.index.raw.group.quants <- outputs$DT.raw.group.quants[, .(
+          from = .I[!duplicated(outputs$DT.raw.group.quants, by = c("Group", "Assay"))],
+          to = .I[!duplicated(outputs$DT.raw.group.quants, fromLast = T, by = c("Group", "Assay"))]
+        )]
+        outputs$DT.index.raw.group.quants <- rbind(outputs$DT.index.raw.group.quants, cbind(
+          outputs$DT.raw.group.quants[DT.index.raw.group.quants$from, .(Group, Assay)],
+          data.table(file = factor(filename)),
+          DT.index.raw.group.quants
+        ))
+      }
+      outputs$DT.raw.group.quants <- NULL
+    }
+    # write index
+    if (chain == 1) {
+      outputs$DT.index.raw.group.quants[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
+      outputs$DT.index.raw.group.quants[, Assay := factor(Assay, levels = 1:nlevels(DT.design[, Assay]), labels = levels(DT.design[, Assay]))]
+      setkey(outputs$DT.index.raw.group.quants, Group, file, from)
+      fst::write.fst(outputs$DT.index.raw.group.quants, file.path(filepath(object), input, paste0("raw.group.quants.index.fst")))
+    }
+  }
+
+  # write out measurement exposures
+  if ("DT.measurement.exposures" %in% names(outputs)) {
+    if (nrow(outputs$DT.measurement.exposures) > 0) {
+      setorder(outputs$DT.measurement.exposures, Group, Component, Measurement, chain, sample)
+      filename <- file.path("measurement.exposures", paste0(chain, ".fst"))
+      fst::write.fst(outputs$DT.measurement.exposures, file.path(filepath(object), input, filename))
+      # finish index construction
+      if (chain == 1) {
+        DT.index.measurement.exposures <- outputs$DT.measurement.exposures[, .(
+          from = .I[!duplicated(outputs$DT.measurement.exposures, by = c("Group", "Component", "Measurement"))],
+          to = .I[!duplicated(outputs$DT.measurement.exposures, fromLast = T, by = c("Group", "Component", "Measurement"))]
+        )]
+        outputs$DT.index.measurement.exposures <- rbind(outputs$DT.index.measurement.exposures, cbind(
+          outputs$DT.measurement.exposures[DT.index.measurement.exposures$from, .(Group, Component, Measurement)],
+          data.table(file = factor(filename)),
+          DT.index.measurement.exposures
+        ))
+      }
+      outputs$DT.measurement.exposures <- NULL
+    }
+    # write index
+    if (chain == 1) {
+      outputs$DT.index.measurement.exposures[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
+      outputs$DT.index.measurement.exposures[, Component := factor(Component, levels = 1:nlevels(DT.components[, Component]), labels = levels(DT.components[, Component]))]
+      outputs$DT.index.measurement.exposures[, Measurement := factor(Measurement, levels = 1:nlevels(DT.measurements[, Measurement]), labels = levels(DT.measurements[, Measurement]))]
+      setkey(outputs$DT.index.measurement.exposures, Group, file, from)
+      fst::write.fst(outputs$DT.index.measurement.exposures, file.path(filepath(object), input, paste0("measurement.exposures.index.fst")))
+    }
+  }
+
+  # write out components exposures
+  if ("DT.component.exposures" %in% names(outputs)) {
+    if (nrow(outputs$DT.component.exposures) > 0) {
+      setorder(outputs$DT.component.exposures, Group, Component, chain, sample)
+      filename <- file.path("component.exposures", paste0(chain, ".fst"))
+      fst::write.fst(outputs$DT.component.exposures, file.path(filepath(object), input, filename))
+      # finish index construction
+      if (chain == 1) {
+        DT.index.component.exposures <- outputs$DT.component.exposures[, .(
+          from = .I[!duplicated(outputs$DT.component.exposures, by = c("Group", "Component"))],
+          to = .I[!duplicated(outputs$DT.component.exposures, fromLast = T, by = c("Group", "Component"))]
+        )]
+        outputs$DT.index.component.exposures <- rbind(outputs$DT.index.component.exposures, cbind(
+          outputs$DT.component.exposures[DT.index.component.exposures$from, .(Group, Component)],
+          data.table(file = factor(filename)),
+          DT.index.component.exposures
+        ))
+      }
+      outputs$DT.component.exposures <- NULL
+    }
+    # write index
+    if (chain == 1) {
+      outputs$DT.index.component.exposures[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
+      outputs$DT.index.component.exposures[, Component := factor(Component, levels = 1:nlevels(DT.components[, Component]), labels = levels(DT.components[, Component]))]
+       setkey(outputs$DT.index.component.exposures, Group, file, from)
+      fst::write.fst(outputs$DT.index.component.exposures, file.path(filepath(object), input, paste0("component.exposures.index.fst")))
+    }
+  }
 
   # write out component deviations
   if ("DT.component.deviations" %in% names(outputs)) {
@@ -673,35 +841,6 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       outputs$DT.index.component.variances[, Component := factor(Component, levels = 1:nlevels(DT.components[, Component]), labels = levels(DT.components[, Component]))]
       setkey(outputs$DT.index.component.variances, Group, file, from)
       fst::write.fst(outputs$DT.index.component.variances, file.path(filepath(object), input, paste0("component.variances.index.fst")))
-    }
-  }
-
-  # write out group quants
-  if ("DT.group.quants" %in% names(outputs)) {
-    if (nrow(outputs$DT.group.quants) > 0) {
-      setorder(outputs$DT.group.quants, Group, Assay, chain, sample)
-      filename <- file.path("raw.group.quants", paste0(chain, ".fst"))
-      fst::write.fst(outputs$DT.group.quants, file.path(filepath(object), input, filename))
-      # finish index construction
-      if (chain == 1) {
-        DT.index.group.quants <- outputs$DT.group.quants[, .(
-          from = .I[!duplicated(outputs$DT.group.quants, by = c("Group", "Assay"))],
-          to = .I[!duplicated(outputs$DT.group.quants, fromLast = T, by = c("Group", "Assay"))]
-        )]
-        outputs$DT.index.group.quants <- rbind(outputs$DT.index.group.quants, cbind(
-          outputs$DT.group.quants[DT.index.group.quants$from, .(Group, Assay)],
-          data.table(file = factor(filename)),
-          DT.index.group.quants
-        ))
-      }
-      outputs$DT.group.quants <- NULL
-    }
-    # write index
-    if (chain == 1) {
-      outputs$DT.index.group.quants[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
-      outputs$DT.index.group.quants[, Assay := factor(Assay, levels = 1:nlevels(DT.design[, Assay]), labels = levels(DT.design[, Assay]))]
-      setkey(outputs$DT.index.group.quants, Group, file, from)
-      fst::write.fst(outputs$DT.index.group.quants, file.path(filepath(object), input, paste0("raw.group.quants.index.fst")))
     }
   }
 
