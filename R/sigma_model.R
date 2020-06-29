@@ -195,19 +195,18 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
 
     ### EXTRACT RAW GROUP QUANTS
     if (input != "model0" && ("raw.group.quants" %in% ctrl@summarise || "raw.group.quants" %in% ctrl@keep)) {
-      if (nA == 1 && nM == 1) {
-        output$DT.raw.group.quants <- as.data.table(model$Sol[, 1])
-        colnames(output$DT.raw.group.quants) <- paste("Assay", DT[1, Assay])
-      } else {
-        emm <- emmeans::emmeans(frg, ifelse(nA == 1, "1", "Assay"))
-        output$DT.raw.group.quants <- as.data.table(coda::as.mcmc(emm))
-      }
       if (nA == 1) {
+        if (nM == 1) {
+          output$DT.raw.group.quants <- as.data.table(model$Sol[, 1, drop = F])
+        } else {
+          output$DT.raw.group.quants <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
+        }
         colnames(output$DT.raw.group.quants) <- "value"
-        output$DT.raw.group.quants[, Assay := as.integer(as.character(DT[1, Assay]))]
-      }
-      output$DT.raw.group.quants[, sample := 1:nrow(output$DT.raw.group.quants)]
-      if (nA != 1) {
+        output$DT.raw.group.quants[, Assay := as.integer(DT[1, Assay])]
+        output$DT.raw.group.quants[, sample := 1:nrow(output$DT.raw.group.quants)]
+      } else {
+        output$DT.raw.group.quants <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "Assay")))
+        output$DT.raw.group.quants[, sample := 1:nrow(output$DT.raw.group.quants)]
         output$DT.raw.group.quants <- melt(output$DT.raw.group.quants, variable.name = "Assay", id.vars = "sample")
         output$DT.raw.group.quants[, Assay := as.integer(sub("^Assay (.+)$", "\\1", Assay))]
       }
@@ -219,20 +218,19 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
 
     ### EXTRACT MEASUREMENT exposures
     if (input != "model0" && ("measurement.exposures" %in% ctrl@summarise || "measurement.exposures" %in% ctrl@keep)) {
-      if (nA == 1 && nM == 1) {
-        output$DT.measurement.exposures <- as.data.table(model$Sol[, 1])
-        colnames(output$DT.measurement.exposures) <- paste("Assay", DT[1, Assay])
-      } else {
-        emm <- emmeans::emmeans(frg, ifelse(nM == 1, "1", "Measurement"))
-        output$DT.measurement.exposures <- as.data.table(coda::as.mcmc(emm))
-      }
       if (nM == 1) {
+        if (nA == 1) {
+          output$DT.measurement.exposures <- as.data.table(model$Sol[, 1, drop = F])
+        } else {
+          output$DT.measurement.exposures <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
+        }
         colnames(output$DT.measurement.exposures) <- "value"
         output$DT.measurement.exposures[, Component := as.integer(sub("^Measurement (.+)\\..+$", "\\1", as.character(DT[1, Measurement])))]
-        output$DT.measurement.exposures[, Measurement := as.integer(as.character(DT[1, Measurement]))]
-      }
-      output$DT.measurement.exposures[, sample := 1:nrow(output$DT.measurement.exposures)]
-      if (nM != 1) {
+        output$DT.measurement.exposures[, Measurement := as.integer(DT[1, Measurement])]
+        output$DT.measurement.exposures[, sample := 1:nrow(output$DT.measurement.exposures)]
+      } else {
+        output$DT.measurement.exposures <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "Measurement")))
+        output$DT.measurement.exposures[, sample := 1:nrow(output$DT.measurement.exposures)]
         output$DT.measurement.exposures <- melt(output$DT.measurement.exposures, variable.name = "Measurement", id.vars = "sample")
         output$DT.measurement.exposures[, Component := as.integer(sub("^Measurement (.+)\\..+$", "\\1", Measurement))]
         output$DT.measurement.exposures[, Measurement := as.integer(sub("^Measurement .+\\.(.+)$", "\\1", Measurement))]
@@ -245,20 +243,19 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
 
     ### EXTRACT COMPONENT exposures
     if (input != "model0" && ("component.exposures" %in% ctrl@summarise || "component.exposures" %in% ctrl@keep)) {
-      if (nA == 1 && nM == 1) {
-        output$DT.component.exposures <- as.data.table(model$Sol[, 1])
-        colnames(output$DT.component.exposures) <- paste("Assay", DT[1, Assay])
-      } else {
-        if (nM != 1) frg <- emmeans::add_grouping(frg, "Component", "Measurement", sub("\\..+$", "", levels(DT$Measurement)))
-        emm <- emmeans::emmeans(frg, ifelse(nM == 1, "1", "Component"))
-        output$DT.component.exposures <- as.data.table(coda::as.mcmc(emm))
-      }
       if (nM == 1) {
+        if (nA == 1) {
+          output$DT.component.exposures <- as.data.table(model$Sol[, 1, drop = F])
+        } else {
+          output$DT.component.exposures <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
+        }
         colnames(output$DT.component.exposures) <- "value"
         output$DT.component.exposures[, Component := as.integer(sub("^Measurement (.+)\\..+$", "\\1", as.character(DT[1, Measurement])))]
-      }
-      output$DT.component.exposures[, sample := 1:nrow(output$DT.component.exposures)]
-      if (nM != 1) {
+        output$DT.component.exposures[, sample := 1:nrow(output$DT.component.exposures)]
+      } else {
+        frg <- emmeans::add_grouping(frg, "Component", "Measurement", sub("\\..+$", "", levels(DT$Measurement)))
+        output$DT.component.exposures <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "Component")))
+        output$DT.component.exposures[, sample := 1:nrow(output$DT.component.exposures)]
         output$DT.component.exposures <- melt(output$DT.component.exposures, variable.name = "Component", id.vars = "sample")
         output$DT.component.exposures[, Component := as.integer(sub("^Component (.+)$", "\\1", Component))]
       }

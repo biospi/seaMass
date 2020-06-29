@@ -21,12 +21,14 @@ setMethod("normalise_theta", "sigma_block", function(object, data.design = assay
   parallel_lapply(as.list(1:ctrl@model.nchain), function(item, object, DT.refweights, exposure.groups, input, type) {
     ctrl <- control(object)
     DT.summary <- read_samples(object, input, type, exposure.groups, summary = T, as.data.table = T)[, .(Group, Assay, m, s)]
-    DT <- droplevels(DT.summary)
+    DT <- copy(DT.summary)
+    DT[, Assay := factor(as.integer(Assay))]
+    DT[, Group := factor(as.integer(Group))]
 
     # seaMass-Θ Bayesian model
     set.seed(ctrl@random.seed + item)
     model <- MCMCglmm::MCMCglmm(
-      m ~ Group - 1 + Assay,
+      m ~ Group + Assay,
       mev = DT[, s]^2,
       rcov = ~ idh(Group):units,
       data = DT,
@@ -34,7 +36,6 @@ setMethod("normalise_theta", "sigma_block", function(object, data.design = assay
       burnin = ctrl@exposure.nwarmup,
       nitt = ctrl@exposure.nwarmup + (ctrl@model.nsample * ctrl@exposure.thin) / ctrl@model.nchain,
       thin = ctrl@exposure.thin,
-      singular.ok = T,
       verbose = F
     )
 
@@ -42,21 +43,22 @@ setMethod("normalise_theta", "sigma_block", function(object, data.design = assay
     class(model) <- "MCMCglmm_seaMass"
     frg <- emmeans::ref_grid(model, data = DT, nesting = NULL)
 
-    # extract group exposures
+    # extract normalised group exposures
     if ("normalised.group.exposures" %in% ctrl@summarise || "normalised.group.exposures" %in% ctrl@keep) {
-      emm <- emmeans::emmeans(frg, "Group")
-      DT <- as.data.table(coda::as.mcmc(emm))
+      DT <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "Group")))
       DT[, chain := item]
       DT[, sample := 1:nrow(DT)]
       DT <- melt(DT, variable.name = "Group", id.vars = c("chain", "sample"))
-      DT[, Group := factor(sub("^Group ", "", as.character(Group)), levels = levels(DT.summary[, Group]))]
+      DT[, Group := as.integer(sub("^Group ", "", as.character(Group)))]
       setcolorder(DT, "Group")
-
-      # write group exposures
+      # write
       setorder(DT, Group)
-      if (item == 1) fst::write.fst(DT[, .(file = factor(file.path("normalised.group.exposures", "1.fst")), from = min(.I), to = max(.I)), by = Group], file.path(filepath(object), input, "normalised.group.exposures.index.fst"))
-      DT[, Group := as.integer(Group)]
       fst::write.fst(DT, file.path(filepath(object), input, "normalised.group.exposures", paste(item, "fst", sep = ".")))
+      if (item == 1) {
+        DT <- DT[, .(file = factor(file.path("normalised.group.exposures", "1.fst")), from = min(.I), to = max(.I)), by = Group]
+        DT[, Group := factor(Group, levels = 1:nlevels(DT.summary[, Group]), labels = levels(DT.summary[, Group]))]
+        fst::write.fst(DT, file.path(filepath(object), input, "normalised.group.exposures.index.fst"))
+      }
     }
 
     # extract normalised group variances
@@ -65,37 +67,41 @@ setMethod("normalise_theta", "sigma_block", function(object, data.design = assay
       DT[, chain := item]
       DT[, sample := 1:nrow(DT)]
       DT <- melt(DT, variable.name = "Group", value.name = "value", id.vars = c("chain", "sample"))
-      DT[, Group := factor(sub("^Group(.*)\\.units", "\\1", as.character(Group)), levels = levels(DT.summary[, Group]))]
+      DT[, Group := as.integer(sub("^Group(.+)\\.units", "\\1", as.character(Group)))]
       setcolorder(DT, "Group")
-
-      # write normalised group variances
+      # write
       setorder(DT, Group)
-      if (item == 1) fst::write.fst(DT[, .(file = factor(file.path("normalised.group.variances", "1.fst")), from = min(.I), to = max(.I)), by = Group], file.path(filepath(object), input, "normalised.group.variances.index.fst"))
-      DT[, Group := as.integer(Group)]
       fst::write.fst(DT, file.path(filepath(object), input, "normalised.group.variances", paste(item, "fst", sep = ".")))
+      if (item == 1) {
+        DT <- DT[, .(file = factor(file.path("normalised.group.variances", "1.fst")), from = min(.I), to = max(.I)), by = Group]
+        DT[, Group := factor(Group, levels = 1:nlevels(DT.summary[, Group]), labels = levels(DT.summary[, Group]))]
+        fst::write.fst(DT, file.path(filepath(object), input, "normalised.group.variances.index.fst"))
+      }
     }
 
-    # extract exposures
-    emm <- emmeans::emmeans(frg, "Assay")
-    DT.exposures <- as.data.table(coda::as.mcmc(emm))
-    DT.exposures[, chain := item]
-    DT.exposures[, sample := 1:nrow(DT.exposures)]
-    DT.exposures <- melt(DT.exposures, variable.name = "Assay", id.vars = c("chain", "sample"))
-    DT.exposures[, Assay := factor(sub("^Assay ", "", as.character(Assay)), levels = levels(DT.summary[, Assay]))]
-    setcolorder(DT.exposures, "Assay")
+    # extract assay exposures
+    DT.assay.exposures <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "Assay")))
+    DT.assay.exposures[, chain := item]
+    DT.assay.exposures[, sample := 1:nrow(DT.assay.exposures)]
+    DT.assay.exposures <- melt(DT.assay.exposures, variable.name = "Assay", id.vars = c("chain", "sample"))
+    DT.assay.exposures[, Assay := as.integer(sub("^Assay ", "", as.character(Assay)))]
+    setcolorder(DT.assay.exposures, "Assay")
+    # write
+    setorder(DT.assay.exposures, Assay)
+    fst::write.fst(DT.assay.exposures, file.path(filepath(object), input, "assay.exposures", paste(item, "fst", sep = ".")))
+    DT.assay.exposures[, Assay := factor(Assay, levels = 1:nlevels(DT.summary[, Assay]), labels = levels(DT.summary[, Assay]))]
+    if (item == 1) {
+      DT.index.assay.exposures <- DT.assay.exposures[, .(file = factor(file.path("assay.exposures", "1.fst")), from = min(.I), to = max(.I)), by = Assay]
+      fst::write.fst(DT.index.assay.exposures, file.path(filepath(object), input, "assay.exposures.index.fst"))
+    }
 
     # normalise raw group quants
     DT <- read_samples(object, input, "raw.group.quants", chain = item, as.data.table = T)[, Block := NULL]
-    DT <- merge(DT, DT.exposures[, .(Assay, chain, sample, exposure = value)], by = c("Assay", "chain", "sample"), sort = F)
-    DT[, value := value - exposure]
-    DT[, exposure := NULL]
+    DT.assay.exposures[, value := value - mean(value), by = .(chain, sample)]
+    DT <- merge(DT, DT.assay.exposures[, .(Assay, chain, sample, deviation = value)], by = c("Assay", "chain", "sample"), sort = F)
+    DT[, value := value - deviation]
+    DT[, deviation := NULL]
     setcolorder(DT, "Group")
-
-    # write exposures
-    if (item == 1) fst::write.fst(DT.exposures[, .(file = file.path("assay.exposures", "1.fst"), from = min(.I), to = max(.I)), by = Assay], file.path(filepath(object), input, "assay.exposures.index.fst"))
-    DT.exposures[, Assay := as.integer(Assay)]
-    fst::write.fst(DT.exposures, file.path(filepath(object), input, "assay.exposures", paste(item, "fst", sep = ".")))
-
     # write normalised group quants
     if (item == 1) fst::write.fst(DT[, .(file = file.path("normalised.group.quants", "1.fst"), from = min(.I), to = max(.I)), by = .(Group, Assay)], file.path(filepath(object), input, "normalised.group.quants.index.fst"))
     DT[, Group := as.integer(Group)]
@@ -124,13 +130,15 @@ setMethod("normalise_median", "sigma_block", function(object, exposure.groups = 
   parallel_lapply(as.list(1:control(object)@model.nchain), function(item, object, exposure.groups, input, type) {
     DT <- read_samples(object, input, type, chain = item, as.data.table = T)[, Block := NULL]
 
+    # group mean centre
+    DT[, value := value - mean(value), by = .(Group, chain, sample)]
     # median normalisation
-    DT.exposures <- DT[, .(exposure = median(value[grep(exposure.groups, Group)])), by = .(Assay, chain, sample)]
+    DT.assay.exposures <- DT[, .(deviation = median(value[grep(exposure.groups, Group)])), by = .(Assay, chain, sample)]
 
     # normalise
-    DT <- merge(DT, DT.exposures, by = c("Assay", "chain", "sample"), sort = F)
-    DT[, value := value - exposure]
-    DT[, exposure := NULL]
+    DT <- merge(DT, DT.assay.exposures, by = c("Assay", "chain", "sample"), sort = F)
+    DT[, value := value - deviation]
+    DT[, deviation := NULL]
     setcolorder(DT, "Group")
 
     # write normalised group quants
@@ -140,10 +148,10 @@ setMethod("normalise_median", "sigma_block", function(object, exposure.groups = 
     fst::write.fst(DT, file.path(filepath(object), input, "normalised.group.quants", paste(item, "fst", sep = ".")))
 
     # write exposures
-    setnames(DT.exposures, "exposure", "value")
-    if (item == 1) fst::write.fst(DT.exposures[, .(file = file.path("assay.exposures", "1.fst"), from = min(.I), to = max(.I)), by = Assay], file.path(filepath(object), input, "assay.exposures.index.fst"))
-    DT.exposures[, Assay := as.integer(Assay)]
-    fst::write.fst(DT.exposures, file.path(filepath(object), input, "assay.exposures", paste(item, "fst", sep = ".")))
+    setnames(DT.assay.exposures, "deviation", "value")
+    if (item == 1) fst::write.fst(DT.assay.exposures[, .(file = file.path("assay.exposures", "1.fst"), from = min(.I), to = max(.I)), by = Assay], file.path(filepath(object), input, "assay.exposures.index.fst"))
+    DT.assay.exposures[, Assay := as.integer(Assay)]
+    fst::write.fst(DT.assay.exposures, file.path(filepath(object), input, "assay.exposures", paste(item, "fst", sep = ".")))
 
     return(NULL)
   }, nthread = control(object)@nthread)
@@ -178,7 +186,7 @@ setMethod("normalise_quantile", "sigma_block", function(object, input = "model1"
     DT[, exposure := exposure - value]
 
     # mean exposures (for visualisation)
-    DT.exposures <- DT[, .(value = mean(exposure)), by = .(Assay, chain, sample)]
+    DT.assay.exposures <- DT[, .(value = mean(exposure)), by = .(Assay, chain, sample)]
 
     # write normalised group quants
     if (item == 1) fst::write.fst(DT[, .(file = file.path("normalised.group.quants", "1.fst"), from = min(.I), to = max(.I)), by = .(Group, Assay)], file.path(filepath(object), input, "normalised.group.quants.index.fst"))
@@ -187,9 +195,9 @@ setMethod("normalise_quantile", "sigma_block", function(object, input = "model1"
     fst::write.fst(DT, file.path(filepath(object), input, "normalised.group.quants", paste(item, "fst", sep = ".")))
 
     # write mean exposures
-    if (item == 1) fst::write.fst(DT.exposures[, .(file = file.path("assay.exposures", "1.fst"), from = min(.I), to = max(.I)), by = Assay], file.path(filepath(object), input, "assay.exposures.index.fst"))
-    DT.exposures[, Assay := as.integer(Assay)]
-    fst::write.fst(DT.exposures, file.path(filepath(object), input, "assay.exposures", paste(item, "fst", sep = ".")))
+    if (item == 1) fst::write.fst(DT.assay.exposures[, .(file = file.path("assay.exposures", "1.fst"), from = min(.I), to = max(.I)), by = Assay], file.path(filepath(object), input, "assay.exposures.index.fst"))
+    DT.assay.exposures[, Assay := as.integer(Assay)]
+    fst::write.fst(DT.assay.exposures, file.path(filepath(object), input, "assay.exposures", paste(item, "fst", sep = ".")))
 
     return(NULL)
   }, nthread = control(object)@nthread)
