@@ -30,7 +30,7 @@ setClass("delta_control", slots = c(
 #' @export delta_control
 delta_control <- function(
   component.deviations = FALSE,
-  keep = c("standardised.group.quants", "normalised.group.quants", "component.deviations"),
+  keep = c("standardised.group.deviations", "normalised.group.quants", "component.deviations"),
   dea.model = "MCMCglmm",
   dea.nwarmup = 4096,
   dea.thin = 256,
@@ -54,7 +54,7 @@ delta_control <- function(
 
 setValidity("delta_control", function(object) {
   if (length(object@component.deviations) != 1) return("'component.deviations' is not valid!")
-  if (!(all(object@keep %in% c("standardised.group.quants", "normalised.group.quants", "component.deviations")))) return("'keep' is not valid!")
+  if (!(all(object@keep %in% c("standardised.group.deviations", "normalised.group.quants", "component.deviations")))) return("'keep' is not valid!")
   if (length(object@dea.model) != 1 || !(object@dea.model %in% c("", "MCMCglmm"))) return("'dea.model' is not valid!")
   if (length(object@dea.nwarmup) != 1 || object@dea.nwarmup < 0) return("'dea.nwarmup' must be non-negative!")
   if (length(object@dea.thin) != 1 || object@dea.thin <= 0) return("'dea.thin' must be positive!")

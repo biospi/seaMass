@@ -94,22 +94,28 @@ setMethod("process1", "sigma_block", function(object, chain) {
     }
     if (!("assay.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "model1", "assay.deviations*"), recursive = T)
 
-    # raw group quants summary
-    if ("raw.group.quants" %in% ctrl@summarise || (ctrl@exposure.model == "" && "group.quants.pca" %in% ctrl@plot)) {
-      cat(paste0("[", Sys.time(), "]    getting raw group quant summaries...\n"))
-      DT.raw.group.quants <- raw_group_quants(object, summary = T, as.data.table = T)
-      rm(DT.raw.group.quants)
+    # group quants summary
+    if ("group.quants" %in% ctrl@summarise || (ctrl@norm.model == "" && "group.quants.pca" %in% ctrl@plot)) {
+      cat(paste0("[", Sys.time(), "]    getting group quant summaries...\n"))
+      DT.group.quants <- group_quants(object, summary = T, as.data.table = T)
+      rm(DT.group.quants)
     }
 
-    # normalise raw group quants
-    if (ctrl@exposure.model == "") {
-      type <- "raw.group.quants"
+    if ("group.exposures" %in% ctrl@summarise) {
+      cat(paste0("[", Sys.time(), "]    getting group exposure summaries...\n"))
+      DT.group.exposures <- group_exposures(object, summary = T, as.data.table = T)
+      rm(DT.group.exposures)
+    }
+
+    # normalise group quants
+    if (ctrl@norm.model == "") {
+      type <- "group.quants"
     } else {
       type <- "normalised.group.quants"
       ellipsis <- ctrl@ellipsis
       ellipsis$object <- object
-      do.call(paste0("normalise_", ctrl@exposure.model), ellipsis)
-      if (!("raw.group.quants" %in% ctrl@keep)) unlink(file.path(filepath(object), "model1", "raw.group.quants*"), recursive = T)
+      do.call(paste0("normalise_", ctrl@norm.model), ellipsis)
+      if (!("group.quants" %in% ctrl@keep)) unlink(file.path(filepath(object), "model1", "group.quants*"), recursive = T)
 
       if ("normalised.group.quants" %in% ctrl@summarise || "normalised.group.quants" %in% ctrl@keep || "group.quants.pca" %in% ctrl@plot) {
 
@@ -117,12 +123,6 @@ setMethod("process1", "sigma_block", function(object, chain) {
           cat(paste0("[", Sys.time(), "]    getting normalised group quant summaries...\n"))
           DT.group.quants <- normalised_group_quants(object, summary = T, as.data.table = T)
           rm(DT.group.quants)
-        }
-
-        if ("normalised.group.exposures" %in% ctrl@summarise) {
-          cat(paste0("[", Sys.time(), "]    getting normalised group exposure summaries...\n"))
-          DT.group.exposures <- normalised_group_exposures(object, summary = T, as.data.table = T)
-          rm(DT.group.exposures)
         }
 
         cat(paste0("[", Sys.time(), "]    getting normalised group variance summaries...\n"))
@@ -160,19 +160,19 @@ setMethod("process1", "sigma_block", function(object, chain) {
         if ("Assay.SD" %in% colnames(DT.design)) {
           ellipsis$colour <- "Assay.SD"
           ellipsis$shape <- "Condition"
-          cat(paste0("[", Sys.time(), "]    plotting normalised group quant PCA with assay stdev contours...\n"))
+          cat(paste0("[", Sys.time(), "]    plotting group quant PCA with assay stdev contours...\n"))
           do.call("plot_pca_contours", ellipsis)
           ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_", gsub("\\.", "_", type), "_pca_block", name(object), "_assay_sd.pdf")), width = 300, height = 200, units = "mm")
         }
         if ("Exposure" %in% colnames(DT.design)) {
           ellipsis$colour <- "Exposure"
           ellipsis$shape <- "Condition"
-          cat(paste0("[", Sys.time(), "]    plotting normalised group quant PCA with exposure contours...\n"))
+          cat(paste0("[", Sys.time(), "]    plotting group quant PCA with exposure contours...\n"))
           do.call("plot_pca_contours", ellipsis)
           ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_", gsub("\\.", "_", type), "_pca_block", name(object), "_assay_exposure.pdf")), width = 300, height = 200, units = "mm")
         }
       } else {
-        cat(paste0("[", Sys.time(), "]    plotting normalised group quant PCA with condition contours...\n"))
+        cat(paste0("[", Sys.time(), "]    plotting group quant PCA with condition contours...\n"))
         do.call("plot_pca_contours", ellipsis)
         ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_", gsub("\\.", "_", type), "_pca_block", name(object), ".pdf")), width = 300, height = 200, units = "mm")
       }
@@ -181,13 +181,6 @@ setMethod("process1", "sigma_block", function(object, chain) {
 
     # standardise group quants
     standardise_group_quants(object, type = type)
-
-    if ("standardised.group.quants" %in% ctrl@summarise || "group.quants.pca" %in% ctrl@plot) {
-      cat(paste0("[", Sys.time(), "]    getting standardised group quant summaries...\n"))
-      DT.group.quants <- standardised_group_quants(object, summary = T, as.data.table = T)
-      rm(DT.group.quants)
-    }
-    if (!("standardised.group.quants" %in% ctrl@keep || "group.quants.pca" %in% ctrl@plot)) unlink(file.path(filepath(object), "model1", "standardised.group.quants*"), recursive = T)
 
     # set complete
     write.table(data.frame(), file.path(filepath(object), "complete"), col.names = F)
@@ -381,11 +374,11 @@ setMethod("process1", "sigma_block", function(object, chain) {
         fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_deviations.csv"))
       }
 
-      # write out raw group quants
-      if ("raw.group.quants" %in% ctrl@summarise) {
-        DT <- raw_group_quants(fit.sigma, summary = T, as.data.table = T)
+      # write out group quants
+      if ("group.quants" %in% ctrl@summarise) {
+        DT <- group_quants(fit.sigma, summary = T, as.data.table = T)
         DT <- dcast(DT, Block + Group ~ Assay, value.var = c("m", "s", "df", "rhat"))
-        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_raw_group_quants.csv"))
+        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_group_quants.csv"))
       }
 
       # write out normalised group exposures
@@ -411,16 +404,27 @@ setMethod("process1", "sigma_block", function(object, chain) {
         DT <- normalised_group_quants(fit.sigma, summary = T, as.data.table = T)
         if (!is.null(DT)) {
           DT <- dcast(DT, Group ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
-          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_normalised_groups_quants.csv"))
+          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_normalised_group_quants.csv"))
         }
       }
 
+      if ("standardised.group.deviations" %in% ctrl@summarise || "group.quants.pca" %in% ctrl@plot) {
+        cat(paste0("[", Sys.time(), "]    getting standardised group deviation summaries...\n"))
+        DT.group.quants <- standardised_group_deviations(object, summary = T, as.data.table = T)
+        rm(DT.group.quants)
+      }
+      if (!("standardised.group.deviations" %in% ctrl@keep || "group.quants.pca" %in% ctrl@plot)) unlink(file.path(filepath(object), "model1", "standardised.group.deviations*"), recursive = T)
+
+
+
+
+
       # write out standardised group quants
-      if ("standardised.group.quants" %in% ctrl@summarise) {
-        DT <- standardised_group_quants(fit.sigma, summary = T, as.data.table = T)
+      if ("standardised.group.deviations" %in% ctrl@summarise) {
+        DT <- standardised_group_deviations(fit.sigma, summary = T, as.data.table = T)
         if (!is.null(DT)) {
           DT <- dcast(DT, Group ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
-          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_standardised_groups_quants.csv"))
+          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_standardised_groups_deviations.csv"))
         }
       }
 
@@ -429,7 +433,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
         ellipsis$object <- fit.sigma
         cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA with condition contours...\n"))
         do.call("plot_pca_contours", ellipsis)
-        ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca.pdf"), width = 300, height = 200, units = "mm")
+        ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_deviations_pca.pdf"), width = 300, height = 200, units = "mm")
 
         DT.design <- assay_design(fit.sigma, as.data.table = T)
         if ("Assay.SD" %in% colnames(DT.design)) {
@@ -437,7 +441,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
           ellipsis$shape <- "Condition"
           cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA with assay stdev contours...\n"))
           do.call("plot_pca_contours", ellipsis)
-          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca_assay_sd.pdf"), width = 300, height = 200, units = "mm")
+          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_deviations_pca_assay_sd.pdf"), width = 300, height = 200, units = "mm")
         }
 
         if ("Exposure" %in% colnames(DT.design)) {
@@ -445,7 +449,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
           ellipsis$shape <- "Condition"
           cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA with exposure contours...\n"))
           do.call("plot_pca_contours", ellipsis)
-          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca_assay_exposure.pdf"), width = 300, height = 200, units = "mm")
+          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_deviations_pca_assay_exposure.pdf"), width = 300, height = 200, units = "mm")
         }
 
         if (any(table(DT.design$Run) > 1) && uniqueN(DT.design$Run) > 1) {
@@ -453,7 +457,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
           ellipsis$shape <- "Condition"
           cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA with run contours...\n"))
           do.call("plot_pca_contours", ellipsis)
-          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca_runs.pdf"), width = 300, height = 200, units = "mm")
+          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_deviations_pca_runs.pdf"), width = 300, height = 200, units = "mm")
         }
 
         if (nlevels(DT.design$Block) > 1 && nlevels(DT.design$Block) != nlevels(interaction(DT.design$Block, DT.design$Run, drop = T))) {
@@ -461,7 +465,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
           ellipsis$shape <- "Condition"
           cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA with block contours...\n"))
           do.call("plot_pca_contours", ellipsis)
-          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca_blocks.pdf"), width = 300, height = 200, units = "mm")
+          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_deviations_pca_blocks.pdf"), width = 300, height = 200, units = "mm")
         }
 
         if (any(table(DT.design$Channel) > 1) && uniqueN(DT.design$Channel) > 1) {
@@ -469,10 +473,10 @@ setMethod("process1", "sigma_block", function(object, chain) {
           ellipsis$shape <- "Condition"
           cat(paste0("[", Sys.time(), "]    plotting standardised group quants PCA with channel contours...\n"))
           do.call("plot_pca_contours", ellipsis)
-          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_quants_pca_channels.pdf"), width = 300, height = 200, units = "mm")
+          ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_deviations_pca_channels.pdf"), width = 300, height = 200, units = "mm")
         }
 
-        if (!("standardised.group.quants" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "standardised.group.quants*"), recursive = T)
+        if (!("standardised.group.deviations" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "standardised.group.deviations*"), recursive = T)
       }
 
       # set complete

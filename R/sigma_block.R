@@ -265,12 +265,12 @@ setMethod("component_deviations", "sigma_block", function(object, groups = NULL,
 })
 
 
-#' @describeIn sigma_block Get the model raw group quantifications as a \link{data.frame}.
+#' @describeIn sigma_block Get the model group quantifications as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("raw_group_quants", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- read_samples(object, input, "raw.group.quants", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
+setMethod("group_quants", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- read_samples(object, input, "group.quants", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -278,12 +278,12 @@ setMethod("raw_group_quants", "sigma_block", function(object, groups = NULL, sum
 })
 
 
-#' @describeIn seaMass_delta-class Get the model normalised group exposures as a \link{data.frame}.
+#' @describeIn seaMass_delta-class Get the model group exposures as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("normalised_group_exposures", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- read_samples(object, input, "normalised.group.exposures", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
+setMethod("group_exposures", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- read_samples(object, input, "group.exposures", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -291,7 +291,7 @@ setMethod("normalised_group_exposures", "sigma_block", function(object, groups =
 })
 
 
-#' @describeIn sigma_block Get the model standardised group variances as a \link{data.frame}.
+#' @describeIn sigma_block Get the model normalised group variances as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
@@ -317,16 +317,15 @@ setMethod("normalised_group_quants", "sigma_block", function(object, groups = NU
 })
 
 
-#' @describeIn seaMass_delta-class Get the model standardised group quantifications as a \link{data.frame}.
+#' @describeIn seaMass_delta-class Get the model standardised group deviations as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("standardised_group_quants", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- read_samples(object, input, "standardised.group.quants", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
+setMethod("standardised_group_deviations", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- read_samples(object, input, "standardised.group.deviations", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
   else DT[]
   return(DT)
 })
-
 

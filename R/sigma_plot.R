@@ -15,7 +15,7 @@ setMethod("plot_pca_contours", "seaMass", function(
   data.design = assay_design(object),
   variables = NULL,
   input = "model1",
-  type = "standardised.group.quants",
+  type = "standardised.group.deviations",
   scale = FALSE,
   robust = TRUE,
   contours = 1:2,
@@ -226,7 +226,7 @@ setMethod("plot_pca", "seaMass", function(
   data.design = assay_design(object),
   variables = NULL,
   input = "model1",
-  type = "standardised.group.quants",
+  type = "standardised.group.deviations",
   scale = FALSE,
   robust = TRUE,
   contours = 1:2,
@@ -242,19 +242,82 @@ setMethod("plot_pca", "seaMass", function(
 })
 
 
-
-
-
-
-
-
-
-
-
-
+#' Plot quants for a group
+#'
+#' @param object .
+#' @param data .
+#' @param data.summary .
+#' @param data.design .
+#' @param contours .
+#' @param robust .
+#' @return A ggplot2 object .
 #' @import data.table
 #' @export
-plot_group_quants <- function(object, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(object), group = NULL) {
+#' @include generics.R
+setMethod("plot_group_quants", "seaMass", function(
+  object,
+  group
+) {
+  DT.group.quants <- group_quants(object, group, as.data.table = T)
+  if (is.null(DT.group.quants)) return(NULL)
+
+  DT.normalised.group.quants <- normalised_group_quants(object, group, as.data.table = T)
+  if (is.null(DT.normalised.group.quants)) DT.normalised.group.quants <- DT.group.quants
+
+  DT.standardised.group.deviations <- standardised_group_deviations(object, group, as.data.table = T)
+  if (is.null(DT.normalised.group.quants)) {
+    DT.standardised.group.deviations <- DT.normalised.group.quants
+  } else {
+    DT.standardised.group.exposures <- group_exposures(object, as.data.table = T)
+    DT.standardised.group.exposures <- DT.standardised.group.exposures[, .(value = mean(value)), by = .(Group, chain, sample)]
+    DT.standardised.group.deviations <- merge(DT.standardised.group.deviations, DT.standardised.group.exposures[, .(Group, chain, sample, deviation = value)], by = c("Group", "chain", "sample"))
+    rm(DT.standardised.group.exposures)
+    DT.standardised.group.deviations[, value := value + deviation]
+    DT.standardised.group.deviations[, deviation := NULL]
+  }
+
+  g <- ggplot2::ggplot(DT.group.quants, ggplot2::aes(x = value, y = Assay))
+  g <- g + ggdist::stat_slab(side = "both", alpha = 0.2)
+  g <- g + ggdist::stat_slab(data = DT.normalised.group.quants, side = "both", alpha = 0.4)
+  g <- g + ggdist::stat_eye(data = DT.standardised.group.deviations)
+  g
+
+
+
+
+  DT.group.quants <- group_quants(object, group, as.data.table = T)
+  DT.group.exposure <- group_exposures(object, group, as.data.table = T)
+  DT.group.exposure[, Assay := "mean"]
+  DT.group.exposure2 <- read_samples(object, "model1", "normalised.group.exposures", group, as.data.table = T)
+  DT.group.exposure2[, Assay := "mean2"]
+
+
+  g <- ggplot2::ggplot(rbind(DT.group.quants, DT.group.exposure, DT.group.exposure2), aes(x = value))
+  g <- g + ggdist::stat_eye(aes(y = Assay))
+  g
+
+  g <- g + ggdist::stat_slab(data = DT.group.exposure, side = "both", alpha = 0.2, position = "dodge")
+  g <- g + ggdist::stat_eye(data = DT.group.exposure2, alpha = 0.2, position = "dodge")
+  g
+
+  DT.normalised.group.quants <- normalised_group_quants(object, group, as.data.table = T)
+  if (is.null(DT.normalised.group.quants)) DT.normalised.group.quants <- DT.group.quants
+  DT.standardised.group.deviations <- standardised_group_deviations(object, group, as.data.table = T)
+  if (is.null(DT.standardised.group.deviations)) DT.standardised.group.deviations <- DT.normalised.group.quants
+  # truncate to 95% quantiles
+  #DT.group.quants[, lower := quantile(value, probs = 0.025), by = Assay]
+  #DT.group.quants[, upper := quantile(value, probs = 0.975), by = Assay]
+  #DT.group.quants <- DT.group.quants[value >= lower & value <= upper]
+
+  g <- ggplot2::ggplot(DT.group.quants, aes(x = value, y = Assay))
+  g <- g + ggdist::stat_slab(side = "both", alpha = 0.2)
+  g <- g + ggdist::stat_slab(data = DT.normalised.group.quants, side = "both", alpha = 0.4)
+  g <- g + ggdist::stat_eye(data = DT.standardised.group.deviations)
+  g
+
+  #gridExtra::grid.arrange(egg::set_panel_size(p=g, width=unit(15, "cm"), height=unit(15, "cm")))
+
+
   stop("todo: needs updating")
   if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
@@ -291,7 +354,17 @@ plot_group_quants <- function(object, groupID = NULL, log2FC.lim = NULL, data.de
     width = 1.0 + 0.75 * nlevels(DT.group.quants.meta$Assay),
     height = 3
   ))
-}
+})
+
+
+
+
+
+
+
+
+
+
 
 
 #' @import data.table
@@ -418,7 +491,7 @@ plot_measurement_stdevs <- function(object, groupID = NULL, log2SD.lim = NULL, d
 
 #' @import data.table
 #' @export
-plot_raw_quants <- function(object, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(object), group = NULL) {
+plot_quants <- function(object, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(object), group = NULL) {
   stop("todo: needs updating")
   if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
@@ -529,15 +602,15 @@ plot_measurements <- function(object, groupID = NULL, log2FC.lim = NULL, data.de
 
   plt.measurement.stdevs <- plot_measurement_stdevs(object, groupID, max(plt.group.quants$log2FC.lim), data.design, group)
 
-  plt.raw.quants <- plot_raw_quants(object, groupID, NULL, data.design, group)
-  plt.raw.quants$g <- plt.raw.quants$g + ggplot2::theme(legend.position = "hidden")
+  plt.quants <- plot_quants(object, groupID, NULL, data.design, group)
+  plt.quants$g <- plt.quants$g + ggplot2::theme(legend.position = "hidden")
 
   widths <- c(plt.measurement.stdevs$width, plt.group.quants$width)
-  heights <- c(0.5, plt.group.quants$height, plt.raw.quants$height)
+  heights <- c(0.5, plt.group.quants$height, plt.quants$height)
   g <- gridExtra::grid.arrange(ncol = 2, widths = widths, heights = heights,
                                g.groupID.title,    g.group.title,
                                g.legend,             plt.group.quants$g,
-                               plt.measurement.stdevs$g, plt.raw.quants$g)
+                               plt.measurement.stdevs$g, plt.quants$g)
   return(list(
     g = g,
     width = sum(widths),

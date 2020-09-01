@@ -174,7 +174,7 @@ setMethod("del", "seaMass_delta", function(object) {
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("standardised_group_quants", "seaMass_delta", function(object, groups = NULL, summary = FALSE, type = "standardised.group.quants", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("standardised_group_deviations", "seaMass_delta", function(object, groups = NULL, summary = FALSE, type = "standardised.group.deviations", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- read_samples(object, ".", type, groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
@@ -200,7 +200,7 @@ setMethod("component_deviations", "seaMass_delta", function(object, type = "comp
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("standardised_group_quants_fdr", "seaMass_delta", function(object, type = "standardised.group.quants", as.data.table = FALSE) {
+setMethod("standardised_group_deviations_fdr", "seaMass_delta", function(object, type = "standardised.group.deviations", as.data.table = FALSE) {
   if (file.exists(file.path(filepath(object), paste0("fdr.", type, ".fst")))) {
     return(fst::read.fst(file.path(filepath(object), paste0("fdr.", type, ".fst")), as.data.table = as.data.table))
   } else {

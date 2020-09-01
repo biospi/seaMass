@@ -11,15 +11,15 @@
 \alias{control,seaMass_delta-method}
 \alias{assay_design,seaMass_delta-method}
 \alias{del,seaMass_delta-method}
-\alias{standardised_group_quants,seaMass_delta-method}
+\alias{standardised_group_deviations,seaMass_delta-method}
 \alias{component_deviations,seaMass_delta-method}
-\alias{standardised_group_quants_fdr,seaMass_delta-method}
+\alias{standardised_group_deviations_fdr,seaMass_delta-method}
 \alias{component_deviations_fdr,seaMass_delta-method}
 \alias{add_seaMass_spikein_truth}
 \alias{add_Navarro_spikein_truth}
-\alias{normalised_group_exposures,sigma_block-method}
+\alias{group_exposures,sigma_block-method}
 \alias{normalised_group_quants,sigma_block-method}
-\alias{standardised_group_quants,sigma_block-method}
+\alias{standardised_group_deviations,sigma_block-method}
 \title{seaMass-Δ}
 \usage{
 seaMass_delta(
@@ -44,11 +44,11 @@ open_delta(fit, name = "fit", quiet = FALSE, force = FALSE)
 
 \S4method{del}{seaMass_delta}(object)
 
-\S4method{standardised_group_quants}{seaMass_delta}(
+\S4method{standardised_group_deviations}{seaMass_delta}(
   object,
   groups = NULL,
   summary = FALSE,
-  type = "standardised.group.quants",
+  type = "standardised.group.deviations",
   chains = 1:control(object)@model.nchain,
   as.data.table = FALSE
 )
@@ -59,9 +59,9 @@ open_delta(fit, name = "fit", quiet = FALSE, force = FALSE)
   as.data.table = FALSE
 )
 
-\S4method{standardised_group_quants_fdr}{seaMass_delta}(
+\S4method{standardised_group_deviations_fdr}{seaMass_delta}(
   object,
-  type = "standardised.group.quants",
+  type = "standardised.group.deviations",
   as.data.table = FALSE
 )
 
@@ -78,7 +78,7 @@ add_seaMass_spikein_truth(data.fdr)
 
 add_Navarro_spikein_truth(data.fdr)
 
-\S4method{normalised_group_exposures}{sigma_block}(
+\S4method{group_exposures}{sigma_block}(
   object,
   groups = NULL,
   summary = FALSE,
@@ -96,7 +96,7 @@ add_Navarro_spikein_truth(data.fdr)
   as.data.table = FALSE
 )
 
-\S4method{standardised_group_quants}{sigma_block}(
+\S4method{standardised_group_deviations}{sigma_block}(
   object,
   groups = NULL,
   summary = FALSE,
@@ -140,11 +140,11 @@ quants output by seaMass-Σ
 
 \item \code{del,seaMass_delta-method}: Delete the \code{seaMass_delta} run from disk.
 
-\item \code{standardised_group_quants,seaMass_delta-method}: Get the model differential expression as a \link{data.frame}.
+\item \code{standardised_group_deviations,seaMass_delta-method}: Get the model differential expression as a \link{data.frame}.
 
 \item \code{component_deviations,seaMass_delta-method}: Get the component deviations differential expression as a \link{data.frame}.
 
-\item \code{standardised_group_quants_fdr,seaMass_delta-method}: Get the model differential expression as a \link{data.frame}.
+\item \code{standardised_group_deviations_fdr,seaMass_delta-method}: Get the model differential expression as a \link{data.frame}.
 
 \item \code{component_deviations_fdr,seaMass_delta-method}: Get the component deviations differential expression as a \link{data.frame}.
 
@@ -152,10 +152,10 @@ quants output by seaMass-Σ
 
 \item \code{add_Navarro_spikein_truth}: Add Navarro spikein ground truth to the object of \code{group_fdr} pr \code{component_deviations_fdr}.
 
-\item \code{normalised_group_exposures,sigma_block-method}: Get the model normalised group exposures as a \link{data.frame}.
+\item \code{group_exposures,sigma_block-method}: Get the model group exposures as a \link{data.frame}.
 
 \item \code{normalised_group_quants,sigma_block-method}: Get the model normalised group quantifications as a \link{data.frame}.
 
-\item \code{standardised_group_quants,sigma_block-method}: Get the model standardised group quantifications as a \link{data.frame}.
+\item \code{standardised_group_deviations,sigma_block-method}: Get the model standardised group deviations as a \link{data.frame}.
 }}
 

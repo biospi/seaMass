@@ -3,7 +3,7 @@
 #' @export
 setMethod("fdr_ash", "seaMass_delta", function(
   object,
-  type = "standardised.group.quants",
+  type = "standardised.group.deviations",
   by.effect = TRUE,
   by.contrast = TRUE,
   sort.col = "qvalue",
