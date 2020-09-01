@@ -218,6 +218,19 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       setcolorder(output$DT.group.quants, c("Group", "Assay", "chain", "sample"))
     }
 
+    ### EXTRACT GROUP DEVIATIONS
+    # if (input == "model1" && ("raw.group.quants" %in% ctrl@summarise || "raw.group.quants" %in% ctrl@keep)) {
+    #   # Add Quant effect
+    #   output$DT.group.deviations <- as.data.table(model$Sol[, grep("^Assay[0-9]+$", colnames(model$Sol)), drop = F])
+    #   output$DT.group.deviations[, sample := 1:nrow(output$DT.group.deviations)]
+    #   output$DT.group.deviations <- melt(output$DT.group.deviations, variable.name = "Assay", id.vars = "sample")
+    #   output$DT.group.deviations[, Group := group]
+    #   output$DT.group.deviations[, Assay := as.integer(sub("^Assay([0-9]+)$", "\\1", Assay))]
+    #   output$DT.group.deviations[, chain := chain]
+    #   output$DT.group.deviations[, value := value / log(2)]
+    #   setcolorder(output$DT.group.deviations, c("Group", "Assay", "chain", "sample"))
+    # }
+
     ### EXTRACT GROUP EXPOSURE
     if (input != "model0" && ("group.exposures" %in% ctrl@summarise || "group.exposures" %in% ctrl@keep)) {
       output$DT.group.exposures <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
