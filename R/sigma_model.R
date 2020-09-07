@@ -23,11 +23,13 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
 
   if (input != "model0") {
     unlink(file.path(filepath(object), input, "*.group.quants.fst"))
+    unlink(file.path(filepath(object), input, "*.group.deviations.fst"))
     unlink(file.path(filepath(object), input, "*.group.exposures.fst"))
     unlink(file.path(filepath(object), input, "*.measurement.exposures.fst"))
     unlink(file.path(filepath(object), input, "*.component.exposures.fst"))
     unlink(file.path(filepath(object), input, "*.component.deviations.fst"))
     dir.create(file.path(filepath(object), input, "group.quants"), showWarnings = F)
+    dir.create(file.path(filepath(object), input, "group.deviations"), showWarnings = F)
     dir.create(file.path(filepath(object), input, "group.exposures"), showWarnings = F)
     dir.create(file.path(filepath(object), input, "measurement.exposures"), showWarnings = F)
     dir.create(file.path(filepath(object), input, "component.exposures"), showWarnings = F)
@@ -219,17 +221,16 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     }
 
     ### EXTRACT GROUP DEVIATIONS
-    # if (input == "model1" && ("raw.group.quants" %in% ctrl@summarise || "raw.group.quants" %in% ctrl@keep)) {
-    #   # Add Quant effect
-    #   output$DT.group.deviations <- as.data.table(model$Sol[, grep("^Assay[0-9]+$", colnames(model$Sol)), drop = F])
-    #   output$DT.group.deviations[, sample := 1:nrow(output$DT.group.deviations)]
-    #   output$DT.group.deviations <- melt(output$DT.group.deviations, variable.name = "Assay", id.vars = "sample")
-    #   output$DT.group.deviations[, Group := group]
-    #   output$DT.group.deviations[, Assay := as.integer(sub("^Assay([0-9]+)$", "\\1", Assay))]
-    #   output$DT.group.deviations[, chain := chain]
-    #   output$DT.group.deviations[, value := value / log(2)]
-    #   setcolorder(output$DT.group.deviations, c("Group", "Assay", "chain", "sample"))
-    # }
+    if (input == "model1" && ("group.quants" %in% ctrl@summarise || "group.quants" %in% ctrl@keep)) {
+      output$DT.group.deviations <- as.data.table(model$Sol[, grep("^Assay[0-9]+$", colnames(model$Sol)), drop = F])
+      output$DT.group.deviations[, sample := 1:nrow(output$DT.group.deviations)]
+      output$DT.group.deviations <- melt(output$DT.group.deviations, variable.name = "Assay", id.vars = "sample")
+      output$DT.group.deviations[, Group := group]
+      output$DT.group.deviations[, Assay := as.integer(sub("^Assay([0-9]+)$", "\\1", Assay))]
+      output$DT.group.deviations[, chain := chain]
+      output$DT.group.deviations[, value := value / log(2)]
+      setcolorder(output$DT.group.deviations, c("Group", "Assay", "chain", "sample"))
+    }
 
     ### EXTRACT GROUP EXPOSURE
     if (input != "model0" && ("group.exposures" %in% ctrl@summarise || "group.exposures" %in% ctrl@keep)) {
@@ -425,6 +426,29 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       output$DT.group.quants <- data.table()
     } else {
       if (chain == 1) output$DT.index.group.quants <- data.table()
+    }
+
+    # if large enough write out group deviations now to conserve memory, otherwise don't to conserve disk space
+    if (object.size(output$DT.group.deviations) > 2^18) {
+      filename <- file.path("group.deviations", paste0(chain, ".", group, ".fst"))
+      fst::write.fst(output$DT.group.deviations, file.path(filepath(object), input, filename))
+
+      if (chain == 1) {
+        # construct index
+        output$DT.index.group.deviations <- output$DT.group.deviations[, .(
+          from = .I[!duplicated(output$DT.group.deviations, by = c("Group", "Assay"))],
+          to = .I[!duplicated(output$DT.group.deviations, fromLast = T, by = c("Group", "Assay"))]
+        )]
+        output$DT.index.group.deviations <- cbind(
+          output$DT.group.deviations[output$DT.index.group.deviations$from, .(Group, Assay)],
+          data.table(file = factor(filename)),
+          output$DT.index.group.deviations
+        )
+      }
+
+      output$DT.group.deviations <- data.table()
+    } else {
+      if (chain == 1) output$DT.index.group.deviations <- data.table()
     }
 
     # if large enough write out measurement exposures now to conserve memory, otherwise don't to conserve disk space
@@ -655,6 +679,35 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       outputs$DT.index.group.quants[, Assay := factor(Assay, levels = 1:nlevels(DT.design[, Assay]), labels = levels(DT.design[, Assay]))]
       setkey(outputs$DT.index.group.quants, Group, file, from)
       fst::write.fst(outputs$DT.index.group.quants, file.path(filepath(object), input, paste0("group.quants.index.fst")))
+    }
+  }
+
+  # write out group deviations
+  if ("DT.group.deviations" %in% names(outputs)) {
+    if (nrow(outputs$DT.group.deviations) > 0) {
+      setorder(outputs$DT.group.deviations, Group, Assay, chain, sample)
+      filename <- file.path("group.deviations", paste0(chain, ".fst"))
+      fst::write.fst(outputs$DT.group.deviations, file.path(filepath(object), input, filename))
+      # finish index construction
+      if (chain == 1) {
+        DT.index.group.deviations <- outputs$DT.group.deviations[, .(
+          from = .I[!duplicated(outputs$DT.group.deviations, by = c("Group", "Assay"))],
+          to = .I[!duplicated(outputs$DT.group.deviations, fromLast = T, by = c("Group", "Assay"))]
+        )]
+        outputs$DT.index.group.deviations <- rbind(outputs$DT.index.group.deviations, cbind(
+          outputs$DT.group.deviations[DT.index.group.deviations$from, .(Group, Assay)],
+          data.table(file = factor(filename)),
+          DT.index.group.deviations
+        ))
+      }
+      outputs$DT.group.deviations <- NULL
+    }
+    # write index
+    if (chain == 1) {
+      outputs$DT.index.group.deviations[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
+      outputs$DT.index.group.deviations[, Assay := factor(Assay, levels = 1:nlevels(DT.design[, Assay]), labels = levels(DT.design[, Assay]))]
+      setkey(outputs$DT.index.group.deviations, Group, file, from)
+      fst::write.fst(outputs$DT.index.group.deviations, file.path(filepath(object), input, paste0("group.deviations.index.fst")))
     }
   }
 
