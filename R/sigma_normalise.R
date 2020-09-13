@@ -22,7 +22,7 @@ setMethod("normalise_theta", "sigma_block", function(object, data.design = assay
     DT[, Group := factor(as.integer(Group))]
 
     # seaMass-Θ Bayesian model
-    set.seed(ctrl@random.seed + item)
+    set.seed(ctrl@random.seed + item - 1)
     model <- MCMCglmm::MCMCglmm(
       m ~ Group + Assay,
       mev = DT[, s]^2,

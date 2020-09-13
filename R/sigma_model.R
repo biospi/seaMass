@@ -9,6 +9,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
 
   nitt <- ctrl@model.nwarmup + (ctrl@model.nsample * ctrl@model.thin) / ctrl@model.nchain
   DT.priors <- priors(object, input = input, as.data.table = T)
+  if (!is.null(DT.priors)) DT.priors[, Assay := as.integer(Assay)]
 
   # create subdirs
   dir.create(file.path(filepath(object), input, "timings"), showWarnings = F)
@@ -66,14 +67,14 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       if (is.null(DT.priors)) {
         prior.rcov <- list(V = 1, nu = 0.02)
       } else {
-        prior.rcov <- list(V = log(2) * DT.priors[Effect == "Measurements", v], nu = DT.priors[Effect == "Measurements", df])
+        prior.rcov <- list(V = (log(2) * sqrt(DT.priors[Effect == "Measurements", v]))^2, nu = DT.priors[Effect == "Measurements", df])
       }
     } else {
       rcov <- as.formula("~idh(Measurement):units")
       if (is.null(DT.priors)) {
         prior.rcov <- list(V = diag(nM), nu = 0.02)
       } else {
-        prior.rcov <- list(V = log(2) * DT.priors[Effect == "Measurements", v] * diag(nM), nu = DT.priors[Effect == "Measurements", df])
+        prior.rcov <- list(V = (log(2) * sqrt(DT.priors[Effect == "Measurements", v]))^2 * diag(nM), nu = DT.priors[Effect == "Measurements", df])
       }
     }
 
@@ -85,14 +86,14 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       if (is.null(DT.priors)) {
         prior.component <- list(Component = list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2))
       } else {
-        prior.component <- list(Component = list(V = log(2) * DT.priors[Effect == "Components", v], nu = DT.priors[Effect == "Components", df]))
+        prior.component <- list(Component = list(V = (log(2) * sqrt(DT.priors[Effect == "Components", v]))^2, nu = DT.priors[Effect == "Components", df]))
       }
     } else {
       random.component <- "idh(Component):Assay"
       if (is.null(DT.priors)) {
         prior.component <- list(Component = list(V = diag(nC), nu = nC, alpha.mu = rep(0, nC), alpha.V = diag(25^2, nC)))
       } else {
-        prior.component <- list(Component = list(V = log(2) * DT.priors[Effect == "Components", v] * diag(nC), nu = DT.priors[Effect == "Components", df]))
+        prior.component <- list(Component = list(V = (log(2) * sqrt(DT.priors[Effect == "Components", v]))^2 * diag(nC), nu = DT.priors[Effect == "Components", df]))
       }
     }
 
@@ -103,18 +104,22 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       for (l in levels(DT$Assay)) DT[, paste0("Assay", l) := ifelse(Assay == l, 1, 0)]
       random.assay <- paste(paste0("idh(Assay", levels(DT$Assay), "):Component:Measurement"), collapse = "+")
       if (is.null(DT.priors)) {
-        prior.assay <- lapply(1:nlevels(DT$Assay), function(k) list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2))
+        prior.assay <- lapply(levels(DT$Assay), function(a) list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2))
       } else {
-        prior.assay <- lapply(1:nlevels(DT$Assay), function(k) list(V = log(2) * DT.priors[!is.na("Assay")][k, v], nu = DT.priors[!is.na("Assay")][k, df]))
+        DT.priors[, Assay := factor(Assay, levels = levels(DT$Assay))]
+        prior.assay <- lapply(levels(DT$Assay), function(a) list(V = (log(2) * sqrt(DT.priors[Assay == a, v]))^2, nu = DT.priors[Assay == a, df]))
       }
+      names(prior.assay) <- paste0("Assay", levels(DT$Assay))
     } else {
       for (l in levels(DT$Assay)) DT[, paste0("Assay", l) := ifelse(Assay == l, 1, 0)]
       random.assay <- paste(paste0("idh(Assay", levels(DT$Assay), "):Component"), collapse = "+")
       if (is.null(DT.priors)) {
-        prior.assay <- lapply(1:nlevels(DT$Assay), function(k) list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2))
+        prior.assay <- lapply(levels(DT$Assay), function(a) list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2))
       } else {
-        prior.assay <- lapply(1:nlevels(DT$Assay), function(k) list(V = log(2) * DT.priors[!is.na("Assay")][k, v], nu = DT.priors[!is.na("Assay")][k, df]))
+        DT.priors[, Assay := factor(Assay, levels = levels(DT$Assay))]
+        prior.assay <- lapply(levels(DT$Assay), function(a) list(V = (log(2) * sqrt(DT.priors[Assay == a, v]))^2, nu = DT.priors[Assay == a, df]))
       }
+      names(prior.assay) <- paste0("Assay", levels(DT$Assay))
     }
 
     # merge prior
@@ -162,10 +167,10 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     }
 
     # MCMCglmm can very rarely fail on a dataset, try again with slightly perturbed values
-    model <- NULL
+    fit.model <- NULL
     attempt <- 1
     if ("summaries" %in% ctrl@keep) output$DT.summaries <- as.character(Sys.time())
-    while (is.null(model) && attempt <= 10) {
+    while (is.null(fit.model) && attempt <= 10) {
       if (attempt != 1) {
         if (family == "poisson" || family == "cenpoisson") {
           DT$Count0 <- DT$Count0 + 1
@@ -177,31 +182,31 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
         }
       }
 
-      set.seed(ctrl@random.seed + chain-1)
-      try(output$DT.timings <- system.time(model <- MCMCglmm::MCMCglmm(
+      set.seed(ctrl@random.seed + (group - 1) * ctrl@model.nchain + (chain - 1))
+      try(output$DT.timings <- system.time(fit.model <- MCMCglmm::MCMCglmm(
         fixed, random, rcov, family, data = DT, prior = prior,
         nitt = nitt, burnin = ctrl@model.nwarmup, thin = ctrl@model.thin, pr = T, verbose = F, singular.ok = T
       )))
 
       attempt <- attempt + 1
     }
-    if (is.null(model)) stop("ERROR: MCMCglmm failed more than 10 times")
+    if (is.null(fit.model)) stop("ERROR: MCMCglmm failed more than 10 times")
     output$DT.timings <- data.table(Group = group, chain = chain, as.data.table(t(as.matrix(output$DT.timings))))
 
     if ("summaries" %in% ctrl@keep) {
       options(max.print = 99999)
-      output$DT.summaries <- data.table(Group = group, chain = chain, Summary = paste(c(output$DT.summaries, capture.output(print(summary(model))), as.character(Sys.time())), collapse = "\n"))
+      output$DT.summaries <- data.table(Group = group, chain = chain, Summary = paste(c(output$DT.summaries, capture.output(print(summary(fit.model))), as.character(Sys.time())), collapse = "\n"))
     }
 
     # create emmeans ref grid
-    class(model) <- "MCMCglmm_seaMass"
-    frg <- emmeans::ref_grid(model, data = DT, nesting = NULL)
+    class(fit.model) <- "MCMCglmm_seaMass"
+    system.time(frg <- emmeans::ref_grid(fit.model, data = DT))
 
     ### EXTRACT GROUP QUANTS
     if (input != "model0" && ("group.quants" %in% ctrl@summarise || "group.quants" %in% ctrl@keep)) {
       if (nA == 1) {
         if (nM == 1) {
-          output$DT.group.quants <- as.data.table(model$Sol[, 1, drop = F])
+          output$DT.group.quants <- as.data.table(fit.model$Sol[, 1, drop = F])
         } else {
           output$DT.group.quants <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
         }
@@ -222,7 +227,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
 
     ### EXTRACT GROUP DEVIATIONS
     if (input == "model1" && ("group.quants" %in% ctrl@summarise || "group.quants" %in% ctrl@keep)) {
-      output$DT.group.deviations <- as.data.table(model$Sol[, grep("^Assay[0-9]+$", colnames(model$Sol)), drop = F])
+      output$DT.group.deviations <- as.data.table(fit.model$Sol[, grep("^Assay[0-9]+$", colnames(fit.model$Sol)), drop = F])
       output$DT.group.deviations[, sample := 1:nrow(output$DT.group.deviations)]
       output$DT.group.deviations <- melt(output$DT.group.deviations, variable.name = "Assay", id.vars = "sample")
       output$DT.group.deviations[, Group := group]
@@ -247,7 +252,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     if (input != "model0" && ("measurement.exposures" %in% ctrl@summarise || "measurement.exposures" %in% ctrl@keep)) {
       if (nM == 1) {
         if (nA == 1) {
-          output$DT.measurement.exposures <- as.data.table(model$Sol[, 1, drop = F])
+          output$DT.measurement.exposures <- as.data.table(fit.model$Sol[, 1, drop = F])
         } else {
           output$DT.measurement.exposures <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
         }
@@ -272,19 +277,27 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     if (input != "model0" && ("component.exposures" %in% ctrl@summarise || "component.exposures" %in% ctrl@keep)) {
       if (nM == 1) {
         if (nA == 1) {
-          output$DT.component.exposures <- as.data.table(model$Sol[, 1, drop = F])
+          output$DT.component.exposures <- as.data.table(fit.model$Sol[, 1, drop = F])
         } else {
           output$DT.component.exposures <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
         }
         colnames(output$DT.component.exposures) <- "value"
         output$DT.component.exposures[, Component := as.integer(sub("^Measurement (.+)\\..+$", "\\1", as.character(DT[1, Measurement])))]
         output$DT.component.exposures[, sample := 1:nrow(output$DT.component.exposures)]
+        output$DT.component.exposures[, chain := chain]
+        output$DT.component.exposures[, value := value / log(2)]
+        output$DT.component.exposures[, Group := group]
+        setcolorder(output$DT.component.exposures, c("Group", "Component", "chain", "sample"))
       } else {
-        frg2 <- emmeans::add_grouping(frg, "Component", "Measurement", sub("\\..+$", "", levels(DT$Measurement)))
-        output$DT.component.exposures <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg2, "Component")))
+        # do each level separately otherwise huge memory problem
+        newlevs <- sub("\\..+$", "", levels(DT$Measurement))
+        output$DT.component.exposures <- as.data.table(sapply(levels(DT$Component), function (l) {
+          frg2 <- emmeans::add_grouping(frg, "Component", "Measurement", ifelse(newlevs == l, newlevs, NA))
+          return(coda::as.mcmc(emmeans::emmeans(frg2, "Component")))
+        }))
         output$DT.component.exposures[, sample := 1:nrow(output$DT.component.exposures)]
         output$DT.component.exposures <- melt(output$DT.component.exposures, variable.name = "Component", id.vars = "sample")
-        output$DT.component.exposures[, Component := as.integer(sub("^Component (.+)$", "\\1", Component))]
+        output$DT.component.exposures[, Component := as.integer(as.character(Component))]
       }
       output$DT.component.exposures[, chain := chain]
       output$DT.component.exposures[, value := value / log(2)]
@@ -292,16 +305,17 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       setcolorder(output$DT.component.exposures, c("Group", "Component", "chain", "sample"))
     }
 
+
     ### EXTRACT COMPONENT DEVIATIONS
     if (input != "model0" && ctrl@component.model == "independent" && ("component.deviations" %in% ctrl@summarise || "component.deviations" %in% ctrl@keep)) {
       if (nC == 1) {
-        output$DT.component.deviations <- as.data.table(model$Sol[, grep("^Component:Assay\\..+\\..+$", colnames(model$Sol)), drop = F])
+        output$DT.component.deviations <- as.data.table(fit.model$Sol[, grep("^Component:Assay\\..+\\..+$", colnames(fit.model$Sol)), drop = F])
         output$DT.component.deviations[, sample := 1:nrow(output$DT.component.deviations)]
         output$DT.component.deviations <- melt(output$DT.component.deviations, variable.name = "Component", id.vars = "sample")
         output$DT.component.deviations[, Assay := as.integer(sub("^Component:Assay\\..+\\.(.+)$", "\\1", Component))]
         output$DT.component.deviations[, Component := as.integer(sub("^Component:Assay\\.(.+)\\..+$", "\\1", Component))]
       } else {
-        output$DT.component.deviations <- as.data.table(model$Sol[, grep("^Component.+\\.Assay\\..+$", colnames(model$Sol)), drop = F])
+        output$DT.component.deviations <- as.data.table(fit.model$Sol[, grep("^Component.+\\.Assay\\..+$", colnames(fit.model$Sol)), drop = F])
         output$DT.component.deviations[, sample := 1:nrow(output$DT.component.deviations)]
         output$DT.component.deviations <- melt(output$DT.component.deviations, variable.name = "Component", id.vars = "sample")
         output$DT.component.deviations[, Assay := as.integer(sub("^Component.+\\.Assay\\.(.+)$", "\\1", Component))]
@@ -316,7 +330,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     ### EXTRACT ASSAY DEVIATIONS
     if (input == "model0" || "assay.deviations" %in% ctrl@summarise || "assay.deviations" %in% ctrl@keep) {
       if (ctrl@assay.model == "measurement") {
-        output$DT.assay.deviations <- as.data.table(model$Sol[, grep("^Assay.+\\.Component:Measurement\\..+\\..+$", colnames(model$Sol)), drop = F])
+        output$DT.assay.deviations <- as.data.table(fit.model$Sol[, grep("^Assay.+\\.Component:Measurement\\..+\\..+$", colnames(fit.model$Sol)), drop = F])
         output$DT.assay.deviations[, sample := 1:nrow(output$DT.assay.deviations)]
         output$DT.assay.deviations <- melt(output$DT.assay.deviations, variable.name = "Measurement", id.vars = "sample")
         output$DT.assay.deviations[, Assay := as.integer(sub("^Assay(.+)\\.Component:Measurement\\..+\\..+$", "\\1", Measurement))]
@@ -327,7 +341,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
         output$DT.assay.deviations[, value := value / log(2)]
         setcolorder(output$DT.assay.deviations, c("Assay", "Group", "Component", "Measurement", "chain", "sample"))
       } else if (ctrl@assay.model == "component") {
-        output$DT.assay.deviations <- as.data.table(model$Sol[, grep("^Assay.+\\.Component\\..+$", colnames(model$Sol)), drop = F])
+        output$DT.assay.deviations <- as.data.table(fit.model$Sol[, grep("^Assay.+\\.Component\\..+$", colnames(fit.model$Sol)), drop = F])
         output$DT.assay.deviations[, sample := 1:nrow(output$DT.assay.deviations)]
         output$DT.assay.deviations <- melt(output$DT.assay.deviations, variable.name = "Component", id.vars = "sample")
         output$DT.assay.deviations[, Assay := as.integer(sub("^Assay(.+)\\.Component\\..+$", "\\1", Component))]
@@ -340,14 +354,14 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     }
 
     # conserve memory
-    model$Sol <- NULL
+    fit.model$Sol <- NULL
 
     ### EXTRACT MEASUREMENT VARIANCES
     if (input == "model0" || "measurement.variances" %in% ctrl@summarise || "measurement.variances" %in% ctrl@keep) {
       if (ctrl@measurement.model == "single" || nM == 1) {
-        output$DT.measurement.variances <- as.data.table(model$VCV[, "units", drop = F])
+        output$DT.measurement.variances <- as.data.table(fit.model$VCV[, "units", drop = F])
       } else {
-        output$DT.measurement.variances <- as.data.table(model$VCV[, grep("^Measurement.+\\..+\\.units$", colnames(model$VCV)), drop = F])
+        output$DT.measurement.variances <- as.data.table(fit.model$VCV[, grep("^Measurement.+\\..+\\.units$", colnames(fit.model$VCV)), drop = F])
       }
       output$DT.measurement.variances[, sample := 1:nrow(output$DT.measurement.variances)]
       output$DT.measurement.variances <- melt(output$DT.measurement.variances, id.vars = "sample")
@@ -371,7 +385,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       # rest
       output$DT.measurement.variances[, Group := group]
       output$DT.measurement.variances[, chain := chain]
-      output$DT.measurement.variances[, value := value / log(2)]
+      output$DT.measurement.variances[, value := (sqrt(value) / log(2))^2]
       output$DT.measurement.variances[, variable := NULL]
       setcolorder(output$DT.measurement.variances, c("Group", "Component", "Measurement", "chain", "sample"))
     }
@@ -379,9 +393,9 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     # EXTRACT COMPONENT VARIANCES
     if (ctrl@component.model != "" && (input == "model0" || "component.variances" %in% ctrl@summarise || "component.variances" %in% ctrl@keep)) {
       if (ctrl@component.model == "single" || nC == 1) {
-        output$DT.component.variances <- as.data.table(model$VCV[, "Component:Assay", drop = F])
+        output$DT.component.variances <- as.data.table(fit.model$VCV[, "Component:Assay", drop = F])
       } else {
-        output$DT.component.variances <- as.data.table(model$VCV[, grep("^Component.+\\.Assay$", colnames(model$VCV)), drop = F])
+        output$DT.component.variances <- as.data.table(fit.model$VCV[, grep("^Component.+\\.Assay$", colnames(fit.model$VCV)), drop = F])
       }
       output$DT.component.variances[, sample := 1:nrow(output$DT.component.variances)]
       output$DT.component.variances <- melt(output$DT.component.variances, id.vars = "sample")
@@ -398,7 +412,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       # rest
       output$DT.component.variances[, Group := group]
       output$DT.component.variances[, chain := chain]
-      output$DT.component.variances[, value := value / log(2)]
+      output$DT.component.variances[, value := (sqrt(value) / log(2))^2]
       output$DT.component.variances[, variable := NULL]
       setcolorder(output$DT.component.variances, c("Group", "Component", "chain", "sample"))
     }

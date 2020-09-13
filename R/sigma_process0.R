@@ -16,7 +16,7 @@ setMethod("process0", "sigma_block", function(object, chain) {
     # Measurement EB prior
     cat(paste0("[", Sys.time(), "]    calculating measurement prior...\n"))
     DT.measurement.prior <- measurement_variances(object, input = "model0", summary = T, as.data.table = T)
-    set.seed(ctrl@random.seed)
+    set.seed(ctrl@random.seed + chain - 1)
     DT.measurement.prior <- data.table(Effect = "Measurements", DT.measurement.prior[, squeeze_var(v, df)])
     # delete measurement variances if not in 'keep'
     if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "measurement.variances*"), recursive = T)
@@ -28,7 +28,7 @@ setMethod("process0", "sigma_block", function(object, chain) {
     if(ctrl@component.model != "") {
       cat(paste0("[", Sys.time(), "]    calculating component prior...\n"))
       DT.component.prior <- component_variances(object, input = "model0", summary = T, as.data.table = T)
-      set.seed(ctrl@random.seed)
+      set.seed(ctrl@random.seed + chain - 1)
       DT.component.prior <- data.table(Effect = "Components", DT.component.prior[, squeeze_var(v, df)])
       DT.measurement.prior <- rbind(DT.measurement.prior, DT.component.prior, use.names = T, fill = T)
       DT.design[, Component.SD := DT.component.prior[, sqrt(v)]]
@@ -53,7 +53,7 @@ setMethod("process0", "sigma_block", function(object, chain) {
         DT <- droplevels(DT[as.integer(DT$Item) <= ctrl@eb.max])
 
         # our Bayesian model
-        set.seed(ctrl@random.seed + item[, chain])
+        set.seed(ctrl@random.seed + (as.integer(item[, Assay]) - 1) * ctrl@model.nchain + (item[, chain] - 1))
         model <- MCMCglmm::MCMCglmm(
           value ~ 1,
           random = ~ Item,

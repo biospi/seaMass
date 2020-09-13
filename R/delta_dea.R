@@ -77,7 +77,6 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
       }
 
       outputs <- lapply(item, function(DT) {
-        print(DT[1, Group])
         # have to keep all assays in even if count NA otherwise MCMCglmm will get confused over its priors
         DT.design <- assay_design(object, as.data.table = T)
         DT[, Assay := factor(Assay, levels = 1:nlevels(DT.design[, Assay]), labels = levels(DT.design[, Assay]))]
@@ -108,7 +107,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
             if (attempt > 1) print(attempt)
             tryCatch({
               # run MCMCglmm
-              set.seed(ctrl@random.seed + chain-1)
+              set.seed(ctrl@random.seed + (DT[1, Group] - 1) * ctrl@model.nchain + (chain - 1))
               model <- MCMCglmm::MCMCglmm(
                 fixed = fixed1,
                 random = random,
