@@ -14,9 +14,9 @@ setMethod("process0", "sigma_block", function(object, chain) {
     cat(paste0("[", Sys.time(), "]   OUTPUT0 block=", sub("^.*sigma\\.(.*)$", "\\1", object@filepath), "\n"))
 
     # Measurement EB prior
-    cat(paste0("[", Sys.time(), "]    measurement prior...\n"))
+    cat(paste0("[", Sys.time(), "]    calculating measurement prior...\n"))
     DT.measurement.prior <- measurement_variances(object, input = "model0", summary = T, as.data.table = T)
-    set.seed(ctrl@random.seed)
+    set.seed(ctrl@random.seed + chain - 1)
     DT.measurement.prior <- data.table(Effect = "Measurements", DT.measurement.prior[, squeeze_var(v, df)])
     # delete measurement variances if not in 'keep'
     if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "measurement.variances*"), recursive = T)
@@ -26,9 +26,9 @@ setMethod("process0", "sigma_block", function(object, chain) {
 
     # Component EB prior
     if(ctrl@component.model != "") {
-      cat(paste0("[", Sys.time(), "]    component prior...\n"))
+      cat(paste0("[", Sys.time(), "]    calculating component prior...\n"))
       DT.component.prior <- component_variances(object, input = "model0", summary = T, as.data.table = T)
-      set.seed(ctrl@random.seed)
+      set.seed(ctrl@random.seed + chain - 1)
       DT.component.prior <- data.table(Effect = "Components", DT.component.prior[, squeeze_var(v, df)])
       DT.measurement.prior <- rbind(DT.measurement.prior, DT.component.prior, use.names = T, fill = T)
       DT.design[, Component.SD := DT.component.prior[, sqrt(v)]]
@@ -38,7 +38,7 @@ setMethod("process0", "sigma_block", function(object, chain) {
 
     # Assay EB priors
     if(ctrl@assay.model != "") {
-      cat(paste0("[", Sys.time(), "]    assay prior...\n"))
+      cat(paste0("[", Sys.time(), "]    calculating assay prior...\n"))
 
       items <- split(CJ(Assay = unique(na.omit(assay_design(object, as.data.table = T)[, Assay])), chain = 1:ctrl@model.nchain), by = c("Assay", "chain"), drop = T)
       DT.assay.prior <- rbindlist(parallel_lapply(items, function(item, object) {
@@ -53,7 +53,7 @@ setMethod("process0", "sigma_block", function(object, chain) {
         DT <- droplevels(DT[as.integer(DT$Item) <= ctrl@eb.max])
 
         # our Bayesian model
-        set.seed(ctrl@random.seed + item[, chain])
+        set.seed(ctrl@random.seed + (as.integer(item[, Assay]) - 1) * ctrl@model.nchain + (item[, chain] - 1))
         model <- MCMCglmm::MCMCglmm(
           value ~ 1,
           random = ~ Item,
@@ -77,7 +77,8 @@ setMethod("process0", "sigma_block", function(object, chain) {
 
       DT.assay.prior <- data.table(Effect = "Assay", DT.assay.prior[, dist_samples_invchisq(chain, sample, value), by = Assay])
       DT.measurement.prior <- rbind(DT.measurement.prior, DT.assay.prior, use.names = T, fill = T)
-      DT.design <- merge(DT.design, DT.assay.prior[, .(Assay, Assay.SD = sqrt(v))], by = "Assay", sort = F, all.x = T, suffixes = c("", "1"))
+      if ("Assay.SD" %in% colnames(DT.design)) DT.design[, Assay.SD := NULL]
+      DT.design <- merge(DT.design, DT.assay.prior[, .(Assay, Assay.SD = sqrt(v))], by = "Assay", sort = F, all.x = T)
     }
 
     # update design with standard deviations
@@ -85,21 +86,6 @@ setMethod("process0", "sigma_block", function(object, chain) {
 
     # save priors
     fst::write.fst(DT.measurement.prior, file.path(object@filepath, "model1", "priors.fst"))
-
-    # plot PCA
-    if ("assay.deviations.pca" %in% ctrl@plot) {
-      cat(paste0("[", Sys.time(), "]    summarising assay deviations...\n"))
-
-      ellipsis <- ctrl@ellipsis
-      ellipsis$object <- object
-      ellipsis$data.design <- merge(assay_design(object, as.data.table = T), DT.assay.prior[, .(Assay, Stdev = sqrt(v))], by = "Assay")
-      ellipsis$input <- "model0"
-      ellipsis$type <- "assay.deviations"
-      ellipsis$colour <- "Assay.SD"
-      ellipsis$shape <- "Condition"
-      do.call("plot_pca_contours", ellipsis)
-      ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_assay_deviations_pca_block_", name(object), ".pdf")), width = 300, height = 200, units = "mm")
-    }
 
     # delete assay deviations if not in 'keep'
     if (!("assay.deviations" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "assay.deviations*"), recursive = T)

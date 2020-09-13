@@ -127,7 +127,7 @@ setMethod("read_samples", "seaMass", function(object, input, type, items = NULL,
 #   dir.create(file.path(filepath(object), input, "centred.group.quants"), showWarnings = F)
 #
 #   parallel_lapply(as.list(1:ctrl@model.nchain), function(item, object, ctrl, input) {
-#     DT <- raw_group_quants(object, chain = item, as.data.table = T)[, Block := NULL]
+#     DT <- group_quants(object, chain = item, as.data.table = T)[, Block := NULL]
 #
 #     # add in zeros for the baselines
 #     DT <- rbind(DT, unique(DT[, .(Baseline, Assay = Baseline, chain, sample, value = 0), by = Group]))
@@ -152,10 +152,10 @@ setMethod("read_samples", "seaMass", function(object, input, type, items = NULL,
 #
 #     # write
 #     setorder(DT, Group, Assay)
-#     if (item == 1) fst::write.fst(DT[, .(file = file.path("standardised.group.quants", "1.fst"), from = min(.I), to = max(.I)), by = .(Group, Assay)], file.path(filepath(object), input, "standardised.group.quants.index.fst"))
+#     if (item == 1) fst::write.fst(DT[, .(file = file.path("standardised.group.deviations", "1.fst"), from = min(.I), to = max(.I)), by = .(Group, Assay)], file.path(filepath(object), input, "standardised.group.deviations.index.fst"))
 #     DT[, Group := as.integer(Group)]
 #     DT[, Assay := as.integer(Assay)]
-#     fst::write.fst(DT, file.path(filepath(object), input, "standardised.group.quants", paste0(item, ".fst")))
+#     fst::write.fst(DT, file.path(filepath(object), input, "standardised.group.deviations", paste0(item, ".fst")))
 #
 #     return(NULL)
 #   }, nthread = 1) # this doesn't take long so lets avoid a spike in memory usage

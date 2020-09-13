@@ -9,7 +9,7 @@
   data.design = assay_design(object),
   variables = NULL,
   input = "model1",
-  type = "standardised.group.quants",
+  type = "standardised.group.deviations",
   scale = FALSE,
   robust = TRUE,
   contours = 1:2,
@@ -17,7 +17,7 @@
   labels = 25,
   colour = "Condition",
   fill = "Condition",
-  shape = NULL,
+  shape = "Condition",
   data = NULL,
   ...
 )

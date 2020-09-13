@@ -8,7 +8,7 @@
 \usage{
 delta_control(
   component.deviations = FALSE,
-  keep = c("standardised.group.quants", "normalised.group.quants",
+  keep = c("standardised.group.deviations", "normalised.group.quants",
     "component.deviations"),
   dea.model = "MCMCglmm",
   dea.nwarmup = 4096,

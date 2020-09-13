@@ -25,34 +25,34 @@ setMethod("process", "seaMass_delta", function(object, chain) {
 
   if (all(sapply(1:ctrl@model.nchain, function(chain) file.exists(file.path(filepath(object), paste("complete", chain, sep = ".")))))) {
     # summarise group de and perform fdr correction
-    if (file.exists(file.path(filepath(object), "standardised.group.quants.index.fst"))) {
+    if (file.exists(file.path(filepath(object), "standardised.group.deviations.index.fst"))) {
       if(ctrl@fdr.model != "") {
         ellipsis <- ctrl@ellipsis
         ellipsis$object <- object
         do.call(paste("fdr", ctrl@fdr.model, sep = "_"), ellipsis)
       } else {
         cat(paste0("[", Sys.time(), "]    getting standardised group quants differential expression...\n"))
-        standardised_group_quants(object, summary = T, as.data.table = T)
+        standardised_group_deviations(object, summary = T, as.data.table = T)
       }
     }
-    if (!("standardised.group.quants" %in% ctrl@keep)) unlink(file.path(filepath(object), "standardised.group.quants*"), recursive = T)
+    if (!("standardised.group.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "standardised.group.deviations*"), recursive = T)
 
     # write out group fdr
-    if (file.exists(file.path(filepath(object), "fdr.standardised.group.quants.fst"))) {
-      DTs.fdr <- fst::read.fst(file.path(filepath(object), "fdr.standardised.group.quants.fst"), as.data.table = T)
+    if (file.exists(file.path(filepath(object), "fdr.standardised.group.deviations.fst"))) {
+      DTs.fdr <- fst::read.fst(file.path(filepath(object), "fdr.standardised.group.deviations.fst"), as.data.table = T)
       DTs.fdr <- split(DTs.fdr, drop = T, by = "Batch")
       for (name in names(DTs.fdr)) {
         # save
-        fwrite(DTs.fdr[[name]], file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_standardised_group_quants_fdr.", gsub("\\.", "_", name), ".csv")))
+        fwrite(DTs.fdr[[name]], file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_standardised_group_deviations_fdr.", gsub("\\.", "_", name), ".csv")))
         # plot fdr
         plot_fdr(DTs.fdr[[name]])
-        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_standardised_group_quants_fdr.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
+        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_standardised_group_deviations_fdr.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
         # plot volcano
         plot_volcano(DTs.fdr[[name]])
-        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_standardised_group_quants_fdr_volcano.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
+        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_standardised_group_deviations_fdr_volcano.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
         # plot fc
         plot_volcano(DTs.fdr[[name]], stdev.col = "s", x.col = "m", y.col = "s")
-        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_standardised_group_quants_fdr_fc.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
+        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_standardised_group_deviations_fdr_fc.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
       }
     }
 

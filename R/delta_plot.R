@@ -39,7 +39,10 @@ plot_volcano <- function(
     DT.fdr[, upper := extraDistr::qlst(0.975, df, x, s)]
     DT.fdr[is.nan(upper), upper := x]
   })
-  DT.fdr[, variable := Reduce(function(...) paste(..., sep = " : "), .SD[, (which(colnames(DT.fdr) == "Baseline") + 1):(which(colnames(DT.fdr) == "m") - 1)])]
+  DT.fdr[, variable := Reduce(
+    function(...) paste(..., sep = " : "),
+    .SD[, (ifelse("Baseline" %in% colnames(DT.fdr), which(colnames(DT.fdr) == "Baseline"), 0) + 1):(which(colnames(DT.fdr) == "m") - 1)]
+  )]
   DT.fdr[, Truth := factor(truth)]
   DT.fdr[, label := NA_character_]
   if (labels > 0) {
@@ -87,8 +90,8 @@ plot_volcano <- function(
   }
 
   # plot
-  xlim.plot <- c(min(DT.fdr[is.finite(x), lower]), max(DT.fdr[is.finite(x), upper]))
-  xlim.plot <- c(-1.01, 1.01) * max(-xlim.plot[1], xlim.plot[2])
+  xlim.plot <- c(min(DT.fdr[is.finite(x), m]), max(DT.fdr[is.finite(x), m]))
+  xlim.plot <- c(-1.1, 1.1) * max(-xlim.plot[1], xlim.plot[2])
   ylim.plot <- c(min(DT.fdr[is.finite(y), y]), max(DT.fdr[is.finite(y), y]))
   ylim.plot <- ylim.plot + c(-0.01, 0.01) * (ylim.plot[2] - ylim.plot[1])
   ebh <- (ylim.plot[2] - ylim.plot[1]) / 500

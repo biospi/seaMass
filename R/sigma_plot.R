@@ -15,7 +15,7 @@ setMethod("plot_pca_contours", "seaMass", function(
   data.design = assay_design(object),
   variables = NULL,
   input = "model1",
-  type = "standardised.group.quants",
+  type = "standardised.group.deviations",
   scale = FALSE,
   robust = TRUE,
   contours = 1:2,
@@ -23,7 +23,7 @@ setMethod("plot_pca_contours", "seaMass", function(
   labels = 25,
   colour = "Condition",
   fill = "Condition",
-  shape = NULL,
+  shape = "Condition",
   ...
 ) {
   # this is needed to stop foreach massive memory leak!!!
@@ -91,8 +91,6 @@ setMethod("plot_pca_contours", "seaMass", function(
 
   # contours
   if (!(is.null(contours) || length(contours) == 0)) {
-    cat(paste0("[", Sys.time(), "]     transforming samples...\n"))
-
     # predict from PCA fit
     DT <- rbindlist(parallel_lapply(batch_split(DT.individuals, c("Block", "Assay"), nrow(DT.individuals), drop = T, keep.by = F), function(item, DT.variables, object, input, type, summary.cols, fit) {
       DT1 <- merge(item[,c(k = 1, .SD)], DT.variables[,c(k = 1, .SD)], by = "k", all = T, allow.cartesian = T)[, k := NULL]
@@ -168,14 +166,16 @@ setMethod("plot_pca_contours", "seaMass", function(
   g <- ggplot2::ggplot(DT.design, ggplot2::aes(x = x, y = y))
   if (!is.null(colour)) {
     if (is.numeric(DT.design[, get(colour)])) {
-      g <- g + ggplot2::scale_colour_gradient2(low = "blue", mid = "black", high = "red", limits = c(min(0, DT.design[, get(colour)]), max(0, DT.design[, get(colour)])))
+      g <- g + ggplot2::scale_colour_viridis_c(option = "plasma", end = 0.75)
+    } else {
+      g <- g + ggplot2::scale_colour_viridis_d(option = "plasma", end = 0.75)
     }
   }
   if (!is.null(fill)) {
-    if (!is.numeric(DT.design[, get(fill)])) {
-      g <- g + ggplot2::scale_fill_hue(l = 90, c = 50)
+    if (is.numeric(DT.design[, get(fill)])) {
+      g <- g + ggplot2::scale_fill_viridis_c(option = "plasma", alpha = 0.25)
     } else {
-      g <- g + ggplot2::scale_fill_gradient2(low = scales::muted("blue", l = 90), mid = "white", high = scales::muted("red", l = 90), limits = c(min(0, DT.design[, get(fill)]), max(0, DT.design[, get(fill)])))
+      g <- g + ggplot2::scale_fill_viridis_d(option = "plasma", alpha = 0.25)
     }
   }
   if (!is.null(shape)) g <- g + ggplot2::scale_shape_manual(values = c(1:25, 33:127)[1:uniqueN(DT.design[, get(shape)])])
@@ -184,18 +184,22 @@ setMethod("plot_pca_contours", "seaMass", function(
 
   if (!(is.null(contours) || length(contours) == 0)) {
     if (is.null(colour) || uniqueN(DT.design[, get(colour)]) <= 1) {
-      if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z1"), colour = "black", breaks = 1, alpha = 0.5)
-      if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z2"), colour = "black", breaks = 1, alpha = 0.25)
-      if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z3"), colour = "black", breaks = 1, alpha = 0.125)
+      if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z1"), colour = "black", breaks = 1)
+      if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z2"), colour = "black", breaks = 1, alpha = 0.5)
+      if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z3"), colour = "black", breaks = 1, alpha = 0.25)
     } else {
-      if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z1"), breaks = 1, alpha = 0.5)
-      if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z2"), breaks = 1, alpha = 0.25)
-      if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z3"), breaks = 1, alpha = 0.125)
+      if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z1"), breaks = 1)
+      if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z2"), breaks = 1, alpha = 0.5)
+      if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z3"), breaks = 1, alpha = 0.25)
     }
    }
 
-  if (labels) g <- g + ggrepel::geom_label_repel(ggplot2::aes_string(label = "label", fill = fill), size = 2.5, show.legend = F)
-  g <- g + ggplot2::geom_point(ggplot2::aes_string(colour = colour, shape = shape, fill = fill), size = 1.5)
+  if (labels) {
+    g <- g + ggrepel::geom_label_repel(ggplot2::aes_string(label = "label"), size = 2.5, fill = "white", colour = "white", seed = 0)
+    g <- g + ggrepel::geom_label_repel(ggplot2::aes_string(label = "label", fill = fill), size = 2.5, seed = 0)
+    g <- g + ggplot2::guides(fill = ggplot2::guide_legend(override.aes = ggplot2::aes(label = "")))
+  }
+  g <- g + ggplot2::geom_point(ggplot2::aes_string(colour = colour, shape = shape, fill = fill), size = 1.5, stroke = 1)
   g <- g + ggplot2::xlab(paste0("PC1 (", format(round(pc1, 2), nsmall = 2), "%)"))
   g <- g + ggplot2::ylab(paste0("PC2 (", format(round(pc2, 2), nsmall = 2), "%)"))
   g <- g + ggplot2::coord_cartesian(xlim = mid[1] + c(-span[1], span[1]), ylim = mid[2] + c(-span[2], span[2]))
@@ -222,7 +226,7 @@ setMethod("plot_pca", "seaMass", function(
   data.design = assay_design(object),
   variables = NULL,
   input = "model1",
-  type = "standardised.group.quants",
+  type = "standardised.group.deviations",
   scale = FALSE,
   robust = TRUE,
   contours = 1:2,
@@ -230,7 +234,7 @@ setMethod("plot_pca", "seaMass", function(
   labels = 25,
   colour = "Condition",
   fill = "Condition",
-  shape = NULL,
+  shape = "Condition",
   data = NULL,
   ...
 ) {
@@ -238,19 +242,82 @@ setMethod("plot_pca", "seaMass", function(
 })
 
 
-
-
-
-
-
-
-
-
-
-
+#' Plot quants for a group
+#'
+#' @param object .
+#' @param data .
+#' @param data.summary .
+#' @param data.design .
+#' @param contours .
+#' @param robust .
+#' @return A ggplot2 object .
 #' @import data.table
 #' @export
-plot_group_quants <- function(object, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(object), group = NULL) {
+#' @include generics.R
+setMethod("plot_group_quants", "seaMass", function(
+  object,
+  group
+) {
+  DT.group.quants <- group_quants(object, group, as.data.table = T)
+  if (is.null(DT.group.quants)) return(NULL)
+
+  DT.normalised.group.quants <- normalised_group_quants(object, group, as.data.table = T)
+  if (is.null(DT.normalised.group.quants)) DT.normalised.group.quants <- DT.group.quants
+
+  DT.standardised.group.deviations <- standardised_group_deviations(object, group, as.data.table = T)
+  if (is.null(DT.normalised.group.quants)) {
+    DT.standardised.group.deviations <- DT.normalised.group.quants
+  } else {
+    DT.standardised.group.exposures <- group_exposures(object, as.data.table = T)
+    DT.standardised.group.exposures <- DT.standardised.group.exposures[, .(value = mean(value)), by = .(Group, chain, sample)]
+    DT.standardised.group.deviations <- merge(DT.standardised.group.deviations, DT.standardised.group.exposures[, .(Group, chain, sample, deviation = value)], by = c("Group", "chain", "sample"))
+    rm(DT.standardised.group.exposures)
+    DT.standardised.group.deviations[, value := value + deviation]
+    DT.standardised.group.deviations[, deviation := NULL]
+  }
+
+  g <- ggplot2::ggplot(DT.group.quants, ggplot2::aes(x = value, y = Assay))
+  g <- g + ggdist::stat_slab(side = "both", alpha = 0.2)
+  g <- g + ggdist::stat_slab(data = DT.normalised.group.quants, side = "both", alpha = 0.4)
+  g <- g + ggdist::stat_eye(data = DT.standardised.group.deviations)
+  g
+
+
+
+
+  DT.group.quants <- group_quants(object, group, as.data.table = T)
+  DT.group.exposure <- group_exposures(object, group, as.data.table = T)
+  DT.group.exposure[, Assay := "mean"]
+  DT.group.exposure2 <- read_samples(object, "model1", "normalised.group.exposures", group, as.data.table = T)
+  DT.group.exposure2[, Assay := "mean2"]
+
+
+  g <- ggplot2::ggplot(rbind(DT.group.quants, DT.group.exposure, DT.group.exposure2), aes(x = value))
+  g <- g + ggdist::stat_eye(aes(y = Assay))
+  g
+
+  g <- g + ggdist::stat_slab(data = DT.group.exposure, side = "both", alpha = 0.2, position = "dodge")
+  g <- g + ggdist::stat_eye(data = DT.group.exposure2, alpha = 0.2, position = "dodge")
+  g
+
+  DT.normalised.group.quants <- normalised_group_quants(object, group, as.data.table = T)
+  if (is.null(DT.normalised.group.quants)) DT.normalised.group.quants <- DT.group.quants
+  DT.standardised.group.deviations <- standardised_group_deviations(object, group, as.data.table = T)
+  if (is.null(DT.standardised.group.deviations)) DT.standardised.group.deviations <- DT.normalised.group.quants
+  # truncate to 95% quantiles
+  #DT.group.quants[, lower := quantile(value, probs = 0.025), by = Assay]
+  #DT.group.quants[, upper := quantile(value, probs = 0.975), by = Assay]
+  #DT.group.quants <- DT.group.quants[value >= lower & value <= upper]
+
+  g <- ggplot2::ggplot(DT.group.quants, aes(x = value, y = Assay))
+  g <- g + ggdist::stat_slab(side = "both", alpha = 0.2)
+  g <- g + ggdist::stat_slab(data = DT.normalised.group.quants, side = "both", alpha = 0.4)
+  g <- g + ggdist::stat_eye(data = DT.standardised.group.deviations)
+  g
+
+  #gridExtra::grid.arrange(egg::set_panel_size(p=g, width=unit(15, "cm"), height=unit(15, "cm")))
+
+
   stop("todo: needs updating")
   if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
@@ -287,7 +354,17 @@ plot_group_quants <- function(object, groupID = NULL, log2FC.lim = NULL, data.de
     width = 1.0 + 0.75 * nlevels(DT.group.quants.meta$Assay),
     height = 3
   ))
-}
+})
+
+
+
+
+
+
+
+
+
+
 
 
 #' @import data.table
@@ -414,7 +491,7 @@ plot_measurement_stdevs <- function(object, groupID = NULL, log2SD.lim = NULL, d
 
 #' @import data.table
 #' @export
-plot_raw_quants <- function(object, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(object), group = NULL) {
+plot_quants <- function(object, groupID = NULL, log2FC.lim = NULL, data.design = assay_design(object), group = NULL) {
   stop("todo: needs updating")
   if (is.null(groupID) && is.null(group)) stop("one of 'groupID' or 'group' is needed")
 
@@ -525,15 +602,15 @@ plot_measurements <- function(object, groupID = NULL, log2FC.lim = NULL, data.de
 
   plt.measurement.stdevs <- plot_measurement_stdevs(object, groupID, max(plt.group.quants$log2FC.lim), data.design, group)
 
-  plt.raw.quants <- plot_raw_quants(object, groupID, NULL, data.design, group)
-  plt.raw.quants$g <- plt.raw.quants$g + ggplot2::theme(legend.position = "hidden")
+  plt.quants <- plot_quants(object, groupID, NULL, data.design, group)
+  plt.quants$g <- plt.quants$g + ggplot2::theme(legend.position = "hidden")
 
   widths <- c(plt.measurement.stdevs$width, plt.group.quants$width)
-  heights <- c(0.5, plt.group.quants$height, plt.raw.quants$height)
+  heights <- c(0.5, plt.group.quants$height, plt.quants$height)
   g <- gridExtra::grid.arrange(ncol = 2, widths = widths, heights = heights,
                                g.groupID.title,    g.group.title,
                                g.legend,             plt.group.quants$g,
-                               plt.measurement.stdevs$g, plt.raw.quants$g)
+                               plt.measurement.stdevs$g, plt.quants$g)
   return(list(
     g = g,
     width = sum(widths),

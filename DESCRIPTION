@@ -16,6 +16,7 @@ biocViews:
 Imports: 
     ashr (>= 2.2-40),
     data.table (>= 1.12.6),
+    bit64 (>= 4.0.5),
     doRNG (>= 1.7.1),
     doSNOW (>= 1.0.18),
     emmeans (>= 1.4.3.01),
@@ -23,6 +24,7 @@ Imports:
     FactoMineR (>= 1.42),
     fitdistrplus (>= 1.0-14),
     fst (>= 0.9.0),
+    ggdist (>= 2.2.0),
     ggfortify (>= 0.4.7),
     ggrepel (>= 0.8.1),
     gridExtra (>= 2.3),
@@ -36,7 +38,7 @@ Imports:
     R.utils (>= 2.9.0),
     robust (>= 0.4-18.1),
     utf8 (>= 1.1.4)
-RoxygenNote: 7.1.0
+RoxygenNote: 7.1.1
 Collate: 
     'delta_control.R'
     'generics.R'
@@ -49,13 +51,14 @@ Collate:
     'delta_process.R'
     'design.R'
     'dist.R'
+    'emmeans.R'
     'import.R'
     'logydensity.R'
     'schedule.R'
     'sigma_block.R'
     'sigma_control.R'
     'sigma_model.R'
-    'sigma_norm.R'
+    'sigma_normalise.R'
     'sigma_plot.R'
     'sigma_plots.R'
     'sigma_process0.R'
