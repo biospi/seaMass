@@ -31,8 +31,6 @@ Imports:
     igraph (>= 1.2.5),
     ks (>= 1.11.5),
     limma (>= 3.40.6),
-    logKDE (>= 0.3.2),
-    metafor (>= 2.1-0),
     MCMCglmm (>= 2.29),
     preprocessCore (>= 1.46.0),
     R.utils (>= 2.9.0),
