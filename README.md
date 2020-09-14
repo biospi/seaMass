@@ -23,7 +23,7 @@ Please install the R package directly from our Github repository. To do this you
 install.packages("devtools")
 ```
 
-It is currently (14th September 2020) recommended to use R 3.6.3 rather than new version 4.0.2 as the later can crash at randomly. However, one dependency will stop installation of seaMass as the latest version now requires R 4. As a workaround, please first install an old version of this package compatible with R 3:
+It is currently (14th September 2020) recommended to use R 3.6.3 rather than new version 4.0.2 as the later can crash randomly. However, one dependency will stop installation of seaMass as the latest version now requires R 4. As a workaround, please first install an old version of this package compatible with R 3:
 
 ```
 devtools::install_version("foreign", version = "0.8-76")
