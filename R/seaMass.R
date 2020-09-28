@@ -46,7 +46,7 @@ setMethod("read_samples", "seaMass", function(object, input, type, items = NULL,
     if (is.data.frame(items)) {
       DT.index <- merge(DT.index, items, by = colnames(items), sort = F)
     }  else if (!is.null(items)) {
-      DT.index <- DT.index[get(colnames(DT.index)[2]) %in% items]
+      DT.index <- DT.index[get(setdiff(colnames(DT.index), "Block")[1]) %in% items]
     }
     DT.index <- DT.index[complete.cases(DT.index)]
     if (nrow(DT.index) == 0) return(NULL)
@@ -118,58 +118,116 @@ setMethod("read_samples", "seaMass", function(object, input, type, items = NULL,
 })
 
 
-#' @include generics.R
+#' @import data.table
 #' @export
-# setMethod("centre_group_quants", "seaMass", function(object, input = "model1") {
-#   cat(paste0("[", Sys.time(), "]    centring normalised group quants...\n"))
-#
-#   ctrl <- control(object)
-#   dir.create(file.path(filepath(object), input, "centred.group.quants"), showWarnings = F)
-#
-#   parallel_lapply(as.list(1:ctrl@model.nchain), function(item, object, ctrl, input) {
-#     DT <- group_quants(object, chain = item, as.data.table = T)[, Block := NULL]
-#
-#     # add in zeros for the baselines
-#     DT <- rbind(DT, unique(DT[, .(Baseline, Assay = Baseline, chain, sample, value = 0), by = Group]))
-#
-#     # need to NA groups/baseline combos where any RefWeight>0 assays are missing
-#     ref.assays <- DT.refweights[RefWeight > 0, Assay]
-#     DT[, complete := all(ref.assays %in% Assay), by = .(Group, Baseline)]
-#     DT[complete == F, value := NA]
-#     DT[, complete := NULL]
-#
-#     # now standardise using RefWeighted mean of assays as denominator
-#     DT <- merge(DT, DT.refweights[, .(Assay, RefWeight)], by = "Assay", sort = F)
-#     DT[, value := value - {
-#       x <- weighted.mean(value, RefWeight)
-#       ifelse(is.na(x), 0, x)
-#     }, by = .(Group, Baseline, chain, sample)]
-#     DT <- DT[!is.nan(value)]
-#
-#     DT[, Baseline := NULL]
-#     DT[, RefWeight := NULL]
-#     setcolorder(DT, c("Group", "Assay"))
-#
-#     # write
-#     setorder(DT, Group, Assay)
-#     if (item == 1) fst::write.fst(DT[, .(file = file.path("standardised.group.deviations", "1.fst"), from = min(.I), to = max(.I)), by = .(Group, Assay)], file.path(filepath(object), input, "standardised.group.deviations.index.fst"))
-#     DT[, Group := as.integer(Group)]
-#     DT[, Assay := as.integer(Assay)]
-#     fst::write.fst(DT, file.path(filepath(object), input, "standardised.group.deviations", paste0(item, ".fst")))
-#
-#     return(NULL)
-#   }, nthread = 1) # this doesn't take long so lets avoid a spike in memory usage
-#
-#   return(invisible(object))
-# })
-# if (centre) {
-#   DT.summary <- read_samples(object, input, type, variables, as.data.table = T)
-#   DT.summary[, value := value - mean(value), by = .(Group, chain, sample)]
-#   summary.cols <- colnames(DT.summary)[1:(which(colnames(DT.summary) == "chain") - 1)]
-#   DT.summary <- DT.summary[, dist_samples_robust_normal(chain, sample, value), by = summary.cols]
+#' @include generics.R
+setMethod("plot_samples", "seaMass", function(object, input, type, items = NULL, sort.cols = NULL, label.cols = NULL, value.label = "value", horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5, transform.func = NULL) {
+  # read samples
+  DT <- read_samples(object, input, type, items, as.data.table = T)
+  if (is.null(DT) || nrow(DT) == 0) {
+    if (!is.null(file)) ggplot2::ggsave(file, NULL, width = 10, height = 10)
+    g <- NULL
+  } else {
+    if (!is.null(transform.func)) DT$value <- transform.func(DT$value)
+    summary.cols <- colnames(DT)[1:(which(colnames(DT) == "chain") - 1)]
+    if (is.null(label.cols)) label.cols <- summary.cols
+
+    # metadata for each column level
+    DT1 <- DT[, (as.list(quantile(value, probs = c(0.025, 0.17, 0.5, 0.83, 0.975), na.rm = T))), by = summary.cols]
+    colnames(DT1)[(ncol(DT1) - 4):ncol(DT1)] <- c("q025", "q17", "value", "q83", "q975")
+    if ("Group" %in% summary.cols) DT1 <- merge(DT1, groups(object, as.data.table = T), sort = F, by = "Group", suffixes = c("", ".G"))
+    if ("Group" %in% summary.cols && "Component" %in% summary.cols) DT1 <- merge(DT1, components(object, as.data.table = T), sort = F, by = c("Group", "Component"), suffixes = c("", ".C"))
+    if ("Group" %in% summary.cols && "Component" %in% summary.cols && "Measurement" %in% summary.cols) DT1 <- merge(DT1, measurements(object, as.data.table = T), sort = F, by = c("Group", "Component", "Measurement"), suffixes = c("", ".M"))
+    if ("Block" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_design(object, as.data.table = T), sort = F, by = c("Block", "Assay"), suffixes = c("", ".AD"))
+    if ("Group" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_groups(object, as.data.table = T), sort = F, by = c("Group", "Assay"), suffixes = c("", ".AG"))
+    if ("Group" %in% summary.cols && "Component" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_components(object, as.data.table = T), sort = F, by = c("Group", "Component", "Assay"), suffixes = c("", ".AC"))
+    if (!is.null(colour) && (!(colour %in% colnames(DT1)) || all(is.na(DT1[, get(colour)])))) colour <- NULL
+    if (!is.null(fill) && (!(fill %in% colnames(DT1)) || all(is.na(DT1[, get(fill)])))) fill <- NULL
+
+    # sort order
+    if (!is.null(sort.cols)) setorderv(DT1, sort.cols, na.last = T)
+    DT1[, Element := Reduce(function(...) paste(..., sep = " : "), .SD[, mget(label.cols)])]
+    if (horizontal) {
+      DT1[, Element := factor(Element, levels = rev(unique(Element)))]
+    } else {
+      DT1[, Element := factor(Element, levels = unique(Element))]
+    }
+    DT1[, min := as.numeric(Element) - 0.5]
+    DT1[, max := as.numeric(Element) + 0.5]
+
+    # truncate densities to 95%
+    DT <- merge(DT, DT1[, unique(c("Element", summary.cols, colour, fill, "q025", "q975")), with = F], by = summary.cols)
+    DT <- DT[value > q025 & value < q975]
+    DT[, q025 := NULL]
+    DT[, q975 := NULL]
+
+    # plot!
+    if (horizontal) {
+      g <- ggplot2::ggplot(DT, ggplot2::aes(x = value, y = Element))
+      g <- g + ggplot2::geom_vline(xintercept = 0, colour = "grey")
+      if (is.null(colour)) {
+        g <- g + ggdist::stat_slab(side = "both", size = 0.25, colour = "black")
+      } else {
+        g <- g + ggdist::stat_slab(ggplot2::aes_string(colour = colour), side = "both", size = 0.25)
+      }
+      g <- g + ggdist::geom_pointinterval(ggplot2::aes_string(x = "value", xmin = "q17", xmax = "q83", colour = colour), DT1, interval_size = 2, point_size = 1)
+      g <- g + ggplot2::guides(colour = colour.guide, fill = fill.guide)
+      if (!is.null(fill)) g <- g + ggplot2::geom_rect(ggplot2::aes_string(ymin = "min", ymax = "max", fill = fill), DT1, xmin = -Inf, xmax = Inf, alpha = 0.2, colour = NA)
+      g <- g + ggplot2::xlab(paste("log2", value.label))
+      g <- g + ggplot2::coord_cartesian(xlim = c(min(DT1$q025), max(DT1$q975)))
+      g <- g + ggplot2::theme(legend.position = "top", axis.title.y = ggplot2::element_blank())
+      if (!is.null(file)) {
+        gt <- egg::set_panel_size(g, width = grid::unit(value.length, "mm"), height = grid::unit(level.length * nlevels(DT1$Element), "mm"))
+        ggplot2::ggsave(file, gt, width = 10 + sum(as.numeric(grid::convertUnit(gt$widths, "mm"))), height = 10 + sum(as.numeric(grid::convertUnit(gt$heights, "mm"))), units = "mm", limitsize = F)
+      }
+    } else {
+      g <- ggplot2::ggplot(DT, ggplot2::aes(x = Element, y = value))
+      g <- g + ggplot2::geom_hline(yintercept = 0, colour = "grey")
+      if (is.null(colour)) {
+        g <- g + ggdist::stat_slab(side = "both", size = 0.25, colour = "black")
+      } else {
+        g <- g + ggdist::stat_slab(ggplot2::aes_string(colour = colour), side = "both", size = 0.25)
+      }
+      g <- g + ggdist::geom_pointinterval(ggplot2::aes_string(y = "value", ymin = "q17", ymax = "q83", colour = colour), DT1, interval_size = 2, point_size = 1)
+      g <- g + ggplot2::guides(colour = colour.guide, fill = fill.guide)
+      if (!is.null(fill)) g <- g + ggplot2::geom_rect(ggplot2::aes_string(xmin = "min", xmax = "max", fill = fill), DT1, ymin = -Inf, ymax = Inf, alpha = 0.2, colour = NA)
+      g <- g + ggplot2::ylab(paste("log2", value.label))
+      g <- g + ggplot2::coord_cartesian(ylim = c(min(DT1$q025), max(DT1$q975)))
+      g <- g + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "left", axis.title.x = ggplot2::element_blank())
+      if (!is.null(file)) {
+        gt <- egg::set_panel_size(g, height = grid::unit(value.length, "mm"), width = grid::unit(level.length * nlevels(DT1$Element), "mm"))
+        ggplot2::ggsave(file, gt, width = 10 + sum(as.numeric(grid::convertUnit(gt$widths, "mm"))), height = 10 + sum(as.numeric(grid::convertUnit(gt$heights, "mm"))), units = "mm", limitsize = F)
+      }
+    }
+  }
+
+  return(g)
+})
+
+
+# ensure all items in plot for all blocks
+# if (is.null(items)) items <- unique(DT$Element)
+# if (block.drop || uniqueN(DT$Block) == 1) {
+#   DT <- merge(data.table(Element = factor(items, levels = items)), DT, all.x = T, sort = F, by = "Element")
 # } else {
+#   if (block.sort) {
+#     DT <- merge(CJ(Block = levels(DT$Block), Element = factor(items, levels = items)), DT, all.x = T, sort = F, by = c("Block", "Element"))
+#   } else {
+#     DT <- merge(CJ(Element = factor(items, levels = items), Block = levels(DT$Block)), DT, all.x = T, sort = F, by = c("Block", "Element"))
+#   }
+# }
+# DT[, Element := paste0(Element, " [", Block, "]")]
+# if (horizontal) {
+#   DT[, Element := factor(Element, levels = rev(unique(Element)))]
+# } else {
+#   DT[, Element := factor(Element, levels = unique(Element))]
+# }
 
-
+# metadata for each column level
+# DT1 <- DT[, (as.list(quantile(value, probs = c(0.025, 0.5, 0.975), na.rm = T))), by = Element]
+# DT1[, min := as.numeric(Element) - 0.5]
+# DT1[, max := as.numeric(Element) + 0.5]
+# DT1 <- merge(DT1, DT[, .SD[1], by = Element], by = "Element")
 
 
 #' @import data.table
@@ -177,5 +235,6 @@ setMethod("read_samples", "seaMass", function(object, input, type, items = NULL,
 #' @include generics.R
 setMethod("finish", "seaMass", function(object) {
   # reserved for future use
+  cat(paste0("[", Sys.time(), "] seaMass finished!\n"))
   return(invisible(NULL))
 })

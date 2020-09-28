@@ -152,12 +152,12 @@ setMethod("timings", "sigma_block", function(object, input = "model1", as.data.t
 })
 
 
-#' @describeIn sigma_block Get the model assay exposures as a \link{data.frame}.
+#' @describeIn sigma_block Get the model assay means as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("assay_exposures", "sigma_block", function(object, assays = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- read_samples(object, input, "assay.exposures", assays, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
+setMethod("assay_means", "sigma_block", function(object, assays = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- read_samples(object, input, "assay.means", assays, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -200,12 +200,12 @@ setMethod("assay_deviations", "sigma_block", function(object, assays = NULL, sum
 })
 
 
-#' @describeIn sigma_block Get the model measurement exposures as a \link{data.frame}.
+#' @describeIn sigma_block Get the model measurement means as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("measurement_exposures", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- read_samples(object, input, "measurement.exposures", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
+setMethod("measurement_means", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- read_samples(object, input, "measurement.means", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -226,12 +226,12 @@ setMethod("measurement_variances", "sigma_block", function(object, groups = NULL
 })
 
 
-#' @describeIn sigma_block Get the model component exposures as a \link{data.frame}.
+#' @describeIn sigma_block Get the model component means as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_exposures", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- read_samples(object, input, "component.exposures", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
+setMethod("component_means", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- read_samples(object, input, "component.means", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -278,12 +278,12 @@ setMethod("group_quants", "sigma_block", function(object, groups = NULL, summary
 })
 
 
-#' @describeIn seaMass_delta-class Get the model group exposures as a \link{data.frame}.
+#' @describeIn seaMass_delta-class Get the model group means as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("group_exposures", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- read_samples(object, input, "group.exposures", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
+setMethod("group_means", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- read_samples(object, input, "group.means", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -329,3 +329,90 @@ setMethod("standardised_group_deviations", "sigma_block", function(object, group
   return(DT)
 })
 
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_assay_means", "sigma_block", function(object, assays = NULL, sort.cols = NULL, label.cols = c("Sample", "Assay"), horizontal = TRUE, colour = "Assay.SD", colour.guide = ggplot2::guide_colorbar(barwidth = unit(50, "mm")), fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "assay.means", assays, sort.cols, label.cols, "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_group_means", "sigma_block", function(object, groups = NULL, sort.cols = NULL, label.cols = c("Group", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "group.means", groups, sort.cols, label.cols, "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_group_quants", "sigma_block", function(object, group, label.cols = c("Sample", "Assay"), sort.cols = NULL, horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "group.quants", group, sort.cols, label.cols, "quant", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_normalised_group_quants", "sigma_block", function(object, group, label.cols = c("Sample", "Assay"), sort.cols = NULL, horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "normalised.group.quants", group, sort.cols, label.cols, "quant", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_normalised_group_stdevs", "sigma_block", function(object, groups = NULL, sort.cols = NULL, label.cols = c("Group", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "normalised.group.variances", groups, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, sqrt))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_standardised_group_deviations", "sigma_block", function(object, group, label.cols = c("Sample", "Assay"), sort.cols = NULL, horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "standardised.group.deviations", group, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_component_deviations", "sigma_block", function(object, group, label.cols = c("Component", "Sample", "Assay"), sort.cols = "Component", horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "component.deviations", group, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_component_means", "sigma_block", function(object, group, sort.cols = NULL, label.cols = c("Component", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "component.means", group, sort.cols, label.cols, "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_component_stdevs", "sigma_block", function(object, group, sort.cols = NULL, label.cols = c("Component", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "component.variances", group, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, sqrt))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_measurement_means", "sigma_block", function(object, group, sort.cols = NULL, label.cols = c("Component", "Measurement", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "measurement.means", group, sort.cols, label.cols, "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_measurement_stdevs", "sigma_block", function(object, group, sort.cols = NULL, label.cols = c("Component", "Measurement", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "measurement.variances", group, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, sqrt))
+})

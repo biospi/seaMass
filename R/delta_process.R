@@ -31,11 +31,16 @@ setMethod("process", "seaMass_delta", function(object, chain) {
         ellipsis$object <- object
         do.call(paste("fdr", ctrl@fdr.model, sep = "_"), ellipsis)
       } else {
-        cat(paste0("[", Sys.time(), "]    getting standardised group quants differential expression...\n"))
-        standardised_group_deviations(object, summary = T, as.data.table = T)
+        cat(paste0("[", Sys.time(), "]    getting standardised group deviations differential expression...\n"))
+        standardised_group_deviations_de(object, summary = T, as.data.table = T)
       }
     }
-    if (!("standardised.group.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "standardised.group.deviations*"), recursive = T)
+
+    if ("de.standardised.group.deviations" %in% ctrl@plot) {
+      cat(paste0("[", Sys.time(), "]    plotting standardised group deviations differential expression...\n"))
+      plot_de_standardised_group_deviations(object, file = file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_de_standardised_group_deviations.pdf")))
+    }
+    if (!("de.standardised.group.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "standardised.group.deviations*"), recursive = T)
 
     # write out group fdr
     if (file.exists(file.path(filepath(object), "fdr.standardised.group.deviations.fst"))) {
@@ -43,16 +48,16 @@ setMethod("process", "seaMass_delta", function(object, chain) {
       DTs.fdr <- split(DTs.fdr, drop = T, by = "Batch")
       for (name in names(DTs.fdr)) {
         # save
-        fwrite(DTs.fdr[[name]], file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_standardised_group_deviations_fdr.", gsub("\\.", "_", name), ".csv")))
+        fwrite(DTs.fdr[[name]], file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_fdr_standardised_group_deviations.", gsub("\\.", "_", name), ".csv")))
         # plot fdr
         plot_fdr(DTs.fdr[[name]])
-        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_standardised_group_deviations_fdr.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
+        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_fdr_standardised_group_deviations.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
         # plot volcano
         plot_volcano(DTs.fdr[[name]])
-        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_standardised_group_deviations_fdr_volcano.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
+        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_fdr_standardised_group_deviations_volcano.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
         # plot fc
         plot_volcano(DTs.fdr[[name]], stdev.col = "s", x.col = "m", y.col = "s")
-        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_standardised_group_deviations_fdr_fc.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
+        ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_fdr_standardised_group_deviations_fc.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
       }
     }
 
@@ -69,23 +74,31 @@ setMethod("process", "seaMass_delta", function(object, chain) {
           component_deviations_de(object, summary = T, as.data.table = T)
         }
       }
-      if (!("component.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "component.deviations*"), recursive = T)
+
+      if ("de.component.deviations" %in% ctrl@plots) {
+        cat(paste0("[", Sys.time(), "]    plotting component deviations differential expression...\n"))
+        parallel_lapply(groups(object, as.data.table = T)[, Group], function(item, object) {
+          item <- substr(item, 0, 60)
+          plot_de_component_deviations(object, item, file = file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_de_component_deviations", paste0(item, ".pdf")))
+        }, nthread = ctrl@nthread)
+      }
+      if (!("de.component.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "component.deviations*"), recursive = T)
 
       # write out group fdr
       if (file.exists(file.path(filepath(object), "fdr.component.deviations.fst"))) {
-        DTs.fdr <- split(component_deviations_fdr(object, as.data.table = T), drop = T, by = "Batch")
+        DTs.fdr <- split(fdr_component_deviations(object, as.data.table = T), drop = T, by = "Batch")
         for (name in names(DTs.fdr)) {
           # save
-          fwrite(DTs.fdr[[name]], file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_component_deviations_fdr.", gsub("\\.", "_", name), ".csv")))
+          fwrite(DTs.fdr[[name]], file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_fdr_component_deviations.", gsub("\\.", "_", name), ".csv")))
           # plot fdr
           plot_fdr(DTs.fdr[[name]])
-          ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_component_deviations_fdr.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
+          ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_fdr_component_deviations.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
           # plot volcano
           plot_volcano(DTs.fdr[[name]])
-          ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_component_deviations_fdr_volcano.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
+          ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_fdr_component_deviations_volcano.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
           # plot fc
           plot_volcano(DTs.fdr[[name]], stdev.col = "s", x.col = "m", y.col = "s")
-          ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_component_deviations_fdr_fc.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
+          ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_fdr_component_deviations_fc.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
         }
       }
     }

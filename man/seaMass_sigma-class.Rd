@@ -20,16 +20,16 @@
 \alias{open_deltas,seaMass_sigma-method}
 \alias{assay_design,seaMass_sigma-method}
 \alias{timings,seaMass_sigma-method}
-\alias{assay_exposures,seaMass_sigma-method}
+\alias{assay_means,seaMass_sigma-method}
 \alias{assay_variances,seaMass_sigma-method}
 \alias{assay_deviations,seaMass_sigma-method}
-\alias{measurement_exposures,seaMass_sigma-method}
+\alias{measurement_means,seaMass_sigma-method}
 \alias{measurement_variances,seaMass_sigma-method}
-\alias{component_exposures,seaMass_sigma-method}
+\alias{component_means,seaMass_sigma-method}
 \alias{component_variances,seaMass_sigma-method}
 \alias{component_deviations,seaMass_sigma-method}
 \alias{group_quants,seaMass_sigma-method}
-\alias{group_exposures,seaMass_sigma-method}
+\alias{group_means,seaMass_sigma-method}
 \alias{normalised_group_variances,seaMass_sigma-method}
 \alias{normalised_group_quants,seaMass_sigma-method}
 \alias{standardised_group_deviations,seaMass_sigma-method}
@@ -77,7 +77,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 
 \S4method{timings}{seaMass_sigma}(object, input = "model1", as.data.table = FALSE)
 
-\S4method{assay_exposures}{seaMass_sigma}(
+\S4method{assay_means}{seaMass_sigma}(
   object,
   assays = NULL,
   summary = FALSE,
@@ -97,7 +97,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
   as.data.table = FALSE
 )
 
-\S4method{measurement_exposures}{seaMass_sigma}(
+\S4method{measurement_means}{seaMass_sigma}(
   object,
   measurements = NULL,
   summary = FALSE,
@@ -115,7 +115,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
   as.data.table = FALSE
 )
 
-\S4method{component_exposures}{seaMass_sigma}(
+\S4method{component_means}{seaMass_sigma}(
   object,
   components = NULL,
   summary = FALSE,
@@ -151,7 +151,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
   as.data.table = FALSE
 )
 
-\S4method{group_exposures}{seaMass_sigma}(
+\S4method{group_means}{seaMass_sigma}(
   object,
   groups = NULL,
   summary = FALSE,
@@ -245,17 +245,17 @@ Fits the seaMass-Σ Bayesian group-level quantification model to imported data.
 
 \item \code{timings,seaMass_sigma-method}: Get the model timings as a \link{data.frame}.
 
-\item \code{assay_exposures,seaMass_sigma-method}: Get the model assay exposures as a \link{data.frame}.
+\item \code{assay_means,seaMass_sigma-method}: Get the model assay means as a \link{data.frame}.
 
 \item \code{assay_variances,seaMass_sigma-method}: Get the model assay variances as a \link{data.frame}.
 
 \item \code{assay_deviations,seaMass_sigma-method}: Get the model assay deviations as a \link{data.frame}.
 
-\item \code{measurement_exposures,seaMass_sigma-method}: Get the model measurement exposures as a \link{data.frame}.
+\item \code{measurement_means,seaMass_sigma-method}: Get the model measurement means as a \link{data.frame}.
 
 \item \code{measurement_variances,seaMass_sigma-method}: Get the model measurement variances as a \link{data.frame}.
 
-\item \code{component_exposures,seaMass_sigma-method}: Get the model component exposures as a \link{data.frame}.
+\item \code{component_means,seaMass_sigma-method}: Get the model component means as a \link{data.frame}.
 
 \item \code{component_variances,seaMass_sigma-method}: Get the model component variances as a \link{data.frame}.
 
@@ -263,7 +263,7 @@ Fits the seaMass-Σ Bayesian group-level quantification model to imported data.
 
 \item \code{group_quants,seaMass_sigma-method}: Get the model group quantifications as a \link{data.frame}.
 
-\item \code{group_exposures,seaMass_sigma-method}: Get the model group exposures as a \link{data.frame}.
+\item \code{group_means,seaMass_sigma-method}: Get the model group means as a \link{data.frame}.
 
 \item \code{normalised_group_variances,seaMass_sigma-method}: Get the model normalised group variances as a \link{data.frame}.
 

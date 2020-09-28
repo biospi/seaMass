@@ -185,19 +185,31 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
             # calculate metadata (this is rubbish but works)
             output$DT.meta <- unique(rbind(output$DT.de[, .(Effect, Level = Contrast)], output$DT.de[, .(Effect, Level = Baseline)]))[!is.na(Level)]
             output$DT.meta[, Group := DT[1, Group]]
+
             if ("Component" %in% colnames(DT)) {
               output$DT.meta[, Component := DT[1, Component]]
             } else if ("Group" %in% colnames(DT)) {
               output$DT.meta[, qC := 0]
             }
+
             output$DT.meta[, qM := 0]
             output$DT.meta[, qS := 0]
             output$DT.meta[, uS := 0]
-            for (i in 1:nrow(output$DT.meta)) {
-              if ("qC" %in% colnames(output$DT.meta)) output$DT.meta$qC[i] <- max(0, DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]), qC], na.rm = T)
-              output$DT.meta$qM[i] <- max(0, DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]), qM], na.rm = T)
-              output$DT.meta$qS[i] <- length(unique(DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]) & !is.na(m) & qM > 0, Sample]))
-              output$DT.meta$uS[i] <- length(unique(DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]) & !is.na(m), Sample]))
+
+            if ("Component" %in% colnames(DT)) {
+              for (i in 1:nrow(output$DT.meta)) {
+                if ("qC" %in% colnames(output$DT.meta)) output$DT.meta$qC[i] <- max(0, DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]), qC.AC], na.rm = T)
+                output$DT.meta$qM[i] <- max(0, DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]), qM.AC], na.rm = T)
+                output$DT.meta$qS[i] <- length(unique(DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]) & !is.na(m) & qM.AC > 0, Sample]))
+                output$DT.meta$uS[i] <- length(unique(DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]) & !is.na(m), Sample]))
+              }
+            } else if ("Group" %in% colnames(output$DT.de)) {
+              for (i in 1:nrow(output$DT.meta)) {
+                if ("qC" %in% colnames(output$DT.meta)) output$DT.meta$qC[i] <- max(0, DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]), qC.AG], na.rm = T)
+                output$DT.meta$qM[i] <- max(0, DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]), qM.AG], na.rm = T)
+                output$DT.meta$qS[i] <- length(unique(DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]) & !is.na(m) & qM.AG > 0, Sample]))
+                output$DT.meta$uS[i] <- length(unique(DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]) & !is.na(m), Sample]))
+              }
             }
           }
         }

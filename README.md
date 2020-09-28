@@ -91,7 +91,7 @@ Results and plots of this analysis are added to a new *delta.fit* subdirectory i
 
 ```
 # get protein group FDR results
-data.fdr <- standardised_group_deviations_fdr(fit.delta)
+data.fdr <- fdr_standardised_group_deviations(fit.delta)
 
 # add ground truth and plot precision-recall curve
 data.fdr <- add_seaMass_spikein_truth(data.fdr)
@@ -209,7 +209,7 @@ Since we know the ground truth, lets visualise our performance with a Precision-
 
 ```
 # get protein group FDR results
-data.fdr <- standardised_group_deviations_fdr(fit.delta)
+data.fdr <- fdr_standardised_group_deviations(fit.delta)
 
 # add ground truth and plot precision-recall curve
 data.fdr <- add_seaMass_spikein_truth(data.fdr)

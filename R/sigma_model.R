@@ -24,16 +24,14 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
 
   if (input != "model0") {
     unlink(file.path(filepath(object), input, "*.group.quants.fst"))
-    unlink(file.path(filepath(object), input, "*.group.deviations.fst"))
-    unlink(file.path(filepath(object), input, "*.group.exposures.fst"))
-    unlink(file.path(filepath(object), input, "*.measurement.exposures.fst"))
-    unlink(file.path(filepath(object), input, "*.component.exposures.fst"))
+    unlink(file.path(filepath(object), input, "*.group.means.fst"))
+    unlink(file.path(filepath(object), input, "*.measurement.means.fst"))
+    unlink(file.path(filepath(object), input, "*.component.means.fst"))
     unlink(file.path(filepath(object), input, "*.component.deviations.fst"))
     dir.create(file.path(filepath(object), input, "group.quants"), showWarnings = F)
-    dir.create(file.path(filepath(object), input, "group.deviations"), showWarnings = F)
-    dir.create(file.path(filepath(object), input, "group.exposures"), showWarnings = F)
-    dir.create(file.path(filepath(object), input, "measurement.exposures"), showWarnings = F)
-    dir.create(file.path(filepath(object), input, "component.exposures"), showWarnings = F)
+    dir.create(file.path(filepath(object), input, "group.means"), showWarnings = F)
+    dir.create(file.path(filepath(object), input, "measurement.means"), showWarnings = F)
+    dir.create(file.path(filepath(object), input, "component.means"), showWarnings = F)
     dir.create(file.path(filepath(object), input, "component.deviations"), showWarnings = F)
   }
 
@@ -226,83 +224,83 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     }
 
     ### EXTRACT GROUP DEVIATIONS
-    if (input == "model1" && ("group.quants" %in% ctrl@summarise || "group.quants" %in% ctrl@keep)) {
-      output$DT.group.deviations <- as.data.table(fit.model$Sol[, grep("^Assay[0-9]+$", colnames(fit.model$Sol)), drop = F])
-      output$DT.group.deviations[, sample := 1:nrow(output$DT.group.deviations)]
-      output$DT.group.deviations <- melt(output$DT.group.deviations, variable.name = "Assay", id.vars = "sample")
-      output$DT.group.deviations[, Group := group]
-      output$DT.group.deviations[, Assay := as.integer(sub("^Assay([0-9]+)$", "\\1", Assay))]
-      output$DT.group.deviations[, chain := chain]
-      output$DT.group.deviations[, value := value / log(2)]
-      setcolorder(output$DT.group.deviations, c("Group", "Assay", "chain", "sample"))
-    }
+    # if (input == "model1" && ("group.quants" %in% ctrl@summarise || "group.quants" %in% ctrl@keep)) {
+    #   output$DT.group.deviations <- as.data.table(fit.model$Sol[, grep("^Assay[0-9]+$", colnames(fit.model$Sol)), drop = F])
+    #   output$DT.group.deviations[, sample := 1:nrow(output$DT.group.deviations)]
+    #   output$DT.group.deviations <- melt(output$DT.group.deviations, variable.name = "Assay", id.vars = "sample")
+    #   output$DT.group.deviations[, Group := group]
+    #   output$DT.group.deviations[, Assay := as.integer(sub("^Assay([0-9]+)$", "\\1", Assay))]
+    #   output$DT.group.deviations[, chain := chain]
+    #   output$DT.group.deviations[, value := value / log(2)]
+    #   setcolorder(output$DT.group.deviations, c("Group", "Assay", "chain", "sample"))
+    # }
 
     ### EXTRACT GROUP EXPOSURE
-    if (input != "model0" && ("group.exposures" %in% ctrl@summarise || "group.exposures" %in% ctrl@keep)) {
-      output$DT.group.exposures <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
-      colnames(output$DT.group.exposures) <- "value"
-      output$DT.group.exposures[, sample := 1:nrow(output$DT.group.exposures)]
-      output$DT.group.exposures[, chain := chain]
-      output$DT.group.exposures[, value := value / log(2)]
-      output$DT.group.exposures[, Group := group]
-      setcolorder(output$DT.group.exposures, c("Group", "chain", "sample"))
+    if (input != "model0" && ("group.means" %in% ctrl@summarise || "group.means" %in% ctrl@keep)) {
+      output$DT.group.means <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
+      colnames(output$DT.group.means) <- "value"
+      output$DT.group.means[, sample := 1:nrow(output$DT.group.means)]
+      output$DT.group.means[, chain := chain]
+      output$DT.group.means[, value := value / log(2)]
+      output$DT.group.means[, Group := group]
+      setcolorder(output$DT.group.means, c("Group", "chain", "sample"))
     }
 
-    ### EXTRACT MEASUREMENT exposures
-    if (input != "model0" && ("measurement.exposures" %in% ctrl@summarise || "measurement.exposures" %in% ctrl@keep)) {
+    ### EXTRACT MEASUREMENT means
+    if (input != "model0" && ("measurement.means" %in% ctrl@summarise || "measurement.means" %in% ctrl@keep)) {
       if (nM == 1) {
         if (nA == 1) {
-          output$DT.measurement.exposures <- as.data.table(fit.model$Sol[, 1, drop = F])
+          output$DT.measurement.means <- as.data.table(fit.model$Sol[, 1, drop = F])
         } else {
-          output$DT.measurement.exposures <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
+          output$DT.measurement.means <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
         }
-        colnames(output$DT.measurement.exposures) <- "value"
-        output$DT.measurement.exposures[, Component := as.integer(sub("^Measurement (.+)\\..+$", "\\1", as.character(DT[1, Measurement])))]
-        output$DT.measurement.exposures[, Measurement := as.integer(DT[1, Measurement])]
-        output$DT.measurement.exposures[, sample := 1:nrow(output$DT.measurement.exposures)]
+        colnames(output$DT.measurement.means) <- "value"
+        output$DT.measurement.means[, Component := as.integer(sub("^Measurement (.+)\\..+$", "\\1", as.character(DT[1, Measurement])))]
+        output$DT.measurement.means[, Measurement := as.integer(DT[1, Measurement])]
+        output$DT.measurement.means[, sample := 1:nrow(output$DT.measurement.means)]
       } else {
-        output$DT.measurement.exposures <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "Measurement")))
-        output$DT.measurement.exposures[, sample := 1:nrow(output$DT.measurement.exposures)]
-        output$DT.measurement.exposures <- melt(output$DT.measurement.exposures, variable.name = "Measurement", id.vars = "sample")
-        output$DT.measurement.exposures[, Component := as.integer(sub("^Measurement (.+)\\..+$", "\\1", Measurement))]
-        output$DT.measurement.exposures[, Measurement := as.integer(sub("^Measurement .+\\.(.+)$", "\\1", Measurement))]
+        output$DT.measurement.means <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "Measurement")))
+        output$DT.measurement.means[, sample := 1:nrow(output$DT.measurement.means)]
+        output$DT.measurement.means <- melt(output$DT.measurement.means, variable.name = "Measurement", id.vars = "sample")
+        output$DT.measurement.means[, Component := as.integer(sub("^Measurement (.+)\\..+$", "\\1", Measurement))]
+        output$DT.measurement.means[, Measurement := as.integer(sub("^Measurement .+\\.(.+)$", "\\1", Measurement))]
       }
-      output$DT.measurement.exposures[, chain := chain]
-      output$DT.measurement.exposures[, value := value / log(2)]
-      output$DT.measurement.exposures[, Group := group]
-      setcolorder(output$DT.measurement.exposures, c("Group", "Component", "Measurement", "chain", "sample"))
+      output$DT.measurement.means[, chain := chain]
+      output$DT.measurement.means[, value := value / log(2)]
+      output$DT.measurement.means[, Group := group]
+      setcolorder(output$DT.measurement.means, c("Group", "Component", "Measurement", "chain", "sample"))
     }
 
-    ### EXTRACT COMPONENT exposures
-    if (input != "model0" && ("component.exposures" %in% ctrl@summarise || "component.exposures" %in% ctrl@keep)) {
+    ### EXTRACT COMPONENT means
+    if (input != "model0" && ("component.means" %in% ctrl@summarise || "component.means" %in% ctrl@keep)) {
       if (nM == 1) {
         if (nA == 1) {
-          output$DT.component.exposures <- as.data.table(fit.model$Sol[, 1, drop = F])
+          output$DT.component.means <- as.data.table(fit.model$Sol[, 1, drop = F])
         } else {
-          output$DT.component.exposures <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
+          output$DT.component.means <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
         }
-        colnames(output$DT.component.exposures) <- "value"
-        output$DT.component.exposures[, Component := as.integer(sub("^Measurement (.+)\\..+$", "\\1", as.character(DT[1, Measurement])))]
-        output$DT.component.exposures[, sample := 1:nrow(output$DT.component.exposures)]
-        output$DT.component.exposures[, chain := chain]
-        output$DT.component.exposures[, value := value / log(2)]
-        output$DT.component.exposures[, Group := group]
-        setcolorder(output$DT.component.exposures, c("Group", "Component", "chain", "sample"))
+        colnames(output$DT.component.means) <- "value"
+        output$DT.component.means[, Component := as.integer(sub("^Measurement (.+)\\..+$", "\\1", as.character(DT[1, Measurement])))]
+        output$DT.component.means[, sample := 1:nrow(output$DT.component.means)]
+        output$DT.component.means[, chain := chain]
+        output$DT.component.means[, value := value / log(2)]
+        output$DT.component.means[, Group := group]
+        setcolorder(output$DT.component.means, c("Group", "Component", "chain", "sample"))
       } else {
         # do each level separately otherwise huge memory problem
         newlevs <- sub("\\..+$", "", levels(DT$Measurement))
-        output$DT.component.exposures <- as.data.table(sapply(levels(DT$Component), function (l) {
+        output$DT.component.means <- as.data.table(sapply(levels(DT$Component), function (l) {
           frg2 <- emmeans::add_grouping(frg, "Component", "Measurement", ifelse(newlevs == l, newlevs, NA))
           return(coda::as.mcmc(emmeans::emmeans(frg2, "Component")))
         }))
-        output$DT.component.exposures[, sample := 1:nrow(output$DT.component.exposures)]
-        output$DT.component.exposures <- melt(output$DT.component.exposures, variable.name = "Component", id.vars = "sample")
-        output$DT.component.exposures[, Component := as.integer(as.character(Component))]
+        output$DT.component.means[, sample := 1:nrow(output$DT.component.means)]
+        output$DT.component.means <- melt(output$DT.component.means, variable.name = "Component", id.vars = "sample")
+        output$DT.component.means[, Component := as.integer(as.character(Component))]
       }
-      output$DT.component.exposures[, chain := chain]
-      output$DT.component.exposures[, value := value / log(2)]
-      output$DT.component.exposures[, Group := group]
-      setcolorder(output$DT.component.exposures, c("Group", "Component", "chain", "sample"))
+      output$DT.component.means[, chain := chain]
+      output$DT.component.means[, value := value / log(2)]
+      output$DT.component.means[, Group := group]
+      setcolorder(output$DT.component.means, c("Group", "Component", "chain", "sample"))
     }
 
 
@@ -442,96 +440,96 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       if (chain == 1) output$DT.index.group.quants <- data.table()
     }
 
-    # if large enough write out group deviations now to conserve memory, otherwise don't to conserve disk space
-    if (object.size(output$DT.group.deviations) > 2^18) {
-      filename <- file.path("group.deviations", paste0(chain, ".", group, ".fst"))
-      fst::write.fst(output$DT.group.deviations, file.path(filepath(object), input, filename))
+    # # if large enough write out group deviations now to conserve memory, otherwise don't to conserve disk space
+    # if (object.size(output$DT.group.deviations) > 2^18) {
+    #   filename <- file.path("group.deviations", paste0(chain, ".", group, ".fst"))
+    #   fst::write.fst(output$DT.group.deviations, file.path(filepath(object), input, filename))
+    #
+    #   if (chain == 1) {
+    #     # construct index
+    #     output$DT.index.group.deviations <- output$DT.group.deviations[, .(
+    #       from = .I[!duplicated(output$DT.group.deviations, by = c("Group", "Assay"))],
+    #       to = .I[!duplicated(output$DT.group.deviations, fromLast = T, by = c("Group", "Assay"))]
+    #     )]
+    #     output$DT.index.group.deviations <- cbind(
+    #       output$DT.group.deviations[output$DT.index.group.deviations$from, .(Group, Assay)],
+    #       data.table(file = factor(filename)),
+    #       output$DT.index.group.deviations
+    #     )
+    #   }
+    #
+    #   output$DT.group.deviations <- data.table()
+    # } else {
+    #   if (chain == 1) output$DT.index.group.deviations <- data.table()
+    # }
+
+    # if large enough write out measurement means now to conserve memory, otherwise don't to conserve disk space
+    if (object.size(output$DT.measurement.means) > 2^18) {
+      filename <- file.path("measurement.means", paste0(chain, ".", group, ".fst"))
+      fst::write.fst(output$DT.measurement.means, file.path(filepath(object), input, filename))
 
       if (chain == 1) {
         # construct index
-        output$DT.index.group.deviations <- output$DT.group.deviations[, .(
-          from = .I[!duplicated(output$DT.group.deviations, by = c("Group", "Assay"))],
-          to = .I[!duplicated(output$DT.group.deviations, fromLast = T, by = c("Group", "Assay"))]
+        output$DT.index.measurement.means <- output$DT.measurement.means[, .(
+          from = .I[!duplicated(output$DT.measurement.means, by = c("Group", "Component", "Measurement"))],
+          to = .I[!duplicated(output$DT.measurement.means, fromLast = T, by = c("Group", "Component", "Measurement"))]
         )]
-        output$DT.index.group.deviations <- cbind(
-          output$DT.group.deviations[output$DT.index.group.deviations$from, .(Group, Assay)],
+        output$DT.index.measurement.means <- cbind(
+          output$DT.measurement.means[output$DT.index.measurement.means$from, .(Group, Component, Measurement)],
           data.table(file = factor(filename)),
-          output$DT.index.group.deviations
+          output$DT.index.measurement.means
         )
       }
 
-      output$DT.group.deviations <- data.table()
+      output$DT.measurement.means <- data.table()
     } else {
-      if (chain == 1) output$DT.index.group.deviations <- data.table()
+      if (chain == 1) output$DT.index.measurement.means <- data.table()
     }
 
-    # if large enough write out measurement exposures now to conserve memory, otherwise don't to conserve disk space
-    if (object.size(output$DT.measurement.exposures) > 2^18) {
-      filename <- file.path("measurement.exposures", paste0(chain, ".", group, ".fst"))
-      fst::write.fst(output$DT.measurement.exposures, file.path(filepath(object), input, filename))
+    # if large enough write out component means now to conserve memory, otherwise don't to conserve disk space
+    if (object.size(output$DT.component.means) > 2^18) {
+      filename <- file.path("component.means", paste0(chain, ".", group, ".fst"))
+      fst::write.fst(output$DT.component.means, file.path(filepath(object), input, filename))
 
       if (chain == 1) {
         # construct index
-        output$DT.index.measurement.exposures <- output$DT.measurement.exposures[, .(
-          from = .I[!duplicated(output$DT.measurement.exposures, by = c("Group", "Component", "Measurement"))],
-          to = .I[!duplicated(output$DT.measurement.exposures, fromLast = T, by = c("Group", "Component", "Measurement"))]
+        output$DT.index.component.means <- output$DT.component.means[, .(
+          from = .I[!duplicated(output$DT.component.means, by = c("Group", "Component"))],
+          to = .I[!duplicated(output$DT.component.means, fromLast = T, by = c("Group", "Component"))]
         )]
-        output$DT.index.measurement.exposures <- cbind(
-          output$DT.measurement.exposures[output$DT.index.measurement.exposures$from, .(Group, Component, Measurement)],
+        output$DT.index.component.means <- cbind(
+          output$DT.component.means[output$DT.index.component.means$from, .(Group, Component)],
           data.table(file = factor(filename)),
-          output$DT.index.measurement.exposures
+          output$DT.index.component.means
         )
       }
 
-      output$DT.measurement.exposures <- data.table()
+      output$DT.component.means <- data.table()
     } else {
-      if (chain == 1) output$DT.index.measurement.exposures <- data.table()
+      if (chain == 1) output$DT.index.component.means <- data.table()
     }
 
-    # if large enough write out component exposures now to conserve memory, otherwise don't to conserve disk space
-    if (object.size(output$DT.component.exposures) > 2^18) {
-      filename <- file.path("component.exposures", paste0(chain, ".", group, ".fst"))
-      fst::write.fst(output$DT.component.exposures, file.path(filepath(object), input, filename))
+    # if large enough write out group means now to conserve memory, otherwise don't to conserve disk space
+    if (object.size(output$DT.group.means) > 2^18) {
+      filename <- file.path("group.means", paste0(chain, ".", group, ".fst"))
+      fst::write.fst(output$DT.group.means, file.path(filepath(object), input, filename))
 
       if (chain == 1) {
         # construct index
-        output$DT.index.component.exposures <- output$DT.component.exposures[, .(
-          from = .I[!duplicated(output$DT.component.exposures, by = c("Group", "Component"))],
-          to = .I[!duplicated(output$DT.component.exposures, fromLast = T, by = c("Group", "Component"))]
+        output$DT.index.group.means <- output$DT.group.means[, .(
+          from = .I[!duplicated(output$DT.group.means, by = "Group")],
+          to = .I[!duplicated(output$DT.group.means, fromLast = T, by = "Group")]
         )]
-        output$DT.index.component.exposures <- cbind(
-          output$DT.component.exposures[output$DT.index.component.exposures$from, .(Group, Component)],
+        output$DT.index.group.means <- cbind(
+          output$DT.group.means[output$DT.index.group.means$from, .(Group)],
           data.table(file = factor(filename)),
-          output$DT.index.component.exposures
+          output$DT.index.group.means
         )
       }
 
-      output$DT.component.exposures <- data.table()
+      output$DT.group.means <- data.table()
     } else {
-      if (chain == 1) output$DT.index.component.exposures <- data.table()
-    }
-
-    # if large enough write out group exposures now to conserve memory, otherwise don't to conserve disk space
-    if (object.size(output$DT.group.exposures) > 2^18) {
-      filename <- file.path("group.exposures", paste0(chain, ".", group, ".fst"))
-      fst::write.fst(output$DT.group.exposures, file.path(filepath(object), input, filename))
-
-      if (chain == 1) {
-        # construct index
-        output$DT.index.group.exposures <- output$DT.group.exposures[, .(
-          from = .I[!duplicated(output$DT.group.exposures, by = "Group")],
-          to = .I[!duplicated(output$DT.group.exposures, fromLast = T, by = "Group")]
-        )]
-        output$DT.index.group.exposures <- cbind(
-          output$DT.group.exposures[output$DT.index.group.exposures$from, .(Group)],
-          data.table(file = factor(filename)),
-          output$DT.index.group.exposures
-        )
-      }
-
-      output$DT.group.exposures <- data.table()
-    } else {
-      if (chain == 1) output$DT.index.group.exposures <- data.table()
+      if (chain == 1) output$DT.index.group.means <- data.table()
     }
 
     # if large enough write out component deviations now to conserve memory, otherwise don't to conserve disk space
@@ -697,118 +695,118 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
   }
 
   # write out group deviations
-  if ("DT.group.deviations" %in% names(outputs)) {
-    if (nrow(outputs$DT.group.deviations) > 0) {
-      setorder(outputs$DT.group.deviations, Group, Assay, chain, sample)
-      filename <- file.path("group.deviations", paste0(chain, ".fst"))
-      fst::write.fst(outputs$DT.group.deviations, file.path(filepath(object), input, filename))
+  # if ("DT.group.deviations" %in% names(outputs)) {
+  #   if (nrow(outputs$DT.group.deviations) > 0) {
+  #     setorder(outputs$DT.group.deviations, Group, Assay, chain, sample)
+  #     filename <- file.path("group.deviations", paste0(chain, ".fst"))
+  #     fst::write.fst(outputs$DT.group.deviations, file.path(filepath(object), input, filename))
+  #     # finish index construction
+  #     if (chain == 1) {
+  #       DT.index.group.deviations <- outputs$DT.group.deviations[, .(
+  #         from = .I[!duplicated(outputs$DT.group.deviations, by = c("Group", "Assay"))],
+  #         to = .I[!duplicated(outputs$DT.group.deviations, fromLast = T, by = c("Group", "Assay"))]
+  #       )]
+  #       outputs$DT.index.group.deviations <- rbind(outputs$DT.index.group.deviations, cbind(
+  #         outputs$DT.group.deviations[DT.index.group.deviations$from, .(Group, Assay)],
+  #         data.table(file = factor(filename)),
+  #         DT.index.group.deviations
+  #       ))
+  #     }
+  #     outputs$DT.group.deviations <- NULL
+  #   }
+  #   # write index
+  #   if (chain == 1) {
+  #     outputs$DT.index.group.deviations[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
+  #     outputs$DT.index.group.deviations[, Assay := factor(Assay, levels = 1:nlevels(DT.design[, Assay]), labels = levels(DT.design[, Assay]))]
+  #     setkey(outputs$DT.index.group.deviations, Group, file, from)
+  #     fst::write.fst(outputs$DT.index.group.deviations, file.path(filepath(object), input, paste0("group.deviations.index.fst")))
+  #   }
+  # }
+
+  # write out measurement means
+  if ("DT.measurement.means" %in% names(outputs)) {
+    if (nrow(outputs$DT.measurement.means) > 0) {
+      setorder(outputs$DT.measurement.means, Group, Component, Measurement, chain, sample)
+      filename <- file.path("measurement.means", paste0(chain, ".fst"))
+      fst::write.fst(outputs$DT.measurement.means, file.path(filepath(object), input, filename))
       # finish index construction
       if (chain == 1) {
-        DT.index.group.deviations <- outputs$DT.group.deviations[, .(
-          from = .I[!duplicated(outputs$DT.group.deviations, by = c("Group", "Assay"))],
-          to = .I[!duplicated(outputs$DT.group.deviations, fromLast = T, by = c("Group", "Assay"))]
+        DT.index.measurement.means <- outputs$DT.measurement.means[, .(
+          from = .I[!duplicated(outputs$DT.measurement.means, by = c("Group", "Component", "Measurement"))],
+          to = .I[!duplicated(outputs$DT.measurement.means, fromLast = T, by = c("Group", "Component", "Measurement"))]
         )]
-        outputs$DT.index.group.deviations <- rbind(outputs$DT.index.group.deviations, cbind(
-          outputs$DT.group.deviations[DT.index.group.deviations$from, .(Group, Assay)],
+        outputs$DT.index.measurement.means <- rbind(outputs$DT.index.measurement.means, cbind(
+          outputs$DT.measurement.means[DT.index.measurement.means$from, .(Group, Component, Measurement)],
           data.table(file = factor(filename)),
-          DT.index.group.deviations
+          DT.index.measurement.means
         ))
       }
-      outputs$DT.group.deviations <- NULL
+      outputs$DT.measurement.means <- NULL
     }
     # write index
     if (chain == 1) {
-      outputs$DT.index.group.deviations[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
-      outputs$DT.index.group.deviations[, Assay := factor(Assay, levels = 1:nlevels(DT.design[, Assay]), labels = levels(DT.design[, Assay]))]
-      setkey(outputs$DT.index.group.deviations, Group, file, from)
-      fst::write.fst(outputs$DT.index.group.deviations, file.path(filepath(object), input, paste0("group.deviations.index.fst")))
+      outputs$DT.index.measurement.means[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
+      outputs$DT.index.measurement.means[, Component := factor(Component, levels = 1:nlevels(DT.components[, Component]), labels = levels(DT.components[, Component]))]
+      outputs$DT.index.measurement.means[, Measurement := factor(Measurement, levels = 1:nlevels(DT.measurements[, Measurement]), labels = levels(DT.measurements[, Measurement]))]
+      setkey(outputs$DT.index.measurement.means, Group, file, from)
+      fst::write.fst(outputs$DT.index.measurement.means, file.path(filepath(object), input, paste0("measurement.means.index.fst")))
     }
   }
 
-  # write out measurement exposures
-  if ("DT.measurement.exposures" %in% names(outputs)) {
-    if (nrow(outputs$DT.measurement.exposures) > 0) {
-      setorder(outputs$DT.measurement.exposures, Group, Component, Measurement, chain, sample)
-      filename <- file.path("measurement.exposures", paste0(chain, ".fst"))
-      fst::write.fst(outputs$DT.measurement.exposures, file.path(filepath(object), input, filename))
+  # write out components means
+  if ("DT.component.means" %in% names(outputs)) {
+    if (nrow(outputs$DT.component.means) > 0) {
+      setorder(outputs$DT.component.means, Group, Component, chain, sample)
+      filename <- file.path("component.means", paste0(chain, ".fst"))
+      fst::write.fst(outputs$DT.component.means, file.path(filepath(object), input, filename))
       # finish index construction
       if (chain == 1) {
-        DT.index.measurement.exposures <- outputs$DT.measurement.exposures[, .(
-          from = .I[!duplicated(outputs$DT.measurement.exposures, by = c("Group", "Component", "Measurement"))],
-          to = .I[!duplicated(outputs$DT.measurement.exposures, fromLast = T, by = c("Group", "Component", "Measurement"))]
+        DT.index.component.means <- outputs$DT.component.means[, .(
+          from = .I[!duplicated(outputs$DT.component.means, by = c("Group", "Component"))],
+          to = .I[!duplicated(outputs$DT.component.means, fromLast = T, by = c("Group", "Component"))]
         )]
-        outputs$DT.index.measurement.exposures <- rbind(outputs$DT.index.measurement.exposures, cbind(
-          outputs$DT.measurement.exposures[DT.index.measurement.exposures$from, .(Group, Component, Measurement)],
+        outputs$DT.index.component.means <- rbind(outputs$DT.index.component.means, cbind(
+          outputs$DT.component.means[DT.index.component.means$from, .(Group, Component)],
           data.table(file = factor(filename)),
-          DT.index.measurement.exposures
+          DT.index.component.means
         ))
       }
-      outputs$DT.measurement.exposures <- NULL
+      outputs$DT.component.means <- NULL
     }
     # write index
     if (chain == 1) {
-      outputs$DT.index.measurement.exposures[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
-      outputs$DT.index.measurement.exposures[, Component := factor(Component, levels = 1:nlevels(DT.components[, Component]), labels = levels(DT.components[, Component]))]
-      outputs$DT.index.measurement.exposures[, Measurement := factor(Measurement, levels = 1:nlevels(DT.measurements[, Measurement]), labels = levels(DT.measurements[, Measurement]))]
-      setkey(outputs$DT.index.measurement.exposures, Group, file, from)
-      fst::write.fst(outputs$DT.index.measurement.exposures, file.path(filepath(object), input, paste0("measurement.exposures.index.fst")))
+      outputs$DT.index.component.means[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
+      outputs$DT.index.component.means[, Component := factor(Component, levels = 1:nlevels(DT.components[, Component]), labels = levels(DT.components[, Component]))]
+       setkey(outputs$DT.index.component.means, Group, file, from)
+      fst::write.fst(outputs$DT.index.component.means, file.path(filepath(object), input, paste0("component.means.index.fst")))
     }
   }
 
-  # write out components exposures
-  if ("DT.component.exposures" %in% names(outputs)) {
-    if (nrow(outputs$DT.component.exposures) > 0) {
-      setorder(outputs$DT.component.exposures, Group, Component, chain, sample)
-      filename <- file.path("component.exposures", paste0(chain, ".fst"))
-      fst::write.fst(outputs$DT.component.exposures, file.path(filepath(object), input, filename))
+  # write out group means
+  if ("DT.group.means" %in% names(outputs)) {
+    if (nrow(outputs$DT.group.means) > 0) {
+      setorder(outputs$DT.group.means, Group, chain, sample)
+      filename <- file.path("group.means", paste0(chain, ".fst"))
+      fst::write.fst(outputs$DT.group.means, file.path(filepath(object), input, filename))
       # finish index construction
       if (chain == 1) {
-        DT.index.component.exposures <- outputs$DT.component.exposures[, .(
-          from = .I[!duplicated(outputs$DT.component.exposures, by = c("Group", "Component"))],
-          to = .I[!duplicated(outputs$DT.component.exposures, fromLast = T, by = c("Group", "Component"))]
+        DT.index.group.means <- outputs$DT.group.means[, .(
+          from = .I[!duplicated(outputs$DT.group.means, by = "Group")],
+          to = .I[!duplicated(outputs$DT.group.means, fromLast = T, by = "Group")]
         )]
-        outputs$DT.index.component.exposures <- rbind(outputs$DT.index.component.exposures, cbind(
-          outputs$DT.component.exposures[DT.index.component.exposures$from, .(Group, Component)],
+        outputs$DT.index.group.means <- rbind(outputs$DT.index.group.means, cbind(
+          outputs$DT.group.means[DT.index.group.means$from, .(Group)],
           data.table(file = factor(filename)),
-          DT.index.component.exposures
+          DT.index.group.means
         ))
       }
-      outputs$DT.component.exposures <- NULL
+      outputs$DT.group.means <- NULL
     }
     # write index
     if (chain == 1) {
-      outputs$DT.index.component.exposures[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
-      outputs$DT.index.component.exposures[, Component := factor(Component, levels = 1:nlevels(DT.components[, Component]), labels = levels(DT.components[, Component]))]
-       setkey(outputs$DT.index.component.exposures, Group, file, from)
-      fst::write.fst(outputs$DT.index.component.exposures, file.path(filepath(object), input, paste0("component.exposures.index.fst")))
-    }
-  }
-
-  # write out group exposures
-  if ("DT.group.exposures" %in% names(outputs)) {
-    if (nrow(outputs$DT.group.exposures) > 0) {
-      setorder(outputs$DT.group.exposures, Group, chain, sample)
-      filename <- file.path("group.exposures", paste0(chain, ".fst"))
-      fst::write.fst(outputs$DT.group.exposures, file.path(filepath(object), input, filename))
-      # finish index construction
-      if (chain == 1) {
-        DT.index.group.exposures <- outputs$DT.group.exposures[, .(
-          from = .I[!duplicated(outputs$DT.group.exposures, by = "Group")],
-          to = .I[!duplicated(outputs$DT.group.exposures, fromLast = T, by = "Group")]
-        )]
-        outputs$DT.index.group.exposures <- rbind(outputs$DT.index.group.exposures, cbind(
-          outputs$DT.group.exposures[DT.index.group.exposures$from, .(Group)],
-          data.table(file = factor(filename)),
-          DT.index.group.exposures
-        ))
-      }
-      outputs$DT.group.exposures <- NULL
-    }
-    # write index
-    if (chain == 1) {
-      outputs$DT.index.group.exposures[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
-      setkey(outputs$DT.index.group.exposures, Group, file, from)
-      fst::write.fst(outputs$DT.index.group.exposures, file.path(filepath(object), input, paste0("group.exposures.index.fst")))
+      outputs$DT.index.group.means[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
+      setkey(outputs$DT.index.group.means, Group, file, from)
+      fst::write.fst(outputs$DT.index.group.means, file.path(filepath(object), input, paste0("group.means.index.fst")))
     }
   }
 
