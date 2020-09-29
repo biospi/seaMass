@@ -88,7 +88,7 @@ setMethod("process0", "sigma_block", function(object, chain) {
     fst::write.fst(DT.measurement.prior, file.path(object@filepath, "model1", "priors.fst"))
 
     # delete assay deviations if not in 'keep'
-    if (!("assay.deviations" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "assay.deviations*"), recursive = T)
+    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "assay.deviations*"), recursive = T)
   }
 
   return(invisible(NULL))

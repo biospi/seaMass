@@ -51,8 +51,8 @@ seaMass_delta <- function(
   dir.create(file.path(path, "meta"), recursive = T)
   if (file.exists(file.path(dirname(path), "output", basename(path)))) unlink(file.path(dirname(path), "output", basename(path)), recursive = T)
     dir.create(file.path(dirname(path), "output", basename(path)), recursive = T)
-  if ("de.component.deviations" %in% control@plots) dir.create(file.path(dirname(path), "output", basename(path), "log2_de_component_deviations"))
-  if ("fdr.component.deviations" %in% control@plots) dir.create(file.path(dirname(path), "output", basename(path), "log2_fdr_component_deviations"))
+  if (control@component.deviations == T && "de.component.deviations" %in% control@plots) dir.create(file.path(dirname(path), "output", basename(path), "log2_de_component_deviations"))
+  if (control@component.deviations == T && "fdr.component.deviations" %in% control@plots) dir.create(file.path(dirname(path), "output", basename(path), "log2_fdr_component_deviations"))
 
   # check and save control
   saveRDS(control, file.path(path, "meta", "control.rds"))

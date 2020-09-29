@@ -15,19 +15,19 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
   dir.create(file.path(filepath(object), input, "timings"), showWarnings = F)
   if ("summaries" %in% ctrl@keep) dir.create(file.path(filepath(object), input, "summaries"), showWarnings = F)
 
-  unlink(file.path(filepath(object), input, "*.measurement.variances.fst"))
-  unlink(file.path(filepath(object), input, "*.component.variances.fst"))
-  unlink(file.path(filepath(object), input, "*.assay.deviations.fst"))
+  unlink(file.path(filepath(object), input, "dist_*.measurement.variances.fst"))
+  unlink(file.path(filepath(object), input, "dist_*.component.variances.fst"))
+  unlink(file.path(filepath(object), input, "dist_*.assay.deviations.fst"))
   dir.create(file.path(filepath(object), input, "measurement.variances"), showWarnings = F)
   dir.create(file.path(filepath(object), input, "component.variances"), showWarnings = F)
   dir.create(file.path(filepath(object), input, "assay.deviations"), showWarnings = F)
 
   if (input != "model0") {
-    unlink(file.path(filepath(object), input, "*.group.quants.fst"))
-    unlink(file.path(filepath(object), input, "*.group.means.fst"))
-    unlink(file.path(filepath(object), input, "*.measurement.means.fst"))
-    unlink(file.path(filepath(object), input, "*.component.means.fst"))
-    unlink(file.path(filepath(object), input, "*.component.deviations.fst"))
+    unlink(file.path(filepath(object), input, "dist_*.group.quants.fst"))
+    unlink(file.path(filepath(object), input, "dist_*.group.means.fst"))
+    unlink(file.path(filepath(object), input, "dist_*.measurement.means.fst"))
+    unlink(file.path(filepath(object), input, "dist_*.component.means.fst"))
+    unlink(file.path(filepath(object), input, "dist_*.component.deviations.fst"))
     dir.create(file.path(filepath(object), input, "group.quants"), showWarnings = F)
     dir.create(file.path(filepath(object), input, "group.means"), showWarnings = F)
     dir.create(file.path(filepath(object), input, "measurement.means"), showWarnings = F)
@@ -842,6 +842,8 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
 
   # write out assay deviations
   if ("DT.assay.deviations" %in% names(outputs)) {
+    #print("outputs$DT.assay.deviations")
+    #print(nrow(outputs$DT.assay.deviations))
     if (nrow(outputs$DT.assay.deviations) > 0) {
       if (ctrl@assay.model == "measurement") {
         setorder(outputs$DT.assay.deviations, Assay, Group, Component, Measurement, chain, sample)
@@ -882,6 +884,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     }
     # write index
     if (chain == 1) {
+      #print("writing index")
       if (ctrl@assay.model == "measurement") {
         outputs$DT.index.assay.deviations[, Assay := factor(Assay, levels = 1:nlevels(DT.design[, Assay]), labels = levels(DT.design[, Assay]))]
         outputs$DT.index.assay.deviations[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
@@ -894,7 +897,10 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
         outputs$DT.index.assay.deviations[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
         outputs$DT.index.assay.deviations[, Component := factor(Component, levels = 1:nlevels(DT.components[, Component]), labels = levels(DT.components[, Component]))]
         setkey(outputs$DT.index.assay.deviations, Assay, file, from)
+        #print(outputs$DT.index.assay.deviations)
+        #print(file.path(filepath(object), input, paste0("assay.deviations.index.fst")))
         fst::write.fst(outputs$DT.index.assay.deviations, file.path(filepath(object), input, paste0("assay.deviations.index.fst")))
+        #print(list.files(file.path(filepath(object), input)))
       }
     }
   }
