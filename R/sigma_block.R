@@ -333,7 +333,7 @@ setMethod("standardised_group_deviations", "sigma_block", function(object, group
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_assay_means", "sigma_block", function(object, assays = NULL, sort.cols = NULL, label.cols = c("Sample", "Assay"), horizontal = TRUE, colour = "Assay.SD", colour.guide = ggplot2::guide_colorbar(barwidth = unit(50, "mm")), fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+setMethod("plot_assay_means", "sigma_block", function(object, assays = NULL, sort.cols = NULL, label.cols = c("Sample", "Assay"), horizontal = TRUE, colour = "Assay.SD", colour.guide = ggplot2::guide_colorbar(barwidth = ggplot2::unit(50, "mm")), fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
   return(plot_samples(object, "model1", "assay.means", assays, sort.cols, label.cols, "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 
