@@ -19,6 +19,7 @@ Imports:
     bit64 (>= 4.0.5),
     doRNG (>= 1.7.1),
     doSNOW (>= 1.0.18),
+    egg (>= 0.4.5),
     emmeans (>= 1.4.3.01),
     extraDistr (>= 1.8.11),
     FactoMineR (>= 1.42),

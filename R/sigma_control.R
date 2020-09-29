@@ -36,11 +36,12 @@ setClass("sigma_control", slots = c(
 
 #' @describeIn sigma_control-class Generator function
 #' @param summarise Outputs to write csv summaries for, \code{NULL} or a subset of
-#'   \code{c("measurement.exposures", "measurement.variances", "component.exposures", "component.variances", "component.deviations", "group.quants", "group.exposures", "normalised.group.variances", "standardised.group.deviations")}
+#'   \code{c("measurement.means", "measurement.variances", "component.means", "component.variances", "component.deviations", "group.quants", "group.means", "normalised.group.variances", "standardised.group.deviations")}
 #' @param keep Outputs to keep MCMC samples for, \code{NULL} or a subset of
-#'   \code{c("model0", "measurement.exposures", "measurement.variances", "component.exposures", "component.variances", "component.deviations", "assay.deviations", "group.quants", "group.exposures", "normalised.group.variances", "standardised.group.deviations", "summaries")}
+#'   \code{c("model0", "assay.means", "measurement.means", "measurement.variances", "component.means", "component.variances", "component.deviations", "assay.deviations", "group.quants", "group.means", "normalised.group.variances", "standardised.group.deviations", "summaries")}
 #'   Note, you must keep \code{"standardised.group.deviations"} if you want to run seaMass-Δ!
-#' @param plot Outputs to plot, \code{NULL} or a subset of c("group.quants.pca", component.deviations.pca")
+#' @param plot Outputs to plot, \code{NULL} or a subset of c("group.quants.pca", "component.deviations.pca", "group.means", "normalised.group.stdevs")
+#' @param plots Outputs to plot, \code{NULL} or a subset of c("group.quants", "normalised.group.quants", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")
 #' @param measurement.model Either \code{"single"} (single residual) or \code{"independent"} (per-measurement independent residuals)
 #' @param measurement.eb.min Minimum number of measurements per component to use for computing Empirical Bayes priors
 #' @param component.model Either \code{NULL} (no component model), \code{"single"} (single random effect) or \code{"independent"}
@@ -62,11 +63,12 @@ setClass("sigma_control", slots = c(
 #' @param schedule Either \link{schedule_local} (execute locally), \link{schedule_pbs} or \link{schedule_slurm} (prepare for submission to HPC cluster)
 #' @export sigma_control
 sigma_control <- function(
-  summarise = c("measurement.exposures", "measurement.variances", "component.exposures", "component.variances", "component.deviations",
-                "group.quants", "group.exposures", "normalised.group.variances", "standardised.group.deviations"),
-  keep = c("model0", "measurement.exposures", "measurement.variances", "component.exposures", "component.variances", "component.deviations", "assay.deviations",
-           "group.quants", "group.exposures", "normalised.group.variances", "standardised.group.deviations", "summaries"),
-  plot = c("group.quants.pca"),
+  summarise = c("measurement.means", "measurement.variances", "component.means", "component.variances", "component.deviations",
+                "group.quants", "group.means", "normalised.group.variances", "standardised.group.deviations"),
+  keep = c("model0", "assay.means", "measurement.means", "measurement.variances", "component.means", "component.variances", "component.deviations",
+           "group.quants", "group.means", "normalised.group.variances", "standardised.group.deviations", "summaries"),
+  plot = c("group.quants.pca", "group.means", "normalised.group.stdevs"),
+  plots = c("group.quants", "normalised.group.quants", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs"),
   measurement.model = "independent",
   measurement.eb.min = 2,
   component.model = "independent",
@@ -93,10 +95,8 @@ sigma_control <- function(
 
   if (!is.null(summarise)) params$summarise <- as.character(summarise)
   if (!is.null(keep)) params$keep <- as.character(keep)
-  if (!is.null(plot)) {
-    params$plot <- as.character(plot)
-    params$plots <- intersect(params$plot, "measurements")
-  }
+  if (!is.null(plot)) params$plot <- as.character(plot)
+  if (!is.null(plots)) params$plots <- as.character(plots)
   params$measurement.model <- as.character(measurement.model)
   params$measurement.eb.min <- as.integer(measurement.eb.min)
   if (!is.null(component.model)) params$component.model <- as.character(component.model) else params$component.model <- ""
@@ -124,13 +124,15 @@ sigma_control <- function(
 }
 
 setValidity("sigma_control", function(object) {
-  if (!(all(object@summarise %in% c("measurement.exposures", "measurement.variances", "component.exposures", "component.variances", "component.deviations",
-                                    "assay.deviations", "group.quants", "group.exposures", "normalised.group.variances", "normalised.group.quants",
+  if (!(all(object@summarise %in% c("measurement.means", "measurement.variances", "component.means", "component.variances", "component.deviations",
+                                    "assay.deviations", "group.quants", "group.means", "normalised.group.variances", "normalised.group.quants",
                                     "standardised.group.deviations")))) return("'summarise' is not valid!")
-  if (!(all(object@keep %in% c("model0", "measurement.exposures", "measurement.variances", "component.exposures", "component.variances", "component.deviations",
-                               "assay.deviations", "group.quants", "group.exposures", "normalised.group.variances", "normalised.group.quants",
+  if (!(all(object@keep %in% c("model0", "assay.means", "measurement.means", "measurement.variances", "component.means", "component.variances", "component.deviations",
+                               "assay.deviations", "group.quants", "group.means", "normalised.group.variances", "normalised.group.quants",
                                "standardised.group.deviations", "summaries")))) return("'keep' is not valid!")
-  if (!(all(object@plot %in% c("assay.deviations.pca", "component.deviations.pca", "group.quants.pca")))) return("'plot' is not valid!")
+  if (!(all(object@plot %in% c("group.quants.pca", "component.deviations.pca", "group.means", "normalised.group.stdevs")))) return("'plot' is not valid!")
+  if (!(all(object@plots %in% c("group.quants", "normalised.group.quants", "standardised.group.deviations", "component.deviations", "component.means",
+                                "component.stdevs", "measurement.means", "measurement.stdevs")))) return("'plot' is not valid!")
   if (length(object@measurement.model) != 1 || !(object@measurement.model %in% c("single", "independent"))) return("'measurement.model' is not valid!")
   if (length(object@measurement.eb.min) != 1 || object@measurement.eb.min <= 0) return("'measurement.eb.min' must be positive!")
   if (length(object@component.model) != 1 || !(object@component.model %in% c("", "single", "independent"))) return("'component.model' is not valid!")

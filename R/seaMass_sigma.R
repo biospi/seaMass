@@ -48,6 +48,16 @@ seaMass_sigma <- function(
   path <- normalizePath(path)
   dir.create(file.path(path, "meta"))
 
+  # plots directories
+  if ("group.quants" %in% control@plots) dir.create(file.path(path, "output", "log2_group_quants"))
+  if ("normalised.group.quants" %in% control@plots) dir.create(file.path(path, "output", "log2_normalised_group_quants"))
+  if ("standardised.group.deviations" %in% control@plots) dir.create(file.path(path, "output", "log2_standardised_group_deviations"))
+  if ("component.deviations" %in% control@plots) dir.create(file.path(path, "output", "log2_component_deviations"))
+  if ("component.means" %in% control@plots) dir.create(file.path(path, "output", "log2_component_means"))
+  if ("component.stdevs" %in% control@plots) dir.create(file.path(path, "output", "log2_component_stdevs"))
+  if ("measurement.means" %in% control@plots) dir.create(file.path(path, "output", "log2_measurement_means"))
+  if ("measurement.stdevs" %in% control@plots) dir.create(file.path(path, "output", "log2_measurement_stdevs"))
+
   # init DT
   data.is.data.table <- is.data.table(data)
   DT <- setDT(data)
@@ -85,18 +95,18 @@ seaMass_sigma <- function(
 
   # write Assay index (design)
   DT.design <- merge(DT.design, DT[, .(
-    qG = uniqueN(Group[Use & !is.na(Count0)]),
-    uG = uniqueN(Group[Use]),
-    nG = uniqueN(Group),
-    qC = uniqueN(Component[Use & !is.na(Count0)]),
-    uC = uniqueN(Component[Use]),
-    nC = uniqueN(Component),
-    qM = uniqueN(Measurement[Use & !is.na(Count0)]),
-    uM = uniqueN(Measurement[Use]),
-    nM = uniqueN(Measurement),
-    qD = sum(Use & !is.na(Count0)),
-    uD = sum(Use),
-    nD = length(Count0)
+    qG.A = uniqueN(Group[Use & !is.na(Count0)]),
+    uG.A = uniqueN(Group[Use]),
+    nG.A = uniqueN(Group),
+    qC.A = uniqueN(Component[Use & !is.na(Count0)]),
+    uC.A = uniqueN(Component[Use]),
+    nC.A = uniqueN(Component),
+    qM.A = uniqueN(Measurement[Use & !is.na(Count0)]),
+    uM.A = uniqueN(Measurement[Use]),
+    nM.A = uniqueN(Measurement),
+    qD.A = sum(Use & !is.na(Count0)),
+    uD.A = sum(Use),
+    nD.A = length(Count0)
   ), by = .(Run, Channel)], by = c("Run", "Channel"))
   setorder(DT.design, Assay, na.last = T)
   setcolorder(DT.design, c("Assay", "Run", "Channel", colnames(DT.design)[grep("^Block\\.", colnames(DT.design))], "RefWeight"))
@@ -104,45 +114,45 @@ seaMass_sigma <- function(
   # write Group index
   DT.groups <- DT[, .(
     GroupInfo = GroupInfo[1],
-    qC = uniqueN(Component[Use & !is.na(Count0)]),
-    uC = uniqueN(Component[Use]),
-    nC = uniqueN(Component),
-    qM = uniqueN(Measurement[Use & !is.na(Count0)]),
-    uM = uniqueN(Measurement[Use]),
-    nM = uniqueN(Measurement),
-    qD = sum(Use & !is.na(Count0)),
-    uD = sum(Use),
-    nD = length(Count0)
+    qC.G = uniqueN(Component[Use & !is.na(Count0)]),
+    uC.G = uniqueN(Component[Use]),
+    nC.G = uniqueN(Component),
+    qM.G = uniqueN(Measurement[Use & !is.na(Count0)]),
+    uM.G = uniqueN(Measurement[Use]),
+    nM.G = uniqueN(Measurement),
+    qD.G = sum(Use & !is.na(Count0)),
+    uD.G = sum(Use),
+    nD.G = length(Count0)
   ), by = Group]
-  setorder(DT.groups, -qC, -uC, -nC, -qM, -uM, -nM, -qD, -uD, -nD, Group)
+  setorder(DT.groups, -qC.G, -uC.G, -nC.G, -qM.G, -uM.G, -nM.G, -qD.G, -uD.G, -nD.G, Group)
   fwrite(DT.groups, file.path(path, "output", "groups.csv"))
   # use pre-trained regression model to estimate how long each Group will take to process
   # Intercept, uC, uM, uC^2, uM^2, uC*uM
   a <- c(5.338861e-01, 9.991205e-02, 2.871998e-01, 4.294391e-05, 6.903229e-04, 2.042114e-04)
-  DT.groups[, pred := a[1] + a[2]*uC + a[3]*uM + a[4]*uC*uC + a[5]*uM*uM + a[6]*uC*uM]
+  DT.groups[, pred := a[1] + a[2]*uC.G + a[3]*uM.G + a[4]*uC.G*uC.G + a[5]*uM.G*uM.G + a[6]*uC.G*uM.G]
   fst::write.fst(DT.groups, file.path(path, "meta", "groups.fst"))
 
   # write Component index
   DT.components <- DT[, .(
-    qM = uniqueN(Measurement[Use & !is.na(Count0)]),
-    uM = uniqueN(Measurement[Use]),
-    nM = uniqueN(Measurement),
-    qD = sum(Use & !is.na(Count0)),
-    uD = sum(Use),
-    nD = length(Count0)
+    qM.C = uniqueN(Measurement[Use & !is.na(Count0)]),
+    uM.C = uniqueN(Measurement[Use]),
+    nM.C = uniqueN(Measurement),
+    qD.C = sum(Use & !is.na(Count0)),
+    uD.C = sum(Use),
+    nD.C = length(Count0)
   ), by = .(Group, Component)]
-  setorder(DT.components, -qM, -uM, -nM, -qD, -uD, -nD, Component)
+  setorder(DT.components, -qM.C, -uM.C, -nM.C, -qD.C, -uD.C, -nD.C, Component)
   DT.components <- merge(DT.groups[, .(Group)], DT.components, by = "Group", sort = F)
   fst::write.fst(DT.components, file.path(path, "meta", "components.fst"))
   fwrite(DT.components, file.path(path, "output", "components.csv"))
 
   # write Measurement index
   DT.measurements <- DT[, .(
-    qD = sum(Use & !is.na(Count0)),
-    uD = sum(Use),
-    nD = sum(!is.na(Count0))
+    qD.M = sum(Use & !is.na(Count0)),
+    uD.M = sum(Use),
+    nD.M = sum(!is.na(Count0))
   ), by = .(Group, Component, Measurement)]
-  setorder(DT.measurements, -qD, -uD, -nD, Measurement)
+  setorder(DT.measurements, -qD.M, -uD.M, -nD.M, Measurement)
   DT.measurements <- merge(DT.components[, .(Group, Component)], DT.measurements, by = c("Group", "Component"), sort = F)
   fst::write.fst(DT.measurements, file.path(path, "meta", "measurements.fst"))
   fwrite(DT.measurements, file.path(path, "output", "measurements.csv"))
@@ -508,12 +518,12 @@ setMethod("read_samples", "seaMass_sigma", function(object, input, type, items =
 })
 
 
-#' @describeIn seaMass_sigma-class Get the model assay exposures as a \link{data.frame}.
+#' @describeIn seaMass_sigma-class Get the model assay means as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("assay_exposures", "seaMass_sigma", function(object, assays = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) assay_exposures(block, assays, summary, input, chains, as.data.table = T)))
+setMethod("assay_means", "seaMass_sigma", function(object, assays = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) assay_means(block, assays, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
@@ -551,12 +561,12 @@ setMethod("assay_deviations", "seaMass_sigma", function(object, assays = NULL, s
 })
 
 
-#' @describeIn seaMass_sigma-class Get the model measurement exposures as a \link{data.frame}.
+#' @describeIn seaMass_sigma-class Get the model measurement means as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("measurement_exposures", "seaMass_sigma", function(object, measurements = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) measurement_exposures(block, measurements, summary, input, chains, as.data.table = T)))
+setMethod("measurement_means", "seaMass_sigma", function(object, measurements = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) measurement_means(block, measurements, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
@@ -579,12 +589,12 @@ setMethod("measurement_variances", "seaMass_sigma", function(object, measurement
 })
 
 
-#' @describeIn seaMass_sigma-class Get the model component exposures as a \link{data.frame}.
+#' @describeIn seaMass_sigma-class Get the model component means as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_exposures", "seaMass_sigma", function(object, components = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) component_exposures(block, components, summary, input, chains, as.data.table = T)))
+setMethod("component_means", "seaMass_sigma", function(object, components = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) component_means(block, components, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
@@ -635,12 +645,12 @@ setMethod("group_quants", "seaMass_sigma", function(object, groups = NULL, summa
 })
 
 
-#' @describeIn seaMass_sigma-class Get the model group exposures as a \link{data.frame}.
+#' @describeIn seaMass_sigma-class Get the model group means as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("group_exposures", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) group_exposures(block, groups, summary, input, chains, as.data.table = T)))
+setMethod("group_means", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) group_means(block, groups, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
@@ -688,4 +698,92 @@ setMethod("standardised_group_deviations", "seaMass_sigma", function(object, gro
   if (!as.data.table) setDF(DT)
   else DT[]
   return(DT)
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_assay_means", "seaMass_sigma", function(object, assays = NULL, sort.cols = NULL, label.cols = c("Sample", "Assay"), horizontal = TRUE, colour = "Assay.SD", colour.guide = ggplot2::guide_colorbar(barwidth = ggplot2::unit(50, "mm")), fill = "Block", fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "assay.means", assays, sort.cols, label.cols, "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_group_means", "seaMass_sigma", function(object, groups = NULL, sort.cols = NULL, label.cols = c("Group", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "group.means", groups, sort.cols, label.cols, "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_group_quants", "seaMass_sigma", function(object, group, label.cols = c("Sample", "Assay"), sort.cols = NULL, horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "group.quants", group, sort.cols, label.cols, "quant", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_normalised_group_quants", "seaMass_sigma", function(object, group, label.cols = c("Sample", "Assay"), sort.cols = NULL, horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "normalised.group.quants", group, sort.cols, label.cols, "quant", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_normalised_group_stdevs", "seaMass_sigma", function(object, groups = NULL, sort.cols = NULL, label.cols = c("Group", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "normalised.group.variances", groups, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, sqrt))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_standardised_group_deviations", "seaMass_sigma", function(object, group, label.cols = c("Sample", "Assay"), sort.cols = NULL, horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "standardised.group.deviations", group, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_component_deviations", "seaMass_sigma", function(object, group, label.cols = c("Component", "Sample", "Assay"), sort.cols = "Component", horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "component.deviations", group, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_component_means", "seaMass_sigma", function(object, group, sort.cols = NULL, label.cols = c("Component", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "component.means", group, sort.cols, label.cols, "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_component_stdevs", "seaMass_sigma", function(object, group, sort.cols = NULL, label.cols = c("Component", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "component.variances", group, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, sqrt))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_measurement_means", "seaMass_sigma", function(object, group, sort.cols = NULL, label.cols = c("Component", "Measurement", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "measurement.means", group, sort.cols, label.cols, "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_measurement_stdevs", "seaMass_sigma", function(object, group, sort.cols = NULL, label.cols = c("Component", "Measurement", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, "model1", "measurement.variances", group, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, sqrt))
 })

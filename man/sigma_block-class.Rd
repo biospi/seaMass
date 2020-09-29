@@ -15,12 +15,12 @@
 \alias{priors,sigma_block-method}
 \alias{summary,sigma_block-method}
 \alias{timings,sigma_block-method}
-\alias{assay_exposures,sigma_block-method}
+\alias{assay_means,sigma_block-method}
 \alias{assay_variances,sigma_block-method}
 \alias{assay_deviations,sigma_block-method}
-\alias{measurement_exposures,sigma_block-method}
+\alias{measurement_means,sigma_block-method}
 \alias{measurement_variances,sigma_block-method}
-\alias{component_exposures,sigma_block-method}
+\alias{component_means,sigma_block-method}
 \alias{component_variances,sigma_block-method}
 \alias{component_deviations,sigma_block-method}
 \alias{group_quants,sigma_block-method}
@@ -49,7 +49,7 @@
 
 \S4method{timings}{sigma_block}(object, input = "model1", as.data.table = FALSE)
 
-\S4method{assay_exposures}{sigma_block}(
+\S4method{assay_means}{sigma_block}(
   object,
   assays = NULL,
   summary = FALSE,
@@ -69,7 +69,7 @@
   as.data.table = FALSE
 )
 
-\S4method{measurement_exposures}{sigma_block}(
+\S4method{measurement_means}{sigma_block}(
   object,
   groups = NULL,
   summary = FALSE,
@@ -87,7 +87,7 @@
   as.data.table = FALSE
 )
 
-\S4method{component_exposures}{sigma_block}(
+\S4method{component_means}{sigma_block}(
   object,
   groups = NULL,
   summary = FALSE,
@@ -159,17 +159,17 @@ The results of a seaMass-Σ block to a single block, returned by /link{seaMass_s
 
 \item \code{timings}: Get the model timings as a \link{data.frame}.
 
-\item \code{assay_exposures}: Get the model assay exposures as a \link{data.frame}.
+\item \code{assay_means}: Get the model assay means as a \link{data.frame}.
 
 \item \code{assay_variances}: Get the model assay variances as a \link{data.frame}.
 
 \item \code{assay_deviations}: Get the model assay deviations as a \link{data.frame}.
 
-\item \code{measurement_exposures}: Get the model measurement exposures as a \link{data.frame}.
+\item \code{measurement_means}: Get the model measurement means as a \link{data.frame}.
 
 \item \code{measurement_variances}: Get the model measurement variances as a \link{data.frame}.
 
-\item \code{component_exposures}: Get the model component exposures as a \link{data.frame}.
+\item \code{component_means}: Get the model component means as a \link{data.frame}.
 
 \item \code{component_variances}: Get the model component variances as a \link{data.frame}.
 

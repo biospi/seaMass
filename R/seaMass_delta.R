@@ -50,7 +50,9 @@ seaMass_delta <- function(
   if (file.exists(path)) unlink(path, recursive = T)
   dir.create(file.path(path, "meta"), recursive = T)
   if (file.exists(file.path(dirname(path), "output", basename(path)))) unlink(file.path(dirname(path), "output", basename(path)), recursive = T)
-      dir.create(file.path(dirname(path), "output", basename(path)), recursive = T)
+    dir.create(file.path(dirname(path), "output", basename(path)), recursive = T)
+  if (control@component.deviations == T && "de.component.deviations" %in% control@plots) dir.create(file.path(dirname(path), "output", basename(path), "log2_de_component_deviations"))
+  if (control@component.deviations == T && "fdr.component.deviations" %in% control@plots) dir.create(file.path(dirname(path), "output", basename(path), "log2_fdr_component_deviations"))
 
   # check and save control
   saveRDS(control, file.path(path, "meta", "control.rds"))
@@ -132,6 +134,14 @@ setMethod("filepath", "seaMass_delta", function(object) {
 })
 
 
+#' @describeIn seaMass_delta-class Get the \link{seaMass_sigma} object.
+#' @export
+#' @include generics.R
+setMethod("parent", "seaMass_delta", function(object) {
+  return(object@fit)
+})
+
+
 #' @include generics.R
 setMethod("blocks", "seaMass_delta", function(object) {
   return(NULL)
@@ -161,6 +171,51 @@ setMethod("assay_design", "seaMass_delta", function(object, as.data.table = FALS
 })
 
 
+#' @describeIn seaMass_delta-class Get the groups as a \code{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("groups", "seaMass_delta", function(object, as.data.table = FALSE) {
+  return(groups(parent(object), as.data.table))
+})
+
+
+#' @describeIn seaMass_delta-class Get the groups as a \code{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("components", "seaMass_delta", function(object, as.data.table = FALSE) {
+  return(components(parent(object), as.data.table))
+})
+
+
+#' @describeIn seaMass_delta-class Get the assay groups as a \code{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("assay_groups", "seaMass_delta", function(object, as.data.table = FALSE) {
+  return(assay_groups(parent(object), as.data.table))
+})
+
+
+#' @describeIn seaMass_delta-class Get the assay groups as a \code{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("assay_components", "seaMass_delta", function(object, as.data.table = FALSE) {
+  return(assay_components(parent(object), as.data.table))
+})
+
+
+#' @describeIn seaMass_delta-class Get the groups as a \code{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("measurements", "seaMass_delta", function(object, as.data.table = FALSE) {
+  return(measurements(parent(object), as.data.table))
+})
+
+
 #' @describeIn seaMass_delta-class Delete the \code{seaMass_delta} run from disk.
 #' @import data.table
 #' @export
@@ -174,7 +229,7 @@ setMethod("del", "seaMass_delta", function(object) {
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("standardised_group_deviations", "seaMass_delta", function(object, groups = NULL, summary = FALSE, type = "standardised.group.deviations", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("de_standardised_group_deviations", "seaMass_delta", function(object, groups = NULL, summary = FALSE, type = "standardised.group.deviations", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- read_samples(object, ".", type, groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
@@ -187,7 +242,7 @@ setMethod("standardised_group_deviations", "seaMass_delta", function(object, gro
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_deviations", "seaMass_delta", function(object, type = "component.deviations", as.data.table = FALSE) {
+setMethod("de_component_deviations", "seaMass_delta", function(object, type = "component.deviations", as.data.table = FALSE) {
   DT <- read_samples(object, ".", type, components, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
@@ -200,9 +255,11 @@ setMethod("component_deviations", "seaMass_delta", function(object, type = "comp
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("standardised_group_deviations_fdr", "seaMass_delta", function(object, type = "standardised.group.deviations", as.data.table = FALSE) {
+setMethod("fdr_standardised_group_deviations", "seaMass_delta", function(object, groups = NULL, summary = TRUE, type = "standardised.group.deviations", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   if (file.exists(file.path(filepath(object), paste0("fdr.", type, ".fst")))) {
-    return(fst::read.fst(file.path(filepath(object), paste0("fdr.", type, ".fst")), as.data.table = as.data.table))
+    DT <- fst::read.fst(file.path(filepath(object), paste0("fdr.", type, ".fst")), as.data.table = as.data.table)
+    if (!is.null(groups)) DT <- DT[DT$Group %in% groups,]
+    return(DT)
   } else {
     return(NULL)
   }
@@ -213,14 +270,47 @@ setMethod("standardised_group_deviations_fdr", "seaMass_delta", function(object,
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_deviations_fdr", "seaMass_delta", function(object, components = NULL, summary = FALSE, type = "component.deviations", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("fdr_component_deviations", "seaMass_delta", function(object, groups = NULL, summary = TRUE, type = "component.deviations", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   if (file.exists(file.path(filepath(object), paste0("fdr.", type, ".fst")))) {
-    return(fst::read.fst(file.path(filepath(object), paste0("fdr.", type, ".fst")), as.data.table = as.data.table))
+    DT <- fst::read.fst(file.path(filepath(object), paste0("fdr.", type, ".fst")), as.data.table = as.data.table)
+    if (!is.null(groups)) DT <- DT[DT$Group %in% groups,]
+    return(DT)
   } else {
     return(NULL)
   }
 })
 
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_de_standardised_group_deviations", "seaMass_delta", function(object, groups = NULL, label.cols = NULL, sort.cols = NULL, horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, ".", "standardised.group.deviations", groups, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_de_component_deviations", "seaMass_delta", function(object, groups = NULL, label.cols = NULL, sort.cols = NULL, horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, ".", "component.deviations", groups, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_fdr_standardised_group_deviations", "seaMass_delta", function(object, groups = NULL, label.cols = NULL, sort.cols = NULL, horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, ".", "fdr.standardised.group.deviations", groups, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_fdr_component_deviations", "seaMass_delta", function(object, groups = NULL, label.cols = NULL, sort.cols = NULL, horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+  return(plot_samples(object, ".", "fdr.component.deviations", groups, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
 
 #' @describeIn seaMass_delta-class Add our spikein ground truth to the object of \code{group_fdr} pr \code{component_deviations_fdr}.
 #' @import data.table
