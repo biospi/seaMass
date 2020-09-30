@@ -22,7 +22,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
   dir.create(file.path(filepath(object), input, "component.variances"), showWarnings = F)
   dir.create(file.path(filepath(object), input, "assay.deviations"), showWarnings = F)
 
-  if (input != "model0") {
+  if (input != "model0" || "model0" %in% ctrl@keep) {
     unlink(file.path(filepath(object), input, "dist_*.group.quants.fst"))
     unlink(file.path(filepath(object), input, "dist_*.group.means.fst"))
     unlink(file.path(filepath(object), input, "dist_*.measurement.means.fst"))
@@ -201,7 +201,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     system.time(frg <- emmeans::ref_grid(fit.model, data = DT))
 
     ### EXTRACT GROUP QUANTS
-    if (input != "model0" && ("group.quants" %in% ctrl@summarise || "group.quants" %in% ctrl@keep)) {
+    if ((input != "model0" || "model0" %in% ctrl@keep) && ("group.quants" %in% ctrl@summarise || "group.quants" %in% ctrl@keep)) {
       if (nA == 1) {
         if (nM == 1) {
           output$DT.group.quants <- as.data.table(fit.model$Sol[, 1, drop = F])
@@ -247,7 +247,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     }
 
     ### EXTRACT MEASUREMENT means
-    if (input != "model0" && ("measurement.means" %in% ctrl@summarise || "measurement.means" %in% ctrl@keep)) {
+    if ((input != "model0" || "model0" %in% ctrl@keep) && ("measurement.means" %in% ctrl@summarise || "measurement.means" %in% ctrl@keep)) {
       if (nM == 1) {
         if (nA == 1) {
           output$DT.measurement.means <- as.data.table(fit.model$Sol[, 1, drop = F])
@@ -272,7 +272,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     }
 
     ### EXTRACT COMPONENT means
-    if (input != "model0" && ("component.means" %in% ctrl@summarise || "component.means" %in% ctrl@keep)) {
+    if ((input != "model0" || "model0" %in% ctrl@keep) && ("component.means" %in% ctrl@summarise || "component.means" %in% ctrl@keep)) {
       if (nM == 1) {
         if (nA == 1) {
           output$DT.component.means <- as.data.table(fit.model$Sol[, 1, drop = F])
@@ -305,7 +305,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
 
 
     ### EXTRACT COMPONENT DEVIATIONS
-    if (input != "model0" && ctrl@component.model == "independent" && ("component.deviations" %in% ctrl@summarise || "component.deviations" %in% ctrl@keep)) {
+    if ((input != "model0" || "model0" %in% ctrl@keep) && ctrl@component.model == "independent" && ("component.deviations" %in% ctrl@summarise || "component.deviations" %in% ctrl@keep)) {
       if (nC == 1) {
         output$DT.component.deviations <- as.data.table(fit.model$Sol[, grep("^Component:Assay\\..+\\..+$", colnames(fit.model$Sol)), drop = F])
         output$DT.component.deviations[, sample := 1:nrow(output$DT.component.deviations)]
@@ -326,7 +326,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     }
 
     ### EXTRACT ASSAY DEVIATIONS
-    if (input == "model0" || "assay.deviations" %in% ctrl@summarise || "assay.deviations" %in% ctrl@keep) {
+    if ((input != "model0" || "model0" %in% ctrl@keep) || "assay.deviations" %in% ctrl@summarise || "assay.deviations" %in% ctrl@keep) {
       if (ctrl@assay.model == "measurement") {
         output$DT.assay.deviations <- as.data.table(fit.model$Sol[, grep("^Assay.+\\.Component:Measurement\\..+\\..+$", colnames(fit.model$Sol)), drop = F])
         output$DT.assay.deviations[, sample := 1:nrow(output$DT.assay.deviations)]
@@ -355,7 +355,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     fit.model$Sol <- NULL
 
     ### EXTRACT MEASUREMENT VARIANCES
-    if (input == "model0" || "measurement.variances" %in% ctrl@summarise || "measurement.variances" %in% ctrl@keep) {
+    if ((input != "model0" || "model0" %in% ctrl@keep) || "measurement.variances" %in% ctrl@summarise || "measurement.variances" %in% ctrl@keep) {
       if (ctrl@measurement.model == "single" || nM == 1) {
         output$DT.measurement.variances <- as.data.table(fit.model$VCV[, "units", drop = F])
       } else {
@@ -389,7 +389,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     }
 
     # EXTRACT COMPONENT VARIANCES
-    if (ctrl@component.model != "" && (input == "model0" || "component.variances" %in% ctrl@summarise || "component.variances" %in% ctrl@keep)) {
+    if (ctrl@component.model != "" && ((input != "model0" || "model0" %in% ctrl@keep) || "component.variances" %in% ctrl@summarise || "component.variances" %in% ctrl@keep)) {
       if (ctrl@component.model == "single" || nC == 1) {
         output$DT.component.variances <- as.data.table(fit.model$VCV[, "Component:Assay", drop = F])
       } else {
