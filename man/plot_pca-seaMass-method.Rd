@@ -12,7 +12,7 @@
   type = "standardised.group.deviations",
   scale = FALSE,
   robust = TRUE,
-  contours = 1:2,
+  contours = 1,
   aspect.ratio = 3/4,
   labels = 25,
   colour = "Condition",

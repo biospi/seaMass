@@ -155,26 +155,32 @@ setMethod("plot_samples", "seaMass", function(object, input, type, items = NULL,
     DT1[, min := as.numeric(Element) - 0.5]
     DT1[, max := as.numeric(Element) + 0.5]
 
-    # truncate densities to 95%
+    # truncate each density to 95% credible intervals
     DT <- merge(DT, DT1[, unique(c("Element", summary.cols, colour, fill, "q025", "q975")), with = F], by = summary.cols)
     DT <- DT[value > q025 & value < q975]
     DT[, q025 := NULL]
     DT[, q975 := NULL]
 
+    # censor densities to 99% of samples
+    lim <- quantile(DT$value, probs = c(0.0005, 0.9995))
+    w <- lim[2] - lim[1]
+    if (w < 2) {
+      w <- (2 - w) / 2
+      lim <- lim + c(-w, w)
+    }
+    DT <- DT[, value := ifelse(value >= lim[1], value, lim[1])]
+    DT <- DT[, value := ifelse(value <= lim[2], value, lim[2])]
+
     # plot!
     if (horizontal) {
       g <- ggplot2::ggplot(DT, ggplot2::aes(x = value, y = Element))
       g <- g + ggplot2::geom_vline(xintercept = 0, colour = "grey")
-      if (is.null(colour)) {
-        g <- g + ggdist::stat_slab(side = "both", size = 0.25, colour = "black")
-      } else {
-        g <- g + ggdist::stat_slab(ggplot2::aes_string(colour = colour), side = "both", size = 0.25)
-      }
+      g <- g + ggdist::stat_slab(side = "both", size = 0.25, normalize = "xy")
       g <- g + ggdist::geom_pointinterval(ggplot2::aes_string(x = "value", xmin = "q17", xmax = "q83", colour = colour), DT1, interval_size = 2, point_size = 1)
       g <- g + ggplot2::guides(colour = colour.guide, fill = fill.guide)
       if (!is.null(fill)) g <- g + ggplot2::geom_rect(ggplot2::aes_string(ymin = "min", ymax = "max", fill = fill), DT1, xmin = -Inf, xmax = Inf, alpha = 0.2, colour = NA)
       g <- g + ggplot2::xlab(paste("log2", value.label))
-      g <- g + ggplot2::coord_cartesian(xlim = c(min(DT1$q025), max(DT1$q975)))
+      g <- g + ggplot2::coord_cartesian(xlim = lim, expand = F)
       g <- g + ggplot2::theme(legend.position = "top", axis.title.y = ggplot2::element_blank())
       if (!is.null(file)) {
         gt <- egg::set_panel_size(g, width = grid::unit(value.length, "mm"), height = grid::unit(level.length * nlevels(DT1$Element), "mm"))
@@ -183,16 +189,12 @@ setMethod("plot_samples", "seaMass", function(object, input, type, items = NULL,
     } else {
       g <- ggplot2::ggplot(DT, ggplot2::aes(x = Element, y = value))
       g <- g + ggplot2::geom_hline(yintercept = 0, colour = "grey")
-      if (is.null(colour)) {
-        g <- g + ggdist::stat_slab(side = "both", size = 0.25, colour = "black")
-      } else {
-        g <- g + ggdist::stat_slab(ggplot2::aes_string(colour = colour), side = "both", size = 0.25)
-      }
+      g <- g + ggdist::stat_slab(side = "both", size = 0.25, normalize = "xy")
       g <- g + ggdist::geom_pointinterval(ggplot2::aes_string(y = "value", ymin = "q17", ymax = "q83", colour = colour), DT1, interval_size = 2, point_size = 1)
       g <- g + ggplot2::guides(colour = colour.guide, fill = fill.guide)
       if (!is.null(fill)) g <- g + ggplot2::geom_rect(ggplot2::aes_string(xmin = "min", xmax = "max", fill = fill), DT1, ymin = -Inf, ymax = Inf, alpha = 0.2, colour = NA)
       g <- g + ggplot2::ylab(paste("log2", value.label))
-      g <- g + ggplot2::coord_cartesian(ylim = c(min(DT1$q025), max(DT1$q975)))
+      g <- g + ggplot2::coord_cartesian(ylim = lim, expand = F)
       g <- g + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "left", axis.title.x = ggplot2::element_blank())
       if (!is.null(file)) {
         gt <- egg::set_panel_size(g, height = grid::unit(value.length, "mm"), width = grid::unit(level.length * nlevels(DT1$Element), "mm"))

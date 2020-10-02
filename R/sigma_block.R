@@ -87,6 +87,32 @@ setMethod("components", "sigma_block", function(object, as.data.table = FALSE) {
 })
 
 
+#' @describeIn sigma_block Get the assay groups as a \code{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("assay_groups", "sigma_block", function(object, as.data.table = FALSE) {
+  DT <- fst::read.fst(file.path(dirname(filepath(object)), "meta", "assay.groups.fst"), as.data.table = T)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn sigma_block Get the assay groups as a \code{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("assay_components", "sigma_block", function(object, as.data.table = FALSE) {
+  DT <- fst::read.fst(file.path(dirname(filepath(object)), "meta", "assay.components.fst"), as.data.table = T)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
 #' @describeIn sigma_block Get the study design for this block as a \link{data.frame}.
 #' @import data.table
 #' @export
@@ -333,7 +359,7 @@ setMethod("standardised_group_deviations", "sigma_block", function(object, group
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_assay_means", "sigma_block", function(object, assays = NULL, input = "model1", sort.cols = NULL, label.cols = c("Sample", "Assay"), horizontal = TRUE, colour = "Assay.SD", colour.guide = ggplot2::guide_colorbar(barwidth = ggplot2::unit(50, "mm")), fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+setMethod("plot_assay_means", "sigma_block", function(object, assays = NULL, input = "model1", sort.cols = NULL, label.cols = c("Sample", "Assay"), horizontal = TRUE, colour = "Assay.SD", colour.guide = ggplot2::guide_colorbar(barwidth = ggplot2::unit(50, "mm")), fill = NULL, fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
   return(plot_samples(object, input, "assay.means", assays, sort.cols, label.cols, "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 
@@ -341,7 +367,7 @@ setMethod("plot_assay_means", "sigma_block", function(object, assays = NULL, inp
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_group_means", "sigma_block", function(object, groups = NULL, input = "model1", sort.cols = NULL, label.cols = c("Group", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+setMethod("plot_group_means", "sigma_block", function(object, groups = NULL, input = "model1", sort.cols = NULL, label.cols = c("Group"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
   return(plot_samples(object, input, "group.means", groups, sort.cols, label.cols, "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 
@@ -349,7 +375,7 @@ setMethod("plot_group_means", "sigma_block", function(object, groups = NULL, inp
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_group_quants", "sigma_block", function(object, group, input = "model1", label.cols = c("Sample", "Assay"), sort.cols = NULL, horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+setMethod("plot_group_quants", "sigma_block", function(object, group, input = "model1", label.cols = c("Sample", "Assay"), sort.cols = NULL, horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
   return(plot_samples(object, input, "group.quants", group, sort.cols, label.cols, "quant", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 
@@ -357,7 +383,7 @@ setMethod("plot_group_quants", "sigma_block", function(object, group, input = "m
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_normalised_group_quants", "sigma_block", function(object, group, input = "model1", label.cols = c("Sample", "Assay"), sort.cols = NULL, horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+setMethod("plot_normalised_group_quants", "sigma_block", function(object, group, input = "model1", label.cols = c("Sample", "Assay"), sort.cols = NULL, horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
   return(plot_samples(object, input, "normalised.group.quants", group, sort.cols, label.cols, "quant", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 
@@ -365,7 +391,7 @@ setMethod("plot_normalised_group_quants", "sigma_block", function(object, group,
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_normalised_group_stdevs", "sigma_block", function(object, groups = NULL, input = "model1", sort.cols = NULL, label.cols = c("Group", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+setMethod("plot_normalised_group_stdevs", "sigma_block", function(object, groups = NULL, input = "model1", sort.cols = NULL, label.cols = c("Group"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
   return(plot_samples(object, input, "normalised.group.variances", groups, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, sqrt))
 })
 
@@ -373,7 +399,7 @@ setMethod("plot_normalised_group_stdevs", "sigma_block", function(object, groups
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_standardised_group_deviations", "sigma_block", function(object, group, input = "model1", label.cols = c("Sample", "Assay"), sort.cols = NULL, horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+setMethod("plot_standardised_group_deviations", "sigma_block", function(object, group, input = "model1", label.cols = c("Sample", "Assay"), sort.cols = NULL, horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
   return(plot_samples(object, input, "standardised.group.deviations", group, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 
@@ -381,7 +407,7 @@ setMethod("plot_standardised_group_deviations", "sigma_block", function(object, 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_component_deviations", "sigma_block", function(object, group, input = "model1", label.cols = c("Component", "Sample", "Assay"), sort.cols = "Component", horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+setMethod("plot_component_deviations", "sigma_block", function(object, group, input = "model1", label.cols = c("Component", "Sample", "Assay"), sort.cols = "Component", horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
   return(plot_samples(object, input, "component.deviations", group, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 
@@ -389,7 +415,7 @@ setMethod("plot_component_deviations", "sigma_block", function(object, group, in
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_component_means", "sigma_block", function(object, group, input = "model1", sort.cols = NULL, label.cols = c("Component", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+setMethod("plot_component_means", "sigma_block", function(object, group, input = "model1", sort.cols = NULL, label.cols = c("Component"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
   return(plot_samples(object, input, "component.means", group, sort.cols, label.cols, "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 
@@ -397,7 +423,7 @@ setMethod("plot_component_means", "sigma_block", function(object, group, input =
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_component_stdevs", "sigma_block", function(object, group, input = "model1", sort.cols = NULL, label.cols = c("Component", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+setMethod("plot_component_stdevs", "sigma_block", function(object, group, input = "model1", sort.cols = NULL, label.cols = c("Component"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
   return(plot_samples(object, input, "component.variances", group, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, sqrt))
 })
 
@@ -405,7 +431,7 @@ setMethod("plot_component_stdevs", "sigma_block", function(object, group, input 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_measurement_means", "sigma_block", function(object, group, input = "model1", sort.cols = NULL, label.cols = c("Component", "Measurement", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+setMethod("plot_measurement_means", "sigma_block", function(object, group, input = "model1", sort.cols = NULL, label.cols = c("Component", "Measurement"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
   return(plot_samples(object, input, "measurement.means", group, sort.cols, label.cols, "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 
@@ -413,6 +439,6 @@ setMethod("plot_measurement_means", "sigma_block", function(object, group, input
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_measurement_stdevs", "sigma_block", function(object, group, input = "model1", sort.cols = NULL, label.cols = c("Component", "Measurement", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
+setMethod("plot_measurement_stdevs", "sigma_block", function(object, group, input = "model1", sort.cols = NULL, label.cols = c("Component", "Measurement"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
   return(plot_samples(object, input, "measurement.variances", group, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, sqrt))
 })

@@ -11,6 +11,8 @@
 \alias{groups,sigma_block-method}
 \alias{measurements,sigma_block-method}
 \alias{components,sigma_block-method}
+\alias{assay_groups,sigma_block-method}
+\alias{assay_components,sigma_block-method}
 \alias{assay_design,sigma_block-method}
 \alias{priors,sigma_block-method}
 \alias{summary,sigma_block-method}
@@ -40,6 +42,10 @@
 \S4method{measurements}{sigma_block}(object, as.data.table = FALSE)
 
 \S4method{components}{sigma_block}(object, as.data.table = FALSE)
+
+\S4method{assay_groups}{sigma_block}(object, as.data.table = FALSE)
+
+\S4method{assay_components}{sigma_block}(object, as.data.table = FALSE)
 
 \S4method{assay_design}{sigma_block}(object, as.data.table = FALSE)
 
@@ -150,6 +156,10 @@ The results of a seaMass-Σ block to a single block, returned by /link{seaMass_s
 \item \code{measurements}: Get the measurement metadata as a \link{data.frame}.
 
 \item \code{components}: Get the component metadata as a \link{data.frame}.
+
+\item \code{assay_groups}: Get the assay groups as a \code{data.frame}.
+
+\item \code{assay_components}: Get the assay groups as a \code{data.frame}.
 
 \item \code{assay_design}: Get the study design for this block as a \link{data.frame}.
 

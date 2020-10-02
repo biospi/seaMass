@@ -8,7 +8,7 @@ setMethod("plots", "sigma_block", function(object, chain) {
 
   # PROCESS OUTPUT
   nbatch <- length(blocks(object)) * ctrl@model.nchain
-  batch <- (as.integer(sub("^.*sigma\\.(.*)$", "\\1", filepath(object))) - 1) * ctrl@model.nchain + chain
+  batch <- (as.integer(assay_design(object, as.data.table = T)[1, Block]) - 1) * ctrl@model.nchain + chain
   cat(paste0("[", Sys.time(), "]   PLOTS batch=", batch, "/", nbatch, "\n"))
 
   # grab out batch of groups
