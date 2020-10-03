@@ -133,19 +133,21 @@ setMethod("plot_samples", "seaMass", function(object, input, type, items = NULL,
     if (is.null(label.cols)) label.cols <- summary.cols
 
     # metadata for each column level
-    DT1 <- DT[, (as.list(quantile(value, probs = c(0.025, 0.17, 0.5, 0.83, 0.975), na.rm = T))), by = summary.cols]
-    colnames(DT1)[(ncol(DT1) - 4):ncol(DT1)] <- c("q025", "q17", "value", "q83", "q975")
+    DT1 <- DT[, (as.list(quantile(value, probs = c(0.025, 0.16, 0.5, 0.84, 0.975), na.rm = T))), by = summary.cols]
+    colnames(DT1)[(ncol(DT1) - 4):ncol(DT1)] <- c("q025", "q16", "value", "q84", "q975")
     if ("Group" %in% summary.cols) DT1 <- merge(DT1, groups(object, as.data.table = T), sort = F, by = "Group", suffixes = c("", ".G"))
     if ("Group" %in% summary.cols && "Component" %in% summary.cols) DT1 <- merge(DT1, components(object, as.data.table = T), sort = F, by = c("Group", "Component"), suffixes = c("", ".C"))
     if ("Group" %in% summary.cols && "Component" %in% summary.cols && "Measurement" %in% summary.cols) DT1 <- merge(DT1, measurements(object, as.data.table = T), sort = F, by = c("Group", "Component", "Measurement"), suffixes = c("", ".M"))
     if ("Block" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_design(object, as.data.table = T), sort = F, by = c("Block", "Assay"), suffixes = c("", ".AD"))
     if ("Group" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_groups(object, as.data.table = T), sort = F, by = c("Group", "Assay"), suffixes = c("", ".AG"))
     if ("Group" %in% summary.cols && "Component" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_components(object, as.data.table = T), sort = F, by = c("Group", "Component", "Assay"), suffixes = c("", ".AC"))
-    if (!is.null(colour) && (!(colour %in% colnames(DT1)) || all(is.na(DT1[, get(colour)])))) colour <- NULL
-    if (!is.null(fill) && (!(fill %in% colnames(DT1)) || all(is.na(DT1[, get(fill)])))) fill <- NULL
+    if (!is.null(colour) && (!(colour %in% colnames(DT1)) || all(is.na(DT1[, get(colour)])) || uniqueN(DT1[, get(colour)]) <= 1)) colour <- NULL
+    if (!is.null(fill) && (!(fill %in% colnames(DT1)) || all(is.na(DT1[, get(fill)])) || uniqueN(DT1[, get(fill)]) <= 1)) fill <- NULL
 
     # sort order
     if (!is.null(sort.cols)) setorderv(DT1, sort.cols, na.last = T)
+    # remove label.cols with same info
+    label.cols <- label.cols[!duplicated(t(DT1[, mget(label.cols)]))]
     DT1[, Element := Reduce(function(...) paste(..., sep = " : "), .SD[, mget(label.cols)])]
     if (horizontal) {
       DT1[, Element := factor(Element, levels = rev(unique(Element)))]
@@ -161,11 +163,11 @@ setMethod("plot_samples", "seaMass", function(object, input, type, items = NULL,
     DT[, q025 := NULL]
     DT[, q975 := NULL]
 
-    # censor densities to 99% of samples
+    # censor densities to 99.9% of samples
     lim <- quantile(DT$value, probs = c(0.0005, 0.9995))
     w <- lim[2] - lim[1]
-    if (w < 2) {
-      w <- (2 - w) / 2
+    if (w < 4) {
+      w <- (4 - w) / 2
       lim <- lim + c(-w, w)
     }
     DT <- DT[, value := ifelse(value >= lim[1], value, lim[1])]
@@ -175,27 +177,52 @@ setMethod("plot_samples", "seaMass", function(object, input, type, items = NULL,
     if (horizontal) {
       g <- ggplot2::ggplot(DT, ggplot2::aes(x = value, y = Element))
       g <- g + ggplot2::geom_vline(xintercept = 0, colour = "grey")
-      g <- g + ggdist::stat_slab(side = "both", size = 0.25, normalize = "xy")
-      g <- g + ggdist::geom_pointinterval(ggplot2::aes_string(x = "value", xmin = "q17", xmax = "q83", colour = colour), DT1, interval_size = 2, point_size = 1)
-      g <- g + ggplot2::guides(colour = colour.guide, fill = fill.guide)
+
+      g <- g + ggdist::stat_slab(side = "both", size = 0.25, normalize = "xy", limits = lim)
+
+      g <- g + ggdist::geom_pointinterval(ggplot2::aes_string(x = "value", xmin = "q025", xmax = "q975", colour = colour), DT1, interval_size = 0.1, point_size = 0)
+      g <- g + ggdist::geom_pointinterval(ggplot2::aes_string(x = "value", xmin = "q16", xmax = "q84", colour = colour), DT1, interval_size = 5, point_size = 1.5)
       if (!is.null(fill)) g <- g + ggplot2::geom_rect(ggplot2::aes_string(ymin = "min", ymax = "max", fill = fill), DT1, xmin = -Inf, xmax = Inf, alpha = 0.2, colour = NA)
       g <- g + ggplot2::xlab(paste("log2", value.label))
       g <- g + ggplot2::coord_cartesian(xlim = lim, expand = F)
       g <- g + ggplot2::theme(legend.position = "top", axis.title.y = ggplot2::element_blank())
+    } else {
+      g <- ggplot2::ggplot(DT, ggplot2::aes(x = Element, y = value))
+      g <- g + ggplot2::geom_hline(yintercept = 0, colour = "grey")
+
+      g <- g + ggdist::stat_slab(side = "both", size = 0.25, normalize = "xy", limits = lim)
+
+      g <- g + ggdist::geom_pointinterval(ggplot2::aes_string(y = "value", ymin = "q025", ymax = "q975", colour = colour), DT1, interval_size = 0.1, point_size = 0)
+      g <- g + ggdist::geom_pointinterval(ggplot2::aes_string(y = "value", ymin = "q16", ymax = "q84", colour = colour), DT1, interval_size = 5, point_size = 1.5)
+      if (!is.null(fill)) g <- g + ggplot2::geom_rect(ggplot2::aes_string(xmin = "min", xmax = "max", fill = fill), DT1, ymin = -Inf, ymax = Inf, alpha = 0.2, colour = NA)
+      g <- g + ggplot2::ylab(paste("log2", value.label))
+      g <- g + ggplot2::coord_cartesian(ylim = lim, expand = F)
+      g <- g + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "left", axis.title.x = ggplot2::element_blank())
+    }
+
+
+    if (!is.null(colour)) {
+      if (is.numeric(DT[, get(colour)])) {
+        g <- g + ggplot2::scale_colour_viridis_c(option = "plasma", end = 0.75)
+      } else {
+        g <- g + ggplot2::scale_colour_viridis_d(option = "plasma", end = 0.75)
+      }
+    }
+
+    if (!is.null(fill)) {
+      if (is.numeric(DT[, get(fill)])) {
+        g <- g + ggplot2::scale_fill_viridis_c(option = "plasma", alpha = 0.25)
+      } else {
+        g <- g + ggplot2::scale_fill_viridis_d(option = "plasma", alpha = 0.25)
+      }
+    }
+
+    if (horizontal) {
       if (!is.null(file)) {
         gt <- egg::set_panel_size(g, width = grid::unit(value.length, "mm"), height = grid::unit(level.length * nlevels(DT1$Element), "mm"))
         ggplot2::ggsave(file, gt, width = 10 + sum(as.numeric(grid::convertUnit(gt$widths, "mm"))), height = 10 + sum(as.numeric(grid::convertUnit(gt$heights, "mm"))), units = "mm", limitsize = F)
       }
     } else {
-      g <- ggplot2::ggplot(DT, ggplot2::aes(x = Element, y = value))
-      g <- g + ggplot2::geom_hline(yintercept = 0, colour = "grey")
-      g <- g + ggdist::stat_slab(side = "both", size = 0.25, normalize = "xy")
-      g <- g + ggdist::geom_pointinterval(ggplot2::aes_string(y = "value", ymin = "q17", ymax = "q83", colour = colour), DT1, interval_size = 2, point_size = 1)
-      g <- g + ggplot2::guides(colour = colour.guide, fill = fill.guide)
-      if (!is.null(fill)) g <- g + ggplot2::geom_rect(ggplot2::aes_string(xmin = "min", xmax = "max", fill = fill), DT1, ymin = -Inf, ymax = Inf, alpha = 0.2, colour = NA)
-      g <- g + ggplot2::ylab(paste("log2", value.label))
-      g <- g + ggplot2::coord_cartesian(ylim = lim, expand = F)
-      g <- g + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "left", axis.title.x = ggplot2::element_blank())
       if (!is.null(file)) {
         gt <- egg::set_panel_size(g, height = grid::unit(value.length, "mm"), width = grid::unit(level.length * nlevels(DT1$Element), "mm"))
         ggplot2::ggsave(file, gt, width = 10 + sum(as.numeric(grid::convertUnit(gt$widths, "mm"))), height = 10 + sum(as.numeric(grid::convertUnit(gt$heights, "mm"))), units = "mm", limitsize = F)

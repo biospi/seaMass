@@ -714,6 +714,7 @@ setMethod("plot_assay_means", "seaMass_sigma", function(object, assays = NULL, i
 #' @export
 #' @include generics.R
 setMethod("plot_group_means", "seaMass_sigma", function(object, groups = NULL, input = "model1", sort.cols = NULL, label.cols = c("Group", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
+  if (length(blocks(object)) <= 1) label.cols <- setdiff(label.cols, "Block")
   return(plot_samples(object, input, "group.means", groups, sort.cols, label.cols, "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 

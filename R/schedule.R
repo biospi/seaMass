@@ -208,7 +208,7 @@ setMethod("prepare_delta", "schedule_slurm", function(object, fit.delta) {
 
 #' @include generics.R
 setMethod("run", "schedule_slurm", function(object, fit.sigma) {
-  cat(paste0("[", Sys.time(), "]  submitting to SLURM...\n"))
+  cat(paste0("[", Sys.time(), "] submitting to SLURM...\n"))
   system(paste0(object@submit.prefix, file.path(basename(filepath(fit.sigma)), "submit.sh")))
   return(invisible(object))
 })
@@ -368,7 +368,7 @@ setMethod("prepare_delta", "schedule_pbs", function(object, fit.delta) {
 
 #' @include generics.R
 setMethod("run", "schedule_pbs", function(object, fit.sigma) {
-  cat(paste0("[", Sys.time(), "]  submitting to PBS...\n"))
+  cat(paste0("[", Sys.time(), "] submitting to PBS...\n"))
   system(paste0(object@submit.prefix, file.path(basename(filepath(fit.sigma)), "submit.sh")))
   return(invisible(object))
 })
@@ -528,7 +528,7 @@ setMethod("prepare_delta", "schedule_sge", function(object, fit.delta) {
 
 #' @include generics.R
 setMethod("run", "schedule_sge", function(object, fit.sigma) {
-  cat(paste0("[", Sys.time(), "]  submitting to SGE...\n"))
+  cat(paste0("[", Sys.time(), "] submitting to SGE...\n"))
   system(paste0(object@submit.prefix, file.path(basename(filepath(fit.sigma)), "submit.sh")))
   return(invisible(object))
 })
