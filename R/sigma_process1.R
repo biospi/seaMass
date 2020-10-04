@@ -109,7 +109,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
 
     if ("group.means" %in% ctrl@plot) {
       cat(paste0("[", Sys.time(), "]    plotting group means...\n"))
-      plot_group_means(object, file = file.path(dirname(filepath(object)), "output", paste0("log2_group_means", ifelse(length(blocks(object)) <= 1, "", c("_block", name(object))), ".pdf")))
+      plot_group_means(object, file = file.path(dirname(filepath(object)), "output", paste0("log2_group_means", ifelse(length(blocks(object)) <= 1, "", paste0("_block", name(object))), ".pdf")))
     }
     if (!("group.means" %in% ctrl@keep)) unlink(file.path(filepath(object), "model1", "group.means*"), recursive = T)
 
@@ -148,7 +148,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
           # plot
           if ("normalised.group.stdevs" %in% ctrl@plot) {
             cat(paste0("[", Sys.time(), "]    plotting normalised group stdevs...\n"))
-            plot_normalised_group_stdevs(object, file = file.path(dirname(filepath(object)), "output", paste0("log2_group_stdevs", ifelse(length(blocks(object)) <= 1, "", c("_block", name(object))), ".pdf")))
+            plot_normalised_group_stdevs(object, file = file.path(dirname(filepath(object)), "output", paste0("log2_group_stdevs", ifelse(length(blocks(object)) <= 1, "", paste0("_block", name(object))), ".pdf")))
           }
 
           if (!("normalised.group.variances" %in% ctrl@keep)) unlink(file.path(filepath(object), "model1", "normalised.group.variances*"), recursive = T)
@@ -166,7 +166,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
     }
 
     # group quants pca
-    if ("group.quants.pca" %in% ctrl@plot)  {
+    if ("group.quants.pca" %in% ctrl@plot && length(blocks(object)) > 1)  {
       ellipsis <- ctrl@ellipsis
       ellipsis$object <- object
       ellipsis$type <- type

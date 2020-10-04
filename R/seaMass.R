@@ -215,9 +215,9 @@ setMethod("plot_samples", "seaMass", function(object, input, type, items = NULL,
 
     if (!is.null(fill)) {
       if (is.numeric(DT[, get(fill)])) {
-        g <- g + ggplot2::scale_fill_viridis_c(option = "plasma", alpha = 0.25)
+        g <- g + ggplot2::scale_fill_viridis_c(option = "plasma", alpha = 0.15)
       } else {
-        g <- g + ggplot2::scale_fill_viridis_d(option = "plasma", alpha = 0.25)
+        g <- g + ggplot2::scale_fill_viridis_d(option = "plasma", alpha = 0.15)
       }
     }
 
