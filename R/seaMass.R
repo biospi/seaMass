@@ -125,8 +125,7 @@ setMethod("plot_samples", "seaMass", function(object, input, type, items = NULL,
   # read samples
   DT <- read_samples(object, input, type, items, as.data.table = T)
   if (is.null(DT) || nrow(DT) == 0) {
-    if (!is.null(file)) ggplot2::ggsave(file, NULL, width = 10, height = 10)
-    g <- NULL
+    return(NULL)
   } else {
     if (!is.null(transform.func)) DT$value <- transform.func(DT$value)
     summary.cols <- colnames(DT)[1:(which(colnames(DT) == "chain") - 1)]
@@ -166,9 +165,14 @@ setMethod("plot_samples", "seaMass", function(object, input, type, items = NULL,
     # censor densities to 99.9% of samples
     lim <- quantile(DT$value, probs = c(0.0005, 0.9995))
     w <- lim[2] - lim[1]
-    if (w < 4) {
-      w <- (4 - w) / 2
-      lim <- lim + c(-w, w)
+    if (w < 2) {
+      w <- (2 - w) / 2
+      if (lim[1] >= 0) {
+        lim <- lim + c(-w, w)
+        if (lim[1] < 0) lim <- lim - lim[1]
+      } else {
+        lim <- lim + c(-w, w)
+      }
     }
     DT <- DT[, value := ifelse(value >= lim[1], value, lim[1])]
     DT <- DT[, value := ifelse(value <= lim[2], value, lim[2])]
@@ -228,9 +232,9 @@ setMethod("plot_samples", "seaMass", function(object, input, type, items = NULL,
         ggplot2::ggsave(file, gt, width = 10 + sum(as.numeric(grid::convertUnit(gt$widths, "mm"))), height = 10 + sum(as.numeric(grid::convertUnit(gt$heights, "mm"))), units = "mm", limitsize = F)
       }
     }
-  }
 
-  return(g)
+    return(g)
+  }
 })
 
 

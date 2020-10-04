@@ -352,19 +352,15 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       output$DT.measurement.variances[, sample := 1:nrow(output$DT.measurement.variances)]
       output$DT.measurement.variances <- melt(output$DT.measurement.variances, id.vars = "sample")
 
-      # component
-      if (ctrl@measurement.model == "single" || nM == 1) {
-        output$DT.measurement.variances[, Component := group]
-      } else {
-        output$DT.measurement.variances[, Component := as.integer(sub("^Measurement(.+)\\..+\\.units", "\\1", variable))]
-      }
-
-      # measurement
+      # component and measurement
       if (ctrl@measurement.model == "single") {
+        output$DT.measurement.variances[, Component := group]
         output$DT.measurement.variances[, Measurement := group]
       } else if (nM == 1) {
-        output$DT.measurement.variances[, Measurement := as.integer(as.character(DT[1, Measurement]))]
+        output$DT.measurement.variances[, Component := as.integer(as.character(DT[1, Component]))]
+        output$DT.measurement.variances[, Measurement := as.integer(sub("^.+\\.(.+)$", "\\1", as.character(DT[1, Measurement])))]
       } else {
+        output$DT.measurement.variances[, Component := as.integer(sub("^Measurement(.+)\\..+\\.units", "\\1", variable))]
         output$DT.measurement.variances[, Measurement := as.integer(sub("^Measurement.+\\.(.+)\\.units", "\\1", variable))]
       }
 

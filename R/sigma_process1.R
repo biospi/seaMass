@@ -106,6 +106,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
       DT.group.means <- group_means(object, summary = T, as.data.table = T)
       rm(DT.group.means)
     }
+
     if ("group.means" %in% ctrl@plot) {
       cat(paste0("[", Sys.time(), "]    plotting group means...\n"))
       plot_group_means(object, file = file.path(dirname(filepath(object)), "output", paste0("log2_group_means", ifelse(length(blocks(object)) <= 1, "", c("_block", name(object))), ".pdf")))
