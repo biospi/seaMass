@@ -14,7 +14,7 @@ setMethod("normalise_theta", "sigma_block", function(object, data.design = assay
   if (!is.null(norm.groups)) norm.groups <- groups(object, as.data.table = T)[grep(norm.groups, Group), Group]
 
   ctrl <- control(object)
-  parallel_lapply(as.list(1:ctrl@model.nchain), function(item, object, norm.groups, input, type) {
+  parallel_lapply(1:ctrl@model.nchain, function(item, object, norm.groups, input, type) {
     ctrl <- control(object)
     DT.summary <- read_samples(object, input, type, norm.groups, summary = T, as.data.table = T)[, .(Group, Assay, m, s)]
     DT <- copy(DT.summary)
@@ -88,7 +88,7 @@ setMethod("normalise_theta", "sigma_block", function(object, data.design = assay
     fst::write.fst(DT, file.path(filepath(object), input, "normalised.group.quants", paste(item, "fst", sep = ".")))
 
     return(NULL)
-  }, nthread = ctrl@nthread)
+  }, nthread = 1)
 
   return(invisible(object))
 })
