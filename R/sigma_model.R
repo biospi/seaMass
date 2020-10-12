@@ -8,8 +8,9 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
   DT.index <- fst::read.fst(file.path(filepath(object), input, "data.index.fst"), as.data.table = T)
 
   nitt <- ctrl@model.nwarmup + (ctrl@model.nsample * ctrl@model.thin) / ctrl@model.nchain
-  DT.priors <- priors(object, input = input, as.data.table = T)
-  if (!is.null(DT.priors)) DT.priors[, Assay := as.integer(Assay)]
+  DT.priors <- NULL
+  #DT.priors <- priors(object, input = input, as.data.table = T)
+  #if (!is.null(DT.priors)) DT.priors[, Assay := as.integer(Assay)]
 
   # create subdirs
   dir.create(file.path(filepath(object), input, "timings"), showWarnings = F)
