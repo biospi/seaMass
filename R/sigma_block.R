@@ -392,7 +392,7 @@ setMethod("plot_normalised_group_quants", "sigma_block", function(object, group,
 #' @export
 #' @include generics.R
 setMethod("plot_normalised_group_stdevs", "sigma_block", function(object, groups = NULL, input = "model1", sort.cols = NULL, label.cols = c("Group"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_samples(object, input, "normalised.group.variances", groups, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, sqrt))
+  return(plot_samples(object, input, "normalised.group.variances", groups, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, T, T))
 })
 
 
@@ -400,7 +400,7 @@ setMethod("plot_normalised_group_stdevs", "sigma_block", function(object, groups
 #' @export
 #' @include generics.R
 setMethod("plot_standardised_group_deviations", "sigma_block", function(object, group, input = "model1", label.cols = c("Sample", "Assay"), sort.cols = NULL, horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_samples(object, input, "standardised.group.deviations", group, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+  return(plot_samples(object, input, "standardised.group.deviations", group, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, T))
 })
 
 
@@ -408,7 +408,7 @@ setMethod("plot_standardised_group_deviations", "sigma_block", function(object, 
 #' @export
 #' @include generics.R
 setMethod("plot_component_deviations", "sigma_block", function(object, group, input = "model1", label.cols = c("Component", "Sample", "Assay"), sort.cols = "Component", horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_samples(object, input, "component.deviations", group, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+  return(plot_samples(object, input, "component.deviations", group, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, T))
 })
 
 
@@ -424,7 +424,7 @@ setMethod("plot_component_means", "sigma_block", function(object, group, input =
 #' @export
 #' @include generics.R
 setMethod("plot_component_stdevs", "sigma_block", function(object, group, input = "model1", sort.cols = NULL, label.cols = c("Component"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_samples(object, input, "component.variances", group, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, sqrt))
+  return(plot_samples(object, input, "component.variances", group, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, T, T))
 })
 
 
@@ -440,5 +440,5 @@ setMethod("plot_measurement_means", "sigma_block", function(object, group, input
 #' @export
 #' @include generics.R
 setMethod("plot_measurement_stdevs", "sigma_block", function(object, group, input = "model1", sort.cols = NULL, label.cols = c("Component", "Measurement"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_samples(object, input, "measurement.variances", group, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, sqrt))
+  return(plot_samples(object, input, "measurement.variances", group, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, T, T))
 })

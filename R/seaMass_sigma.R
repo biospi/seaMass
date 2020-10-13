@@ -58,6 +58,13 @@ seaMass_sigma <- function(
   if ("measurement.means" %in% control@plots) dir.create(file.path(path, "output", "log2_measurement_means"))
   if ("measurement.stdevs" %in% control@plots) dir.create(file.path(path, "output", "log2_measurement_stdevs"))
 
+  # extract blocks and save control
+  block.cols <- colnames(DT.design)[grep("^Block\\.(.*)$", colnames(DT.design))]
+  control@blocks <- sub("^Block\\.(.*)$", "\\1", block.cols)
+  control@ellipsis <- list(...)
+  validObject(control)
+  saveRDS(control, file.path(path, "meta", "control.rds"))
+
   # init DT
   data.is.data.table <- is.data.table(data)
   DT <- setDT(data)
@@ -86,7 +93,15 @@ seaMass_sigma <- function(
     DT.design[, Channel := "1"]
   }
   if (!is.factor(DT.design[, Channel])) DT.design[, Channel := factor(as.character(Channel), levels = levels(DT[, Channel]))]
-  if (!("RefWeight" %in% names(DT.design))) DT.design[, RefWeight := 1]
+
+  # sort ref weights
+  if ("RefWeight" %in% names(DT.design)) {
+    for (block.col in block.cols) {
+      if (all(DT.design$RefWeight[DT.design[[block.col]]] == 0)) DT.design$RefWeight[DT.design[[block.col]]] <- 1
+    }
+  }  else {
+    DT.design[, RefWeight := 1]
+  }
 
   # add Assay to DT
   DT <- merge(DT, DT.design[, .(Run, Channel, Assay)], by = c("Run", "Channel"), sort = F, all.x = T)
@@ -157,13 +172,6 @@ seaMass_sigma <- function(
   fst::write.fst(DT.measurements, file.path(path, "meta", "measurements.fst"))
   fwrite(DT.measurements, file.path(path, "output", "measurements.csv"))
   rm(DT.measurements)
-
-  # extract blocks and save control
-  block.cols <- colnames(DT.design)[grep("^Block\\.(.*)$", colnames(DT.design))]
-  control@blocks <- sub("^Block\\.(.*)$", "\\1", block.cols)
-  control@ellipsis <- list(...)
-  validObject(control)
-  saveRDS(control, file.path(path, "meta", "control.rds"))
 
   # process each block independently
   DT.design <- rbindlist(lapply(1:length(control@blocks), function(i) {
@@ -739,7 +747,7 @@ setMethod("plot_normalised_group_quants", "seaMass_sigma", function(object, grou
 #' @export
 #' @include generics.R
 setMethod("plot_normalised_group_stdevs", "seaMass_sigma", function(object, groups = NULL, input = "model1", sort.cols = NULL, label.cols = c("Group", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_samples(object, input, "normalised.group.variances", groups, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, sqrt))
+  return(plot_samples(object, input, "normalised.group.variances", groups, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, T, T))
 })
 
 
@@ -747,7 +755,7 @@ setMethod("plot_normalised_group_stdevs", "seaMass_sigma", function(object, grou
 #' @export
 #' @include generics.R
 setMethod("plot_standardised_group_deviations", "seaMass_sigma", function(object, group, input = "model1", label.cols = c("Sample", "Assay", "Block"), sort.cols = NULL, horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_samples(object, input, "standardised.group.deviations", group, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+  return(plot_samples(object, input, "standardised.group.deviations", group, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, T))
 })
 
 
@@ -755,7 +763,7 @@ setMethod("plot_standardised_group_deviations", "seaMass_sigma", function(object
 #' @export
 #' @include generics.R
 setMethod("plot_component_deviations", "seaMass_sigma", function(object, group, input = "model1", label.cols = c("Component", "Sample", "Assay", "Block"), sort.cols = "Component", horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_samples(object, input, "component.deviations", group, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+  return(plot_samples(object, input, "component.deviations", group, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, T))
 })
 
 
@@ -771,7 +779,7 @@ setMethod("plot_component_means", "seaMass_sigma", function(object, group, input
 #' @export
 #' @include generics.R
 setMethod("plot_component_stdevs", "seaMass_sigma", function(object, group, input = "model1", sort.cols = NULL, label.cols = c("Component", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_samples(object, input, "component.variances", group, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, sqrt))
+  return(plot_samples(object, input, "component.variances", group, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, T, T))
 })
 
 
@@ -787,5 +795,5 @@ setMethod("plot_measurement_means", "seaMass_sigma", function(object, group, inp
 #' @export
 #' @include generics.R
 setMethod("plot_measurement_stdevs", "seaMass_sigma", function(object, group, input = "model1", sort.cols = NULL, label.cols = c("Component", "Measurement", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_samples(object, input, "measurement.variances", group, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, sqrt))
+  return(plot_samples(object, input, "measurement.variances", group, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, T, T))
 })

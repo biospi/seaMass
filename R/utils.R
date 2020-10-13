@@ -29,15 +29,7 @@ parallel_lapply <- function(items, func, nthread = 0, pred = rep(1, length(items
     setTxtProgressBar(pb, 0)
   }
 
-  if (nthread <= 1 || length(items) == 1) {
-    # if nthread is 1 then turn off all multiprocessing
-    if (nthread == 1) {
-      dt.threads <- data.table::getDTthreads()
-      data.table::setDTthreads(1)
-      fst.threads <- fst::threads_fst()
-      fst::threads_fst(1)
-    }
-
+  if (nthread == 0) {
     # sequential
     outputs <- lapply(seq_along(items), function(i) {
       item <- items[[i]]
@@ -45,11 +37,6 @@ parallel_lapply <- function(items, func, nthread = 0, pred = rep(1, length(items
       if (length(items) > 1) setTxtProgressBar(pb, getTxtProgressBar(pb) + pred[i])
       return(output)
     })
-
-    if (nthread == 1) {
-      data.table::setDTthreads(dt.threads)
-      fst::threads_fst(fst::threads_fst())
-    }
   } else {
     # restart cluster EVERY TIME just to stop memory leaks (crap GC or other problem?)
     if (!is.null(parallel::getDefaultCluster())) {
@@ -61,14 +48,17 @@ parallel_lapply <- function(items, func, nthread = 0, pred = rep(1, length(items
     parallel::setDefaultCluster(cl)
 
     # parallel
+    if (length(items) > 1) {
+      progress <- function(n, i) setTxtProgressBar(pb, getTxtProgressBar(pb) + pred[i])
+    } else {
+      progress <- NULL
+    }
     outputs <- foreach::foreach(
       item = iterators::iter(items),
       #.inorder = F,
       .packages = .packages,
       .export = c("func", names(func.args)[func.args != "item"]),
-      .options.snow = list(
-        progress = function(n, i) setTxtProgressBar(pb, getTxtProgressBar(pb) + pred[i])
-      ),
+      .options.snow = list(progress = progress),
       .verbose = F
     ) %dorng% {
       data.table::setDTthreads(1)

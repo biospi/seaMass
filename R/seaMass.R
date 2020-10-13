@@ -121,13 +121,13 @@ setMethod("read_samples", "seaMass", function(object, input, type, items = NULL,
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_samples", "seaMass", function(object, input, type, items = NULL, sort.cols = NULL, label.cols = NULL, value.label = "value", horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5, transform.func = NULL) {
+setMethod("plot_samples", "seaMass", function(object, input, type, items = NULL, sort.cols = NULL, label.cols = NULL, value.label = "value", horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5, include.zero = F, variance = F) {
   # read samples
   DT <- read_samples(object, input, type, items, as.data.table = T)
   if (is.null(DT) || nrow(DT) == 0) {
     return(NULL)
   } else {
-    if (!is.null(transform.func)) DT$value <- transform.func(DT$value)
+    if (variance == T) DT$value <- sqrt(DT$value)
     summary.cols <- colnames(DT)[1:(which(colnames(DT) == "chain") - 1)]
     if (is.null(label.cols)) label.cols <- summary.cols
 
@@ -162,20 +162,21 @@ setMethod("plot_samples", "seaMass", function(object, input, type, items = NULL,
     DT[, q025 := NULL]
     DT[, q975 := NULL]
 
-    # censor densities to 99.9% of samples
+    # calculate limits from 99.9% of samples
     lim <- quantile(DT$value, probs = c(0.0005, 0.9995))
-    w <- lim[2] - lim[1]
-    if (w < 2) {
-      w <- (2 - w) / 2
-      if (lim[1] >= 0) {
-        lim <- lim + c(-w, w)
-        if (lim[1] < 0) lim <- lim - lim[1]
-      } else {
-        lim <- lim + c(-w, w)
-      }
+    if (include.zero) {
+      if (lim[1] > 0) lim[1] <- 0
+      if (lim[2] < 0) lim[2] <- 0
     }
-    DT <- DT[, value := ifelse(value >= lim[1], value, lim[1])]
-    DT <- DT[, value := ifelse(value <= lim[2], value, lim[2])]
+    DT1 <- merge(DT1, DT[, .(lower = sum(value < lim[1]) / length(value), upper = sum(value > lim[2]) / length(value)), by = summary.cols], by = summary.cols, sort = F)
+    DT1[, min1 := 0.5 * (min + max) - 0.5 * lower]
+    DT1[, max1 := 0.5 * (min + max) + 0.5 * lower]
+    DT1[, min2 := 0.5 * (min + max) - 0.5 * upper]
+    DT1[, max2 := 0.5 * (min + max) + 0.5 * upper]
+    DT1[, min1 := ifelse(max1 - min1 > 0, min1, NA_real_)]
+    DT1[, max1 := ifelse(max1 - min1 > 0, max1, NA_real_)]
+    DT1[, min2 := ifelse(max2 - min2 > 0, min2, NA_real_)]
+    DT1[, max2 := ifelse(max2 - min2 > 0, max2, NA_real_)]
 
     # plot!
     if (horizontal) {
@@ -186,6 +187,8 @@ setMethod("plot_samples", "seaMass", function(object, input, type, items = NULL,
 
       g <- g + ggdist::geom_pointinterval(ggplot2::aes_string(x = "value", xmin = "q025", xmax = "q975", colour = colour), DT1, interval_size = 0.1, point_size = 0)
       g <- g + ggdist::geom_pointinterval(ggplot2::aes_string(x = "value", xmin = "q16", xmax = "q84", colour = colour), DT1, interval_size = 5, point_size = 1.5)
+      g <- g + ggplot2::geom_segment(ggplot2::aes(y = min1, yend = max1), DT1, x = lim[1], xend = lim[1])
+      g <- g + ggplot2::geom_segment(ggplot2::aes(y = min2, yend = max2), DT1, x = lim[2], xend = lim[2])
       if (!is.null(fill)) g <- g + ggplot2::geom_rect(ggplot2::aes_string(ymin = "min", ymax = "max", fill = fill), DT1, xmin = -Inf, xmax = Inf, alpha = 0.2, colour = NA)
       g <- g + ggplot2::xlab(paste("log2", value.label))
       g <- g + ggplot2::coord_cartesian(xlim = lim, expand = F)
@@ -198,12 +201,13 @@ setMethod("plot_samples", "seaMass", function(object, input, type, items = NULL,
 
       g <- g + ggdist::geom_pointinterval(ggplot2::aes_string(y = "value", ymin = "q025", ymax = "q975", colour = colour), DT1, interval_size = 0.1, point_size = 0)
       g <- g + ggdist::geom_pointinterval(ggplot2::aes_string(y = "value", ymin = "q16", ymax = "q84", colour = colour), DT1, interval_size = 5, point_size = 1.5)
+      g <- g + ggplot2::geom_segment(ggplot2::aes(x = min1, xend = max1), DT1, y = lim[1], yend = lim[1])
+      g <- g + ggplot2::geom_segment(ggplot2::aes(x = min2, xend = max2), DT1, y = lim[2], yend = lim[2])
       if (!is.null(fill)) g <- g + ggplot2::geom_rect(ggplot2::aes_string(xmin = "min", xmax = "max", fill = fill), DT1, ymin = -Inf, ymax = Inf, alpha = 0.2, colour = NA)
       g <- g + ggplot2::ylab(paste("log2", value.label))
       g <- g + ggplot2::coord_cartesian(ylim = lim, expand = F)
       g <- g + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "left", axis.title.x = ggplot2::element_blank())
     }
-
 
     if (!is.null(colour)) {
       if (is.numeric(DT[, get(colour)])) {
