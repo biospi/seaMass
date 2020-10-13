@@ -150,7 +150,7 @@ setValidity("sigma_control", function(object) {
   if (length(object@model.nwarmup) != 1 || object@model.nwarmup < 0) return("'model.nwarmup' must be non-negative!")
   if (length(object@model.thin) != 1 || object@model.thin <= 0) return("'model.thin' must be positive!")
   if (length(object@model.nsample) != 1 || object@model.nsample <= 0) return("'model.nsample' must be positive!")
-  if (length(object@eb.model) != 1 || !(object@eb.model %in% c("fit", "deconvolve"))) return("'eb.model' is not valid!")
+  if (length(object@eb.model) != 1 || !(object@eb.model %in% c("", "fit", "deconvolve"))) return("'eb.model' is not valid!")
   if (length(object@eb.max) != 1 || object@eb.max <= 0) return("'eb.max' must be positive!")
   if (length(object@norm.model) != 1 || !(object@norm.model %in% c("", "median", "quantile", "theta"))) return("'norm.model' is not valid!")
   if (length(object@norm.nwarmup) != 1 || object@norm.nwarmup < 0) return("'norm.nwarmup' must be non-negative!")
