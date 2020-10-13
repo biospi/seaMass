@@ -58,13 +58,6 @@ seaMass_sigma <- function(
   if ("measurement.means" %in% control@plots) dir.create(file.path(path, "output", "log2_measurement_means"))
   if ("measurement.stdevs" %in% control@plots) dir.create(file.path(path, "output", "log2_measurement_stdevs"))
 
-  # extract blocks and save control
-  block.cols <- colnames(DT.design)[grep("^Block\\.(.*)$", colnames(DT.design))]
-  control@blocks <- sub("^Block\\.(.*)$", "\\1", block.cols)
-  control@ellipsis <- list(...)
-  validObject(control)
-  saveRDS(control, file.path(path, "meta", "control.rds"))
-
   # init DT
   data.is.data.table <- is.data.table(data)
   DT <- setDT(data)
@@ -93,6 +86,13 @@ seaMass_sigma <- function(
     DT.design[, Channel := "1"]
   }
   if (!is.factor(DT.design[, Channel])) DT.design[, Channel := factor(as.character(Channel), levels = levels(DT[, Channel]))]
+
+  # extract blocks and save control
+  block.cols <- colnames(DT.design)[grep("^Block\\.(.*)$", colnames(DT.design))]
+  control@blocks <- sub("^Block\\.(.*)$", "\\1", block.cols)
+  control@ellipsis <- list(...)
+  validObject(control)
+  saveRDS(control, file.path(path, "meta", "control.rds"))
 
   # sort ref weights
   if ("RefWeight" %in% names(DT.design)) {

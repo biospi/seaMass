@@ -12,10 +12,15 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
   DT.priors <- priors(object, input = input, as.data.table = T)
   if (!is.null(DT.priors)) {
     DT.priors[, Assay := as.integer(Assay)]
-    DT.priors[Effect == "Measurements"]$v <- DT.priors[Effect == "Measurements", v0]
-    DT.priors[Effect == "Measurements"]$df <- DT.priors[Effect == "Measurements", df0]
-    DT.priors[Effect == "Components"]$v <- DT.priors[Effect == "Components", v0]
-    DT.priors[Effect == "Components"]$df <- DT.priors[Effect == "Components", df0]
+
+    if (ctrl@eb.model == "") {
+      DT.priors <- NULL
+    } else if (ctrl@eb.model == "fit") {
+      DT.priors[Effect == "Measurements"]$v <- DT.priors[Effect == "Measurements", v0]
+      DT.priors[Effect == "Measurements"]$df <- DT.priors[Effect == "Measurements", df0]
+      DT.priors[Effect == "Components"]$v <- DT.priors[Effect == "Components", v0]
+      DT.priors[Effect == "Components"]$df <- DT.priors[Effect == "Components", df0]
+    }
   }
 
   # create subdirs

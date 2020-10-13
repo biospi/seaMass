@@ -32,6 +32,7 @@ sigma_control(
   model.nwarmup = 256,
   model.thin = 4,
   model.nsample = 1024,
+  eb.type = "deconvolve",
   eb.max = 1024,
   norm.model = "theta",
   norm.nwarmup = 256,

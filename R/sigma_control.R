@@ -22,6 +22,7 @@ setClass("sigma_control", slots = c(
   model.nwarmup = "integer",
   model.thin = "integer",
   model.nsample = "integer",
+  eb.model = "character",
   eb.max = "integer",
   norm.model = "character",
   norm.nwarmup = "integer",
@@ -83,6 +84,7 @@ sigma_control <- function(
   model.nwarmup = 256,
   model.thin = 4,
   model.nsample = 1024,
+  eb.type = "deconvolve",
   eb.max = 1024,
   norm.model = "theta",
   norm.nwarmup = 256,
@@ -111,6 +113,7 @@ sigma_control <- function(
   params$model.nwarmup <- as.integer(model.nwarmup)
   params$model.thin <- as.integer(model.thin)
   params$model.nsample <- as.integer(model.nsample)
+  if (!is.null(eb.model)) params$eb.model <- as.character(eb.model) else params$eb.model <- ""
   params$eb.max <- as.integer(eb.max)
   if (!is.null(norm.model)) params$norm.model <- norm.model else params$norm.model <- ""
   params$norm.nwarmup <- as.integer(norm.nwarmup)
@@ -147,6 +150,7 @@ setValidity("sigma_control", function(object) {
   if (length(object@model.nwarmup) != 1 || object@model.nwarmup < 0) return("'model.nwarmup' must be non-negative!")
   if (length(object@model.thin) != 1 || object@model.thin <= 0) return("'model.thin' must be positive!")
   if (length(object@model.nsample) != 1 || object@model.nsample <= 0) return("'model.nsample' must be positive!")
+  if (length(object@eb.model) != 1 || !(object@eb.model %in% c("fit", "deconvolve"))) return("'eb.model' is not valid!")
   if (length(object@eb.max) != 1 || object@eb.max <= 0) return("'eb.max' must be positive!")
   if (length(object@norm.model) != 1 || !(object@norm.model %in% c("", "median", "quantile", "theta"))) return("'norm.model' is not valid!")
   if (length(object@norm.nwarmup) != 1 || object@norm.nwarmup < 0) return("'norm.nwarmup' must be non-negative!")
