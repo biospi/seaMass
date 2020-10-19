@@ -4,17 +4,19 @@ setMethod("normalise_theta", "sigma_block", function(object, data.design = assay
   cat(paste0("[", Sys.time(), "]    seaMass-theta normalisation...\n"))
 
   unlink(file.path(filepath(object), input, "*.normalised.group.quants.fst"))
+  unlink(file.path(filepath(object), input, "*.normalised.group.means.fst"))
   unlink(file.path(filepath(object), input, "*.normalised.group.variances.fst"))
   unlink(file.path(filepath(object), input, "*.assay.means.fst"))
 
   dir.create(file.path(filepath(object), input, "normalised.group.quants"), showWarnings = F)
+  dir.create(file.path(filepath(object), input, "normalised.group.means"), showWarnings = F)
   dir.create(file.path(filepath(object), input, "normalised.group.variances"), showWarnings = F)
   dir.create(file.path(filepath(object), input, "assay.means"), showWarnings = F)
 
   if (!is.null(norm.groups)) norm.groups <- groups(object, as.data.table = T)[grep(norm.groups, Group), Group]
 
   ctrl <- control(object)
-  parallel_lapply(1:ctrl@model.nchain, function(item, object, norm.groups, input, type) {
+  parallel_lapply(1:ctrl@norm.nchain, function(item, object, norm.groups, input, type) {
     ctrl <- control(object)
     DT.summary <- read_samples(object, input, type, norm.groups, summary = T, as.data.table = T)[, .(Group, Assay, m, s)]
     DT <- copy(DT.summary)
@@ -30,7 +32,7 @@ setMethod("normalise_theta", "sigma_block", function(object, data.design = assay
       data = DT,
       prior = list(R = list(V = diag(nlevels(DT[, Group])), nu = 2e-4)),
       burnin = ctrl@norm.nwarmup,
-      nitt = ctrl@norm.nwarmup + (ctrl@model.nsample * ctrl@norm.thin) / ctrl@model.nchain,
+      nitt = ctrl@norm.nwarmup + (ctrl@model.nsample * ctrl@norm.thin) / ctrl@norm.nchain,
       thin = ctrl@norm.thin,
       verbose = F
     )
@@ -38,6 +40,24 @@ setMethod("normalise_theta", "sigma_block", function(object, data.design = assay
     # create emmeans ref grid
     class(model) <- "MCMCglmm_seaMass"
     frg <- emmeans::ref_grid(model, data = DT, nesting = NULL)
+
+    # extract normalised group variances
+    if ("normalised.group.means" %in% ctrl@summarise || "normalised.group.means" %in% ctrl@keep) {
+      DT <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "Group")))
+      DT[, chain := item]
+      DT[, sample := 1:nrow(DT)]
+      DT <- melt(DT, variable.name = "Group", id.vars = c("chain", "sample"))
+      DT[, Group := as.integer(sub("^Group ", "", as.character(Group)))]
+      # write
+      setorder(DT, Group)
+      fst::write.fst(DT, file.path(filepath(object), input, "normalised.group.means", paste(item, "fst", sep = ".")))
+      DT[, Group := factor(Group, levels = 1:nlevels(DT.summary[, Group]), labels = levels(DT.summary[, Group]))]
+      if (item == 1) {
+        DT.index <- DT[, .(file = factor(file.path("normalised.group.means", "1.fst")), from = min(.I), to = max(.I)), by = Group]
+        fst::write.fst(DT.index, file.path(filepath(object), input, "normalised.group.means.index.fst"))
+      }
+      rm(DT)
+    }
 
     # extract normalised group variances
     if ("normalised.group.variances" %in% ctrl@summarise || "normalised.group.variances" %in% ctrl@keep) {
@@ -55,6 +75,7 @@ setMethod("normalise_theta", "sigma_block", function(object, data.design = assay
         DT[, Group := factor(Group, levels = 1:nlevels(DT.summary[, Group]), labels = levels(DT.summary[, Group]))]
         fst::write.fst(DT, file.path(filepath(object), input, "normalised.group.variances.index.fst"))
       }
+      rm(DT)
     }
 
     # extract assay means
@@ -76,7 +97,10 @@ setMethod("normalise_theta", "sigma_block", function(object, data.design = assay
     # transform to assay deviations
     DT.assay.means[, value := value - mean(value), by = .(chain, sample)]
     # normalise group quants
-    DT <- read_samples(object, input, "group.quants", chain = item, as.data.table = T)[, Block := NULL]
+    diff <- ctrl@norm.nchain / ctrl@model.nchain
+    DT.assay.means[, chain := (item - 1) %/% diff + 1]
+    DT.assay.means[, sample := sample + ((item - 1) %% diff) * (ctrl@model.nsample * ctrl@norm.thin) / ctrl@norm.nchain]
+    DT <- read_samples(object, input, "group.quants", chain = DT.assay.means[1, chain], as.data.table = T)[, Block := NULL]
     DT <- merge(DT, DT.assay.means[, .(Assay, chain, sample, deviation = value)], by = c("Assay", "chain", "sample"), sort = F)
     DT[, value := value - deviation]
     DT[, deviation := NULL]

@@ -30,6 +30,7 @@
 \alias{component_deviations,seaMass_sigma-method}
 \alias{group_quants,seaMass_sigma-method}
 \alias{group_means,seaMass_sigma-method}
+\alias{normalised_group_means,seaMass_sigma-method}
 \alias{normalised_group_variances,seaMass_sigma-method}
 \alias{normalised_group_quants,seaMass_sigma-method}
 \alias{standardised_group_deviations,seaMass_sigma-method}
@@ -160,6 +161,15 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
   as.data.table = FALSE
 )
 
+\S4method{normalised_group_means}{seaMass_sigma}(
+  object,
+  groups = NULL,
+  summary = FALSE,
+  input = "model1",
+  chains = 1:control(object)@model.nchain,
+  as.data.table = FALSE
+)
+
 \S4method{normalised_group_variances}{seaMass_sigma}(
   object,
   groups = NULL,
@@ -264,6 +274,8 @@ Fits the seaMass-Σ Bayesian group-level quantification model to imported data.
 \item \code{group_quants,seaMass_sigma-method}: Get the model group quantifications as a \link{data.frame}.
 
 \item \code{group_means,seaMass_sigma-method}: Get the model group means as a \link{data.frame}.
+
+\item \code{normalised_group_means,seaMass_sigma-method}: Get the model normalised group variances as a \link{data.frame}.
 
 \item \code{normalised_group_variances,seaMass_sigma-method}: Get the model normalised group variances as a \link{data.frame}.
 

@@ -6,7 +6,6 @@ setClass("delta_control", slots = c(
   component.deviations = "logical",
   keep = "character",
   plot = "character",
-  plots = "character",
   dea.model = "character",
   dea.nwarmup = "integer",
   dea.thin = "integer",
@@ -33,8 +32,7 @@ setClass("delta_control", slots = c(
 delta_control <- function(
   component.deviations = FALSE,
   keep = c("de.standardised.group.deviations", "de.component.deviations"),
-  plot = c("de.standardised.group.deviations", "fdr.standardised.group.deviations"),
-  plots = c("de.component.deviations", "fdr.component.deviations"),
+  plot = c("de.standardised.group.deviations", "fdr.standardised.group.deviations", "de.component.deviations", "fdr.component.deviations"),
   dea.model = "MCMCglmm",
   dea.nwarmup = 4096,
   dea.thin = 256,
@@ -46,7 +44,6 @@ delta_control <- function(
   params$component.deviations <- as.logical(component.deviations)
   if (!is.null(keep)) params$keep <- as.character(keep)
   if (!is.null(plot)) params$plot <- as.character(plot)
-  if (!is.null(plots)) params$plots <- as.character(plots)
   if (!is.null(dea.model)) params$dea.model <- dea.model else params$dea.model <- ""
   params$dea.nwarmup <- as.integer(dea.nwarmup)
   params$dea.thin <- as.integer(dea.thin)
@@ -61,8 +58,7 @@ delta_control <- function(
 setValidity("delta_control", function(object) {
   if (length(object@component.deviations) != 1) return("'component.deviations' is not valid!")
   if (!(all(object@keep %in% c("de.standardised.group.deviations", "de.component.deviations")))) return("'keep' is not valid!")
-  if (!(all(object@plot %in% c("de.standardised.group.deviations", "fdr.standardised.group.deviations")))) return("'plot' is not valid!")
-  if (!(all(object@plots %in% c("de.component.deviations", "fdr.component.deviations")))) return("'plots' is not valid!")
+  if (!(all(object@plot %in% c("de.standardised.group.deviations", "fdr.standardised.group.deviations", "de.component.deviations", "fdr.component.deviations")))) return("'plot' is not valid!")
   if (length(object@dea.model) != 1 || !(object@dea.model %in% c("", "MCMCglmm"))) return("'dea.model' is not valid!")
   if (length(object@dea.nwarmup) != 1 || object@dea.nwarmup < 0) return("'dea.nwarmup' must be non-negative!")
   if (length(object@dea.thin) != 1 || object@dea.thin <= 0) return("'dea.thin' must be positive!")

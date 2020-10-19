@@ -49,14 +49,14 @@ seaMass_sigma <- function(
   dir.create(file.path(path, "meta"))
 
   # plots directories
-  if ("group.quants" %in% control@plots) dir.create(file.path(path, "output", "log2_group_quants"))
-  if ("normalised.group.quants" %in% control@plots) dir.create(file.path(path, "output", "log2_normalised_group_quants"))
-  if ("standardised.group.deviations" %in% control@plots) dir.create(file.path(path, "output", "log2_standardised_group_deviations"))
-  if ("component.deviations" %in% control@plots) dir.create(file.path(path, "output", "log2_component_deviations"))
-  if ("component.means" %in% control@plots) dir.create(file.path(path, "output", "log2_component_means"))
-  if ("component.stdevs" %in% control@plots) dir.create(file.path(path, "output", "log2_component_stdevs"))
-  if ("measurement.means" %in% control@plots) dir.create(file.path(path, "output", "log2_measurement_means"))
-  if ("measurement.stdevs" %in% control@plots) dir.create(file.path(path, "output", "log2_measurement_stdevs"))
+  if ("group.quants" %in% control@plot) dir.create(file.path(path, "output", "log2_group_quants"))
+  if ("normalised.group.quants" %in% control@plot) dir.create(file.path(path, "output", "log2_normalised_group_quants"))
+  if ("standardised.group.deviations" %in% control@plot) dir.create(file.path(path, "output", "log2_standardised_group_deviations"))
+  if ("component.deviations" %in% control@plot) dir.create(file.path(path, "output", "log2_component_deviations"))
+  if ("component.means" %in% control@plot) dir.create(file.path(path, "output", "log2_component_means"))
+  if ("component.stdevs" %in% control@plot) dir.create(file.path(path, "output", "log2_component_stdevs"))
+  if ("measurement.means" %in% control@plot) dir.create(file.path(path, "output", "log2_measurement_means"))
+  if ("measurement.stdevs" %in% control@plot) dir.create(file.path(path, "output", "log2_measurement_stdevs"))
 
   # init DT
   data.is.data.table <- is.data.table(data)
@@ -672,6 +672,20 @@ setMethod("group_means", "seaMass_sigma", function(object, groups = NULL, summar
 #' @import data.table
 #' @export
 #' @include generics.R
+setMethod("normalised_group_means", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) normalised_group_means(block, groups, summary, input, chains, as.data.table = T)))
+  if (nrow(DT) == 0) return(NULL)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the model normalised group variances as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
 setMethod("normalised_group_variances", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) normalised_group_variances(block, groups, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
@@ -713,87 +727,94 @@ setMethod("standardised_group_deviations", "seaMass_sigma", function(object, gro
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_assay_means", "seaMass_sigma", function(object, assays = NULL, input = "model1", sort.cols = NULL, label.cols = c("Sample", "Assay", "Block"), horizontal = TRUE, colour = "Assay.SD", colour.guide = ggplot2::guide_colorbar(barwidth = ggplot2::unit(50, "mm")), fill = "Block", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_samples(object, input, "assay.means", assays, sort.cols, label.cols, "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+setMethod("plot_assay_means", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = c("Block", "Assay"), label.cols = c("Block", "Assay", "Sample"), title = NULL, horizontal = TRUE, colour = "Assay.SD", colour.guide = NULL, fill = "Assay.SD", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_group_means", "seaMass_sigma", function(object, groups = NULL, input = "model1", sort.cols = NULL, label.cols = c("Group", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  if (length(blocks(object)) <= 1) label.cols <- setdiff(label.cols, "Block")
-  return(plot_samples(object, input, "group.means", groups, sort.cols, label.cols, "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+setMethod("plot_group_means", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Block"), label.cols = "Block", title = NULL, horizontal = TRUE, colour = "qC.G", colour.guide = NULL, fill = "qC.G", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_group_quants", "seaMass_sigma", function(object, group, input = "model1", label.cols = c("Sample", "Assay", "Block"), sort.cols = NULL, horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_samples(object, input, "group.quants", group, sort.cols, label.cols, "quant", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+setMethod("plot_group_quants", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Assay"), label.cols = c("Assay", "Sample", "Block"), title = NULL, horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = "Condition", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "quant", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_normalised_group_quants", "seaMass_sigma", function(object, group, input = "model1", label.cols = c("Sample", "Assay", "Block"), sort.cols = NULL, horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_samples(object, input, "normalised.group.quants", group, sort.cols, label.cols, "quant", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+setMethod("plot_normalised_group_quants", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Assay"), label.cols = c("Assay", "Sample", "Block"), title = NULL, horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = "Condition", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "quant", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_normalised_group_stdevs", "seaMass_sigma", function(object, groups = NULL, input = "model1", sort.cols = NULL, label.cols = c("Group", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_samples(object, input, "normalised.group.variances", groups, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, T, T))
+setMethod("plot_normalised_group_means", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Block"), label.cols = "Block", title = NULL, horizontal = TRUE, colour = "qC.G", colour.guide = NULL, fill = "qC.G", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_standardised_group_deviations", "seaMass_sigma", function(object, group, input = "model1", label.cols = c("Sample", "Assay", "Block"), sort.cols = NULL, horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_samples(object, input, "standardised.group.deviations", group, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, T))
+setMethod("plot_normalised_group_stdevs", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Block"), label.cols = "Block", title = NULL, horizontal = TRUE, colour = "qC.G", colour.guide = NULL, fill = "qC.G", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, trans = scales::sqrt_trans()))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_component_deviations", "seaMass_sigma", function(object, group, input = "model1", label.cols = c("Component", "Sample", "Assay", "Block"), sort.cols = "Component", horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_samples(object, input, "component.deviations", group, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, T))
+setMethod("plot_standardised_group_deviations", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Assay"), label.cols = c("Assay", "Sample", "Block"), title = NULL, horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = "Condition", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_component_means", "seaMass_sigma", function(object, group, input = "model1", sort.cols = NULL, label.cols = c("Component", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_samples(object, input, "component.means", group, sort.cols, label.cols, "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+setMethod("plot_component_deviations", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Component, sort.cols = c("Group", "Component", "Assay"), label.cols = c("Block", "Assay", "Sample"), title = "Group", horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = "Condition", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_component_stdevs", "seaMass_sigma", function(object, group, input = "model1", sort.cols = NULL, label.cols = c("Component", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_samples(object, input, "component.variances", group, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, T, T))
+setMethod("plot_component_means", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Component, sort.cols = c("Group", "Component", "Block"), label.cols = "Block", title = "Group", horizontal = TRUE, colour = "qM.C", colour.guide = NULL, fill = "qM.C", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_measurement_means", "seaMass_sigma", function(object, group, input = "model1", sort.cols = NULL, label.cols = c("Component", "Measurement", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_samples(object, input, "measurement.means", group, sort.cols, label.cols, "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+setMethod("plot_component_stdevs", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Component, sort.cols = c("Group", "Component", "Block"), label.cols = "Block", title = "Group", horizontal = TRUE, colour = "qM.C", colour.guide = NULL, fill = "qM.C", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, trans = scales::sqrt_trans()))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_measurement_stdevs", "seaMass_sigma", function(object, group, input = "model1", sort.cols = NULL, label.cols = c("Component", "Measurement", "Block"), horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = "Block", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_samples(object, input, "measurement.variances", group, sort.cols, label.cols, "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, T, T))
+setMethod("plot_measurement_means", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Component + Measurement, sort.cols = c("Group", "Component", "Measurement", "Block"), label.cols = "Block", title = "Group", horizontal = TRUE, colour = "qD.M", colour.guide = NULL, fill = "qD.M", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_measurement_stdevs", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Component + Measurement, sort.cols = c("Group", "Component", "Measurement", "Block"), label.cols = "Block", title = "Group", horizontal = TRUE, colour = "qD.M", colour.guide = NULL, fill = "qD.M", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, trans = scales::sqrt_trans()))
 })

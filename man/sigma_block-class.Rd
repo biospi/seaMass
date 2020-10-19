@@ -26,6 +26,7 @@
 \alias{component_variances,sigma_block-method}
 \alias{component_deviations,sigma_block-method}
 \alias{group_quants,sigma_block-method}
+\alias{normalised_group_means,sigma_block-method}
 \alias{normalised_group_variances,sigma_block-method}
 \title{seaMass-Σ block}
 \usage{
@@ -129,6 +130,15 @@
   as.data.table = FALSE
 )
 
+\S4method{normalised_group_means}{sigma_block}(
+  object,
+  groups = NULL,
+  summary = FALSE,
+  input = "model1",
+  chains = 1:control(object)@model.nchain,
+  as.data.table = FALSE
+)
+
 \S4method{normalised_group_variances}{sigma_block}(
   object,
   groups = NULL,
@@ -186,6 +196,8 @@ The results of a seaMass-Σ block to a single block, returned by /link{seaMass_s
 \item \code{component_deviations}: Gets the model component deviations as a \link{data.frame}.
 
 \item \code{group_quants}: Get the model group quantifications as a \link{data.frame}.
+
+\item \code{normalised_group_means}: Get the model normalised group variances as a \link{data.frame}.
 
 \item \code{normalised_group_variances}: Get the model normalised group variances as a \link{data.frame}.
 }}

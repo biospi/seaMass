@@ -75,7 +75,7 @@ setMethod("process", "seaMass_delta", function(object, chain) {
         }
       }
 
-      if ("de.component.deviations" %in% ctrl@plots) {
+      if ("de.component.deviations" %in% ctrl@plot) {
         cat(paste0("[", Sys.time(), "]    plotting component deviations differential expression...\n"))
         parallel_lapply(groups(object, as.data.table = T)[, Group], function(item, object) {
           item <- substr(item, 0, 60)

@@ -37,6 +37,11 @@ parallel_lapply <- function(items, func, nthread = 0, pred = rep(1, length(items
       if (length(items) > 1) setTxtProgressBar(pb, getTxtProgressBar(pb) + pred[i])
       return(output)
     })
+
+    if (length(items) > 1) {
+      setTxtProgressBar(pb, sum(pred))
+      close(pb)
+    }
   } else {
     # restart cluster EVERY TIME just to stop memory leaks (crap GC or other problem?)
     if (!is.null(parallel::getDefaultCluster())) {
@@ -44,6 +49,7 @@ parallel_lapply <- function(items, func, nthread = 0, pred = rep(1, length(items
     }
 
     cl <- parallel::makeCluster(ifelse(length(items) < nthread, length(items), nthread))
+    #cl <- parallel::makeCluster(ifelse(length(items) < nthread, length(items), nthread), outfile = "")
     doSNOW::registerDoSNOW(cl)
     parallel::setDefaultCluster(cl)
 
@@ -55,7 +61,7 @@ parallel_lapply <- function(items, func, nthread = 0, pred = rep(1, length(items
     }
     outputs <- foreach::foreach(
       item = iterators::iter(items),
-      #.inorder = F,
+      .errorhandling = "pass",
       .packages = .packages,
       .export = c("func", names(func.args)[func.args != "item"]),
       .options.snow = list(progress = progress),
@@ -66,17 +72,27 @@ parallel_lapply <- function(items, func, nthread = 0, pred = rep(1, length(items
       options(fst_threads = 1)
       library(fst)
 
-      ret <- do.call("func", func.args)
-
-      return(ret)
+      return(do.call("func", func.args))
     }
 
     parallel::stopCluster(parallel::getDefaultCluster())
-  }
 
-  if (length(items) > 1) {
-    setTxtProgressBar(pb, sum(pred))
-    close(pb)
+    if (length(items) > 1) {
+      setTxtProgressBar(pb, sum(pred))
+      close(pb)
+    }
+
+    fatal <- F
+    foreach::foreach(item = iterators::iter(items), output = iterators::iter(outputs)) %do% {
+      if (inherits(output, "simpleError")) {
+        message("parallel_lapply error with item:")
+        print(item)
+        message(output$message)
+        message(deparse(output$call))
+        fatal <- T
+      }
+    }
+    if (fatal) stop()
   }
 
   return(outputs)
