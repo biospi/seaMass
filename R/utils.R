@@ -29,7 +29,8 @@ parallel_lapply <- function(items, func, nthread = 0, pred = rep(1, length(items
     setTxtProgressBar(pb, 0)
   }
 
-  if (nthread == 0) {
+  # check if a worker
+  if (exists(".master.pid") || nthread == 0) {
     # sequential
     outputs <- lapply(seq_along(items), function(i) {
       item <- items[[i]]
@@ -59,11 +60,13 @@ parallel_lapply <- function(items, func, nthread = 0, pred = rep(1, length(items
     } else {
       progress <- NULL
     }
+
+    .master.pid <- Sys.getpid()
     outputs <- foreach::foreach(
       item = iterators::iter(items),
       .errorhandling = "pass",
       .packages = .packages,
-      .export = c("func", names(func.args)[func.args != "item"]),
+      .export = c("func", names(func.args)[func.args != "item"], ".master.pid"),
       .options.snow = list(progress = progress),
       .verbose = F
     ) %dorng% {
@@ -85,9 +88,9 @@ parallel_lapply <- function(items, func, nthread = 0, pred = rep(1, length(items
     fatal <- F
     foreach::foreach(item = iterators::iter(items), output = iterators::iter(outputs)) %do% {
       if (inherits(output, "simpleError")) {
-        message("parallel_lapply error with item:")
+        message("[", Sys.time(), "] ERROR: parallel_lapply item:")
         print(item)
-        message(output$message)
+        message(paste0("[", Sys.time(), "]  message=", output$message))
         message(deparse(output$call))
         fatal <- T
       }

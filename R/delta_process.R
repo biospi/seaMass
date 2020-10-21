@@ -38,7 +38,9 @@ setMethod("process", "seaMass_delta", function(object, chain) {
 
     if ("de.standardised.group.deviations" %in% ctrl@plot) {
       cat(paste0("[", Sys.time(), "]    plotting standardised group deviations differential expression...\n"))
-      plot_de_standardised_group_deviations(object, file = file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_de_standardised_group_deviations.pdf")))
+      DT <- de_standardised_group_deviations(object, as.data.table = T)
+      plot_de_standardised_group_deviations(object, DT, limits_dists(DT, include.zero = T), file = file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_de_standardised_group_deviations.pdf"))
+      rm(DT)
     }
     if (!("de.standardised.group.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "standardised.group.deviations*"), recursive = T)
 
@@ -59,6 +61,16 @@ setMethod("process", "seaMass_delta", function(object, chain) {
         plot_volcano(DTs.fdr[[name]], stdev.col = "s", x.col = "m", y.col = "s")
         ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_fdr_standardised_group_deviations_fc.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
       }
+
+      if ("fdr.standardised.group.deviations" %in% ctrl@plot) {
+        cat(paste0("[", Sys.time(), "]    plotting standardised group deviations fdr controlled differential expression...\n"))
+        DTs <- list(
+          fdr_standardised_group_deviations(object, as.data.table = T),
+          de_standardised_group_deviations(object, as.data.table = T)
+        )
+        plot_fdr_standardised_group_deviations(object, DTs, limits_dists(DTs, include.zero = T), file = file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_fdr_standardised_group_deviations.pdf"))
+        rm(DTs)
+      }
     }
 
     if (ctrl@component.deviations == T && control(object@fit)@component.model == "independent") {
@@ -76,11 +88,11 @@ setMethod("process", "seaMass_delta", function(object, chain) {
       }
 
       if ("de.component.deviations" %in% ctrl@plot) {
-        cat(paste0("[", Sys.time(), "]    plotting component deviations differential expression...\n"))
-        parallel_lapply(groups(object, as.data.table = T)[, Group], function(item, object) {
-          item <- substr(item, 0, 60)
-          plot_de_component_deviations(object, item, file = file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_de_component_deviations", paste0(item, ".pdf")))
-        }, nthread = ctrl@nthread)
+        #cat(paste0("[", Sys.time(), "]    plotting component deviations differential expression...\n"))
+        #parallel_lapply(groups(object, as.data.table = T)[, Group], function(item, object) {
+        #  item <- substr(item, 0, 60)
+        #  plot_de_component_deviations(object, item, file = file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_de_component_deviations", paste0(item, ".pdf")))
+        #}, nthread = ctrl@nthread)
       }
       if (!("de.component.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "component.deviations*"), recursive = T)
 

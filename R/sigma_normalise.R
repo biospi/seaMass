@@ -23,23 +23,34 @@ setMethod("normalise_theta", "sigma_block", function(object, data.design = assay
     DT[, Assay := factor(as.integer(Assay))]
     DT[, Group := factor(as.integer(Group))]
 
-    # seaMass-Θ Bayesian model
-    set.seed(ctrl@random.seed + item - 1)
-    model <- MCMCglmm::MCMCglmm(
-      m ~ Group + Assay,
-      mev = DT[, s]^2,
-      rcov = ~ idh(Group):units,
-      data = DT,
-      prior = list(R = list(V = diag(nlevels(DT[, Group])), nu = 2e-4)),
-      burnin = ctrl@norm.nwarmup,
-      nitt = ctrl@norm.nwarmup + (ctrl@model.nsample * ctrl@norm.thin) / ctrl@norm.nchain,
-      thin = ctrl@norm.thin,
-      verbose = F
-    )
+    # our Bayesian model
+    # MCMCglmm can very rarely fail on a dataset, try again with slightly perturbed values
+    fit.model <- NULL
+    attempt <- 1
+
+    while (is.null(fit.model) && attempt <= 10) {
+      if (attempt != 1) DT[, value := value + rnorm(length(value), sd = 1e-5)]
+
+      set.seed(ctrl@random.seed + item - 1)
+      try(fit.model <- MCMCglmm::MCMCglmm(
+        m ~ Group + Assay,
+        mev = DT[, s]^2,
+        rcov = ~ idh(Group):units,
+        data = DT,
+        prior = list(R = list(V = diag(nlevels(DT[, Group])), nu = 2e-4)),
+        burnin = ctrl@norm.nwarmup,
+        nitt = ctrl@norm.nwarmup + (ctrl@model.nsample * ctrl@norm.thin) / ctrl@norm.nchain,
+        thin = ctrl@norm.thin,
+        verbose = F
+      ))
+
+      attempt <- attempt + 1
+    }
+    if (is.null(fit.model)) stop(paste0("[", Sys.time(), "] ERROR: MCMCglmm failed more than 10 times"))
 
     # create emmeans ref grid
-    class(model) <- "MCMCglmm_seaMass"
-    frg <- emmeans::ref_grid(model, data = DT, nesting = NULL)
+    class(fit.model) <- "MCMCglmm_seaMass"
+    frg <- emmeans::ref_grid(fit.model, data = DT, nesting = NULL)
 
     # extract normalised group variances
     if ("normalised.group.means" %in% ctrl@summarise || "normalised.group.means" %in% ctrl@keep) {
@@ -61,7 +72,7 @@ setMethod("normalise_theta", "sigma_block", function(object, data.design = assay
 
     # extract normalised group variances
     if ("normalised.group.variances" %in% ctrl@summarise || "normalised.group.variances" %in% ctrl@keep) {
-      DT <- as.data.table(model$VCV[, grep("^Group.*\\.units", colnames(model$VCV))])
+      DT <- as.data.table(fit.model$VCV[, grep("^Group.*\\.units", colnames(fit.model$VCV))])
       DT[, chain := item]
       DT[, sample := 1:nrow(DT)]
       DT <- melt(DT, variable.name = "Group", value.name = "value", id.vars = c("chain", "sample"))

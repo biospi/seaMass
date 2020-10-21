@@ -65,15 +65,13 @@ setClass("sigma_control", slots = c(
 #' @param schedule Either \link{schedule_local} (execute locally), \link{schedule_pbs} or \link{schedule_slurm} (prepare for submission to HPC cluster)
 #' @export sigma_control
 sigma_control <- function(
-  summarise = c("group.quants", "group.means", "normalised.group.means", "normalised.group.variances", "standardised.group.deviations",
+  summarise = c("assay.means", "assay.variances",
+                "group.quants", "normalised.group.means", "normalised.group.variances", "standardised.group.deviations",
                 "component.deviations", "component.means", "component.variances",
                 "measurement.means", "measurement.variances"),
-  keep = c("summaries", "model0", "assay.means",
-           "group.quants", "group.means", "normalised.group.means", "normalised.group.variances", "standardised.group.deviations",
-           "component.deviations", "component.means", "component.variances",
-           "measurement.means", "measurement.variances"),
-  plot = c("assay.means",
-           "group.quants", "group.quants.pca", "group.means", "normalised.group.quants", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations",
+  keep = NULL,
+  plot = c("assay.means", "assay.stdevs",
+           "group.quants", "group.quants.pca", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations",
            "component.deviations", "component.means", "component.stdevs",
            "measurement.means", "measurement.stdevs"),
   measurement.model = "independent",
@@ -135,18 +133,20 @@ sigma_control <- function(
 }
 
 setValidity("sigma_control", function(object) {
-  if (!(all(object@summarise %in% c("group.quants", "group.means",
+  if (!(all(object@summarise %in% c("assay.means", "assay.variances", "assay.deviations",
+                                    "group.quants", "group.means",
                                     "normalised.group.quants", "normalised.group.means", "normalised.group.variances",
                                     "standardised.group.deviations",
                                     "component.deviations", "component.means", "component.variances",
                                     "measurement.means", "measurement.variances")))) return("'summarise' is not valid!")
-  if (!(all(object@keep %in% c("summaries", "model0", "assay.means",
+  if (!(all(object@keep %in% c("summaries", "model0",
+                               "assay.means", "assay.deviations",
                                "group.quants", "group.means",
                                "normalised.group.quants", "normalised.group.means", "normalised.group.variances",
                                "standardised.group.deviations",
                                "component.deviations", "component.means", "component.variances",
                                "measurement.means", "measurement.variances")))) return("'keep' is not valid!")
-  if (!(all(object@plot %in% c("assay.means",
+  if (!(all(object@plot %in% c("assay.means", "assay.stdevs",
                                "group.quants", "group.quants.pca", "group.means",
                                "normalised.group.quants", "normalised.group.means", "normalised.group.stdevs",
                                "standardised.group.deviations",

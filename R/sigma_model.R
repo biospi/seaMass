@@ -200,7 +200,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
 
       attempt <- attempt + 1
     }
-    if (is.null(fit.model)) stop("ERROR: MCMCglmm failed more than 10 times")
+    if (is.null(fit.model)) stop(paste0("[", Sys.time(), "] ERROR: MCMCglmm failed more than 10 times"))
     output$DT.timings <- data.table(Group = group, chain = chain, as.data.table(t(as.matrix(output$DT.timings))))
 
     if ("summaries" %in% ctrl@keep) {

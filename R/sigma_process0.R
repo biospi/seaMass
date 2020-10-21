@@ -53,26 +53,35 @@ setMethod("process0", "sigma_block", function(object, chain) {
         DT <- droplevels(DT[as.integer(DT$Item) <= ctrl@eb.max])
 
         # our Bayesian model
-        set.seed(ctrl@random.seed + (as.integer(item[, Assay]) - 1) * ctrl@model.nchain + (item[, chain] - 1))
-        model <- MCMCglmm::MCMCglmm(
-          value ~ 1,
-          random = ~ Item,
-          rcov = ~ idh(Item):units,
-          data = DT,
-          prior = list(
-            B = list(mu = 0, V = 1e-20),
-            G = list(list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2)),
-            R = list(V = diag(nlevels(DT$Item)), nu = 2e-4)
-          ),
-          burnin = ctrl@model.nwarmup,
-          nitt = ctrl@model.nwarmup + (ctrl@model.nsample * ctrl@model.thin) / ctrl@model.nchain,
-          thin = ctrl@model.thin,
-          singular.ok = T,
-          verbose = F
-        )
+        # MCMCglmm can very rarely fail on a dataset, try again with slightly perturbed values
+        fit.model <- NULL
+        attempt <- 1
+        while (is.null(fit.model) && attempt <= 10) {
+          if (attempt != 1) DT[, value := value + rnorm(length(value), sd = 1e-5)]
 
-        rm(DT)
-        return(data.table(Assay = item[1, Assay], chain = item[1, chain], sample = 1:nrow(model$VCV), value = model$VCV[, "Item"]))
+          set.seed(ctrl@random.seed + (as.integer(item[, Assay]) - 1) * ctrl@model.nchain + (item[, chain] - 1))
+          try(fit.model <- MCMCglmm::MCMCglmm(
+            value ~ 1,
+            random = ~ Item,
+            rcov = ~ idh(Item):units,
+            data = DT,
+            prior = list(
+              B = list(mu = 0, V = 1e-20),
+              G = list(list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2)),
+              R = list(V = diag(nlevels(DT$Item)), nu = 2e-4)
+            ),
+            burnin = ctrl@model.nwarmup,
+            nitt = ctrl@model.nwarmup + (ctrl@model.nsample * ctrl@model.thin) / ctrl@model.nchain,
+            thin = ctrl@model.thin,
+            singular.ok = T,
+            verbose = F
+          ))
+
+          attempt <- attempt + 1
+        }
+        if (is.null(fit.model)) stop(paste0("[", Sys.time(), "] ERROR: MCMCglmm failed more than 10 times"))
+
+        return(data.table(Assay = item[1, Assay], chain = item[1, chain], sample = 1:nrow(fit.model$VCV), value = fit.model$VCV[, "Item"]))
       }, nthread = ctrl@nthread))
 
       DT.assay.prior <- data.table(Effect = "Assay", DT.assay.prior[, dist_samples_invchisq(chain, sample, value), by = Assay])

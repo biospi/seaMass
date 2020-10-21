@@ -38,6 +38,7 @@ if (!exists("normalised_group_variances")) setGeneric("normalised_group_variance
 if (!exists("open_deltas")) setGeneric("open_deltas", function(object, ...) standardGeneric("open_deltas"))
 if (!exists("parent")) setGeneric("parent", function(object, ...) standardGeneric("parent"))
 if (!exists("plot_assay_means")) setGeneric("plot_assay_means", function(object, ...) standardGeneric("plot_assay_means"))
+if (!exists("plot_assay_stdevs")) setGeneric("plot_assay_stdevs", function(object, ...) standardGeneric("plot_assay_stdevs"))
 if (!exists("plot_component_deviations")) setGeneric("plot_component_deviations", function(object, ...) standardGeneric("plot_component_deviations"))
 if (!exists("plot_component_means")) setGeneric("plot_component_means", function(object, ...) standardGeneric("plot_component_means"))
 if (!exists("plot_component_stdevs")) setGeneric("plot_component_stdevs", function(object, ...) standardGeneric("plot_component_stdevs"))

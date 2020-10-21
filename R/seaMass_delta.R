@@ -284,33 +284,46 @@ setMethod("fdr_component_deviations", "seaMass_delta", function(object, groups =
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_de_standardised_group_deviations", "seaMass_delta", function(object, groups = NULL, label.cols = NULL, sort.cols = NULL, horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
-  return(plot_samples(object, ".", "standardised.group.deviations", groups, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+setMethod("plot_de_standardised_group_deviations", "seaMass_delta", function(
+  object, data, limits = NULL, alpha = 1,
+  facets = ~ interaction(Effect, interaction(Contrast, Baseline, drop = T, sep = " - ", lex.order = T), drop = T, sep = " : ", lex.order = T),
+  sort.cols = "Group", label.cols = "Group", title = NULL, horizontal = TRUE, colour = "qC.G", colour.guide = NULL, fill = "qC.G", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_de_component_deviations", "seaMass_delta", function(object, groups = NULL, label.cols = NULL, sort.cols = NULL, horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
-  return(plot_samples(object, ".", "component.deviations", groups, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+setMethod("plot_de_component_deviations", "seaMass_delta", function(
+  object, data, limits = NULL, alpha = 1,
+  facets = ~ interaction(Effect, interaction(Contrast, Baseline, drop = T, sep = " - ", lex.order = T), drop = T, sep = " : ", lex.order = T),
+  sort.cols = "Group", label.cols = "Group", title = NULL, horizontal = TRUE, colour = "qC.G", colour.guide = NULL, fill = "qC.G", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_fdr_standardised_group_deviations", "seaMass_delta", function(object, groups = NULL, label.cols = NULL, sort.cols = NULL, horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
-  return(plot_samples(object, ".", "fdr.standardised.group.deviations", groups, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+setMethod("plot_fdr_standardised_group_deviations", "seaMass_delta", function(
+  object, data, limits = NULL, alpha = 1,
+  facets = ~ interaction(Effect, interaction(Contrast, Baseline, drop = T, sep = " - ", lex.order = T), drop = T, sep = " : ", lex.order = T),
+  sort.cols = NULL, label.cols = c("Group", "qvalue"), title = NULL, horizontal = TRUE, colour = "qC.G", colour.guide = NULL, fill = "qC.G", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_fdr_component_deviations", "seaMass_delta", function(object, groups = NULL, label.cols = NULL, sort.cols = NULL, horizontal = TRUE, colour = NULL, colour.guide = NULL, fill = NULL, fill.guide = NULL, file = NULL, value.length = 120, level.length = 5) {
-  return(plot_samples(object, ".", "fdr.component.deviations", groups, sort.cols, label.cols, "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+setMethod("plot_fdr_component_deviations", "seaMass_delta", function(
+  object, data, limits = NULL, alpha = 1,
+  facets = ~ interaction(Effect, interaction(Contrast, Baseline, drop = T, sep = " - ", lex.order = T), drop = T, sep = " : ", lex.order = T),
+  sort.cols = NULL, label.cols = "Group", title = NULL, horizontal = TRUE, colour = "qC.G", colour.guide = NULL, fill = "qC.G", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
 })
+
 
 #' @describeIn seaMass_delta-class Add our spikein ground truth to the object of \code{group_fdr} pr \code{component_deviations_fdr}.
 #' @import data.table

@@ -200,7 +200,7 @@ setMethod("assay_variances", "sigma_block", function(object, input = "model1", a
 
   if (!is.null(DT)) {
     DT <- cbind(
-      DT[Effect == "Assay", .(Assay, v, df)],
+      DT[Effect == "Assay", .(Block, Assay, v, df)],
       DT[Effect == "Measurements", .(M_v = v, M_df = df)],
       DT[Effect == "Components", .(C_v = v, C_df = df)]
     )
@@ -372,93 +372,93 @@ setMethod("standardised_group_deviations", "sigma_block", function(object, group
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_assay_means", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = "Assay", label.cols = c("Assay", "Sample"), horizontal = TRUE, colour = "Assay.SD", colour.guide = NULL, fill = "Assay.SD", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+setMethod("plot_assay_means", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = "Assay", label.cols = c("Assay", "Sample"), horizontal = TRUE, colour = "Assay.SD", fill = "Assay.SD", file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "mean", horizontal, colour, fill, file, value.length, level.length))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_group_means", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = "Group", label.cols = "Group", horizontal = TRUE, colour = "qC.G", colour.guide = NULL, fill = "qC.G", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+setMethod("plot_group_means", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = "Group", label.cols = "Group", horizontal = TRUE, colour = "qC.G", fill = "qC.G", file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "mean", horizontal, colour, fill, file, value.length, level.length))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_group_quants", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Assay"), label.cols = c("Assay", "Sample"), horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = "Condition", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "quant", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+setMethod("plot_group_quants", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Assay"), label.cols = c("Assay", "Sample"), horizontal = TRUE, colour = "Condition", fill = "Condition", file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "quant", horizontal, colour, fill, file, value.length, level.length))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_normalised_group_quants", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Assay"), label.cols = c("Assay", "Sample"), horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = "Condition", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "quant", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+setMethod("plot_normalised_group_quants", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Assay"), label.cols = c("Assay", "Sample"), horizontal = TRUE, colour = "Condition", fill = "Condition", file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "quant", horizontal, colour, fill, file, value.length, level.length))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_normalised_group_means", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = "Group", label.cols = "Group", horizontal = TRUE, colour = "qC.G", colour.guide = NULL, fill = "qC.G", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+setMethod("plot_normalised_group_means", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = "Group", label.cols = "Group", horizontal = TRUE, colour = "qC.G", fill = "qC.G", file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "mean", horizontal, colour, fill, file, value.length, level.length))
 })
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_normalised_group_stdevs", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = "Group", label.cols = "Group", horizontal = TRUE, colour = "qC.G", colour.guide = NULL, fill = "qC.G", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, trans = scales::sqrt_trans()))
-})
-
-
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("plot_standardised_group_deviations", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Assay"), label.cols = c("Assay", "Sample"), horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = "Condition", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+setMethod("plot_normalised_group_stdevs", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = "Group", label.cols = "Group", horizontal = TRUE, colour = "qC.G", fill = "qC.G", file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length, trans = scales::sqrt_trans()))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_component_deviations", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = ~ Component, sort.cols = c("Group", "Component", "Assay"), label.cols = c("Group", "Assay", "Sample"), horizontal = TRUE, colour = "Condition", colour.guide = NULL, fill = "Condition", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+setMethod("plot_standardised_group_deviations", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Assay"), label.cols = c("Assay", "Sample"), horizontal = TRUE, colour = "Condition", fill = "Condition", file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "deviation", horizontal, colour, fill, file, value.length, level.length))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_component_means", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Component"), label.cols = "Component", horizontal = TRUE, colour = "qM.C", colour.guide = NULL, fill = "qM.C", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+setMethod("plot_component_deviations", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = ~ Component, sort.cols = c("Group", "Component", "Assay"), label.cols = c("Group", "Assay", "Sample"), horizontal = TRUE, colour = "Condition", fill = "Condition", file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "deviation", horizontal, colour, fill, file, value.length, level.length))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_component_stdevs", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Component"), label.cols = "Component", horizontal = TRUE, colour = "qM.C", colour.guide = NULL, fill = "qM.C", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, trans = scales::sqrt_trans()))
+setMethod("plot_component_means", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Component"), label.cols = "Component", horizontal = TRUE, colour = "qM.C", fill = "qM.C", file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "mean", horizontal, colour, fill, file, value.length, level.length))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_measurement_means", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Component", "Measurement"), label.cols = c("Component", "Measurement"), horizontal = TRUE, colour = "qD.M", colour.guide = NULL, fill = "qD.M", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "mean", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+setMethod("plot_component_stdevs", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Component"), label.cols = "Component", horizontal = TRUE, colour = "qM.C", fill = "qM.C", file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length, trans = scales::sqrt_trans()))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_measurement_stdevs", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Component", "Measurement"), label.cols = c("Component", "Measurement"), horizontal = TRUE, colour = "qD.M", colour.guide = NULL, fill = "qD.M", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "stdev", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length, trans = scales::sqrt_trans()))
+setMethod("plot_measurement_means", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Component", "Measurement"), label.cols = c("Component", "Measurement"), horizontal = TRUE, colour = "qD.M", fill = "qD.M", file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "mean", horizontal, colour, fill, file, value.length, level.length))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_measurement_stdevs", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Component", "Measurement"), label.cols = c("Component", "Measurement"), horizontal = TRUE, colour = "qD.M", fill = "qD.M", file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length, trans = scales::sqrt_trans()))
 })
