@@ -287,8 +287,8 @@ setMethod("fdr_component_deviations", "seaMass_delta", function(object, groups =
 setMethod("plot_de_standardised_group_deviations", "seaMass_delta", function(
   object, data, limits = NULL, alpha = 1,
   facets = ~ interaction(Effect, interaction(Contrast, Baseline, drop = T, sep = " - ", lex.order = T), drop = T, sep = " : ", lex.order = T),
-  sort.cols = "Group", label.cols = "Group", title = NULL, horizontal = TRUE, colour = "qC.G", colour.guide = NULL, fill = "qC.G", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+  sort.cols = "Group", label.cols = "Group", title = NULL, horizontal = TRUE, colour = "qC.G", fill = "qC.G", file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "deviation", horizontal, colour, fill, file, value.length, level.length))
 })
 
 
@@ -298,8 +298,8 @@ setMethod("plot_de_standardised_group_deviations", "seaMass_delta", function(
 setMethod("plot_de_component_deviations", "seaMass_delta", function(
   object, data, limits = NULL, alpha = 1,
   facets = ~ interaction(Effect, interaction(Contrast, Baseline, drop = T, sep = " - ", lex.order = T), drop = T, sep = " : ", lex.order = T),
-  sort.cols = "Group", label.cols = "Group", title = NULL, horizontal = TRUE, colour = "qC.G", colour.guide = NULL, fill = "qC.G", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+  sort.cols = "Group", label.cols = "Group", title = NULL, horizontal = TRUE, colour = "qC.G", fill = "qC.G", file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "deviation", horizontal, colour, fill, file, value.length, level.length))
 })
 
 
@@ -309,8 +309,8 @@ setMethod("plot_de_component_deviations", "seaMass_delta", function(
 setMethod("plot_fdr_standardised_group_deviations", "seaMass_delta", function(
   object, data, limits = NULL, alpha = 1,
   facets = ~ interaction(Effect, interaction(Contrast, Baseline, drop = T, sep = " - ", lex.order = T), drop = T, sep = " : ", lex.order = T),
-  sort.cols = NULL, label.cols = c("Group", "qvalue"), title = NULL, horizontal = TRUE, colour = "qC.G", colour.guide = NULL, fill = "qC.G", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+  sort.cols = NULL, label.cols = c("Group", "qvalue"), title = NULL, horizontal = TRUE, colour = "qC.G", fill = "qC.G", file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "deviation", horizontal, colour, fill, file, value.length, level.length))
 })
 
 
@@ -320,8 +320,8 @@ setMethod("plot_fdr_standardised_group_deviations", "seaMass_delta", function(
 setMethod("plot_fdr_component_deviations", "seaMass_delta", function(
   object, data, limits = NULL, alpha = 1,
   facets = ~ interaction(Effect, interaction(Contrast, Baseline, drop = T, sep = " - ", lex.order = T), drop = T, sep = " : ", lex.order = T),
-  sort.cols = NULL, label.cols = "Group", title = NULL, horizontal = TRUE, colour = "qC.G", colour.guide = NULL, fill = "qC.G", fill.guide = NULL, file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "deviation", horizontal, colour, colour.guide, fill, fill.guide, file, value.length, level.length))
+  sort.cols = NULL, label.cols = "Group", title = NULL, horizontal = TRUE, colour = "qC.G", fill = "qC.G", file = NULL, value.length = 150, level.length = 5) {
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "deviation", horizontal, colour, fill, file, value.length, level.length))
 })
 
 
