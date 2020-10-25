@@ -51,17 +51,17 @@ setMethod("fdr_ash", "seaMass_delta", function(
     DT <- as.data.table(data)
   }
 
-  if ("qM_Contrast" %in% colnames(DT)) {
+  if ("Cont.qM" %in% colnames(DT)) {
     DT[, use :=
-       (qM_Contrast >= min.measurements | qM_Baseline >= min.measurements) &
-       (qM_Contrast >= min.measurements.per.condition & qM_Baseline >= min.measurements.per.condition) &
-       (uS_Contrast + uS_Baseline >= min.used.samples) &
-       (uS_Contrast >= min.used.samples.per.condition & uS_Baseline >= min.used.samples.per.condition) &
-       (qS_Contrast + qS_Baseline >= min.quantified.samples) &
-       (qS_Contrast >= min.quantified.samples.per.condition & qS_Baseline >= min.quantified.samples.per.condition)]
-    if ("qC_Contrast" %in% colnames(DT)) {
-      DT[, use := use & (qC_Contrast >= min.components | qC_Baseline >= min.components) &
-        (qC_Contrast >= min.components.per.condition & qC_Baseline >= min.components.per.condition)]
+       (Cont.qM >= min.measurements | Base.qM >= min.measurements) &
+       (Cont.qM >= min.measurements.per.condition & Base.qM >= min.measurements.per.condition) &
+       (Cont.uS + Base.uS >= min.used.samples) &
+       (Cont.uS >= min.used.samples.per.condition & Base.uS >= min.used.samples.per.condition) &
+       (Cont.qS + Base.qS >= min.quantified.samples) &
+       (Cont.qS >= min.quantified.samples.per.condition & Base.qS >= min.quantified.samples.per.condition)]
+    if ("Cont.qC" %in% colnames(DT)) {
+      DT[, use := use & (Cont.qC >= min.components | Base.qC >= min.components) &
+        (Cont.qC >= min.components.per.condition & Base.qC >= min.components.per.condition)]
     }
   }
 

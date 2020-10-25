@@ -8,7 +8,6 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
   DT.index <- fst::read.fst(file.path(filepath(object), input, "input.index.fst"), as.data.table = T)
 
   nitt <- ctrl@model.nwarmup + (ctrl@model.nsample * ctrl@model.thin) / ctrl@model.nchain
-  #DT.priors <- NULL
   DT.priors <- priors(object, input = input, as.data.table = T)
   if (!is.null(DT.priors)) {
     DT.priors[, Assay := as.integer(Assay)]
@@ -50,7 +49,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
   cat(paste0("[", Sys.time(), "]    modelling ngroup=", nrow(DT.index), " nitt=", nitt, "...\n"))
 
   # run model
-  DT.index <- merge(DT.index, groups(object, as.data.table = T)[, .(Group, pred)], by = "Group", sort = F)
+  DT.index <- merge(DT.index, groups(object, as.data.table = T)[, .(Group, pred.time)], by = "Group", sort = F)
   DT.index[, Group := as.integer(Group)]
   outputs <- rbindlists(parallel_lapply(split(DT.index, by = "Group", drop = T), function(item, object, input, chain, DT.priors) {
     ctrl <- control(object)
@@ -616,7 +615,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     }
 
     return(output)
-  }, nthread = ctrl@nthread, pred = DT.index[, pred]))
+  }, nthread = ctrl@nthread, pred = DT.index[, pred.time]))
 
   # write out
   DT.groups <- groups(object, as.data.table = T)

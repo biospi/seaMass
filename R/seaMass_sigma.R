@@ -141,10 +141,11 @@ seaMass_sigma <- function(
       G.nD = length(Count0)
     ), by = Group]
     setorder(DT.groups, -G.qC, -G.uC, -G.nC, -G.qM, -G.uM, -G.nM, -G.qD, -G.uD, -G.nD, Group)
+    #setorder(DT.groups, as.character(Group))
     # use pre-trained regression model to estimate how long each Group will take to process
     # Intercept, uC, uM, uC^2, uM^2, uC*uM
     a <- c(5.338861e-01, 9.991505e-02, 2.871998e-01, 4.294391e-05, 6.903229e-04, 2.042114e-04)
-    DT.groups[, pred := a[1] + a[2]*G.uC + a[3]*G.uM + a[4]*G.uC*G.uC + a[5]*G.uM*G.uM + a[6]*G.uC*G.uM]
+    DT.groups[, pred.time := a[1] + a[2]*G.uC + a[3]*G.uM + a[4]*G.uC*G.uC + a[5]*G.uM*G.uM + a[6]*G.uC*G.uM]
     fst::write.fst(DT.groups, file.path(blockpath, "groups.fst"))
 
     # write Component index
@@ -156,7 +157,7 @@ seaMass_sigma <- function(
       C.uD = sum(Use),
       C.nD = length(Count0)
     ), by = .(Group, Component)]
-    setorder(DT.components, -C.qM, -C.uM, -C.nM, -C.qD, -C.uD, -C.nD, Component)
+    #setorder(DT.components, -C.qM, -C.uM, -C.nM, -C.qD, -C.uD, -C.nD, Component)
     DT.components <- merge(DT.groups[, .(Group)], DT.components, by = "Group", sort = F)
     fst::write.fst(DT.components, file.path(blockpath, "components.fst"))
 
@@ -166,7 +167,7 @@ seaMass_sigma <- function(
       M.uD = sum(Use),
       M.nD = sum(!is.na(Count0))
     ), by = .(Group, Component, Measurement)]
-    setorder(DT.measurements, -M.qD, -M.uD, -M.nD, Measurement)
+    #setorder(DT.measurements, -M.qD, -M.uD, -M.nD, Measurement)
     DT.measurements <- merge(DT.components[, .(Group, Component)], DT.measurements, by = c("Group", "Component"), sort = F)
     fst::write.fst(DT.measurements, file.path(blockpath, "measurements.fst"))
     rm(DT.measurements)
@@ -212,9 +213,9 @@ seaMass_sigma <- function(
     }
 
     # set ordering for indexing
-    DT.block <- merge(DT.block, DT.groups[, .(Group, pred)], by = "Group", sort = F)
-    setorder(DT.block, -pred, Group, Component, Measurement, Assay)
-    DT.block[, pred := NULL]
+    DT.block <- merge(DT.block, DT.groups[, .(Group, pred.time)], by = "Group", sort = F)
+    setorder(DT.block, -pred.time, Group, Component, Measurement, Assay)
+    DT.block[, pred.time := NULL]
 
     # filter DT for Empirical Bayes model
     DT0 <- unique(DT.block[, .(Group, Component, Measurement)])
@@ -368,8 +369,9 @@ setMethod("control", "seaMass_sigma", function(object) {
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("groups", "seaMass_sigma", function(object, as.data.table = FALSE) {
+setMethod("groups", "seaMass_sigma", function(object, summary = FALSE, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) groups(block, as.data.table = T)))
+  if (summary) DT <- DT[, .(GroupInfo = GroupInfo[1], G.qC = max(G.qC), G.uC = max(G.uC), G.nC = max(G.nC), G.qM = max(G.qM), G.uM = max(G.uM), G.nM = max(G.nM), G.qD = max(G.qD), G.uD = max(G.uD), G.nD = max(G.nD)), by = Group]
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -381,8 +383,9 @@ setMethod("groups", "seaMass_sigma", function(object, as.data.table = FALSE) {
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("components", "seaMass_sigma", function(object, as.data.table = FALSE) {
+setMethod("components", "seaMass_sigma", function(object, summary = FALSE, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) components(block, as.data.table = T)))
+  if (summary) DT <- DT[, .(C.qM = max(C.qM), C.uM = max(C.uM), C.nM = max(C.nM), C.qD = max(C.qD), C.uD = max(C.uD), C.nD = max(C.nD)), by = .(Group, Component)]
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -394,8 +397,9 @@ setMethod("components", "seaMass_sigma", function(object, as.data.table = FALSE)
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("assay_groups", "seaMass_sigma", function(object, as.data.table = FALSE) {
+setMethod("assay_groups", "seaMass_sigma", function(object, summary = FALSE, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) assay_groups(block, as.data.table = T)))
+  if (summary) DT <- DT[, .(AG.qC = max(AG.qC), AG.uC = max(AG.uC), AG.nC = max(AG.nC), AG.qM = max(AG.qM), AG.uM = max(AG.uM), AG.nM = max(AG.nM), AG.qD = max(AG.qD), AG.uD = max(AG.uD), AG.nD = max(AG.nD)), by = .(Group, Assay)]
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -407,8 +411,9 @@ setMethod("assay_groups", "seaMass_sigma", function(object, as.data.table = FALS
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("assay_components", "seaMass_sigma", function(object, as.data.table = FALSE) {
+setMethod("assay_components", "seaMass_sigma", function(object, summary = FALSE, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) assay_components(block, as.data.table = T)))
+  if (summary) DT <- DT[, .(AC.qM = max(AC.qM), AC.uM = max(AC.uM), AC.nM = max(AC.nM), AC.qD = max(AC.qD), AC.uD = max(AC.uD), AC.nD = max(AC.nD)), by = .(Group, Component, Assay)]
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -420,8 +425,9 @@ setMethod("assay_components", "seaMass_sigma", function(object, as.data.table = 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("measurements", "seaMass_sigma", function(object, as.data.table = FALSE) {
+setMethod("measurements", "seaMass_sigma", function(object, summary = FALSE, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) measurements(block, as.data.table = T)))
+  if (summary) DT <- DT[, .(M.qD = max(M.qD), M.uD = max(M.uD), M.nD = max(M.nD)), by = .(Group, Component, Measurement)]
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -693,7 +699,7 @@ setMethod("standardised_group_deviations", "seaMass_sigma", function(object, gro
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_assay_means", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = c("Block", "Assay"), label.cols = c("Block", "Assay", "Sample"), title = NULL, horizontal = TRUE, colour = "qD.A", fill = "qD.A", file = NULL, value.length = 80, level.length = 5) {
+setMethod("plot_assay_means", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = c("Block", "Assay"), label.cols = c("Block", "Assay", "Sample"), title = NULL, horizontal = TRUE, colour = "A.qD", fill = "A.qD", file = NULL, value.length = 80, level.length = 5) {
   return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "mean", horizontal, colour, fill, file, value.length, level.length))
 })
 
@@ -701,14 +707,14 @@ setMethod("plot_assay_means", "seaMass_sigma", function(object, data, limits = N
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_assay_stdevs", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = c("Block", "Assay"), label.cols = c("Block", "Assay", "Sample"), title = NULL, horizontal = TRUE, colour = "qD.A", fill = "qD.A", file = NULL, value.length = 80, level.length = 5) {
+setMethod("plot_assay_stdevs", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = c("Block", "Assay"), label.cols = c("Block", "Assay", "Sample"), title = NULL, horizontal = TRUE, colour = "A.qD", fill = "A.qD", file = NULL, value.length = 80, level.length = 5) {
   return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length, trans = scales::sqrt_trans()))
 })
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_group_means", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Block"), label.cols = "Block", title = NULL, horizontal = TRUE, colour = "qC.G", fill = "qC.G", file = NULL, value.length = 80, level.length = 5) {
+setMethod("plot_group_means", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Block"), label.cols = "Block", title = NULL, horizontal = TRUE, colour = "G.qC", fill = "G.qC", file = NULL, value.length = 80, level.length = 5) {
   return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "mean", horizontal, colour, fill, file, value.length, level.length))
 })
 
@@ -732,7 +738,7 @@ setMethod("plot_normalised_group_quants", "seaMass_sigma", function(object, data
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_normalised_group_means", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Block"), label.cols = "Block", title = NULL, horizontal = TRUE, colour = "qC.G", fill = "qC.G", file = NULL, value.length = 80, level.length = 5) {
+setMethod("plot_normalised_group_means", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Block"), label.cols = "Block", title = NULL, horizontal = TRUE, colour = "G.qC", fill = "G.qC", file = NULL, value.length = 80, level.length = 5) {
   return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "mean", horizontal, colour, fill, file, value.length, level.length))
 })
 
@@ -740,7 +746,7 @@ setMethod("plot_normalised_group_means", "seaMass_sigma", function(object, data,
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_normalised_group_stdevs", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Block"), label.cols = "Block", title = NULL, horizontal = TRUE, colour = "qC.G", fill = "qC.G", file = NULL, value.length = 80, level.length = 5) {
+setMethod("plot_normalised_group_stdevs", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Block"), label.cols = "Block", title = NULL, horizontal = TRUE, colour = "G.qC", fill = "G.qC", file = NULL, value.length = 80, level.length = 5) {
   return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length, trans = scales::sqrt_trans()))
 })
 
@@ -764,7 +770,7 @@ setMethod("plot_component_deviations", "seaMass_sigma", function(object, data, l
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_component_means", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Component, sort.cols = c("Group", "Component", "Block"), label.cols = "Block", title = "Group", horizontal = TRUE, colour = "qM.C", fill = "qM.C", file = NULL, value.length = 80, level.length = 5) {
+setMethod("plot_component_means", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Component, sort.cols = c("Group", "Component", "Block"), label.cols = "Block", title = "Group", horizontal = TRUE, colour = "C.qM", fill = "C.qM", file = NULL, value.length = 80, level.length = 5) {
   return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "mean", horizontal, colour, fill, file, value.length, level.length))
 })
 
@@ -772,7 +778,7 @@ setMethod("plot_component_means", "seaMass_sigma", function(object, data, limits
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_component_stdevs", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Component, sort.cols = c("Group", "Component", "Block"), label.cols = "Block", title = "Group", horizontal = TRUE, colour = "qM.C", fill = "qM.C", file = NULL, value.length = 80, level.length = 5) {
+setMethod("plot_component_stdevs", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Component, sort.cols = c("Group", "Component", "Block"), label.cols = "Block", title = "Group", horizontal = TRUE, colour = "C.qM", fill = "C.qM", file = NULL, value.length = 80, level.length = 5) {
   return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length, trans = scales::sqrt_trans()))
 })
 
@@ -780,7 +786,7 @@ setMethod("plot_component_stdevs", "seaMass_sigma", function(object, data, limit
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_measurement_means", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Component + Measurement, sort.cols = c("Group", "Component", "Measurement", "Block"), label.cols = "Block", title = "Group", horizontal = TRUE, colour = "qD.M", fill = "qD.M", file = NULL, value.length = 80, level.length = 5) {
+setMethod("plot_measurement_means", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Component + Measurement, sort.cols = c("Group", "Component", "Measurement", "Block"), label.cols = "Block", title = "Group", horizontal = TRUE, colour = "M.qD", fill = "M.qD", file = NULL, value.length = 80, level.length = 5) {
   return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "mean", horizontal, colour, fill, file, value.length, level.length))
 })
 
@@ -788,6 +794,6 @@ setMethod("plot_measurement_means", "seaMass_sigma", function(object, data, limi
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_measurement_stdevs", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Component + Measurement, sort.cols = c("Group", "Component", "Measurement", "Block"), label.cols = "Block", title = "Group", horizontal = TRUE, colour = "qD.M", fill = "qD.M", file = NULL, value.length = 80, level.length = 5) {
+setMethod("plot_measurement_stdevs", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Component + Measurement, sort.cols = c("Group", "Component", "Measurement", "Block"), label.cols = "Block", title = "Group", horizontal = TRUE, colour = "M.qD", fill = "M.qD", file = NULL, value.length = 80, level.length = 5) {
   return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length, trans = scales::sqrt_trans()))
 })

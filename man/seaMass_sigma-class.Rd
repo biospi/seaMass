@@ -60,15 +60,15 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 
 \S4method{control}{seaMass_sigma}(object)
 
-\S4method{groups}{seaMass_sigma}(object, as.data.table = FALSE)
+\S4method{groups}{seaMass_sigma}(object, summary = FALSE, as.data.table = FALSE)
 
-\S4method{components}{seaMass_sigma}(object, as.data.table = FALSE)
+\S4method{components}{seaMass_sigma}(object, summary = FALSE, as.data.table = FALSE)
 
-\S4method{assay_groups}{seaMass_sigma}(object, as.data.table = FALSE)
+\S4method{assay_groups}{seaMass_sigma}(object, summary = FALSE, as.data.table = FALSE)
 
-\S4method{assay_components}{seaMass_sigma}(object, as.data.table = FALSE)
+\S4method{assay_components}{seaMass_sigma}(object, summary = FALSE, as.data.table = FALSE)
 
-\S4method{measurements}{seaMass_sigma}(object, as.data.table = FALSE)
+\S4method{measurements}{seaMass_sigma}(object, summary = FALSE, as.data.table = FALSE)
 
 \S4method{blocks}{seaMass_sigma}(object)
 

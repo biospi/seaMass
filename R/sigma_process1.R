@@ -183,7 +183,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
 
       # write timings
       DT <- timings(fit.sigma, as.data.table = T)
-      DT <- dcast(DT, Group + Block ~ chain, value.var = "elapsed")
+      DT <- dcast(DT, Group ~ Block + chain, value.var = "elapsed")
       fwrite(DT, file.path(filepath(fit.sigma), "output", "group_timings.csv"))
 
       # write groups
@@ -204,10 +204,12 @@ setMethod("process1", "sigma_block", function(object, chain) {
 
       # write assay groups
       DT <- assay_groups(fit.sigma, as.data.table = T)
+      DT <- dcast(DT, Group ~ Block + Assay, value.var = colnames(DT)[(which(colnames(DT) == "Assay") + 1):ncol(DT)])
       fwrite(DT, file.path(filepath(fit.sigma), "output", "assay_groups.csv"))
 
       # write assay components
       DT <- assay_components(fit.sigma, as.data.table = T)
+      DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = colnames(DT)[(which(colnames(DT) == "Assay") + 1):ncol(DT)])
       fwrite(DT, file.path(filepath(fit.sigma), "output", "assay_components.csv"))
 
       # write measurement means
@@ -245,7 +247,6 @@ setMethod("process1", "sigma_block", function(object, chain) {
 
       # component variances
       if (ctrl@component.model != "" && "component.variances" %in% ctrl@summarise) {
-        cat(paste0("[", Sys.time(), "]    writing component variances...\n"))
         DT <- component_variances(fit.sigma, summary = T, as.data.table = T)
         DT <- dcast(
           DT,
@@ -257,7 +258,6 @@ setMethod("process1", "sigma_block", function(object, chain) {
 
       # component deviations
       if (ctrl@component.model != "" && "component.deviations" %in% ctrl@summarise) {
-        cat(paste0("[", Sys.time(), "]    writing component deviations...\n"))
         DT <- component_deviations(fit.sigma, summary = T, as.data.table = T)
         DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
         fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_component_deviations.csv"))

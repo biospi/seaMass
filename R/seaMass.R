@@ -90,8 +90,11 @@ setMethod("read_samples", "seaMass", function(object, input, type, items = NULL,
             )}, silent = T)
           return(DT0)
         }))
-        DT0[, Block := as.integer(factor(name(object), levels = names(blocks(object))))]
-        setcolorder(DT0, "Block")
+
+        if (!is.null(blocks(object))) {
+          DT0[, Block := as.integer(factor(name(object), levels = names(blocks(object))))]
+          setcolorder(DT0, "Block")
+        }
 
         # optional summarise
         if (!is.null(summary) && nrow(DT0) > 0)  DT0 <- DT0[, do.call(summary, list(chain = chain, sample = sample, value = value)), by = summary.cols]
@@ -182,12 +185,17 @@ setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha =
 
   # metadata for each column level
   DT1 <- DTs[[1]][, .N, by = c(summary.cols, summary.cols2)]
-  if ("Group" %in% summary.cols) DT1 <- merge(DT1, groups(object, as.data.table = T), sort = F, by = c("Block", "Group"), suffixes = c("", ".G"))
-  if ("Group" %in% summary.cols && "Component" %in% summary.cols) DT1 <- merge(DT1, components(object, as.data.table = T), sort = F, by = c("Block", "Group", "Component"), suffixes = c("", ".C"))
-  if ("Group" %in% summary.cols && "Component" %in% summary.cols && "Measurement" %in% summary.cols) DT1 <- merge(DT1, measurements(object, as.data.table = T), sort = F, by = c("Block", "Group", "Component", "Measurement"), suffixes = c("", ".M"))
-  if ("Block" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_design(object, as.data.table = T), sort = F, by = c("Block", "Assay"), suffixes = c("", ".AD"))
-  if ("Group" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_groups(object, as.data.table = T), sort = F, by = c("Block", "Group", "Assay"), suffixes = c("", ".AG"))
-  if ("Group" %in% summary.cols && "Component" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_components(object, as.data.table = T), sort = F, by = c("Block", "Group", "Component", "Assay"), suffixes = c("", ".AC"))
+  if ("Block" %in% summary.cols) {
+    block <- "Block"
+  } else {
+    block <- NULL
+  }
+  if ("Group" %in% summary.cols) DT1 <- merge(DT1, groups(object, as.data.table = T), sort = F, by = c(block, "Group"))
+  if ("Group" %in% summary.cols && "Component" %in% summary.cols) DT1 <- merge(DT1, components(object, as.data.table = T), sort = F, by = c(block, "Group", "Component"))
+  if ("Group" %in% summary.cols && "Component" %in% summary.cols && "Measurement" %in% summary.cols) DT1 <- merge(DT1, measurements(object, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Measurement"))
+  if ("Assay" %in% summary.cols) DT1 <- merge(DT1, assay_design(object, as.data.table = T), sort = F, by = c(block, "Assay"), suffixes = c("", ".AD"))
+  if ("Group" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_groups(object, as.data.table = T), sort = F, by = c(block, "Group", "Assay"))
+  if ("Group" %in% summary.cols && "Component" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_components(object, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Assay"))
 
   # text.cols
   if (is.null(label.cols)) {
@@ -218,16 +226,14 @@ setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha =
     g <- g + ggplot2::xlab(paste("log2", value.label))
     g <- g + ggplot2::scale_x_continuous(trans = trans, breaks = scales::trans_breaks(trans$trans, trans$inv), labels = scales::trans_format(trans$trans, scales::number_format()))
     g <- g + ggplot2::coord_cartesian(xlim = limits, ylim = c(0.5, nlevels(DT1$Summary) + 0.5), expand = F)
-    g <- g + ggplot2::theme(legend.position = "bottom", axis.title.y = ggplot2::element_blank())
-    g <- g + ggplot2::guides(colour = ggplot2::guide_colorbar(barwidth = value.length / 10), fill = ggplot2::guide_colorbar(barwidth = value.length / 10))
+    g <- g + ggplot2::theme(legend.position = "bottom", axis.title.y = ggplot2::element_blank(), strip.text = ggplot2::element_text(angle = 0, hjust = 0))
   } else {
     g <- ggplot2::ggplot(DT1, ggplot2::aes(x = Summary))
     g <- g + ggplot2::ylab(paste("log2", value.label))
     g <- g + ggplot2::scale_x_discrete(expand = ggplot2::expansion())
     g <- g + ggplot2::scale_y_continuous(trans = trans, breaks = scales::trans_breaks(trans$trans, trans$inv), labels = scales::trans_format(trans$trans, scales::number_format()))
     g <- g + ggplot2::coord_cartesian(ylim = limits, expand = F)
-    g <- g + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "left", axis.title.x = ggplot2::element_blank())
-    g <- g + ggplot2::guides(colour = ggplot2::guide_colorbar(barheight = value.length / 10), fill = ggplot2::guide_colorbar(barheight = value.length / 10))
+    g <- g + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "left", axis.title.x = ggplot2::element_blank(), strip.text = ggplot2::element_text(angle = 0, hjust = 0))
   }
   if (!is.null(facets)) g <- g + ggplot2::facet_wrap(facets, ncol = 1)
   if (!is.null(title)) g <- g + ggplot2::ggtitle(DT1[1, get(title)])
@@ -235,6 +241,11 @@ setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha =
     colour_ <- colour
     if (is.numeric(DT1[, get(colour_)])) {
       g <- g + ggplot2::scale_colour_viridis_c(option = "plasma", end = 0.75, na.value = "black")
+      if (horizontal) {
+        g <- g + ggplot2::guides(colour = ggplot2::guide_colorbar(barwidth = value.length / 10))
+      } else {
+        g <- g + ggplot2::guides(colour = ggplot2::guide_colorbar(barheight = value.length / 10))
+      }
     } else {
       g <- g + ggplot2::scale_colour_viridis_d(option = "plasma", end = 0.75, na.value = "black")
     }
@@ -245,6 +256,11 @@ setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha =
     fill_ <- fill
     if (is.numeric(DT1[, get(fill_)])) {
       g <- g + ggplot2::scale_fill_viridis_c(option = "plasma", end = 0.75, na.value = "black")
+      if (horizontal) {
+        g <- g + ggplot2::guides(fill = ggplot2::guide_colorbar(barwidth = value.length / 10))
+      } else {
+        g <- g + ggplot2::guides(fill = ggplot2::guide_colorbar(barheight = value.length / 10))
+      }
     } else {
       g <- g + ggplot2::scale_fill_viridis_d(option = "plasma", end = 0.75, na.value = "black")
     }

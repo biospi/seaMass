@@ -19,13 +19,13 @@ batch_split <- function(DT, columns, n, drop = FALSE, keep.by = TRUE) {
 
 #' @import foreach
 #' @import doRNG
-parallel_lapply <- function(items, func, nthread = 0, pred = rep(1, length(items)), .packages = "seaMass") {
+parallel_lapply <- function(items, func, nthread = 0, pred.time = rep(1, length(items)), .packages = "seaMass") {
   # retreive function arguments from the parent environment
   func.args <- sapply(names(formals(func)), function(arg) as.name(arg), simplify = F, USE.NAMES = T)
   for(n in names(func.args)) if (n != "item") assign(n, get(n, parent.frame(n = 1)))
 
   if (length(items) > 1) {
-    pb <- txtProgressBar(max = sum(pred), style = 3)
+    pb <- txtProgressBar(max = sum(pred.time), style = 3)
     setTxtProgressBar(pb, 0)
   }
 
@@ -35,12 +35,12 @@ parallel_lapply <- function(items, func, nthread = 0, pred = rep(1, length(items
     outputs <- lapply(seq_along(items), function(i) {
       item <- items[[i]]
       output <- do.call("func", func.args)
-      if (length(items) > 1) setTxtProgressBar(pb, getTxtProgressBar(pb) + pred[i])
+      if (length(items) > 1) setTxtProgressBar(pb, getTxtProgressBar(pb) + pred.time[i])
       return(output)
     })
 
     if (length(items) > 1) {
-      setTxtProgressBar(pb, sum(pred))
+      setTxtProgressBar(pb, sum(pred.time))
       close(pb)
     }
   } else {
@@ -56,7 +56,7 @@ parallel_lapply <- function(items, func, nthread = 0, pred = rep(1, length(items
 
     # parallel
     if (length(items) > 1) {
-      progress <- function(n, i) setTxtProgressBar(pb, getTxtProgressBar(pb) + pred[i])
+      progress <- function(n, i) setTxtProgressBar(pb, getTxtProgressBar(pb) + pred.time[i])
     } else {
       progress <- NULL
     }
@@ -81,7 +81,7 @@ parallel_lapply <- function(items, func, nthread = 0, pred = rep(1, length(items
     parallel::stopCluster(parallel::getDefaultCluster())
 
     if (length(items) > 1) {
-      setTxtProgressBar(pb, sum(pred))
+      setTxtProgressBar(pb, sum(pred.time))
       close(pb)
     }
 
