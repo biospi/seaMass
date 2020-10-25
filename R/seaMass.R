@@ -77,7 +77,7 @@ setMethod("read_samples", "seaMass", function(object, input, type, items = NULL,
       )
 
       # read
-       return(rbindlist(lapply(1:nrow(item), function(i) {
+      DT1 <- rbindlist(lapply(1:nrow(item), function(i) {
         DT0 <- rbindlist(lapply(chains, function(chain) {
           DT0 <- NULL
           filename <- as.character(item[i, file])
@@ -90,19 +90,16 @@ setMethod("read_samples", "seaMass", function(object, input, type, items = NULL,
             )}, silent = T)
           return(DT0)
         }))
-
-        if (!is.null(blocks(object))) {
-          DT0[, Block := as.integer(factor(name(object), levels = names(blocks(object))))]
-          setcolorder(DT0, "Block")
-        }
+        DT0[, Block := as.integer(factor(name(object), levels = names(blocks(object))))]
+        setcolorder(DT0, "Block")
 
         # optional summarise
         if (!is.null(summary) && nrow(DT0) > 0)  DT0 <- DT0[, do.call(summary, list(chain = chain, sample = sample, value = value)), by = summary.cols]
 
         DT0 <- merge(DT0, DT0.index[, !c("file", "from", "to")], by = summary.cols, sort = F)
+      }))
 
-        return(DT0)
-      })))
+      return(DT1)
     }, nthread = ifelse(is.null(summary), 0, ctrl@nthread)))
     for (col in summary.cols) DT[, (col) := factor(get(col), levels = 1:nlevels(DT.index[, get(col)]), labels = levels(DT.index[, get(col)]))]
 
@@ -129,11 +126,11 @@ limits_dists <- function(data, probs = c(0.005, 0.995), include.zero = FALSE) {
     # calculate limits from 99.9% of samples
     set.seed(0)
     if ("PosteriorMean" %in% colnames(dd)) {
-      xs <- dd[, extraDistr::rlst(1024, df, m, s), by = 1:nrow(dd)]$V1
+      xs <- extraDistr::rlst(1048576, dd$df, dd$PosteriorMean, dd$PosteriorSD)
     } else if ("m" %in% colnames(dd)) {
-      xs <- dd[, extraDistr::rlst(1024, df, m, s), by = 1:nrow(dd)]$V1
+      xs <- extraDistr::rlst(1048576, dd$df, dd$m, dd$s)
     } else if ("v" %in% colnames(dd)) {
-      xs <- dd[, extraDistr::rinvchisq(1024, df, v), by = 1:nrow(dd)]$V1
+      xs <- extraDistr::rinvchisq(1048576, dd$df, dd$v)
     } else {
       xs <- dd$value
     }
@@ -185,12 +182,12 @@ setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha =
 
   # metadata for each column level
   DT1 <- DTs[[1]][, .N, by = c(summary.cols, summary.cols2)]
-  if ("Group" %in% summary.cols) DT1 <- merge(DT1, groups(object, as.data.table = T), sort = F, by = "Group", suffixes = c("", ".G"))
-  if ("Group" %in% summary.cols && "Component" %in% summary.cols) DT1 <- merge(DT1, components(object, as.data.table = T), sort = F, by = c("Group", "Component"), suffixes = c("", ".C"))
-  if ("Group" %in% summary.cols && "Component" %in% summary.cols && "Measurement" %in% summary.cols) DT1 <- merge(DT1, measurements(object, as.data.table = T), sort = F, by = c("Group", "Component", "Measurement"), suffixes = c("", ".M"))
+  if ("Group" %in% summary.cols) DT1 <- merge(DT1, groups(object, as.data.table = T), sort = F, by = c("Block", "Group"), suffixes = c("", ".G"))
+  if ("Group" %in% summary.cols && "Component" %in% summary.cols) DT1 <- merge(DT1, components(object, as.data.table = T), sort = F, by = c("Block", "Group", "Component"), suffixes = c("", ".C"))
+  if ("Group" %in% summary.cols && "Component" %in% summary.cols && "Measurement" %in% summary.cols) DT1 <- merge(DT1, measurements(object, as.data.table = T), sort = F, by = c("Block", "Group", "Component", "Measurement"), suffixes = c("", ".M"))
   if ("Block" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_design(object, as.data.table = T), sort = F, by = c("Block", "Assay"), suffixes = c("", ".AD"))
-  if ("Group" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_groups(object, as.data.table = T), sort = F, by = c("Group", "Assay"), suffixes = c("", ".AG"))
-  if ("Group" %in% summary.cols && "Component" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_components(object, as.data.table = T), sort = F, by = c("Group", "Component", "Assay"), suffixes = c("", ".AC"))
+  if ("Group" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_groups(object, as.data.table = T), sort = F, by = c("Block", "Group", "Assay"), suffixes = c("", ".AG"))
+  if ("Group" %in% summary.cols && "Component" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_components(object, as.data.table = T), sort = F, by = c("Block", "Group", "Component", "Assay"), suffixes = c("", ".AC"))
 
   # text.cols
   if (is.null(label.cols)) {
@@ -221,7 +218,7 @@ setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha =
     g <- g + ggplot2::xlab(paste("log2", value.label))
     g <- g + ggplot2::scale_x_continuous(trans = trans, breaks = scales::trans_breaks(trans$trans, trans$inv), labels = scales::trans_format(trans$trans, scales::number_format()))
     g <- g + ggplot2::coord_cartesian(xlim = limits, ylim = c(0.5, nlevels(DT1$Summary) + 0.5), expand = F)
-    g <- g + ggplot2::theme(legend.position = "bottom", panel.grid.major.y = ggplot2::element_blank(), axis.title.y = ggplot2::element_blank())
+    g <- g + ggplot2::theme(legend.position = "bottom", axis.title.y = ggplot2::element_blank())
     g <- g + ggplot2::guides(colour = ggplot2::guide_colorbar(barwidth = value.length / 10), fill = ggplot2::guide_colorbar(barwidth = value.length / 10))
   } else {
     g <- ggplot2::ggplot(DT1, ggplot2::aes(x = Summary))
@@ -229,7 +226,7 @@ setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha =
     g <- g + ggplot2::scale_x_discrete(expand = ggplot2::expansion())
     g <- g + ggplot2::scale_y_continuous(trans = trans, breaks = scales::trans_breaks(trans$trans, trans$inv), labels = scales::trans_format(trans$trans, scales::number_format()))
     g <- g + ggplot2::coord_cartesian(ylim = limits, expand = F)
-    g <- g + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "left", axis.title.x = ggplot2::element_blank(), panel.grid.major.x = ggplot2::element_blank())
+    g <- g + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "left", axis.title.x = ggplot2::element_blank())
     g <- g + ggplot2::guides(colour = ggplot2::guide_colorbar(barheight = value.length / 10), fill = ggplot2::guide_colorbar(barheight = value.length / 10))
   }
   if (!is.null(facets)) g <- g + ggplot2::facet_wrap(facets, ncol = 1)
@@ -317,13 +314,26 @@ setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha =
           if (is.null(limits) || limits[1] < 0) g <- g + ggdist::stat_cdfinterval(ggplot2::aes_string(x = value, y = "Summary", fill = fill_), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(NA, 0))
           g <- g + ggdist::stat_pointinterval(ggplot2::aes_string(x = value, y = "Summary", colour = colour_), DTs[[i]], point_size = 1.5, interval_size_range = c(0.5, 1), position = ggplot2::position_nudge(y = positions[i]))
         }
-       }
+        # if (i > 1) {
+        #   g <- g + ggdist::stat_eye(
+        #     ggplot2::aes_string(x = value, y = "Summary"), DTs[[i]],
+        #     slab_type = "lfdr", slab_alpha = 0.25 * alpha[j], slab_colour = "grey", n = 5001, scale = 1,
+        #     interval_size_range = c(0.5, 1), point_size = 1.5
+        #   )
+        # } else {
+        #   g <- g + ggdist::stat_eye(
+        #     ggplot2::aes_string(x = value, y = "Summary", fill = fill_, colour = colour_), DTs[[i]],
+        #     slab_type = "lfdr", slab_alpha = 0.25 * alpha[j], side = "both", n = 5001, scale = 1,
+        #     interval_size_range = c(0.5, 1), point_size = 1.5
+        #   )
+        # }
+      }
     }
   }
 
   zero <- 0
   if (horizontal) {
-    g <- g + ggplot2::geom_tile(ggplot2::aes_string(x = "zero", y = "Summary"), DT1, width = Inf, height = 1, colour = "white", fill = NA)
+    #g <- g + ggplot2::geom_tile(ggplot2::aes_string(x = "zero", y = "Summary"), DT1, width = Inf, height = 1, colour = "white", fill = NA)
     g <- g + ggplot2::geom_vline(xintercept = 0)
 
     if (!is.null(file)) {
@@ -332,7 +342,7 @@ setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha =
       ggplot2::ggsave(file, gt, width = 10 + sum(as.numeric(grid::convertUnit(gt$widths, "mm"))), height = 10 + sum(as.numeric(grid::convertUnit(gt$heights, "mm"))), units = "mm", limitsize = F)
     }
   } else {
-    g <- g + ggplot2::geom_tile(ggplot2::aes_string(y = "zero", x = "Summary"), DT1, height = Inf, width = 1, colour = "white", fill = NA, size = 0.5)
+    #g <- g + ggplot2::geom_tile(ggplot2::aes_string(y = "zero", x = "Summary"), DT1, height = Inf, width = 1, colour = "white", fill = NA, size = 0.5)
     g <- g + ggplot2::geom_hline(yintercept = 0)
 
     if (!is.null(file)) {

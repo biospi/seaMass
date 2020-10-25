@@ -5,8 +5,8 @@
 \alias{sigma_block-class}
 \alias{sigma_block}
 \alias{filepath,sigma_block-method}
-\alias{control,sigma_block-method}
 \alias{parent,sigma_block-method}
+\alias{control,sigma_block-method}
 \alias{blocks,sigma_block-method}
 \alias{groups,sigma_block-method}
 \alias{measurements,sigma_block-method}
@@ -32,9 +32,9 @@
 \usage{
 \S4method{filepath}{sigma_block}(object)
 
-\S4method{control}{sigma_block}(object)
-
 \S4method{parent}{sigma_block}(object)
+
+\S4method{control}{sigma_block}(object)
 
 \S4method{blocks}{sigma_block}(object)
 
@@ -155,11 +155,11 @@ The results of a seaMass-Σ block to a single block, returned by /link{seaMass_s
 \itemize{
 \item \code{filepath}: Get the path.
 
-\item \code{control}: Get the \link{sigma_control} object for this block.
-
 \item \code{parent}: Get the \link{seaMass_sigma} object for this block.
 
-\item \code{blocks}: Get the list of \link{sigma_block} obejcts for the blocks.
+\item \code{control}: Get the \link{sigma_control} object for this block.
+
+\item \code{blocks}: Get the list of \link{sigma_block} objects for the blocks.
 
 \item \code{groups}: Get the group metadata as a \link{data.frame}.
 

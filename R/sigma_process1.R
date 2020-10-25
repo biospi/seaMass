@@ -168,163 +168,191 @@ setMethod("process1", "sigma_block", function(object, chain) {
 
     # standardise group quants
     standardise_group_quants(object, type = type)
+    if ("standardised.group.deviations" %in% ctrl@summarise || "standardised.group.deviations" %in% ctrl@plot || "group.quants.pca" %in% ctrl@plot) {
+      cat(paste0("[", Sys.time(), "]    getting standardised group deviation summaries...\n"))
+      standardised_group_deviations(object, summary = T, as.data.table = T)
+    }
 
     # set complete
     write.table(data.frame(), file.path(filepath(object), "complete"), col.names = F)
 
     if (all(sapply(blocks(object), function(block) file.exists(file.path(filepath(block), "complete"))))) {
-      # FINISH
-      cat(paste0("[", Sys.time(), "]   FINISHING...\n"))
-
+      # FINALISE
+      cat(paste0("[", Sys.time(), "]   FINALISING...\n"))
       fit.sigma <- parent(object)
-      DT <- imported_data(fit.sigma, as.data.table = T)[!is.na(Assay)]
-      DT.groups <- groups(fit.sigma, as.data.table = T)
-      DT.components <- components(fit.sigma, as.data.table = T)
 
-      # write assay group stats
-      DT.assay.groups <- DT[, .(
-        qC.AG = uniqueN(Component[Use & !is.na(Count0)]),
-        uC.AG = uniqueN(Component[Use]),
-        nC.AG = uniqueN(Component),
-        qM.AG = uniqueN(Measurement[Use & !is.na(Count0)]),
-        uM.AG = uniqueN(Measurement[Use]),
-        nM.AG = uniqueN(Measurement),
-        qD.AG = sum(Use & !is.na(Count0)),
-        uD.AG = sum(Use),
-        nD.AG = length(Count0)
-      ), by = .(Group, Assay)]
-      assay.levels <- levels(DT.assay.groups$Assay)
-      DT.assay.groups <- dcast(DT.assay.groups, Group ~ Assay, fill = 0, value.var = c("qC.AG", "uC.AG", "nC.AG", "qM.AG", "uM.AG", "nM.AG", "qD.AG", "uD.AG", "nD.AG"))
-      DT.assay.groups <- merge(DT.groups[, .(Group)], DT.assay.groups, by = "Group", sort = F)
-      fwrite(DT.assay.groups, file.path(filepath(fit.sigma), "output", "assay_groups.csv"))
-
-      DT.assay.groups <- melt(
-        DT.assay.groups,
-        id.vars = "Group",
-        measure.vars = patterns("^qC\\.AG_", "^uC\\.AG_", "nC\\.AG_", "^qM\\.AG_", "^uM\\.AG_", "^nM\\.AG_", "^qD\\.AG_", "^uD\\.AG_", "^nD\\.AG_"),
-        variable.name = "Assay",
-        value.name = c("qC.AG", "uC.AG", "nC.AG", "qM.AG", "uM.AG", "nM.AG", "qD.AG", "uD.AG", "nD.AG")
-      )
-      DT.assay.groups[, Assay := factor(Assay, levels = 1:nlevels(DT.assay.groups$Assay), labels = assay.levels)]
-      fst::write.fst(DT.assay.groups, file.path(filepath(fit.sigma), "meta", "assay.groups.fst"))
-      rm(DT.assay.groups)
-
-      # write assay component stats
-      DT.assay.components <- DT[, .(
-        qM.AC = uniqueN(Measurement[Use & !is.na(Count0)]),
-        uM.AC = uniqueN(Measurement[Use]),
-        nM.AC = uniqueN(Measurement),
-        qD.AC = sum(Use & !is.na(Count0)),
-        uD.AC = sum(Use),
-        nD.AC = length(Count0)
-      ), by = .(Group, Component, Assay)]
-      assay.levels <- levels(DT.assay.components$Assay)
-      DT.assay.components <- dcast(DT.assay.components, Group + Component ~ Assay, fill = 0, value.var = c("qM.AC", "uM.AC", "nM.AC", "qD.AC", "uD.AC", "nD.AC"))
-      DT.assay.components <- merge(DT.components[, .(Group, Component)], DT.assay.components, by = c("Group", "Component"), sort = F)
-      fwrite(DT.assay.components, file.path(filepath(fit.sigma), "output", "assay_components.csv"))
-
-      DT.assay.components <- melt(
-        DT.assay.components,
-        id.vars = c("Group", "Component"),
-        measure.vars = patterns("^qM\\.AC", "^uM\\.AC", "^nM\\.AC", "^qD\\.AC", "^uD\\.AC", "^nD\\.AC"),
-        variable.name = "Assay",
-        value.name = c("qM.AC", "uM.AC", "nM.AC", "qD.AC", "uD.AC", "nD.AC")
-      )
-      DT.assay.components[, Assay := factor(Assay, levels = 1:nlevels(DT.assay.components$Assay), labels = assay.levels)]
-      fst::write.fst(DT.assay.components, file.path(filepath(fit.sigma), "meta", "assay.components.fst"))
-      rm(DT.assay.components)
-
-      if (ctrl@plots == T) {
-        cat(paste0("[", Sys.time(), "]    calculating limits...\n"))
-        lims <- list()
-        if ("group.quants" %in% ctrl@plot) lims$group.quants <- limits_dists(group_quants(fit.sigma, as.data.table = T))
-        if ("normalised.group.quants" %in% ctrl@plot) lims$normalised.group.quants <- limits_dists(normalised_group_quants(fit.sigma, as.data.table = T))
-        if ("standardised.group.deviations" %in% ctrl@plot) lims$standardised.group.deviations <- limits_dists(standardised_group_deviations(fit.sigma, as.data.table = T), include.zero = T)
-        if ("component.deviations" %in% ctrl@plot) lims$component.deviations <- limits_dists(component_deviations(fit.sigma, as.data.table = T), include.zero = T)
-        if ("component.means" %in% ctrl@plot) lims$component.means <- limits_dists(component_means(fit.sigma, as.data.table = T))
-        if ("component.stdevs" %in% ctrl@plot) lims$component.variances <- limits_dists(component_variances(fit.sigma, as.data.table = T), probs = c(0, 0.99), include.zero = T)
-        if ("measurement.means" %in% ctrl@plot) lims$measurement.means <- limits_dists(measurement_means(fit.sigma, as.data.table = T))
-        if ("measurement.stdevs" %in% ctrl@plot) lims$measurement.variances <- limits_dists(measurement_variances(fit.sigma, as.data.table = T), probs = c(0, 0.99), include.zero = T)
-        saveRDS(lims, file = file.path(filepath(fit.sigma), "meta", "limits.rds"))
-      }
-
-      ## TIMINGS
+      # write timings
       DT <- timings(fit.sigma, as.data.table = T)
       DT <- dcast(DT, Group + Block ~ chain, value.var = "elapsed")
       fwrite(DT, file.path(filepath(fit.sigma), "output", "group_timings.csv"))
 
-      ## MEASUREMENT MEANS
+      # write groups
+      DT <- groups(fit.sigma, as.data.table = T)
+      fwrite(DT, file.path(filepath(fit.sigma), "output", "groups.csv"))
+
+      # write components
+      DT <- components(fit.sigma, as.data.table = T)
+      fwrite(DT, file.path(filepath(fit.sigma), "output", "components.csv"))
+
+      # write measurements
+      DT <- measurements(fit.sigma, as.data.table = T)
+      fwrite(DT, file.path(filepath(fit.sigma), "output", "measurements.csv"))
+
+      # write assay design
+      DT <- assay_design(fit.sigma, as.data.table = T)
+      fwrite(DT, file.path(filepath(fit.sigma), "output", "assay_design.csv"))
+
+      # write assay groups
+      DT <- assay_groups(fit.sigma, as.data.table = T)
+      fwrite(DT, file.path(filepath(fit.sigma), "output", "assay_groups.csv"))
+
+      # write assay components
+      DT <- assay_components(fit.sigma, as.data.table = T)
+      fwrite(DT, file.path(filepath(fit.sigma), "output", "assay_components.csv"))
+
+      # write measurement means
       if ("measurement.means" %in% ctrl@summarise) {
         DT <- measurement_means(fit.sigma, summary = T, as.data.table = T)
-        if (!is.null(DT)) {
-          DT <- dcast(
-            DT,
-            as.formula(paste0("Group", ifelse("Component" %in% colnames(DT), " + Component", ""), ifelse("Measurement" %in% colnames(DT), " + Measurement", ""), " ~ Block")),
-            value.var = c("m", "s", "df", "rhat")
-          )
-          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_measurement_means.csv"))
-        }
-      }
-      if (!("measurement.means" %in% ctrl@keep || "measurement.means" %in% ctrl@plot)) {
-        for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "measurement.means*"), recursive = T)
+        DT <- dcast(
+          DT,
+          as.formula(paste0("Group", ifelse("Component" %in% colnames(DT), " + Component", ""), ifelse("Measurement" %in% colnames(DT), " + Measurement", ""), " ~ Block")),
+          value.var = c("m", "s", "df", "rhat")
+        )
+        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_measurement_means.csv"))
       }
 
-      ## MEASUREMENT VARIANCES
+      # measurement variances
       if ("measurement.variances" %in% ctrl@summarise) {
         DT <- measurement_variances(fit.sigma, summary = T, as.data.table = T)
-        if (!is.null(DT)) {
-          DT <- dcast(
-            DT,
-            as.formula(paste0("Group", ifelse("Component" %in% colnames(DT), " + Component", ""), ifelse("Measurement" %in% colnames(DT), " + Measurement", ""), " ~ Block")),
-            value.var = c("v", "df", "rhat")
-          )
-          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_measurement_variances.csv"))
-        }
-      }
-      if (!("measurement.variances" %in% ctrl@keep || "measurement.stdevs" %in% ctrl@plot)) {
-        for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "measurement.variances*"), recursive = T)
+        DT <- dcast(
+          DT,
+          as.formula(paste0("Group", ifelse("Component" %in% colnames(DT), " + Component", ""), ifelse("Measurement" %in% colnames(DT), " + Measurement", ""), " ~ Block")),
+          value.var = c("v", "df", "rhat")
+        )
+        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_measurement_variances.csv"))
       }
 
-      ## COMPONENT MEANS
-      if ("component.means" %in% ctrl@summarise) {
+      # component means
+      if (ctrl@component.model != "" && "component.means" %in% ctrl@summarise) {
         DT <- component_means(fit.sigma, summary = T, as.data.table = T)
-        if (!is.null(DT)) {
-          DT <- dcast(
-            DT,
-            as.formula(paste0("Group", ifelse("Component" %in% colnames(DT), " + Component", ""), " ~ Block")),
-            value.var = c("m", "s", "df", "rhat")
-          )
-          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_component_means.csv"))
-        }
-      }
-      if (!("component.means" %in% ctrl@keep || "component.means" %in% ctrl@plot)) {
-        for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "component.means*"), recursive = T)
+        DT <- dcast(
+          DT,
+          as.formula(paste0("Group", ifelse("Component" %in% colnames(DT), " + Component", ""), " ~ Block")),
+          value.var = c("m", "s", "df", "rhat")
+        )
+        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_component_means.csv"))
       }
 
-      ## COMPONENT VARIANCES
+      # component variances
       if (ctrl@component.model != "" && "component.variances" %in% ctrl@summarise) {
+        cat(paste0("[", Sys.time(), "]    writing component variances...\n"))
         DT <- component_variances(fit.sigma, summary = T, as.data.table = T)
-        if (!is.null(DT)) {
-          DT <- dcast(
-            DT,
-            as.formula(paste0("Group", ifelse("Component" %in% colnames(DT), " + Component", ""), " ~ Block")),
-            value.var = c("v", "df", "rhat")
-          )
-          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_component_variances.csv"))
-        }
-      }
-      if (!("component.variances" %in% ctrl@keep || "component.stdevs" %in% ctrl@plot)) {
-        for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "component.variances*"), recursive = T)
+        DT <- dcast(
+          DT,
+          as.formula(paste0("Group", ifelse("Component" %in% colnames(DT), " + Component", ""), " ~ Block")),
+          value.var = c("v", "df", "rhat")
+        )
+        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_component_variances.csv"))
       }
 
-      ## COMPONENT DEVIATIONS
-      if ("component.deviations" %in% ctrl@summarise) {
+      # component deviations
+      if (ctrl@component.model != "" && "component.deviations" %in% ctrl@summarise) {
+        cat(paste0("[", Sys.time(), "]    writing component deviations...\n"))
         DT <- component_deviations(fit.sigma, summary = T, as.data.table = T)
-        if (!is.null(DT)) {
-          DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
-          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_component_deviations.csv"))
-        }
+        DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
+        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_component_deviations.csv"))
       }
+
+      # assay means
+      if ("assay.means" %in% ctrl@summarise || "assay.means" %in% ctrl@plot) {
+        DT <- assay_means(fit.sigma, as.data.table = T)
+        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_variances.csv"))
+      }
+
+      # assay variances
+      if ("assay.variances" %in% ctrl@summarise || "assay.stdevs" %in% ctrl@plot) {
+        DT <- assay_variances(fit.sigma, as.data.table = T)
+        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_variances.csv"))
+      }
+
+      # assay deviations
+      if (ctrl@assay.model != "" && "assay.deviations" %in% ctrl@summarise) {
+        DT <- assay_deviations(fit.sigma, summary = T, as.data.table = T)
+        DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
+        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_deviations.csv"))
+      }
+
+      # group means
+      if ("group.means" %in% ctrl@summarise) {
+        DT <- group_means(fit.sigma, summary = T, as.data.table = T)
+        fwrite(dcast(DT, Group ~ Block, value.var = c("m", "s", "df", "rhat")), file.path(filepath(fit.sigma), "output", "log2_group_means.csv"))
+      }
+
+      # group quants
+      if ("group.quants" %in% ctrl@summarise) {
+        DT <- group_quants(fit.sigma, summary = T, as.data.table = T)
+        DT <- dcast(DT, Group ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
+        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_group_quants.csv"))
+       }
+
+      # normalised group means
+      if (ctrl@norm.model != "" && "normalised.group.means" %in% ctrl@summarise) {
+        DT <- normalised_group_means(fit.sigma, summary = T, as.data.table = T)
+        fwrite(dcast(DT, Group ~ Block, value.var = c("m", "s", "df", "rhat")), file.path(filepath(fit.sigma), "output", "log2_normalised_group_means.csv"))
+      }
+
+      # normalised group variances
+      if (ctrl@norm.model != "" && "normalised.group.variances" %in% ctrl@summarise) {
+        DT <- normalised_group_variances(fit.sigma, summary = T, as.data.table = T)
+        fwrite(dcast(DT, Group ~ Block, value.var = c("v", "df", "rhat")), file.path(filepath(fit.sigma), "output", "log2_normalised_group_variances.csv"))
+      }
+
+      # normalised group quants
+      if (ctrl@norm.model != "" && "normalised.group.quants" %in% ctrl@summarise) {
+        DT <- normalised_group_quants(fit.sigma, summary = T, as.data.table = T)
+        DT <- dcast(DT, Group ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
+        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_normalised_group_quants.csv"))
+      }
+
+      # standardised group deviations
+      if ("standardised.group.deviations" %in% ctrl@summarise) {
+        DT <- standardised_group_deviations(fit.sigma, summary = T, as.data.table = T)
+        DT <- dcast(DT, Group ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
+        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_standardised_groups_deviations.csv"))
+      }
+
+      ## PLOTS
+
+      if ("assay.means" %in% ctrl@plot) {
+        cat(paste0("[", Sys.time(), "]    plotting assay means...\n"))
+        DT <- assay_means(fit.sigma, as.data.table = T)
+        plot_assay_means(fit.sigma, DT, limits_dists(DT, probs = c(0.0005, 0.9995)), file = file.path(filepath(fit.sigma), "output", "log2_assay_means.pdf"))
+      }
+
+      if ("assay.stdevs" %in% ctrl@plot) {
+        cat(paste0("[", Sys.time(), "]    plotting assay stdevs...\n"))
+        DT <- assay_variances(fit.sigma, as.data.table = T)
+        plot_assay_stdevs(fit.sigma, DT, limits_dists(DT, probs = c(0, 0.99), include.zero = T), file = file.path(filepath(fit.sigma), "output", "log2_assay_stdevs.pdf"))
+      }
+
+      if ("group.means" %in% ctrl@plot) {
+        cat(paste0("[", Sys.time(), "]    plotting group means...\n"))
+        DT <- group_means(fit.sigma, as.data.table = T)
+        plot_group_means(fit.sigma, DT, limits_dists(DT), file = file.path(filepath(fit.sigma), "output", "log2_group_means.pdf"))
+      }
+
+      if ("normalised.group.means" %in% ctrl@plot) {
+        cat(paste0("[", Sys.time(), "]    plotting normalised group means...\n"))
+        DT <- normalised_group_means(fit.sigma, as.data.table = T)
+        plot_normalised_group_means(fit.sigma, DT, limits_dists(DT), file = file.path(filepath(fit.sigma), "output", "log2_normalised_group_means.pdf"))
+      }
+
+      if ("normalised.group.stdevs" %in% ctrl@plot) {
+        cat(paste0("[", Sys.time(), "]    plotting normalised group stdevs...\n"))
+        DT <- normalised_group_variances(fit.sigma, as.data.table = T)
+        plot_normalised_group_stdevs(fit.sigma, DT, limits_dists(DT, probs = c(0, 0.99), include.zero = T), file = file.path(filepath(fit.sigma), "output", "log2_normalised_group_stdevs.pdf"))
+      }
+
       if (ctrl@component.model == "independent" && "component.deviations.pca" %in% ctrl@plot) {
         cat(paste0("[", Sys.time(), "]  component deviations plots...\n"))
 
@@ -373,129 +401,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
           ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_component_deviations_pca_channels.pdf"), width = 300, height = 200, units = "mm")
         }
       }
-      if (!("component.deviations" %in% ctrl@keep || "component.deviations" %in% ctrl@plot)) {
-        for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "component.deviations*"), recursive = T)
-      }
 
-      ## ASSAY MEANS
-      if ("assay.means" %in% ctrl@summarise || "assay.means" %in% ctrl@plot) {
-        DT <- assay_means(fit.sigma, as.data.table = T)
-        if (!is.null(DT)) {
-          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_variances.csv"))
-          if ("assay.means" %in% ctrl@plot) {
-            cat(paste0("[", Sys.time(), "]    plotting assay means...\n"))
-            plot_assay_means(fit.sigma, DT, limits_dists(DT, probs = c(0.0005, 0.9995)), file = file.path(filepath(fit.sigma), "output", "log2_assay_means.pdf"))
-          }
-        }
-      }
-      if (!("assay.means" %in% ctrl@keep)) {
-        for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "assay.means*"), recursive = T)
-      }
-
-      ## ASSAY VARIANCES
-      if ("assay.variances" %in% ctrl@summarise || "assay.stdevs" %in% ctrl@plot) {
-        DT <- assay_variances(fit.sigma, as.data.table = T)
-        if (!is.null(DT)) {
-          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_variances.csv"))
-          if ("assay.stdevs" %in% ctrl@plot) {
-            cat(paste0("[", Sys.time(), "]    plotting assay stdevs...\n"))
-            plot_assay_stdevs(fit.sigma, DT, limits_dists(DT, probs = c(0, 0.99), include.zero = T), file = file.path(filepath(fit.sigma), "output", "log2_assay_stdevs.pdf"))
-          }
-        }
-      }
-
-      ## ASSAY DEVIATIONS
-      if ("assay.deviations" %in% ctrl@summarise) {
-        DT <- assay_deviations(fit.sigma, summary = T, as.data.table = T)
-        if (!is.null(DT)) {
-          DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
-          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_deviations.csv"))
-        }
-      }
-      if (!("assay.deviations" %in% ctrl@keep)) {
-        for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "assay.deviations*"), recursive = T)
-      }
-
-      ## GROUP MEANS
-      if ("group.means" %in% ctrl@summarise || "group.means" %in% ctrl@plot) {
-        DT <- group_means(fit.sigma, summary = T, as.data.table = T)
-        if (!is.null(DT)) {
-          fwrite(dcast(DT, Group ~ Block, value.var = c("m", "s", "df", "rhat")), file.path(filepath(fit.sigma), "output", "log2_group_means.csv"))
-          if ("group.means" %in% ctrl@plot) {
-            cat(paste0("[", Sys.time(), "]    plotting group means...\n"))
-            DT <- group_means(fit.sigma, as.data.table = T)
-            plot_group_means(fit.sigma, DT, limits_dists(DT), file = file.path(filepath(fit.sigma), "output", "log2_group_means.pdf"))
-          }
-        }
-      }
-      if (!("group.means" %in% ctrl@keep)) {
-        for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "group.means*"), recursive = T)
-      }
-
-      ## GROUP QUANTS
-      if ("group.quants" %in% ctrl@summarise) {
-        DT <- group_quants(fit.sigma, summary = T, as.data.table = T)
-        if (!is.null(DT)) {
-          DT <- dcast(DT, Group ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
-          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_group_quants.csv"))
-        }
-      }
-      if (!("group.quants" %in% ctrl@keep || "group.quants" %in% ctrl@plot)) {
-        for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "group.quants*"), recursive = T)
-      }
-
-      ## NORMALISED GROUP MEANS
-      if ("normalised.group.means" %in% ctrl@summarise || "normalised.group.means" %in% ctrl@plot) {
-        DT <- normalised_group_means(fit.sigma, summary = T, as.data.table = T)
-        if (!is.null(DT)) {
-          fwrite(dcast(DT, Group ~ Block, value.var = c("m", "s", "df", "rhat")), file.path(filepath(fit.sigma), "output", "log2_normalised_group_means.csv"))
-          if ("normalised.group.means" %in% ctrl@plot) {
-            cat(paste0("[", Sys.time(), "]    plotting normalised group means...\n"))
-            DT <- normalised_group_means(fit.sigma, as.data.table = T)
-            plot_normalised_group_means(fit.sigma, DT, limits_dists(DT), file = file.path(filepath(fit.sigma), "output", "log2_normalised_group_means.pdf"))
-          }
-        }
-      }
-      if (!("normalised.group.means" %in% ctrl@keep)) {
-        for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "normalised.group.means*"), recursive = T)
-      }
-
-      ## NORMALISED GROUP VARIANCES
-      if ("normalised.group.variances" %in% ctrl@summarise || "normalised.group.stdevs" %in% ctrl@plot) {
-        DT <- normalised_group_variances(fit.sigma, summary = T, as.data.table = T)
-        if (!is.null(DT)) {
-          fwrite(dcast(DT, Group ~ Block, value.var = c("v", "df", "rhat")), file.path(filepath(fit.sigma), "output", "log2_normalised_group_variances.csv"))
-          if ("normalised.group.stdevs" %in% ctrl@plot) {
-            cat(paste0("[", Sys.time(), "]    plotting normalised group stdevs...\n"))
-            DT <- normalised_group_variances(fit.sigma, as.data.table = T)
-            plot_normalised_group_stdevs(fit.sigma, DT, limits_dists(DT, probs = c(0, 0.99), include.zero = T), file = file.path(filepath(fit.sigma), "output", "log2_normalised_group_stdevs.pdf"))
-          }
-        }
-      }
-      if (!("normalised.group.variances" %in% ctrl@keep)) {
-        for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "normalised.group.variances*"), recursive = T)
-      }
-
-      ## NORMALISED GROUP QUANTS
-      if ("normalised.group.quants" %in% ctrl@summarise) {
-        DT <- normalised_group_quants(fit.sigma, summary = T, as.data.table = T)
-        if (!is.null(DT)) {
-          DT <- dcast(DT, Group ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
-          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_normalised_group_quants.csv"))
-        }
-      }
-      if (!("normalised.group.quants" %in% ctrl@keep || "normalised.group.quants" %in% ctrl@plot)) {
-        for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "normalised.group.quants*"), recursive = T)
-      }
-
-      ## STANDARDISED GROUP DEVIATIONS
-      if ("standardised.group.deviations" %in% ctrl@summarise || "group.quants.pca" %in% ctrl@plot) {
-        cat(paste0("[", Sys.time(), "]    getting standardised group deviation summaries...\n"))
-        DT <- standardised_group_deviations(object, summary = T, as.data.table = T)
-        if (!is.null(DT)) {
-          fwrite(dcast(DT, Group ~ Block + Assay, value.var = c("m", "s", "df", "rhat")), file.path(filepath(fit.sigma), "output", "log2_standardised_groups_deviations.csv"))
-        }
-      }
       if ("group.quants.pca" %in% ctrl@plot) {
         ellipsis <- ctrl@ellipsis
         ellipsis$object <- fit.sigma
@@ -540,9 +446,36 @@ setMethod("process1", "sigma_block", function(object, chain) {
           ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_standardised_group_deviations_pca_channels.pdf"), width = 300, height = 200, units = "mm")
         }
       }
-      if (!("standardised.group.deviations" %in% ctrl@keep || "standardised.group.deviations" %in% ctrl@plot)) {
-        for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "standardised.group.deviations*"), recursive = T)
+
+      # calculate plot limits
+      if (ctrl@plots == T) {
+        cat(paste0("[", Sys.time(), "]    calculating plot limits...\n"))
+        lims <- list(group.quants = NULL, normalised.group.quants = NULL, standardised.group.deviations = NULL, component.deviations = NULL, component.means = NULL, component.stdevs = NULL, measurement.means = NULL, measurement.variances = NULL)
+        if ("group.quants" %in% ctrl@plot) lims$group.quants <- limits_dists(group_quants(fit.sigma, summary = T, as.data.table = T))
+        if ("normalised.group.quants" %in% ctrl@plot) lims$normalised.group.quants <- limits_dists(normalised_group_quants(fit.sigma, summary = T, as.data.table = T))
+        if ("standardised.group.deviations" %in% ctrl@plot) lims$standardised.group.deviations <- limits_dists(standardised_group_deviations(fit.sigma, summary = T, as.data.table = T), include.zero = T)
+        if ("component.deviations" %in% ctrl@plot) lims$component.deviations <- limits_dists(component_deviations(fit.sigma, summary = T, as.data.table = T), include.zero = T)
+        if ("component.means" %in% ctrl@plot) lims$component.means <- limits_dists(component_means(fit.sigma, summary = T, as.data.table = T))
+        if ("component.stdevs" %in% ctrl@plot) lims$component.variances <- limits_dists(component_variances(fit.sigma, summary = T, as.data.table = T), probs = c(0, 0.99), include.zero = T)
+        if ("measurement.means" %in% ctrl@plot) lims$measurement.means <- limits_dists(measurement_means(fit.sigma, summary = T, as.data.table = T))
+        if ("measurement.stdevs" %in% ctrl@plot) lims$measurement.variances <- limits_dists(measurement_variances(fit.sigma, summary = T, as.data.table = T), probs = c(0, 0.99), include.zero = T)
+        saveRDS(lims, file.path(filepath(fit.sigma), "meta", "limits.rds"))
       }
+
+      # delete if not keeping
+      if (!("measurement.means" %in% ctrl@keep || "measurement.means" %in% ctrl@plot)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "measurement.means*"), recursive = T)
+      if (!("measurement.variances" %in% ctrl@keep || "measurement.stdevs" %in% ctrl@plot)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "measurement.variances*"), recursive = T)
+      if (!("component.means" %in% ctrl@keep || "component.means" %in% ctrl@plot)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "component.means*"), recursive = T)
+      if (!("component.variances" %in% ctrl@keep || "component.stdevs" %in% ctrl@plot)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "component.variances*"), recursive = T)
+      if (!("assay.means" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "assay.means*"), recursive = T)
+      if (!("assay.deviations" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "assay.deviations*"), recursive = T)
+      if (!("component.deviations" %in% ctrl@keep || "component.deviations" %in% ctrl@plot)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "component.deviations*"), recursive = T)
+      if (!("group.means" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "group.means*"), recursive = T)
+      if (!("group.quants" %in% ctrl@keep || "group.quants" %in% ctrl@plot)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "group.quants*"), recursive = T)
+      if (!("normalised.group.means" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "normalised.group.means*"), recursive = T)
+      if (!("normalised.group.variances" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "normalised.group.variances*"), recursive = T)
+      if (!("normalised.group.quants" %in% ctrl@keep || "normalised.group.quants" %in% ctrl@plot)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "normalised.group.quants*"), recursive = T)
+      if (!("standardised.group.deviations" %in% ctrl@keep || "standardised.group.deviations" %in% ctrl@plot)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "standardised.group.deviations*"), recursive = T)
 
       # set complete
       write.table(data.frame(), file.path(filepath(fit.sigma), "complete"), col.names = F)

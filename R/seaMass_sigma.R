@@ -29,11 +29,10 @@ seaMass_sigma <- function(
   control = sigma_control(),
   ...
 ) {
-  # check for finished output and return that
+  # check for finished output
   object <- open_sigma(path, quiet = T)
   if (!is.null(object)) {
-    message(paste0("returning completed seaMass-sigma object - if this wasn't your intention, supply a different 'path' or delete the folder for the returned object with 'del(object)'"))
-    return(object)
+    stop(paste0("ERROR: completed seaMass-sigma also found at ", path, ", supply a different 'path' or delete the folder for the returned object with 'del(object)'"))
   }
 
   ### INIT
@@ -45,33 +44,12 @@ seaMass_sigma <- function(
   if (!grepl("\\.seaMass$", path)) path <- paste0(path, ".seaMass")
   if (file.exists(path)) unlink(path, recursive = T)
   dir.create(file.path(path, "output"), recursive = T)
-  path <- normalizePath(path)
   dir.create(file.path(path, "meta"))
-
-  # plots directories
-  if ("group.quants" %in% control@plot) dir.create(file.path(path, "output", "log2_group_quants"))
-  if ("normalised.group.quants" %in% control@plot) dir.create(file.path(path, "output", "log2_normalised_group_quants"))
-  if ("standardised.group.deviations" %in% control@plot) dir.create(file.path(path, "output", "log2_standardised_group_deviations"))
-  if ("component.deviations" %in% control@plot) dir.create(file.path(path, "output", "log2_component_deviations"))
-  if ("component.means" %in% control@plot) dir.create(file.path(path, "output", "log2_component_means"))
-  if ("component.stdevs" %in% control@plot) dir.create(file.path(path, "output", "log2_component_stdevs"))
-  if ("measurement.means" %in% control@plot) dir.create(file.path(path, "output", "log2_measurement_means"))
-  if ("measurement.stdevs" %in% control@plot) dir.create(file.path(path, "output", "log2_measurement_stdevs"))
+  path <- normalizePath(path)
 
   # init DT
   data.is.data.table <- is.data.table(data)
   DT <- setDT(data)
-  if (!("Component" %in% colnames(DT))) DT[, Component := Group]
-
-  cat(paste0("[", Sys.time(), "] preparing metadata...\n"))
-
-  # if poisson model only integers are allowed, plus apply missingness.threshold
-  if (control@error.model == "poisson") {
-    DT[, Count0 := round(Count)]
-    DT[, Count0 := ifelse(Count0 <= control@missingness.threshold, NA_real_, Count0)]
-  } else {
-    DT[, Count0 := ifelse(Count <= control@missingness.threshold, NA_real_, Count)]
-  }
 
   # get design into the format we need
   DT.design <- as.data.table(data.design)
@@ -94,7 +72,7 @@ seaMass_sigma <- function(
   validObject(control)
   saveRDS(control, file.path(path, "meta", "control.rds"))
 
-  # sort ref weights
+  # check ref weights
   if ("RefWeight" %in% names(DT.design)) {
     for (block.col in block.cols) {
       if (all(DT.design$RefWeight[DT.design[[block.col]]] == 0)) DT.design$RefWeight[DT.design[[block.col]]] <- 1
@@ -103,80 +81,13 @@ seaMass_sigma <- function(
     DT.design[, RefWeight := 1]
   }
 
-  # add Assay to DT
-  DT <- merge(DT, DT.design[, .(Run, Channel, Assay)], by = c("Run", "Channel"), sort = F, all.x = T)
-  DT[is.na(Assay), Use := F]
-  fst::write.fst(DT, file.path(path, "meta", "data.fst"))
-
-  # write Assay index (design)
-  DT.design <- merge(DT.design, DT[, .(
-    qG.A = uniqueN(Group[Use & !is.na(Count0)]),
-    uG.A = uniqueN(Group[Use]),
-    nG.A = uniqueN(Group),
-    qC.A = uniqueN(Component[Use & !is.na(Count0)]),
-    uC.A = uniqueN(Component[Use]),
-    nC.A = uniqueN(Component),
-    qM.A = uniqueN(Measurement[Use & !is.na(Count0)]),
-    uM.A = uniqueN(Measurement[Use]),
-    nM.A = uniqueN(Measurement),
-    qD.A = sum(Use & !is.na(Count0)),
-    uD.A = sum(Use),
-    nD.A = length(Count0)
-  ), by = .(Run, Channel)], by = c("Run", "Channel"))
-  setorder(DT.design, Assay, na.last = T)
-  setcolorder(DT.design, c("Assay", "Run", "Channel", colnames(DT.design)[grep("^Block\\.", colnames(DT.design))], "RefWeight"))
-
-  # write Group index
-  DT.groups <- DT[, .(
-    GroupInfo = GroupInfo[1],
-    qC.G = uniqueN(Component[Use & !is.na(Count0)]),
-    uC.G = uniqueN(Component[Use]),
-    nC.G = uniqueN(Component),
-    qM.G = uniqueN(Measurement[Use & !is.na(Count0)]),
-    uM.G = uniqueN(Measurement[Use]),
-    nM.G = uniqueN(Measurement),
-    qD.G = sum(Use & !is.na(Count0)),
-    uD.G = sum(Use),
-    nD.G = length(Count0)
-  ), by = Group]
-  setorder(DT.groups, -qC.G, -uC.G, -nC.G, -qM.G, -uM.G, -nM.G, -qD.G, -uD.G, -nD.G, Group)
-  fwrite(DT.groups, file.path(path, "output", "groups.csv"))
-  # use pre-trained regression model to estimate how long each Group will take to process
-  # Intercept, uC, uM, uC^2, uM^2, uC*uM
-  a <- c(5.338861e-01, 9.991505e-02, 2.871998e-01, 4.294391e-05, 6.903229e-04, 2.042114e-04)
-  DT.groups[, pred := a[1] + a[2]*uC.G + a[3]*uM.G + a[4]*uC.G*uC.G + a[5]*uM.G*uM.G + a[6]*uC.G*uM.G]
-  fst::write.fst(DT.groups, file.path(path, "meta", "groups.fst"))
-
-  # write Component index
-  DT.components <- DT[, .(
-    qM.C = uniqueN(Measurement[Use & !is.na(Count0)]),
-    uM.C = uniqueN(Measurement[Use]),
-    nM.C = uniqueN(Measurement),
-    qD.C = sum(Use & !is.na(Count0)),
-    uD.C = sum(Use),
-    nD.C = length(Count0)
-  ), by = .(Group, Component)]
-  setorder(DT.components, -qM.C, -uM.C, -nM.C, -qD.C, -uD.C, -nD.C, Component)
-  DT.components <- merge(DT.groups[, .(Group)], DT.components, by = "Group", sort = F)
-  fst::write.fst(DT.components, file.path(path, "meta", "components.fst"))
-  fwrite(DT.components, file.path(path, "output", "components.csv"))
-
-  # write Measurement index
-  DT.measurements <- DT[, .(
-    qD.M = sum(Use & !is.na(Count0)),
-    uD.M = sum(Use),
-    nD.M = sum(!is.na(Count0))
-  ), by = .(Group, Component, Measurement)]
-  setorder(DT.measurements, -qD.M, -uD.M, -nD.M, Measurement)
-  DT.measurements <- merge(DT.components[, .(Group, Component)], DT.measurements, by = c("Group", "Component"), sort = F)
-  fst::write.fst(DT.measurements, file.path(path, "meta", "measurements.fst"))
-  fwrite(DT.measurements, file.path(path, "output", "measurements.csv"))
-  rm(DT.measurements)
-
   # process each block independently
   DT.design <- rbindlist(lapply(1:length(control@blocks), function(i) {
     cat(paste0("[", Sys.time(), "]  preparing block=", control@blocks[i], "...\n"))
+
+    # create output directory
     blockpath <- file.path(path, paste0("sigma.", control@blocks[i]))
+    dir.create(blockpath)
 
     # design for this block
     DT.design.block <- DT.design[as.logical(get(block.cols[i]))]
@@ -185,7 +96,84 @@ seaMass_sigma <- function(
     setcolorder(DT.design.block, "Block")
 
     # data for this block
-    DT.block <- merge(DT[Use == T, .(Group, Component, Measurement, Assay, Count0)], DT.design.block[, .(Assay)], by = "Assay", sort = F)
+    DT.block <- merge(DT, DT.design.block[, .(Run, Channel, Assay)], by = c("Run", "Channel"), sort = F)
+    setcolorder(DT.block, "Assay")
+    # if poisson model only integers are allowed, plus apply missingness.threshold
+    if (control@error.model == "poisson") {
+      DT.block[, Count0 := round(Count)]
+      DT.block[, Count0 := ifelse(Count0 <= control@missingness.threshold, NA_real_, Count0)]
+    } else {
+      DT.block[, Count0 := ifelse(Count <= control@missingness.threshold, NA_real_, Count)]
+    }
+    fst::write.fst(DT.block, file.path(blockpath, "data.fst"))
+    DT.block[, Count := NULL]
+
+    # write Assay index (design)
+    DT.design.block <- merge(DT.design.block, DT.block[, .(
+      A.qG = uniqueN(Group[Use & !is.na(Count0)]),
+      A.uG = uniqueN(Group[Use]),
+      A.nG = uniqueN(Group),
+      A.qC = uniqueN(Component[Use & !is.na(Count0)]),
+      A.uC = uniqueN(Component[Use]),
+      A.nC = uniqueN(Component),
+      A.qM = uniqueN(Measurement[Use & !is.na(Count0)]),
+      A.uM = uniqueN(Measurement[Use]),
+      A.nM = uniqueN(Measurement),
+      A.qD = sum(Use & !is.na(Count0)),
+      A.uD = sum(Use),
+      A.nD = length(Count0)
+    ), by = .(Run, Channel)], by = c("Run", "Channel"))
+    setorder(DT.design, Assay, na.last = T)
+    setcolorder(DT.design, c("Assay", "Run", "Channel", colnames(DT.design)[grep("^Block\\.", colnames(DT.design))], "RefWeight"))
+    fst::write.fst(DT.design.block, file.path(blockpath, "design.fst"))
+
+    # write Group index
+    DT.groups <- DT.block[, .(
+      GroupInfo = GroupInfo[1],
+      G.qC = uniqueN(Component[Use & !is.na(Count0)]),
+      G.uC = uniqueN(Component[Use]),
+      G.nC = uniqueN(Component),
+      G.qM = uniqueN(Measurement[Use & !is.na(Count0)]),
+      G.uM = uniqueN(Measurement[Use]),
+      G.nM = uniqueN(Measurement),
+      G.qD = sum(Use & !is.na(Count0)),
+      G.uD = sum(Use),
+      G.nD = length(Count0)
+    ), by = Group]
+    setorder(DT.groups, -G.qC, -G.uC, -G.nC, -G.qM, -G.uM, -G.nM, -G.qD, -G.uD, -G.nD, Group)
+    # use pre-trained regression model to estimate how long each Group will take to process
+    # Intercept, uC, uM, uC^2, uM^2, uC*uM
+    a <- c(5.338861e-01, 9.991505e-02, 2.871998e-01, 4.294391e-05, 6.903229e-04, 2.042114e-04)
+    DT.groups[, pred := a[1] + a[2]*G.uC + a[3]*G.uM + a[4]*G.uC*G.uC + a[5]*G.uM*G.uM + a[6]*G.uC*G.uM]
+    fst::write.fst(DT.groups, file.path(blockpath, "groups.fst"))
+
+    # write Component index
+    DT.components <- DT.block[, .(
+      C.qM = uniqueN(Measurement[Use & !is.na(Count0)]),
+      C.uM = uniqueN(Measurement[Use]),
+      C.nM = uniqueN(Measurement),
+      C.qD = sum(Use & !is.na(Count0)),
+      C.uD = sum(Use),
+      C.nD = length(Count0)
+    ), by = .(Group, Component)]
+    setorder(DT.components, -C.qM, -C.uM, -C.nM, -C.qD, -C.uD, -C.nD, Component)
+    DT.components <- merge(DT.groups[, .(Group)], DT.components, by = "Group", sort = F)
+    fst::write.fst(DT.components, file.path(blockpath, "components.fst"))
+
+    # write Measurement index
+    DT.measurements <- DT.block[, .(
+      M.qD = sum(Use & !is.na(Count0)),
+      M.uD = sum(Use),
+      M.nD = sum(!is.na(Count0))
+    ), by = .(Group, Component, Measurement)]
+    setorder(DT.measurements, -M.qD, -M.uD, -M.nD, Measurement)
+    DT.measurements <- merge(DT.components[, .(Group, Component)], DT.measurements, by = c("Group", "Component"), sort = F)
+    fst::write.fst(DT.measurements, file.path(blockpath, "measurements.fst"))
+    rm(DT.measurements)
+
+    # now can get rid of not used
+    DT.block <- DT.block[Use == T & !is.na(Assay)]
+    DT.block[, Use := NULL]
 
     # missingness model
     if (control@missingness.model == "rm") {
@@ -260,36 +248,31 @@ seaMass_sigma <- function(
     DT0[, I := NULL]
     setcolorder(DT0, c("Group", "Component", "Measurement", "Assay"))
 
-    # create output directory
-    dir.create(blockpath)
-    fst::write.fst(DT.design.block, file.path(blockpath, "design.fst"))
-
     # save random access indices
     dir.create(file.path(blockpath, "model0"))
-    DT0.index <- DT0[, .(Group = unique(Group), file = factor("data.fst"), from = .I[!duplicated(Group)], to = .I[rev(!duplicated(rev(Group)))])]
-    fst::write.fst(DT0.index, file.path(blockpath, "model0", "data.index.fst"))
+    DT0.index <- DT0[, .(Group = unique(Group), file = factor("input.fst"), from = .I[!duplicated(Group)], to = .I[rev(!duplicated(rev(Group)))])]
+    fst::write.fst(DT0.index, file.path(blockpath, "model0", "input.index.fst"))
     dir.create(file.path(blockpath, "model1"))
-    DT.index <- DT.block[, .(Group = unique(Group), file = factor("data.fst"), from = .I[!duplicated(Group)], to = .I[rev(!duplicated(rev(Group)))])]
-    fst::write.fst(DT.index, file.path(blockpath, "model1", "data.index.fst"))
+    DT.index <- DT.block[, .(Group = unique(Group), file = factor("input.fst"), from = .I[!duplicated(Group)], to = .I[rev(!duplicated(rev(Group)))])]
+    fst::write.fst(DT.index, file.path(blockpath, "model1", "input.index.fst"))
 
     # convert factors to integers for efficiency for saving
     DT0[, Group := as.integer(Group)]
     DT0[, Component := as.integer(Component)]
     DT0[, Measurement := as.integer(Measurement)]
     DT0[, Assay := as.integer(Assay)]
-    fst::write.fst(DT0, file.path(blockpath, "model0", "data.fst"))
+    fst::write.fst(DT0, file.path(blockpath, "model0", "input.fst"))
     DT.block[, Group := as.integer(Group)]
     DT.block[, Component := as.integer(Component)]
     DT.block[, Measurement := as.integer(Measurement)]
     DT.block[, Assay := as.integer(Assay)]
-    fst::write.fst(DT.block, file.path(blockpath, "model1", "data.fst"))
+    fst::write.fst(DT.block, file.path(blockpath, "model1", "input.fst"))
 
     return(DT.design.block)
   }))
 
   ### RUN
   object <- new("seaMass_sigma", filepath = path)
-  fwrite(assay_design(object, as.data.table = T), file.path(path, "output", "design.csv"))
   prepare_sigma(control@schedule, object)
 
   if (run) {
@@ -298,11 +281,7 @@ seaMass_sigma <- function(
     cat(paste0("[", Sys.time(), "] queued\n"))
   }
 
-  ### TIDY UP
-  DT[, Assay := NULL]
-  DT[, Count0 := NULL]
   if (!data.is.data.table) setDF(data)
-
   return(invisible(object))
 }
 
@@ -334,18 +313,6 @@ open_sigma <- function(
 
   return(object)
 }
-
-
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("imported_data", "seaMass_sigma", function(object, as.data.table = FALSE) {
-  DT <- fst::read.fst(file.path(filepath(object), "meta", "data.fst"), as.data.table = T)
-
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
-})
 
 
 #' @describeIn seaMass_sigma-class Is completed?
@@ -402,7 +369,7 @@ setMethod("control", "seaMass_sigma", function(object) {
 #' @export
 #' @include generics.R
 setMethod("groups", "seaMass_sigma", function(object, as.data.table = FALSE) {
-  DT <- fst::read.fst(file.path(filepath(object), "meta", "groups.fst"), as.data.table = T)
+  DT <- rbindlist(lapply(blocks(object), function(block) groups(block, as.data.table = T)))
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -415,7 +382,7 @@ setMethod("groups", "seaMass_sigma", function(object, as.data.table = FALSE) {
 #' @export
 #' @include generics.R
 setMethod("components", "seaMass_sigma", function(object, as.data.table = FALSE) {
-  DT <- fst::read.fst(file.path(filepath(object), "meta", "components.fst"), as.data.table = T)
+  DT <- rbindlist(lapply(blocks(object), function(block) components(block, as.data.table = T)))
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -428,7 +395,7 @@ setMethod("components", "seaMass_sigma", function(object, as.data.table = FALSE)
 #' @export
 #' @include generics.R
 setMethod("assay_groups", "seaMass_sigma", function(object, as.data.table = FALSE) {
-  DT <- fst::read.fst(file.path(filepath(object), "meta", "assay.groups.fst"), as.data.table = T)
+  DT <- rbindlist(lapply(blocks(object), function(block) assay_groups(block, as.data.table = T)))
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -441,7 +408,7 @@ setMethod("assay_groups", "seaMass_sigma", function(object, as.data.table = FALS
 #' @export
 #' @include generics.R
 setMethod("assay_components", "seaMass_sigma", function(object, as.data.table = FALSE) {
-  DT <- fst::read.fst(file.path(filepath(object), "meta", "assay.components.fst"), as.data.table = T)
+  DT <- rbindlist(lapply(blocks(object), function(block) assay_components(block, as.data.table = T)))
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -454,7 +421,7 @@ setMethod("assay_components", "seaMass_sigma", function(object, as.data.table = 
 #' @export
 #' @include generics.R
 setMethod("measurements", "seaMass_sigma", function(object, as.data.table = FALSE) {
-  DT <- fst::read.fst(file.path(filepath(object), "meta", "measurements.fst"), as.data.table = T)
+  DT <- rbindlist(lapply(blocks(object), function(block) measurements(block, as.data.table = T)))
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -492,7 +459,6 @@ setMethod("open_deltas", "seaMass_sigma", function(object, quiet = FALSE, force 
 #' @include generics.R
 setMethod("assay_design", "seaMass_sigma", function(object, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) assay_design(block, as.data.table = T)))
-  if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
   else DT[]

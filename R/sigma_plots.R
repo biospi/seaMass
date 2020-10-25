@@ -6,37 +6,45 @@ setMethod("plots", "sigma_block", function(object, chain) {
   if (ctrl@version != as.character(packageVersion("seaMass")))
     stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
 
+  # plots directories
+  fit.sigma <- parent(object)
+  if ("group.quants" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_group_quants"), showWarnings = F)
+  if (ctrl@norm.model != "" && "normalised.group.quants" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_normalised_group_quants"), showWarnings = F)
+  if ("standardised.group.deviations" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_standardised_group_deviations"), showWarnings = F)
+  if (ctrl@component.model != "" && "component.deviations" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_component_deviations"), showWarnings = F)
+  if (ctrl@component.model != "" && "component.means" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_component_means"), showWarnings = F)
+  if (ctrl@component.model != "" && "component.stdevs" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_component_stdevs"), showWarnings = F)
+  if ("measurement.means" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_measurement_means"), showWarnings = F)
+  if ("measurement.stdevs" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_measurement_stdevs"), showWarnings = F)
+
   # PROCESS OUTPUT
   nbatch <- length(blocks(object)) * ctrl@model.nchain
   batch <- (as.integer(assay_design(object, as.data.table = T)[1, Block]) - 1) * ctrl@model.nchain + chain
   cat(paste0("[", Sys.time(), "]   PLOTS batch=", batch, "/", nbatch, "\n"))
 
   # grab out batch of groups
-  fit.sigma <- parent(object)
-  groups <- groups(object, as.data.table = T)[qC.G > 0, Group]
+  groups <- unique(groups(object, as.data.table = T)[G.qC > 0, Group])
   groups <- groups[rep_len(1:nbatch, length(groups)) == batch]
   lims <- readRDS(file.path(filepath(fit.sigma), "meta", "limits.rds"))
   # plots!
   cat(paste0("[", Sys.time(), "]    plotting...\n"))
   parallel_lapply(groups, function(item, fit.sigma, ctrl, lims) {
-    try({
-      item2 <- substr(item, 0, 60)
-      if ("group.quants" %in% ctrl@plot) plot_group_quants(fit.sigma, group_quants(fit.sigma, item, as.data.table = T), lims$group.quants, file = file.path(filepath(fit.sigma), "output", "log2_group_quants", paste0(item2, ".pdf")))
-      if ("normalised.group.quants" %in% ctrl@plot) plot_normalised_group_quants(fit.sigma, normalised_group_quants(fit.sigma, item, as.data.table = T), lims$normalised.group.quants, file = file.path(filepath(fit.sigma), "output", "log2_normalised_group_quants", paste0(item2, ".pdf")))
-      if ("standardised.group.deviations" %in% ctrl@plot) plot_standardised_group_deviations(fit.sigma, standardised_group_deviations(fit.sigma, item, as.data.table = T), lims$standardised.group.deviations, file = file.path(filepath(fit.sigma), "output", "log2_standardised_group_deviations", paste0(item2, ".pdf")))
-      if ("component.deviations" %in% ctrl@plot) plot_component_deviations(fit.sigma, component_deviations(fit.sigma, item, as.data.table = T), lims$component.deviations, file = file.path(filepath(fit.sigma), "output", "log2_component_deviations", paste0(item2, ".pdf")))
-      if ("component.means" %in% ctrl@plot) plot_component_means(fit.sigma, component_means(fit.sigma, item, as.data.table = T), lims$component.means, file = file.path(filepath(fit.sigma), "output", "log2_component_means", paste0(item2, ".pdf")))
-      if ("component.stdevs" %in% ctrl@plot) plot_component_stdevs(fit.sigma, component_variances(fit.sigma, item, as.data.table = T), lims$component.variances, file = file.path(filepath(fit.sigma), "output", "log2_component_stdevs", paste0(item2, ".pdf")))
-      if ("measurement.means" %in% ctrl@plot) plot_measurement_means(fit.sigma, measurement_means(fit.sigma, item, as.data.table = T), lims$measurement.means, file = file.path(filepath(fit.sigma), "output", "log2_measurement_means", paste0(item2, ".pdf")))
-      if ("measurement.stdevs" %in% ctrl@plot) plot_measurement_stdevs(fit.sigma, measurement_variances(fit.sigma, item, as.data.table = T), lims$measurement.variances, file = file.path(filepath(fit.sigma), "output", "log2_measurement_stdevs", paste0(item2, ".pdf")))
-    })
+    item2 <- substr(item, 0, 60)
+    if ("group.quants" %in% ctrl@plot) plot_group_quants(fit.sigma, group_quants(fit.sigma, item, as.data.table = T), lims$group.quants, file = file.path(filepath(fit.sigma), "output", "log2_group_quants", paste0(item2, ".pdf")))
+    if ("normalised.group.quants" %in% ctrl@plot) plot_normalised_group_quants(fit.sigma, normalised_group_quants(fit.sigma, item, as.data.table = T), lims$normalised.group.quants, file = file.path(filepath(fit.sigma), "output", "log2_normalised_group_quants", paste0(item2, ".pdf")))
+    if ("standardised.group.deviations" %in% ctrl@plot) plot_standardised_group_deviations(fit.sigma, standardised_group_deviations(fit.sigma, item, as.data.table = T), lims$standardised.group.deviations, file = file.path(filepath(fit.sigma), "output", "log2_standardised_group_deviations", paste0(item2, ".pdf")))
+    if ("component.deviations" %in% ctrl@plot) plot_component_deviations(fit.sigma, component_deviations(fit.sigma, item, as.data.table = T), lims$component.deviations, file = file.path(filepath(fit.sigma), "output", "log2_component_deviations", paste0(item2, ".pdf")))
+    if ("component.means" %in% ctrl@plot) plot_component_means(fit.sigma, component_means(fit.sigma, item, as.data.table = T), lims$component.means, file = file.path(filepath(fit.sigma), "output", "log2_component_means", paste0(item2, ".pdf")))
+    if ("component.stdevs" %in% ctrl@plot) plot_component_stdevs(fit.sigma, component_variances(fit.sigma, item, as.data.table = T), lims$component.variances, file = file.path(filepath(fit.sigma), "output", "log2_component_stdevs", paste0(item2, ".pdf")))
+    if ("measurement.means" %in% ctrl@plot) plot_measurement_means(fit.sigma, measurement_means(fit.sigma, item, as.data.table = T), lims$measurement.means, file = file.path(filepath(fit.sigma), "output", "log2_measurement_means", paste0(item2, ".pdf")))
+    if ("measurement.stdevs" %in% ctrl@plot) plot_measurement_stdevs(fit.sigma, measurement_variances(fit.sigma, item, as.data.table = T), lims$measurement.variances, file = file.path(filepath(fit.sigma), "output", "log2_measurement_stdevs", paste0(item2, ".pdf")))
     return(NULL)
   }, nthread = ctrl@nthread)
 
   # set complete
-  write.table(data.frame(), file.path(filepath(parent(object)), paste("complete", batch, sep = ".")), col.names = F)
+  write.table(data.frame(), file.path(filepath(parent(object)), "meta", paste("complete", batch, sep = ".")), col.names = F)
 
-  if (all(sapply(1:nbatch, function(i) file.exists(file.path(filepath(parent(object)), paste("complete", i, sep = ".")))))) {
+  if (all(sapply(1:nbatch, function(i) file.exists(file.path(filepath(parent(object)), "meta", paste("complete", i, sep = ".")))))) {
     if (!("group.quants" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "group.quants*"), recursive = T)
     if (!("normalised.group.quants" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "normalised.group.quants*"), recursive = T)
     if (!("standardised.group.deviations" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "standardised.group.deviations*"), recursive = T)

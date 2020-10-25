@@ -5,7 +5,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
   cat(paste0("[", Sys.time(), "]   ", toupper(input), " block=", sub("^.*sigma\\.(.*)$", "\\1", filepath(object)), " chain=", chain, "/", ctrl@model.nchain, "\n"))
 
   # load metadata
-  DT.index <- fst::read.fst(file.path(filepath(object), input, "data.index.fst"), as.data.table = T)
+  DT.index <- fst::read.fst(file.path(filepath(object), input, "input.index.fst"), as.data.table = T)
 
   nitt <- ctrl@model.nwarmup + (ctrl@model.nsample * ctrl@model.thin) / ctrl@model.nchain
   #DT.priors <- NULL

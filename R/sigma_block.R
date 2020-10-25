@@ -23,15 +23,6 @@ setMethod("name", "sigma_block", function(object) {
 })
 
 
-#' @describeIn sigma_block Get the \link{sigma_control} object for this block.
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("control", "sigma_block", function(object) {
-  return(readRDS(file.path(dirname(filepath(object)), "meta", "control.rds")))
-})
-
-
 #' @describeIn sigma_block Get the \link{seaMass_sigma} object for this block.
 #' @export
 #' @include generics.R
@@ -40,7 +31,28 @@ setMethod("parent", "sigma_block", function(object) {
 })
 
 
-#' @describeIn sigma_block Get the list of \link{sigma_block} obejcts for the blocks.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("imported_data", "sigma_block", function(object, as.data.table = FALSE) {
+  DT <- fst::read.fst(file.path(filepath(object), "data.fst"), as.data.table = T)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @describeIn sigma_block Get the \link{sigma_control} object for this block.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("control", "sigma_block", function(object) {
+  return(control(parent(object)))
+})
+
+
+#' @describeIn sigma_block Get the list of \link{sigma_block} objects for the blocks.
 #' @export
 #' @include generics.R
 setMethod("blocks", "sigma_block", function(object) {
@@ -53,7 +65,9 @@ setMethod("blocks", "sigma_block", function(object) {
 #' @export
 #' @include generics.R
 setMethod("groups", "sigma_block", function(object, as.data.table = FALSE) {
-  DT <- fst::read.fst(file.path(dirname(filepath(object)), "meta", "groups.fst"), as.data.table = T)
+  DT <- fst::read.fst(file.path(filepath(object), "groups.fst"), as.data.table = T)
+  DT[, Block := factor(name(object), levels = names(blocks(object)))]
+  setcolorder(DT, "Block")
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -66,7 +80,9 @@ setMethod("groups", "sigma_block", function(object, as.data.table = FALSE) {
 #' @export
 #' @include generics.R
 setMethod("measurements", "sigma_block", function(object, as.data.table = FALSE) {
-  DT <- fst::read.fst(file.path(dirname(filepath(object)), "meta", "measurements.fst"), as.data.table = T)
+  DT <- fst::read.fst(file.path(filepath(object), "measurements.fst"), as.data.table = T)
+  DT[, Block := factor(name(object), levels = names(blocks(object)))]
+  setcolorder(DT, "Block")
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -79,7 +95,9 @@ setMethod("measurements", "sigma_block", function(object, as.data.table = FALSE)
 #' @export
 #' @include generics.R
 setMethod("components", "sigma_block", function(object, as.data.table = FALSE) {
-  DT <- fst::read.fst(file.path(dirname(filepath(object)), "meta", "components.fst"), as.data.table = T)
+  DT <- fst::read.fst(file.path(filepath(object), "components.fst"), as.data.table = T)
+  DT[, Block := factor(name(object), levels = names(blocks(object)))]
+  setcolorder(DT, "Block")
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -92,7 +110,9 @@ setMethod("components", "sigma_block", function(object, as.data.table = FALSE) {
 #' @export
 #' @include generics.R
 setMethod("assay_groups", "sigma_block", function(object, as.data.table = FALSE) {
-  DT <- fst::read.fst(file.path(dirname(filepath(object)), "meta", "assay.groups.fst"), as.data.table = T)
+  DT <- fst::read.fst(file.path(filepath(object), "assay.groups.fst"), as.data.table = T)
+  DT[, Block := factor(name(object), levels = names(blocks(object)))]
+  setcolorder(DT, "Block")
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -105,7 +125,9 @@ setMethod("assay_groups", "sigma_block", function(object, as.data.table = FALSE)
 #' @export
 #' @include generics.R
 setMethod("assay_components", "sigma_block", function(object, as.data.table = FALSE) {
-  DT <- fst::read.fst(file.path(dirname(filepath(object)), "meta", "assay.components.fst"), as.data.table = T)
+  DT <- fst::read.fst(file.path(filepath(object), "assay.components.fst"), as.data.table = T)
+  DT[, Block := factor(name(object), levels = names(blocks(object)))]
+  setcolorder(DT, "Block")
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -119,6 +141,8 @@ setMethod("assay_components", "sigma_block", function(object, as.data.table = FA
 #' @include generics.R
 setMethod("assay_design", "sigma_block", function(object, as.data.table = FALSE) {
   DT <- fst::read.fst(file.path(filepath(object), "design.fst"), as.data.table = T)
+  DT[, Block := factor(name(object), levels = names(blocks(object)))]
+  setcolorder(DT, "Block")
 
   if (!as.data.table) setDF(DT)
   else DT[]

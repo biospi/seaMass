@@ -13,6 +13,60 @@ setMethod("process0", "sigma_block", function(object, chain) {
     # PROCESS OUTPUT
     cat(paste0("[", Sys.time(), "]   OUTPUT0 block=", sub("^.*sigma\\.(.*)$", "\\1", object@filepath), "\n"))
 
+    ## WRITE ASSAY STATS
+    DT <- imported_data(object, as.data.table = T)[!is.na(Assay)]
+    DT.groups <- groups(object, as.data.table = T)
+    DT.components <- components(object, as.data.table = T)
+
+    # write assay group stats
+    DT.assay.groups <- DT[, .(
+      AG.qC = uniqueN(Component[Use & !is.na(Count0)]),
+      AG.uC = uniqueN(Component[Use]),
+      AG.nC = uniqueN(Component),
+      AG.qM = uniqueN(Measurement[Use & !is.na(Count0)]),
+      AG.uM = uniqueN(Measurement[Use]),
+      AG.nM = uniqueN(Measurement),
+      AG.qD = sum(Use & !is.na(Count0)),
+      AG.uD = sum(Use),
+      AG.nD = length(Count0)
+    ), by = .(Group, Assay)]
+    assay.levels <- as.character(unique(DT.assay.groups$Assay))
+    DT.assay.groups <- dcast(DT.assay.groups, Group ~ Assay, fill = 0, value.var = c("AG.qC", "AG.uC", "AG.nC", "AG.qM", "AG.uM", "AG.nM", "AG.qD", "AG.uD", "AG.nD"))
+    DT.assay.groups <- merge(DT.groups[, .(Group)], DT.assay.groups, by = "Group", sort = F)
+    DT.assay.groups <- melt(
+      DT.assay.groups,
+      id.vars = "Group",
+      measure.vars = patterns("^AG\\.qC_", "^AG\\.uC_", "^AG\\.nC_", "^AG\\.qM_", "^AG\\.uM_", "^AG\\.nM_", "^AG\\.qD_", "^AG\\.uD_", "^AG\\.nD_"),
+      variable.name = "Assay",
+      value.name = c("AG.qC", "AG.uC", "AG.nC", "AG.qM", "AG.uM", "AG.nM", "AG.qD", "AG.uD", "AG.nD")
+    )
+    DT.assay.groups[, Assay := factor(assay.levels[Assay], levels = levels(DT$Assay))]
+    fst::write.fst(DT.assay.groups, file.path(filepath(object), "assay.groups.fst"))
+    rm(DT.assay.groups)
+
+    # write assay component stats
+    DT.assay.components <- DT[, .(
+      AC.qM = uniqueN(Measurement[Use & !is.na(Count0)]),
+      AC.uM = uniqueN(Measurement[Use]),
+      AC.nM = uniqueN(Measurement),
+      AC.qD = sum(Use & !is.na(Count0)),
+      AC.uD = sum(Use),
+      AC.nD = length(Count0)
+    ), by = .(Group, Component, Assay)]
+    assay.levels <- as.character(unique(DT.assay.components$Assay))
+    DT.assay.components <- dcast(DT.assay.components, Group + Component ~ Assay, fill = 0, value.var = c("AC.qM", "AC.uM", "AC.nM", "AC.qD", "AC.uD", "AC.nD"))
+    DT.assay.components <- merge(DT.components[, .(Group, Component)], DT.assay.components, by = c("Group", "Component"), sort = F)
+    DT.assay.components <- melt(
+      DT.assay.components,
+      id.vars = c("Group", "Component"),
+      measure.vars = patterns("^AC\\.qM", "^AC\\.uM", "^AC\\.nM", "^AC\\.qD", "^AC\\.uD", "^AC\\.nD"),
+      variable.name = "Assay",
+      value.name = c("AC.qM", "AC.uM", "AC.nM", "AC.qD", "AC.uD", "AC.nD")
+    )
+    DT.assay.components[, Assay := factor(assay.levels[Assay], levels = levels(DT$Assay))]
+    fst::write.fst(DT.assay.components, file.path(filepath(object), "assay.components.fst"))
+    rm(DT.assay.components)
+
     # Measurement EB prior
     cat(paste0("[", Sys.time(), "]    calculating measurement prior...\n"))
     DT.measurement.prior <- measurement_variances(object, input = "model0", summary = T, as.data.table = T)

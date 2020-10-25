@@ -25,7 +25,7 @@ setMethod("prepare_delta", "schedule_local", function(object, fit.delta) {
 setMethod("run", "schedule_local", function(object, fit.sigma) {
   ctrl <- control(fit.sigma)
 
-  cat(paste0("[", Sys.time(), "]  running sigma with name=", name(fit.sigma), "...\n"))
+  cat(paste0("[", Sys.time(), "]  running seaMass-sigma with name=", name(fit.sigma), "...\n"))
 
   # run empirical bayes process0
   for (block in blocks(fit.sigma)) {
@@ -131,7 +131,7 @@ setMethod("config", "schedule_slurm", function(object, prefix, name, n, notify, 
     ifelse(is.na(object@mail_user), "", paste0("#SBATCH --mail-user=", object@mail_user, "\n")),
     ifelse(is.na(object@mail_user), "", ifelse(notify, "#SBATCH --mail-type=END,FAIL\n", "#SBATCH --mail-type=FAIL\n")),
     ifelse(is.na(object@pre), "", paste0(paste(object@pre, collapse = "\n"), "\n")),
-    paste0("for i in 1 2 3; do srun Rscript --vanilla -e seaMass:::", func, "\\(${SLURM_ARRAY_TASK_ID}\\) && break; done\n"),
+    paste0("srun Rscript --vanilla -e seaMass:::", func, "\\(${SLURM_ARRAY_TASK_ID}\\)\n"),
     ifelse(is.na(object@post), "", paste0(paste(object@post, collapse = "\n"), "\n"))
   ))
 })
@@ -143,10 +143,11 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, fit.sigma) {
   ctrl <- control(fit.sigma)
   n <- length(blocks(fit.sigma)) * ctrl@model.nchain
 
-  cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(filepath(fit.sigma), "submit.process0"))
-  cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(filepath(fit.sigma), "submit.process1"))
-  if (ctrl@plots == T) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(filepath(fit.sigma), "submit.plots"))
-  cat(config(object, "F", name, 1, T, "hpc_finish"), file = file.path(filepath(fit.sigma), "submit.finish"))
+  dir.create(file.path(filepath(fit.sigma), "slurm"))
+  cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(filepath(fit.sigma), "slurm", "submit.process0"))
+  cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(filepath(fit.sigma), "slurm", "submit.process1"))
+  if (ctrl@plots == T) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(filepath(fit.sigma), "slurm", "submit.plots"))
+  cat(config(object, "F", name, 1, T, "hpc_finish"), file = file.path(filepath(fit.sigma), "slurm", "submit.finish"))
 
   # submit script
   cat(paste0(
@@ -192,8 +193,8 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, fit.sigma) {
     "\n",
     "popd > /dev/null\n",
     "exit $EXITCODE\n"
-  ), file = file.path(filepath(fit.sigma), "submit.sh"))
-  system(paste("chmod u+x", file.path(filepath(fit.sigma), "submit.sh")))
+  ), file = file.path(filepath(fit.sigma), "slurm", "submit.sh"))
+  system(paste("chmod u+x", file.path(filepath(fit.sigma), "slurm", "submit.sh")))
 
   return(invisible(object))
 })
@@ -201,7 +202,7 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, fit.sigma) {
 
 #' @include generics.R
 setMethod("prepare_delta", "schedule_slurm", function(object, fit.delta) {
-  cat(config(object, "D", name(fit.delta@fit), length(open_deltas(fit.delta@fit, force = T)) * control(fit.delta@fit)@model.nchain, F, "hpc_delta"), file = file.path(filepath(fit.delta@fit), "submit.delta"))
+  cat(config(object, "D", name(fit.delta@fit), length(open_deltas(fit.delta@fit, force = T)) * control(fit.delta@fit)@model.nchain, F, "hpc_delta"), file = file.path(filepath(fit.delta@fit), "slurm", "submit.delta"))
   return(invisible(object))
 })
 
@@ -209,7 +210,7 @@ setMethod("prepare_delta", "schedule_slurm", function(object, fit.delta) {
 #' @include generics.R
 setMethod("run", "schedule_slurm", function(object, fit.sigma) {
   cat(paste0("[", Sys.time(), "]  submitting to SLURM...\n"))
-  system(paste0(object@submit.prefix, file.path(basename(filepath(fit.sigma)), "submit.sh")))
+  system(paste0(object@submit.prefix, file.path(basename(filepath(fit.sigma)), "slurm", "submit.sh")))
   return(invisible(object))
 })
 
@@ -535,7 +536,7 @@ setMethod("run", "schedule_sge", function(object, fit.sigma) {
 
 
 hpc_process0 <- function(task) {
-  fit.sigma <- open_sigma(".", force = T)
+  fit.sigma <- open_sigma("..", force = T)
   nchain <- control(fit.sigma)@model.nchain
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running process0 for name=", name(fit.sigma), "...\n"))
@@ -548,7 +549,7 @@ hpc_process0 <- function(task) {
 
 
 hpc_process1 <- function(task) {
-  fit.sigma <- open_sigma(".", force = T)
+  fit.sigma <- open_sigma("..", force = T)
   nchain <- control(fit.sigma)@model.nchain
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running process1 for name=", name(fit.sigma), "...\n"))
@@ -561,7 +562,7 @@ hpc_process1 <- function(task) {
 
 
 hpc_plots <- function(task) {
-  fit.sigma <- open_sigma(".", force = T)
+  fit.sigma <- open_sigma("..", force = T)
   nchain <- control(fit.sigma)@model.nchain
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running plots for name=", name(fit.sigma), "...\n"))
@@ -574,7 +575,7 @@ hpc_plots <- function(task) {
 
 
 hpc_delta <- function(task) {
-  fit.sigma <- open_sigma(".", force = T)
+  fit.sigma <- open_sigma("..", force = T)
   fit.deltas <- open_deltas(open_sigma(".", force = T), force = T)
   nchain <- control(fit.sigma)@model.nchain
   fit.delta <- fit.deltas[[(task-1) %/% nchain + 1]]
@@ -589,7 +590,7 @@ hpc_delta <- function(task) {
 
 
 hpc_finish <- function(task) {
-  fit.sigma <- open_sigma(".", force = T)
+  fit.sigma <- open_sigma("..", force = T)
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  finishing...\n"))
   finish(fit.sigma)
