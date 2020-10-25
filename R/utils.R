@@ -64,7 +64,6 @@ parallel_lapply <- function(items, func, nthread = 0, pred.time = rep(1, length(
     .master.pid <- Sys.getpid()
     outputs <- foreach::foreach(
       item = iterators::iter(items),
-      .errorhandling = "pass",
       .packages = .packages,
       .export = c("func", names(func.args)[func.args != "item"], ".master.pid"),
       .options.snow = list(progress = progress),
@@ -84,18 +83,6 @@ parallel_lapply <- function(items, func, nthread = 0, pred.time = rep(1, length(
       setTxtProgressBar(pb, sum(pred.time))
       close(pb)
     }
-
-    fatal <- F
-    foreach::foreach(item = iterators::iter(items), output = iterators::iter(outputs)) %do% {
-      if (inherits(output, "simpleError")) {
-        message("[", Sys.time(), "] ERROR: parallel_lapply item:")
-        print(item)
-        message(paste0("[", Sys.time(), "]  message=", output$message))
-        message(deparse(output$call))
-        fatal <- T
-      }
-    }
-    if (fatal) stop()
   }
 
   return(outputs)
