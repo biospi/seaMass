@@ -578,7 +578,7 @@ hpc_plots <- function(task) {
 
 hpc_delta <- function(task) {
   fit.sigma <- open_sigma("..", force = T)
-  fit.deltas <- open_deltas(open_sigma(".", force = T), force = T)
+  fit.deltas <- open_deltas(fit.sigma, force = T)
   nchain <- control(fit.sigma)@model.nchain
   fit.delta <- fit.deltas[[(task-1) %/% nchain + 1]]
   cat(paste0("[", Sys.time(), "] seaMass-delta v", control(fit.delta)@version, "\n"))
