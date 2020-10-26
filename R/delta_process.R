@@ -21,9 +21,7 @@ setMethod("process", "seaMass_delta", function(object, chain) {
     do.call(paste("dea", ctrl@dea.model, sep = "_"), ellipsis)
   }
 
-  write.table(data.frame(), file.path(filepath(object), paste("complete", chain, sep = ".")), col.names = F)
-
-  if (all(sapply(1:ctrl@model.nchain, function(chain) file.exists(file.path(filepath(object), paste("complete", chain, sep = ".")))))) {
+  if (completed(filepath(object)) == ctrl@model.nchain) {
     # summarise group de and perform fdr correction
     if (file.exists(file.path(filepath(object), "standardised.group.deviations.index.fst"))) {
       if(ctrl@fdr.model != "") {
@@ -114,10 +112,6 @@ setMethod("process", "seaMass_delta", function(object, chain) {
         }
       }
     }
-
-    # set complete
-    write.table(data.frame(), file.path(filepath(object), "complete"), col.names = F)
-    cat(paste0("[", Sys.time(), "] seaMass-delta finished!\n"))
   }
 
   return(invisible(NULL))

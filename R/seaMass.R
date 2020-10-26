@@ -372,36 +372,11 @@ setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha =
 })
 
 
-# ensure all items in plot for all blocks
-# if (is.null(items)) items <- unique(DT$Element)
-# if (block.drop || uniqueN(DT$Block) == 1) {
-#   DT <- merge(data.table(Element = factor(items, levels = items)), DT, all.x = T, sort = F, by = "Element")
-# } else {
-#   if (block.sort) {
-#     DT <- merge(CJ(Block = levels(DT$Block), Element = factor(items, levels = items)), DT, all.x = T, sort = F, by = c("Block", "Element"))
-#   } else {
-#     DT <- merge(CJ(Element = factor(items, levels = items), Block = levels(DT$Block)), DT, all.x = T, sort = F, by = c("Block", "Element"))
-#   }
-# }
-# DT[, Element := paste0(Element, " [", Block, "]")]
-# if (horizontal) {
-#   DT[, Element := factor(Element, levels = rev(unique(Element)))]
-# } else {
-#   DT[, Element := factor(Element, levels = unique(Element))]
-# }
-
-# metadata for each column level
-# DT1 <- DT[, (as.list(quantile(value, probs = c(0.025, 0.5, 0.975), na.rm = T))), by = Element]
-# DT1[, min := as.numeric(Element) - 0.5]
-# DT1[, max := as.numeric(Element) + 0.5]
-# DT1 <- merge(DT1, DT[, .SD[1], by = Element], by = "Element")
-
-
 #' @import data.table
 #' @export
 #' @include generics.R
 setMethod("finish", "seaMass", function(object) {
-  # reserved for future use
+  completed(file.path(filepath(object), "sigma"))
   cat(paste0("[", Sys.time(), "] seaMass finished!\n"))
   return(invisible(NULL))
 })

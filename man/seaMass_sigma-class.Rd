@@ -5,7 +5,6 @@
 \alias{seaMass_sigma-class}
 \alias{seaMass_sigma}
 \alias{open_sigma}
-\alias{completed,seaMass_sigma-method}
 \alias{del,seaMass_sigma-method}
 \alias{name,seaMass_sigma-method}
 \alias{filepath,seaMass_sigma-method}
@@ -47,8 +46,6 @@ seaMass_sigma(
 )
 
 open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
-
-\S4method{completed}{seaMass_sigma}(object)
 
 \S4method{del}{seaMass_sigma}(object)
 
@@ -224,8 +221,6 @@ Fits the seaMass-Σ Bayesian group-level quantification model to imported data.
 \item \code{seaMass_sigma}: Runs seaMass-Σ.
 
 \item \code{open_sigma}: Open a complete \code{seaMass_sigma} run from the supplied \code{path}.
-
-\item \code{completed,seaMass_sigma-method}: Is completed?
 
 \item \code{del,seaMass_sigma-method}: Delete the \code{seaMass_sigma} run from disk.
 

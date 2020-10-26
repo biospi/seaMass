@@ -96,3 +96,19 @@ stop_parallel <- function() {
 }
 
 
+completed <- function(path, name = "complete") {
+  lock <- filelock::lock(file.path(path, paste0(name, ".lock")), timeout = 10000)
+  if (file.exists(file.path(path, paste0(name, ".rds")))) {
+    cp <- readRDS(file.path(path, paste0(name, ".rds"))) + 1
+  } else {
+    cp <- 1
+  }
+  saveRDS(cp, file.path(path, paste0(name, ".rds")))
+  filelock::unlock(lock)
+
+  return(cp)
+}
+
+
+
+

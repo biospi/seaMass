@@ -23,6 +23,7 @@ Imports:
     emmeans (>= 1.4.3.01),
     extraDistr (>= 1.8.11),
     FactoMineR (>= 1.42),
+    filelock (>= 1.0.2),
     fitdistrplus (>= 1.0-14),
     fst (>= 0.9.0),
     ggdist (>= 2.2.0),

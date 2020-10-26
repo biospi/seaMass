@@ -927,7 +927,5 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     }
   }
 
-  write.table(data.frame(), file.path(filepath(object), input, paste("complete", chain, sep = ".")), col.names = F)
-
   return(invisible(NULL))
 })

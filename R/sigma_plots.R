@@ -25,9 +25,8 @@ setMethod("plots", "sigma_block", function(object, chain) {
   # grab out batch of groups
   groups <- unique(groups(object, as.data.table = T)[G.qC > 0, Group])
   groups <- groups[rep_len(1:nbatch, length(groups)) == batch]
-  lims <- readRDS(file.path(filepath(fit.sigma), "meta", "limits.rds"))
+  lims <- readRDS(file.path(filepath(fit.sigma), "sigma", "limits.rds"))
   # plots!
-  cat(paste0("[", Sys.time(), "]    plotting...\n"))
   parallel_lapply(groups, function(item, fit.sigma, ctrl, lims) {
     item2 <- substr(item, 0, 60)
     if ("group.quants" %in% ctrl@plot) plot_group_quants(fit.sigma, group_quants(fit.sigma, item, as.data.table = T), lims$group.quants, file = file.path(filepath(fit.sigma), "output", "log2_group_quants", paste0(item2, ".pdf")))
@@ -41,10 +40,7 @@ setMethod("plots", "sigma_block", function(object, chain) {
     return(NULL)
   }, nthread = ctrl@nthread)
 
-  # set complete
-  write.table(data.frame(), file.path(filepath(parent(object)), "meta", paste("complete", batch, sep = ".")), col.names = F)
-
-  if (all(sapply(1:nbatch, function(i) file.exists(file.path(filepath(parent(object)), "meta", paste("complete", i, sep = ".")))))) {
+  if (completed(file.path(filepath(parent(object)), "sigma"), "plots") == nbatch) {
     if (!("group.quants" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "group.quants*"), recursive = T)
     if (!("normalised.group.quants" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "normalised.group.quants*"), recursive = T)
     if (!("standardised.group.deviations" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "standardised.group.deviations*"), recursive = T)

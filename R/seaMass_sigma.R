@@ -44,7 +44,7 @@ seaMass_sigma <- function(
   if (!grepl("\\.seaMass$", path)) path <- paste0(path, ".seaMass")
   if (file.exists(path)) unlink(path, recursive = T)
   dir.create(file.path(path, "output"), recursive = T)
-  dir.create(file.path(path, "meta"))
+  dir.create(file.path(path, "sigma"))
   path <- normalizePath(path)
 
   # init DT
@@ -70,7 +70,7 @@ seaMass_sigma <- function(
   control@blocks <- sub("^Block\\.(.*)$", "\\1", block.cols)
   control@ellipsis <- list(...)
   validObject(control)
-  saveRDS(control, file.path(path, "meta", "control.rds"))
+  saveRDS(control, file.path(path, "sigma", "control.rds"))
 
   # check ref weights
   if ("RefWeight" %in% names(DT.design)) {
@@ -304,7 +304,7 @@ open_sigma <- function(
   }
 
   object <- new("seaMass_sigma", filepath = normalizePath(path2))
-  if (!force && !completed(object)) {
+  if (!force && !file.exists(file.path(filepath(object), "sigma", "complete.rds"))) {
     if (quiet) {
       return(NULL)
     } else {
@@ -314,14 +314,6 @@ open_sigma <- function(
 
   return(object)
 }
-
-
-#' @describeIn seaMass_sigma-class Is completed?
-#' @export
-#' @include generics.R
-setMethod("completed", "seaMass_sigma", function(object) {
-  return(file.exists(file.path(filepath(object), "complete")))
-})
 
 
 #' @describeIn seaMass_sigma-class Delete the \code{seaMass_sigma} run from disk.
@@ -361,7 +353,7 @@ setMethod("run", "seaMass_sigma", function(object) {
 #' @export
 #' @include generics.R
 setMethod("control", "seaMass_sigma", function(object) {
-  return(readRDS(file.path(filepath(object), "meta", "control.rds")))
+  return(readRDS(file.path(filepath(object), "sigma", "control.rds")))
 })
 
 

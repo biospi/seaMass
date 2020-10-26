@@ -6,7 +6,6 @@ if (!exists("assay_groups")) setGeneric("assay_groups", function(object, ...) st
 if (!exists("assay_variances")) setGeneric("assay_variances", function(object, ...) standardGeneric("assay_variances"))
 if (!exists("blocks")) setGeneric("blocks", function(object, ...) standardGeneric("blocks"))
 if (!exists("config")) setGeneric("config", function(object, ...) standardGeneric("config"))
-if (!exists("completed")) setGeneric("completed", function(object, ...) standardGeneric("completed"))
 if (!exists("components")) setGeneric("components", function(object, ...) standardGeneric("components"))
 if (!exists("component_deviations")) setGeneric("component_deviations", function(object, ...) standardGeneric("component_deviations"))
 if (!exists("component_means")) setGeneric("component_means", function(object, ...) standardGeneric("component_means"))

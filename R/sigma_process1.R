@@ -9,8 +9,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
   # EXECUTE MODEL
   model(object, "model1", chain)
 
-  if (all(sapply(1:ctrl@model.nchain, function(chain) file.exists(file.path(filepath(object), "model1", paste("complete", chain, sep = ".")))))) {
-
+  if (completed(file.path(filepath(object), "model1")) == ctrl@model.nchain) {
     # PROCESS OUTPUT
     cat(paste0("[", Sys.time(), "]   OUTPUT1 block=", sub("^.*sigma\\.(.*)$", "\\1", filepath(object)), "\n"))
 
@@ -173,10 +172,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
       standardised_group_deviations(object, summary = T, as.data.table = T)
     }
 
-    # set complete
-    write.table(data.frame(), file.path(filepath(object), "complete"), col.names = F)
-
-    if (all(sapply(blocks(object), function(block) file.exists(file.path(filepath(block), "complete"))))) {
+    if (completed(file.path(filepath(parent(object)), "sigma"), "process") == length(blocks(object))) {
       # FINALISE
       cat(paste0("[", Sys.time(), "]   FINALISING...\n"))
       fit.sigma <- parent(object)
@@ -459,7 +455,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
         if ("component.stdevs" %in% ctrl@plot) lims$component.variances <- limits_dists(component_variances(fit.sigma, summary = T, as.data.table = T), probs = c(0, 0.99), include.zero = T)
         if ("measurement.means" %in% ctrl@plot) lims$measurement.means <- limits_dists(measurement_means(fit.sigma, summary = T, as.data.table = T))
         if ("measurement.stdevs" %in% ctrl@plot) lims$measurement.variances <- limits_dists(measurement_variances(fit.sigma, summary = T, as.data.table = T), probs = c(0, 0.99), include.zero = T)
-        saveRDS(lims, file.path(filepath(fit.sigma), "meta", "limits.rds"))
+        saveRDS(lims, file.path(filepath(fit.sigma), "sigma", "limits.rds"))
       }
 
       # delete if not keeping
@@ -476,9 +472,6 @@ setMethod("process1", "sigma_block", function(object, chain) {
       if (!("normalised.group.variances" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "normalised.group.variances*"), recursive = T)
       if (!("normalised.group.quants" %in% ctrl@keep || "normalised.group.quants" %in% ctrl@plot)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "normalised.group.quants*"), recursive = T)
       if (!("standardised.group.deviations" %in% ctrl@keep || "standardised.group.deviations" %in% ctrl@plot)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "standardised.group.deviations*"), recursive = T)
-
-      # set complete
-      write.table(data.frame(), file.path(filepath(fit.sigma), "complete"), col.names = F)
     }
   }
 

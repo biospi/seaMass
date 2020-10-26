@@ -48,14 +48,12 @@ seaMass_delta <- function(
   object <- new("seaMass_delta", fit = fit, name = paste0("delta.", name))
   path <- filepath(object)
   if (file.exists(path)) unlink(path, recursive = T)
-  dir.create(file.path(path, "meta"), recursive = T)
+  dir.create(path)
   if (file.exists(file.path(dirname(path), "output", basename(path)))) unlink(file.path(dirname(path), "output", basename(path)), recursive = T)
-    dir.create(file.path(dirname(path), "output", basename(path)), recursive = T)
-  if (control@component.deviations == T && "de.component.deviations" %in% control@plot) dir.create(file.path(dirname(path), "output", basename(path), "log2_de_component_deviations"))
-  if (control@component.deviations == T && "fdr.component.deviations" %in% control@plot) dir.create(file.path(dirname(path), "output", basename(path), "log2_fdr_component_deviations"))
+  dir.create(file.path(dirname(path), "output", basename(path)))
 
   # check and save control
-  saveRDS(control, file.path(path, "meta", "control.rds"))
+  saveRDS(control, file.path(path, "control.rds"))
 
   # get design into the format we need
   DT.design <- as.data.table(data.design)[!is.na(Assay)]
@@ -72,12 +70,12 @@ seaMass_delta <- function(
   if (length(blocks) > 0) set(DT.design, j = blocks, value = NULL)
   cols <- which(colnames(DT.design) %in% c("qG", "uG", "nG", "qC", "uC", "nC", "qM", "uM", "nM", "qD", "uD", "nD"))
   if (length(cols) > 0) set(DT.design, j = cols, value = NULL)
-  fst::write.fst(DT.design, file.path(path, "meta", "design.fst"))
+  fst::write.fst(DT.design, file.path(path, "design.fst"))
 
   # run
   prepare_delta(control(fit)@schedule, object)
 
-  if (completed(fit)) {
+  if (file.exists(file.path(filepath(fit), "sigma", "complete.rds"))) {
     run(object)
   } else {
     cat(paste0("[", Sys.time(), "] queued\n"))
@@ -152,10 +150,10 @@ setMethod("blocks", "seaMass_delta", function(object) {
 #' @export
 #' @include generics.R
 setMethod("control", "seaMass_delta", function(object) {
-  if (!file.exists(file.path(filepath(object), "meta", "control.rds")))
+  if (!file.exists(file.path(filepath(object), "control.rds")))
     stop(paste0("seaMass-delta output '", name(object), "' is missing"))
 
-  return(readRDS(file.path(filepath(object), "meta", "control.rds")))
+  return(readRDS(file.path(filepath(object), "control.rds")))
 })
 
 
@@ -163,7 +161,7 @@ setMethod("control", "seaMass_delta", function(object) {
 #' @export
 #' @include generics.R
 setMethod("assay_design", "seaMass_delta", function(object, as.data.table = FALSE) {
-  DT <- fst::read.fst(file.path(filepath(object), "meta", "design.fst"), as.data.table = T)
+  DT <- fst::read.fst(file.path(filepath(object), "design.fst"), as.data.table = T)
 
   if (!as.data.table) setDF(DT)
   else DT[]

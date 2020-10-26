@@ -8,7 +8,7 @@
 \usage{
 delta_control(
   component.deviations = FALSE,
-  keep = c("de.standardised.group.deviations", "de.component.deviations"),
+  keep = NULL,
   plot = c("de.standardised.group.deviations", "fdr.standardised.group.deviations",
     "de.component.deviations", "fdr.component.deviations"),
   dea.model = "MCMCglmm",
