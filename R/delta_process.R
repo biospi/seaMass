@@ -110,10 +110,10 @@ setMethod("process", "seaMass_delta", function(object, chain) {
         }
       }
     }
-  }
 
-  if (!("de.standardised.group.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "standardised.group.deviations*"), recursive = T)
-  if (!("de.component.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "component.deviations*"), recursive = T)
+    if (!("de.standardised.group.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "standardised.group.deviations*"), recursive = T)
+    if (!("de.component.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "component.deviations*"), recursive = T)
+  }
 
   return(invisible(NULL))
 })
