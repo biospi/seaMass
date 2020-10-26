@@ -354,7 +354,7 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, fit.sigma) {
     "\n",
     "popd > /dev/null\n",
     "exit $EXITCODE\n"
-  ), file = file.path(filepath(fit.sigma), "submit.sh"))
+  ), file = file.path(filepath(fit.sigma), "pbs", "submit.sh"))
   system(paste("chmod u+x", file.path(filepath(fit.sigma), "pbs", "submit.sh")))
 
   return(invisible(object))
