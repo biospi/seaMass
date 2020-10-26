@@ -40,7 +40,6 @@ setMethod("process", "seaMass_delta", function(object, chain) {
       plot_de_standardised_group_deviations(object, DT, limits_dists(DT, include.zero = T), file = file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_de_standardised_group_deviations.pdf"))
       rm(DT)
     }
-    if (!("de.standardised.group.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "standardised.group.deviations*"), recursive = T)
 
     # write out group fdr
     if (file.exists(file.path(filepath(object), "fdr.standardised.group.deviations.fst"))) {
@@ -92,7 +91,6 @@ setMethod("process", "seaMass_delta", function(object, chain) {
         #  plot_de_component_deviations(object, item, file = file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_de_component_deviations", paste0(item, ".pdf")))
         #}, nthread = ctrl@nthread)
       }
-      if (!("de.component.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "component.deviations*"), recursive = T)
 
       # write out group fdr
       if (file.exists(file.path(filepath(object), "fdr.component.deviations.fst"))) {
@@ -113,6 +111,9 @@ setMethod("process", "seaMass_delta", function(object, chain) {
       }
     }
   }
+
+  if (!("de.standardised.group.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "standardised.group.deviations*"), recursive = T)
+  if (!("de.component.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "component.deviations*"), recursive = T)
 
   return(invisible(NULL))
 })
