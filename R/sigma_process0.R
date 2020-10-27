@@ -9,7 +9,7 @@ setMethod("process0", "sigma_block", function(object, chain) {
   # EXECUTE MODEL
   model(object, "model0", chain)
 
-  if (completed(file.path(filepath(object), "model0")) == ctrl@model.nchain) {
+  if (increment_completed(file.path(filepath(object), "model0")) == ctrl@model.nchain) {
     # PROCESS OUTPUT
     cat(paste0("[", Sys.time(), "]   OUTPUT0 block=", sub("^.*sigma\\.(.*)$", "\\1", object@filepath), "\n"))
 

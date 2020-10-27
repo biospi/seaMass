@@ -90,17 +90,16 @@ seaMass_delta <- function(
 open_delta <- function(fit, name = "fit", quiet = FALSE, force = FALSE) {
   path <- file.path(filepath(fit), paste0("delta.", name))
 
-  if(force || file.exists(file.path(path, "complete"))) {
-    object <- new("seaMass_delta", fit = fit, name = paste0("delta.", name))
-    return(object)
-  } else {
+  object <- new("seaMass_delta", fit = fit, name = paste0("delta.", name))
+  if (!force && read_completed(file.path(filepath(object))) == 0) {
     if (quiet) {
       return(NULL)
     } else {
-      if (force) stop("'", path, "' does not contain a completed seaMass-delta run")
-      else stop("'", path, "' does not contain a seaMass-delta run")
+      stop("'", path, "' is not complete")
     }
   }
+
+  return(object)
 }
 
 

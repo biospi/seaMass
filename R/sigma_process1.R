@@ -9,7 +9,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
   # EXECUTE MODEL
   model(object, "model1", chain)
 
-  if (completed(file.path(filepath(object), "model1")) == ctrl@model.nchain) {
+  if (increment_completed(file.path(filepath(object), "model1")) == ctrl@model.nchain) {
     # PROCESS OUTPUT
     cat(paste0("[", Sys.time(), "]   OUTPUT1 block=", sub("^.*sigma\\.(.*)$", "\\1", filepath(object)), "\n"))
 
@@ -172,7 +172,7 @@ setMethod("process1", "sigma_block", function(object, chain) {
       standardised_group_deviations(object, summary = T, as.data.table = T)
     }
 
-    if (completed(file.path(filepath(parent(object)), "sigma"), "process") == length(blocks(object))) {
+    if (increment_completed(file.path(filepath(parent(object)), "sigma"), "process") == length(blocks(object))) {
       # FINALISE
       cat(paste0("[", Sys.time(), "]   FINALISING...\n"))
       fit.sigma <- parent(object)

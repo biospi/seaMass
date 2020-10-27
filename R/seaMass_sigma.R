@@ -304,7 +304,7 @@ open_sigma <- function(
   }
 
   object <- new("seaMass_sigma", filepath = normalizePath(path2))
-  if (!force && !file.exists(file.path(filepath(object), "sigma", "complete.rds"))) {
+  if (!force && read_completed(file.path(filepath(object), "sigma")) == 0) {
     if (quiet) {
       return(NULL)
     } else {

@@ -21,7 +21,7 @@ setMethod("process", "seaMass_delta", function(object, chain) {
     do.call(paste("dea", ctrl@dea.model, sep = "_"), ellipsis)
   }
 
-  if (completed(filepath(object)) == ctrl@model.nchain) {
+  if (increment_completed(filepath(object)) == ctrl@model.nchain) {
     # summarise group de and perform fdr correction
     if (file.exists(file.path(filepath(object), "standardised.group.deviations.index.fst"))) {
       if(ctrl@fdr.model != "") {

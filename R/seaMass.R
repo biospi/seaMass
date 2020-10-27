@@ -376,7 +376,7 @@ setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha =
 #' @export
 #' @include generics.R
 setMethod("finish", "seaMass", function(object) {
-  completed(file.path(filepath(object), "sigma"))
+  increment_completed(file.path(filepath(object), "sigma"))
   cat(paste0("[", Sys.time(), "] seaMass finished!\n"))
   return(invisible(NULL))
 })
