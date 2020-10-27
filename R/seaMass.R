@@ -138,7 +138,7 @@ limits_dists <- function(data, probs = c(0.005, 0.995), include.zero = FALSE) {
       xs <- dd$value
     }
 
-    lim <- quantile(xs, probs = probs)
+    lim <- quantile(xs, probs = probs, na.rm = T)
     if (include.zero) {
       if (lim[1] > 0) lim[1] <- 0
       if (lim[2] < 0) lim[2] <- 0
