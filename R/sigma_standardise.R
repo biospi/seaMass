@@ -8,7 +8,7 @@ setMethod("standardise_group_quants", "sigma_block", function(object, data.desig
   DT.refweights <- DT.refweights[complete.cases(DT.refweights)]
 
   unlink(file.path(filepath(object), input, "*.standardised.group.deviations.fst"))
-  dir.create(file.path(filepath(object), input, "standardised.group.deviations"), recursive = T, showWarnings = F)
+  dir.create(file.path(filepath(object), input, "standardised.group.deviations"), showWarnings = F)
 
   parallel_lapply(as.list(1:ctrl@model.nchain), function(item, object, ctrl, DT.refweights, input, type) {
     DT <- read_samples(object, input = input, type = type, chain = item, as.data.table = T)[, Block := NULL]

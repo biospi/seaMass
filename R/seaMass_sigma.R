@@ -43,8 +43,9 @@ seaMass_sigma <- function(
   # check if exists
   if (!grepl("\\.seaMass$", path)) path <- paste0(path, ".seaMass")
   if (file.exists(path)) unlink(path, recursive = T)
-  dir.create(file.path(path, "output"), recursive = T)
-  dir.create(file.path(path, "sigma"))
+  if (!dir.create(path)) stop()
+  if (!dir.create(file.path(path, "output"))) stop()
+  if (!dir.create(file.path(path, "sigma"))) stop()
   path <- normalizePath(path)
 
   # init DT
@@ -87,7 +88,7 @@ seaMass_sigma <- function(
 
     # create output directory
     blockpath <- file.path(path, paste0("sigma.", control@blocks[i]))
-    dir.create(blockpath)
+    if (!dir.create(blockpath)) stop()
 
     # design for this block
     DT.design.block <- DT.design[as.logical(get(block.cols[i]))]
@@ -250,10 +251,10 @@ seaMass_sigma <- function(
     setcolorder(DT0, c("Group", "Component", "Measurement", "Assay"))
 
     # save random access indices
-    dir.create(file.path(blockpath, "model0"))
+    if (!dir.create(file.path(blockpath, "model0"))) stop()
     DT0.index <- DT0[, .(Group = unique(Group), file = factor("input.fst"), from = .I[!duplicated(Group)], to = .I[rev(!duplicated(rev(Group)))])]
     fst::write.fst(DT0.index, file.path(blockpath, "model0", "input.index.fst"))
-    dir.create(file.path(blockpath, "model1"))
+    if (!dir.create(file.path(blockpath, "model1"))) stop()
     DT.index <- DT.block[, .(Group = unique(Group), file = factor("input.fst"), from = .I[!duplicated(Group)], to = .I[rev(!duplicated(rev(Group)))])]
     fst::write.fst(DT.index, file.path(blockpath, "model1", "input.index.fst"))
 

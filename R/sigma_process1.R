@@ -179,59 +179,69 @@ setMethod("process1", "sigma_block", function(object, chain) {
 
       # write timings
       DT <- timings(fit.sigma, as.data.table = T)
-      DT <- dcast(DT, Group ~ Block + chain, value.var = "elapsed")
-      fwrite(DT, file.path(filepath(fit.sigma), "output", "group_timings.csv"))
+      if (!is.null(DT)) {
+        DT <- dcast(DT, Group ~ Block + chain, value.var = "elapsed")
+        fwrite(DT, file.path(filepath(fit.sigma), "output", "group_timings.csv"))
+      }
 
       # write groups
       DT <- groups(fit.sigma, as.data.table = T)
-      fwrite(DT, file.path(filepath(fit.sigma), "output", "groups.csv"))
+      if (!is.null(DT)) fwrite(DT, file.path(filepath(fit.sigma), "output", "groups.csv"))
 
       # write components
       DT <- components(fit.sigma, as.data.table = T)
-      fwrite(DT, file.path(filepath(fit.sigma), "output", "components.csv"))
+      if (!is.null(DT)) fwrite(DT, file.path(filepath(fit.sigma), "output", "components.csv"))
 
       # write measurements
       DT <- measurements(fit.sigma, as.data.table = T)
-      fwrite(DT, file.path(filepath(fit.sigma), "output", "measurements.csv"))
+      if (!is.null(DT)) fwrite(DT, file.path(filepath(fit.sigma), "output", "measurements.csv"))
 
       # write assay design
       DT <- assay_design(fit.sigma, as.data.table = T)
-      fwrite(DT, file.path(filepath(fit.sigma), "output", "assay_design.csv"))
+      if (!is.null(DT)) fwrite(DT, file.path(filepath(fit.sigma), "output", "assay_design.csv"))
 
       # write assay groups
       DT <- assay_groups(fit.sigma, as.data.table = T)
-      DT <- dcast(DT, Group ~ Block + Assay, value.var = colnames(DT)[(which(colnames(DT) == "Assay") + 1):ncol(DT)])
-      fwrite(DT, file.path(filepath(fit.sigma), "output", "assay_groups.csv"))
+      if (!is.null(DT)) {
+        DT <- dcast(DT, Group ~ Block + Assay, value.var = colnames(DT)[(which(colnames(DT) == "Assay") + 1):ncol(DT)])
+        fwrite(DT, file.path(filepath(fit.sigma), "output", "assay_groups.csv"))
+      }
 
       # write assay components
       DT <- assay_components(fit.sigma, as.data.table = T)
-      DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = colnames(DT)[(which(colnames(DT) == "Assay") + 1):ncol(DT)])
-      fwrite(DT, file.path(filepath(fit.sigma), "output", "assay_components.csv"))
+      if (!is.null(DT)) {
+        DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = colnames(DT)[(which(colnames(DT) == "Assay") + 1):ncol(DT)])
+        fwrite(DT, file.path(filepath(fit.sigma), "output", "assay_components.csv"))
+      }
 
       # write measurement means
       if ("measurement.means" %in% ctrl@summarise) {
         DT <- measurement_means(fit.sigma, summary = T, as.data.table = T)
-        DT <- dcast(
-          DT,
-          as.formula(paste0("Group", ifelse("Component" %in% colnames(DT), " + Component", ""), ifelse("Measurement" %in% colnames(DT), " + Measurement", ""), " ~ Block")),
-          value.var = c("m", "s", "df", "rhat")
-        )
-        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_measurement_means.csv"))
+        if (!is.null(DT)) {
+          DT <- dcast(
+            DT,
+            as.formula(paste0("Group", ifelse("Component" %in% colnames(DT), " + Component", ""), ifelse("Measurement" %in% colnames(DT), " + Measurement", ""), " ~ Block")),
+            value.var = c("m", "s", "df", "rhat")
+          )
+          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_measurement_means.csv"))
+        }
       }
 
       # measurement variances
       if ("measurement.variances" %in% ctrl@summarise) {
         DT <- measurement_variances(fit.sigma, summary = T, as.data.table = T)
-        DT <- dcast(
-          DT,
-          as.formula(paste0("Group", ifelse("Component" %in% colnames(DT), " + Component", ""), ifelse("Measurement" %in% colnames(DT), " + Measurement", ""), " ~ Block")),
-          value.var = c("v", "df", "rhat")
-        )
-        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_measurement_variances.csv"))
+        if (!is.null(DT)) {
+          DT <- dcast(
+            DT,
+            as.formula(paste0("Group", ifelse("Component" %in% colnames(DT), " + Component", ""), ifelse("Measurement" %in% colnames(DT), " + Measurement", ""), " ~ Block")),
+            value.var = c("v", "df", "rhat")
+          )
+          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_measurement_variances.csv"))
+        }
       }
 
       # component means
-      if (ctrl@component.model != "" && "component.means" %in% ctrl@summarise) {
+      if ("component.means" %in% ctrl@summarise) {
         DT <- component_means(fit.sigma, summary = T, as.data.table = T)
         DT <- dcast(
           DT,
@@ -242,40 +252,46 @@ setMethod("process1", "sigma_block", function(object, chain) {
       }
 
       # component variances
-      if (ctrl@component.model != "" && "component.variances" %in% ctrl@summarise) {
+      if ("component.variances" %in% ctrl@summarise) {
         DT <- component_variances(fit.sigma, summary = T, as.data.table = T)
-        DT <- dcast(
-          DT,
-          as.formula(paste0("Group", ifelse("Component" %in% colnames(DT), " + Component", ""), " ~ Block")),
-          value.var = c("v", "df", "rhat")
-        )
-        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_component_variances.csv"))
+        if (!is.null(DT)) {
+          DT <- dcast(
+            DT,
+            as.formula(paste0("Group", ifelse("Component" %in% colnames(DT), " + Component", ""), " ~ Block")),
+            value.var = c("v", "df", "rhat")
+          )
+          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_component_variances.csv"))
+        }
       }
 
       # component deviations
-      if (ctrl@component.model != "" && "component.deviations" %in% ctrl@summarise) {
+      if ("component.deviations" %in% ctrl@summarise) {
         DT <- component_deviations(fit.sigma, summary = T, as.data.table = T)
-        DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
-        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_component_deviations.csv"))
+        if (!is.null(DT)) {
+          DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
+          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_component_deviations.csv"))
+        }
       }
 
       # assay means
       if ("assay.means" %in% ctrl@summarise || "assay.means" %in% ctrl@plot) {
         DT <- assay_means(fit.sigma, as.data.table = T)
-        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_variances.csv"))
+        if (!is.null(DT)) fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_variances.csv"))
       }
 
       # assay variances
       if ("assay.variances" %in% ctrl@summarise || "assay.stdevs" %in% ctrl@plot) {
         DT <- assay_variances(fit.sigma, as.data.table = T)
-        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_variances.csv"))
+        if (!is.null(DT)) fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_variances.csv"))
       }
 
       # assay deviations
-      if (ctrl@assay.model != "" && "assay.deviations" %in% ctrl@summarise) {
+      if ("assay.deviations" %in% ctrl@summarise) {
         DT <- assay_deviations(fit.sigma, summary = T, as.data.table = T)
-        DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
-        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_deviations.csv"))
+        if (!is.null(DT)) {
+          DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
+          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_deviations.csv"))
+        }
       }
 
       # group means
