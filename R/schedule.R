@@ -132,7 +132,7 @@ setMethod("config", "schedule_slurm", function(object, prefix, name, n, notify, 
     ifelse(is.na(object@mail_user), "", paste0("#SBATCH --mail-user=", object@mail_user, "\n")),
     ifelse(is.na(object@mail_user), "", ifelse(notify, "#SBATCH --mail-type=END,FAIL,REQUEUE\n", "#SBATCH --mail-type=FAIL,REQUEUE\n")),
     ifelse(is.na(object@pre), "", paste0(paste(object@pre, collapse = "\n"), "\n")),
-    paste0("srun Rscript --vanilla -e seaMass:::", func, "\\(${SLURM_ARRAY_TASK_ID}\\)\n"),
+    paste0("srun Rscript --vanilla -e seaMass:::", func, "\\(${SLURM_ARRAY_JOB_ID},${SLURM_ARRAY_TASK_ID}\\)\n"),
     ifelse(is.na(object@post), "", paste0(paste(object@post, collapse = "\n"), "\n"))
   ))
 })
@@ -538,69 +538,69 @@ setMethod("run", "schedule_sge", function(object, fit.sigma) {
 })
 
 
-hpc_process0 <- function(task) {
+hpc_process0 <- function(job.id, task.id) {
   fit.sigma <- open_sigma("..", force = T)
   nchain <- control(fit.sigma)@model.nchain
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running process0 for name=", name(fit.sigma), "...\n"))
-  process0(blocks(fit.sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
+  process0(blocks(fit.sigma)[[(task.id-1) %/% nchain + 1]], (task.id-1) %% nchain + 1, job.id)
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
 
-  return(invisible(0))
+  return(0)
 }
 
 
-hpc_process1 <- function(task) {
+hpc_process1 <- function(job.id, task.id) {
   fit.sigma <- open_sigma("..", force = T)
   nchain <- control(fit.sigma)@model.nchain
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running process1 for name=", name(fit.sigma), "...\n"))
-  process1(blocks(fit.sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
+  process1(blocks(fit.sigma)[[(task.id-1) %/% nchain + 1]], (task.id-1) %% nchain + 1, job.id)
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
 
-  return(invisible(0))
+  return(0)
 }
 
 
-hpc_plots <- function(task) {
+hpc_plots <- function(job.id, task.id) {
   fit.sigma <- open_sigma("..", force = T)
   nchain <- control(fit.sigma)@model.nchain
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running plots for name=", name(fit.sigma), "...\n"))
-  plots(blocks(fit.sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1)
+  plots(blocks(fit.sigma)[[(task.id-1) %/% nchain + 1]], (task.id-1) %% nchain + 1, job.id)
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
 
-  return(invisible(0))
+  return(0)
 }
 
 
-hpc_delta <- function(task) {
+hpc_delta <- function(job.id, task.id) {
   fit.sigma <- open_sigma("..", force = T)
   fit.deltas <- open_deltas(fit.sigma, force = T)
   nchain <- control(fit.sigma)@model.nchain
-  fit.delta <- fit.deltas[[(task-1) %/% nchain + 1]]
+  fit.delta <- fit.deltas[[(task.id-1) %/% nchain + 1]]
   cat(paste0("[", Sys.time(), "] seaMass-delta v", control(fit.delta)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running name=", name(fit.delta), "...\n"))
-  process(fit.delta, (task-1) %% nchain + 1)
+  process(fit.delta, (task.id-1) %% nchain + 1, job.id)
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
 
-  return(invisible(0))
+  return(0)
 }
 
 
-hpc_finish <- function(task) {
+hpc_finish <- function(job.id, task.id) {
   fit.sigma <- open_sigma("..", force = T)
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  finishing...\n"))
-  finish(fit.sigma)
+  finish(fit.sigma, job.id)
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
 
-  return(invisible(0))
+  return(0)
 }
 
 

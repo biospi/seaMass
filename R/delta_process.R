@@ -1,7 +1,7 @@
 #' @import data.table
 #' @include generics.R
 #' @include seaMass_delta.R
-setMethod("process", "seaMass_delta", function(object, chain) {
+setMethod("process", "seaMass_delta", function(object, chain, job.id = NULL) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))
     stop(paste0("version mismatch - '", name(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
@@ -21,7 +21,7 @@ setMethod("process", "seaMass_delta", function(object, chain) {
     do.call(paste("dea", ctrl@dea.model, sep = "_"), ellipsis)
   }
 
-  if (increment_completed(filepath(object)) == ctrl@model.nchain) {
+  if (increment_completed(filepath(object), job.id = job.id) == ctrl@model.nchain) {
     # summarise group de and perform fdr correction
     if (file.exists(file.path(filepath(object), "standardised.group.deviations.index.fst"))) {
       if(ctrl@fdr.model != "") {

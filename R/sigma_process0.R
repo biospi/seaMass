@@ -1,7 +1,7 @@
 #' @import data.table
 #' @include generics.R
 #' @include sigma_block.R
-setMethod("process0", "sigma_block", function(object, chain) {
+setMethod("process0", "sigma_block", function(object, chain, job.id = NULL) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))
       stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
@@ -9,7 +9,7 @@ setMethod("process0", "sigma_block", function(object, chain) {
   # EXECUTE MODEL
   model(object, "model0", chain)
 
-  if (increment_completed(file.path(filepath(object), "model0")) == ctrl@model.nchain) {
+  if (increment_completed(file.path(filepath(object), "model0"), job.id = job.id) == ctrl@model.nchain) {
     # PROCESS OUTPUT
     cat(paste0("[", Sys.time(), "]   OUTPUT0 block=", sub("^.*sigma\\.(.*)$", "\\1", object@filepath), "\n"))
 

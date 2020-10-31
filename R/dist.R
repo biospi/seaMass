@@ -118,12 +118,12 @@ dist_samples_lst_ash <- function(chain, sample, value, ...) {
 }
 
 
-#' fit scaled inverse chi squared distribution with fitdistrplus
+#' fit scaled inverse chi squared distribution with fitdistrplus, note our values as stdevs not variances!
 #'
 #' @export
 dist_invchisq <- function(value, plots = FALSE, ...) {
-  est <- dist_normal_robust(log(value))
-  est <- list(v = exp(est$m), df = 2.0 * est$s^-2)
+  est <- dist_normal_robust(log(value^2))
+  est <- list(s = sqrt(exp(est$m)), df = 2.0 * est$s^-2)
 
   if (!is.na(est$df) && !is.infinite(est$df)) {
     d_seaMass_invchisq <<- function(x, log_df, log_v, log = F) {
@@ -151,9 +151,9 @@ dist_invchisq <- function(value, plots = FALSE, ...) {
     }
 
     tryCatch({
-      ft <- fitdistrplus::fitdist(as.vector(value), "_seaMass_invchisq", start = list(log_df = log(est$df), log_v = log(est$v)), ...)
+      ft <- fitdistrplus::fitdist(as.vector(value^2), "_seaMass_invchisq", start = list(log_df = log(est$df), log_v = log(est$s^2)), ...)
       if (plots == T) plot(ft)
-      est <- list(v = exp(ft$estimate[["log_v"]]), df = exp(ft$estimate[["log_df"]]))
+      est <- list(s = sqrt(exp(ft$estimate[["log_v"]])), df = exp(ft$estimate[["log_df"]]))
     }, error = function(e) {
       warning("'dist_invchisq' fitting failed, falling back to robust approximation.")
     })

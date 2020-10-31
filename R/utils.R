@@ -96,24 +96,26 @@ stop_parallel <- function() {
 }
 
 
-increment_completed <- function(path, name = "complete") {
-  lock <- filelock::lock(file.path(path, paste0(name, ".lock")), timeout = 10000)
-  if (file.exists(file.path(path, paste0(name, ".rds")))) {
-    cp <- readRDS(file.path(path, paste0(name, ".rds"))) + 1
+increment_completed <- function(path, name = "complete", job.id = NULL) {
+  filename <- file.path(path, paste0(name, ifelse(is.null(job.id), "", paste0(".", job.id))))
+  lock <- filelock::lock(paste0(filename, ".lock"), timeout = 10000)
+  if (file.exists(paste0(filename, ".rds"))) {
+    cp <- readRDS(paste0(filename, ".rds")) + 1
   } else {
     cp <- 1
   }
-  saveRDS(cp, file.path(path, paste0(name, ".rds")))
+  saveRDS(cp, paste0(filename, ".rds"))
   filelock::unlock(lock)
 
   return(cp)
 }
 
 
-read_completed <- function(path, name = "complete") {
-  if (file.exists(file.path(path, paste0(name, ".rds")))) {
-    lock <- filelock::lock(file.path(path, paste0(name, ".lock")), F, 10000)
-    cp <- readRDS(file.path(path, paste0(name, ".rds")))
+read_completed <- function(path, name = "complete", job.id = NULL) {
+  filename <- file.path(path, paste0(name, ifelse(is.null(job.id), "", paste0(".", job.id))))
+  if (file.exists(paste0(filename, ".rds"))) {
+    lock <- filelock::lock(paste0(filename, ".lock"), F, 10000)
+    cp <- readRDS(paste0(filename, ".rds"))
     filelock::unlock(lock)
   } else {
     cp <- 0

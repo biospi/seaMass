@@ -2,10 +2,10 @@
 % Please edit documentation in R/dist.R
 \name{dist_invchisq}
 \alias{dist_invchisq}
-\title{fit scaled inverse chi squared distribution with fitdistrplus}
+\title{fit scaled inverse chi squared distribution with fitdistrplus, note our values as stdevs not variances!}
 \usage{
 dist_invchisq(value, plots = FALSE, ...)
 }
 \description{
-fit scaled inverse chi squared distribution with fitdistrplus
+fit scaled inverse chi squared distribution with fitdistrplus, note our values as stdevs not variances!
 }

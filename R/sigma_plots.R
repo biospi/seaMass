@@ -1,7 +1,7 @@
 #' @import data.table
 #' @include generics.R
 #' @include sigma_block.R
-setMethod("plots", "sigma_block", function(object, chain) {
+setMethod("plots", "sigma_block", function(object, chain, job.id = NULL) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))
     stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
@@ -40,7 +40,7 @@ setMethod("plots", "sigma_block", function(object, chain) {
     return(NULL)
   }, nthread = ctrl@nthread)
 
-  if (increment_completed(file.path(filepath(parent(object)), "sigma"), "plots") == nbatch) {
+  if (increment_completed(file.path(filepath(parent(object)), "sigma"), "plots", job.id) == nbatch) {
     if (!("group.quants" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "group.quants*"), recursive = T)
     if (!("normalised.group.quants" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "normalised.group.quants*"), recursive = T)
     if (!("standardised.group.deviations" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "standardised.group.deviations*"), recursive = T)
