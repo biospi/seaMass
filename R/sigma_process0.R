@@ -132,7 +132,7 @@ setMethod("process0", "sigma_block", function(object, chain, job.id) {
         return(data.table(Assay = item[1, Assay], chain = item[1, chain], sample = 1:nrow(fit.model$VCV), value = sqrt(fit.model$VCV[, "Item"])))
       }, nthread = ctrl@nthread))
 
-      DT.assay.prior <- data.table(Effect = "Assay", DT.assay.prior[, dist_samples_invchi(chain, sample, value), by = Assay])
+      DT.assay.prior <- data.table(Effect = "Assay", DT.assay.prior[, dist_samples_inaka(chain, sample, value), by = Assay])
       DT.measurement.prior <- rbind(DT.measurement.prior, DT.assay.prior, use.names = T, fill = T)
       if ("Assay.SD" %in% colnames(DT.design)) DT.design[, Assay.SD := NULL]
       DT.design <- merge(DT.design, DT.assay.prior[, .(Assay, Assay.SD = s)], by = "Assay", sort = F, all.x = T)

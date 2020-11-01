@@ -1,7 +1,7 @@
 #' @include generics.R
 #' @export
 setMethod("standardise_group_quants", "sigma_block", function(object, data.design = assay_design(object), input = "model1", type = "normalised.group.quants") {
-  cat(paste0("[", Sys.time(), "]    standardising group quants...\n"))
+  cat(paste0("[", Sys.time(), "]   standardising group quants...\n"))
 
   ctrl <- control(object)
   DT.refweights <- as.data.table(data.design)[, .(Assay, RefWeight)]

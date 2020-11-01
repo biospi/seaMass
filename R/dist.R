@@ -1,3 +1,67 @@
+#' Probability density function of a location-scale t distribution
+#'
+#' @export
+dlst <- function(x, m, s, df, log = FALSE) {
+  return(extraDistr::dlst(x, df, m, s, log))
+}
+
+
+#' Cumulative distribution function (CDF) of a location-scale t distribution
+#'
+#' @export
+plst <- function(q, m, s, df, lower.tail = TRUE, log.p = FALSE) {
+  return(extraDistr::plst(q, df, m, s, lower.tail, log.p))
+}
+
+
+#' Quantile function (inverse CDF) of a location-scale t distribution
+#'
+#' @export
+qlst <- function(p, m, s, df, lower.tail = TRUE, log.p = FALSE) {
+  return(extraDistr::qlst(p, df, m, s, lower.tail, log.p))
+}
+
+
+# random number generation for a location-scale t distribution
+#'
+#' @export
+rlst <- function(n, m, s, df) {
+  return(extraDistr::rlst(n, df, m, s))
+}
+
+
+#' Probability density function of an inverse nakagami distribution
+#'
+#' @export
+dinaka <- function(x, s, df) {
+  return(2 * x^-3 * dgamma(x^-2, 0.5*df, 0.5*df*s*s))
+}
+
+
+#' Cumulative distribution function (CDF) of an inverse nakagami distribution
+#'
+#' @export
+pinaka <- function(x, s, df) {
+  return(1 - pgamma(x^-2, 0.5*df, 0.5*df*s*s))
+}
+
+
+#' Quantile function (inverse CDF) of an inverse nakagami distribution
+#'
+#' @export
+qinaka <- function(p, s, df) {
+  return(1 / sqrt(qgamma(1-p, 0.5*df, 0.5*df*s*s)))
+}
+
+
+# random number generation for an inverse nakagami distribution
+#'
+#' @export
+rinaka <- function(n, s, df) {
+  return(1 / sqrt(rgamma(n, 0.5*df, 0.5*df*s*s)))
+}
+
+
 #' summarise using median/mad
 #'
 #' @export
@@ -118,42 +182,10 @@ dist_samples_lst_ash <- function(chain, sample, value, ...) {
 }
 
 
-#' Probability density function of an inverse scaled chi distribution
-#'
-#' @export
-dinvchi <- function(x, df, s) {
-  return(2 * x^-3 * dgamma(x^-2, 0.5*df, 0.5*df*s*s))
-}
-
-
-#' Cumulative distribution function (CDF) of an inverse scaled inverse chi distribution
-#'
-#' @export
-pinvchi <- function(x, df, s) {
-  return(1 - pgamma(x^-2, 0.5*df, 0.5*df*s*s))
-}
-
-
-#' Quantile function (inverse CDF) of a scaled inverse chi distribution
-#'
-#' @export
-qinvchi <- function(p, df, s) {
-  return(1 / sqrt(qgamma(1-p, 0.5*df, 0.5*df*s*s)))
-}
-
-
-# random number generation for a scaled inverse chi distribution
-#'
-#' @export
-rinvchi <- function(n, df, s) {
-  return(1 / sqrt(rgamma(n, 0.5*df, 0.5*df*s*s)))
-}
-
-
 #' fit scaled inverse chi squared distribution with fitdistrplus, note our input is stdevs not variances!
 #'
 #' @export
-dist_invchi <- function(value, plots = FALSE, ...) {
+dist_inaka <- function(value, plots = FALSE, ...) {
   est <- dist_normal_robust(log(value^2))
   est <- list(s = sqrt(exp(est$m)), df = 2.0 * est$s^-2)
 
@@ -187,7 +219,7 @@ dist_invchi <- function(value, plots = FALSE, ...) {
       if (plots == T) plot(ft)
       est <- list(s = sqrt(exp(ft$estimate[["log_v"]])), df = exp(ft$estimate[["log_df"]]))
     }, error = function(e) {
-      warning("'dist_invchi' fitting failed, falling back to robust approximation.")
+      warning("'dist_inaka' fitting failed, falling back to robust approximation.")
     })
   }
 
@@ -200,8 +232,8 @@ dist_invchi <- function(value, plots = FALSE, ...) {
 #' Clarke et al 2012 ("A fast robust method for fitting gamma distributions") are right - CvM is about the only robust way to fit gamma distributions!!
 #'
 #' @export
-dist_samples_invchi <- function(chain, sample, value, ...) {
-  return(c(dist_invchi(value, method = "mge", gof = "CvM", ...), list(rhat = rhat(chain, sample, value, T))))
+dist_samples_inaka <- function(chain, sample, value, ...) {
+  return(c(dist_inaka(value, method = "mge", gof = "CvM", ...), list(rhat = rhat(chain, sample, value, T))))
 }
 
 
@@ -210,7 +242,7 @@ dist_samples_invchi <- function(chain, sample, value, ...) {
 #' @export
 dist_sf_with_fixed_df1_fitdistrplus <- function(value, df1, plots = FALSE, ...) {
   # first fit a _sample_ of value to an inverse chi squared distribution
-  est0 <- dist_invchi(sapply(1:length(value), function(i) rinvchi(1, df1[i], value[i])), plots = plots)
+  est0 <- dist_inaka(sapply(1:length(value), function(i) rinaka(1, value[i], df1[i])), plots = plots)
 
   # this then seeds the fit to a scaled F distribution
   d_seaMass_scaled_f <<- function(x, log_df2, log_scale, log = FALSE) {
@@ -242,7 +274,7 @@ dist_sf_with_fixed_df1_fitdistrplus <- function(value, df1, plots = FALSE, ...) 
     if (plots == T) plot(ft)
     est <- list(s = sqrt(exp(ft$estimate[["log_scale"]])), df = exp(ft$estimate[["log_df2"]]))
   }, error = function(e) {
-    warning("'dist_sf_with_fixed_df1_fitdistrplus' fitting failed, falling back to 'dist_invchi' fit to random sample.")
+    warning("'dist_sf_with_fixed_df1_fitdistrplus' fitting failed, falling back to 'dist_inaka' fit to random sample.")
     est <- est0
   })
 
@@ -257,7 +289,7 @@ squeeze_stdev <- function(s, df, use.deconvolution = TRUE, ...) {
   if (use.deconvolution) {
     return(dist_sf_with_fixed_df1_fitdistrplus(s, df, ...))
   } else {
-    est <- dist_invchi(sapply(1:length(s), function(i) rinvchi(1, df[i], s[i])), ...)
+    est <- dist_inaka(sapply(1:length(s), function(i) rinaka(1, s[i], df[i])), ...)
     return(list(s0 = est$s, df0 = est$df, s = est$s, df = est$df))
   }
 }

@@ -268,7 +268,7 @@ setMethod("measurement_means", "sigma_block", function(object, groups = NULL, su
 #' @export
 #' @include generics.R
 setMethod("measurement_stdevs", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- read_samples(object, input, "measurement.stdevs", groups, chains, summary, summary.func = "invchi", as.data.table = as.data.table)
+  DT <- read_samples(object, input, "measurement.stdevs", groups, chains, summary, summary.func = "inaka", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -294,7 +294,7 @@ setMethod("component_means", "sigma_block", function(object, groups = NULL, summ
 #' @export
 #' @include generics.R
 setMethod("component_stdevs", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- read_samples(object, input, "component.stdevs", groups, chains, summary, summary.func = "invchi", as.data.table = as.data.table)
+  DT <- read_samples(object, input, "component.stdevs", groups, chains, summary, summary.func = "inaka", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -359,7 +359,7 @@ setMethod("normalised_group_means", "sigma_block", function(object, groups = NUL
 #' @export
 #' @include generics.R
 setMethod("normalised_group_stdevs", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- read_samples(object, input, "normalised.group.stdevs", groups, chains, summary, summary.func = "invchi", as.data.table = as.data.table)
+  DT <- read_samples(object, input, "normalised.group.stdevs", groups, chains, summary, summary.func = "inaka", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
   else DT[]

@@ -77,6 +77,7 @@ seaMass_delta <- function(
 
   if (file.exists(file.path(filepath(fit), "sigma", "complete.rds"))) {
     run(object)
+    cat(paste0("[", Sys.time(), "] finished!\n"))
   } else {
     cat(paste0("[", Sys.time(), "] queued\n"))
   }

@@ -26,7 +26,7 @@ setMethod("run", "schedule_local", function(object, fit.sigma) {
   ctrl <- control(fit.sigma)
   job.id <- uuid::UUIDgenerate()
 
-  cat(paste0("[", Sys.time(), "] running seaMass v", ctrl@version, " name=", name(fit.sigma), "...\n"))
+  cat(paste0("[", Sys.time(), "] running...\n"))
   # run empirical bayes process0
   for (block in blocks(fit.sigma)) {
     for (chain in 1:ctrl@model.nchain) process0(block, chain, job.id)
@@ -49,7 +49,7 @@ setMethod("run", "schedule_local", function(object, fit.sigma) {
   # finish
   for (fit.delta in open_deltas(fit.sigma, force = T)) finish(fit.delta)
   finish(fit.sigma)
-  cat(paste0("[", Sys.time(), "] seaMass finished!\n"))
+  cat(paste0("[", Sys.time(), "] finished!\n"))
 
   return(invisible(object))
 })

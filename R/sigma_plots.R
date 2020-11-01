@@ -154,8 +154,6 @@ setMethod("plot_pca_contours", "seaMass", function(
     # replace centre point
     DT.design <- merge(DT.design[, !c("x", "y")], DT[, .(x = median(x), y = median(y)), by = .(Block, Assay)], by = c("Block", "Assay"), sort = F)
 
-    cat(paste0("[", Sys.time(), "]    generating contours...\n"))
-
     # kde bandwidth across all assays
     H <- ks::Hpi(cbind(DT$x, DT$y))
 

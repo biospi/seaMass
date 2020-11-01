@@ -129,13 +129,13 @@ limits_dists <- function(data, probs = c(0.005, 0.995), include.zero = FALSE) {
     # calculate limits from 99.9% of samples
     set.seed(0)
     if ("PosteriorMean" %in% colnames(dd)) {
-      xs <- extraDistr::rlst(1048576, dd$df, dd$PosteriorMean, dd$PosteriorSD)
+      xs <- rlst(1048576, dd$PosteriorMean, dd$PosteriorSD, dd$df)
     } else if ("m" %in% colnames(dd)) {
-      xs <- extraDistr::rlst(1048576, dd$df, dd$m, dd$s)
+      xs <- rlst(1048576, dd$m, dd$s, dd$df)
     } else if ("value" %in% colnames(dd)) {
       xs <- dd$value
     } else {
-      xs <- rinvchi(1048576, dd$df, dd$s)
+      xs <- rinaka(1048576, dd$s, dd$df)
     }
 
     lim <- quantile(xs, probs = probs, na.rm = T)
@@ -163,6 +163,8 @@ limits_dists <- function(data, probs = c(0.005, 0.995), include.zero = FALSE) {
 #' @export
 #' @include generics.R
 setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = NULL, label.cols = NULL, title = NULL, value.label = "value", horizontal = TRUE, colour = NULL, fill = NULL, file = NULL, value.length = 120, level.length = 5) {
+  library(seaMass) # so ggdist can see our inaki functions
+
   if (is.data.frame(data)) {
     DTs <- list(as.data.table(data))
   } else {
@@ -302,17 +304,17 @@ setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha =
           g <- g + ggdist::stat_dist_pointinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg1 = "df", arg2 = value, arg3 = ifelse(value == "m", "s", "PosteriorSD"), colour = colour_), DTs[[i]], point_size = 1.5, interval_size_range = c(0.5, 1), position = ggplot2::position_nudge(y = positions[i]))
         }
       } else if (value == "s") {
-        dist <- "invchi"
+        dist <- "inaka"
         if (i > 1) {
-          g <- g + ggdist::stat_dist_pointinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg1 = "df", arg2 = value), DTs[[i]], colour = colours[i], point_size = 1.5, interval_size_range = c(0.5, 1), position = ggplot2::position_nudge(y = positions[i]))
+          g <- g + ggdist::stat_dist_pointinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg2 = "df", arg1 = value), DTs[[i]], colour = colours[i], point_size = 1.5, interval_size_range = c(0.5, 1), position = ggplot2::position_nudge(y = positions[i]))
         } else if (is.null(fill_)) {
-          if (is.null(limits) || limits[2] > 0) g <- g + ggdist::stat_dist_ccdfinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg1 = "df", arg2 = value), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(0, NA), p_limits = c(0.025, 0.975))
-          if (is.null(limits) || limits[1] < 0) g <- g + ggdist::stat_dist_cdfinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg1 = "df", arg2 = value), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(NA, 0), p_limits = c(0.025, 0.975))
-          g <- g + ggdist::stat_dist_pointinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg1 = "df", arg2 = value), DTs[[i]], point_size = 1.5, interval_size_range = c(0.5, 1), position = ggplot2::position_nudge(y = positions[i]))
+          if (is.null(limits) || limits[2] > 0) g <- g + ggdist::stat_dist_ccdfinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg2 = "df", arg1 = value), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(0, NA), p_limits = c(0.025, 0.975))
+          if (is.null(limits) || limits[1] < 0) g <- g + ggdist::stat_dist_cdfinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg2 = "df", arg1 = value), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(NA, 0), p_limits = c(0.025, 0.975))
+          g <- g + ggdist::stat_dist_pointinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg2 = "df", arg1 = value), DTs[[i]], point_size = 1.5, interval_size_range = c(0.5, 1), position = ggplot2::position_nudge(y = positions[i]))
         } else {
-          if (is.null(limits) || limits[2] > 0) g <- g + ggdist::stat_dist_ccdfinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg1 = "df", arg2 = value, fill = fill_), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(0, NA), p_limits = c(0.025, 0.975))
-          if (is.null(limits) || limits[1] < 0) g <- g + ggdist::stat_dist_cdfinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg1 = "df", arg2 = value, fill = fill_), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(NA, 0), p_limits = c(0.025, 0.975))
-          g <- g + ggdist::stat_dist_pointinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg1 = "df", arg2 = value, colour = colour_), DTs[[i]], point_size = 1.5, interval_size_range = c(0.5, 1), position = ggplot2::position_nudge(y = positions[i]))
+          if (is.null(limits) || limits[2] > 0) g <- g + ggdist::stat_dist_ccdfinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg2 = "df", arg1 = value, fill = fill_), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(0, NA), p_limits = c(0.025, 0.975))
+          if (is.null(limits) || limits[1] < 0) g <- g + ggdist::stat_dist_cdfinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg2 = "df", arg1 = value, fill = fill_), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(NA, 0), p_limits = c(0.025, 0.975))
+          g <- g + ggdist::stat_dist_pointinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg2 = "df", arg1 = value, colour = colour_), DTs[[i]], point_size = 1.5, interval_size_range = c(0.5, 1), position = ggplot2::position_nudge(y = positions[i]))
         }
       } else {
         if (i > 1) {

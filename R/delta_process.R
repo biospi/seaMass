@@ -39,7 +39,7 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
     }
 
     if ("de.standardised.group.deviations" %in% ctrl@plot) {
-      cat(paste0("[", Sys.time(), "]   plotting standardised group deviations differential expression...\n"))
+      cat(paste0("[", Sys.time(), "]   plotting standardised group deviations dea...\n"))
       DT <- de_standardised_group_deviations(object, as.data.table = T)
       plot_de_standardised_group_deviations(object, DT, limits_dists(DT, include.zero = T), file = file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_de_standardised_group_deviations.pdf"))
       rm(DT)
@@ -64,7 +64,7 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
       }
 
       if ("fdr.standardised.group.deviations" %in% ctrl@plot) {
-        cat(paste0("[", Sys.time(), "]   plotting standardised group deviations fdr controlled differential expression...\n"))
+        cat(paste0("[", Sys.time(), "]   plotting standardised group deviations fdr...\n"))
         DTs <- list(
           fdr_standardised_group_deviations(object, as.data.table = T),
           de_standardised_group_deviations(object, as.data.table = T)
