@@ -5,12 +5,12 @@ setMethod("normalise_theta", "sigma_block", function(object, data.design = assay
 
   unlink(file.path(filepath(object), input, "*.normalised.group.quants.fst"))
   unlink(file.path(filepath(object), input, "*.normalised.group.means.fst"))
-  unlink(file.path(filepath(object), input, "*.normalised.group.variances.fst"))
+  unlink(file.path(filepath(object), input, "*.normalised.group.stdevs.fst"))
   unlink(file.path(filepath(object), input, "*.assay.means.fst"))
 
   dir.create(file.path(filepath(object), input, "normalised.group.quants"), showWarnings = F)
   dir.create(file.path(filepath(object), input, "normalised.group.means"), showWarnings = F)
-  dir.create(file.path(filepath(object), input, "normalised.group.variances"), showWarnings = F)
+  dir.create(file.path(filepath(object), input, "normalised.group.stdevs"), showWarnings = F)
   dir.create(file.path(filepath(object), input, "assay.means"), showWarnings = F)
 
   if (!is.null(norm.groups)) norm.groups <- groups(object, as.data.table = T)[grep(norm.groups, Group), Group]
@@ -52,7 +52,7 @@ setMethod("normalise_theta", "sigma_block", function(object, data.design = assay
     class(fit.model) <- "MCMCglmm_seaMass"
     frg <- emmeans::ref_grid(fit.model, data = DT, nesting = NULL)
 
-    # extract normalised group variances
+    # extract normalised group stdevs
     if ("normalised.group.means" %in% ctrl@summarise || "normalised.group.means" %in% ctrl@keep) {
       DT <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "Group")))
       DT[, chain := item]
@@ -70,21 +70,22 @@ setMethod("normalise_theta", "sigma_block", function(object, data.design = assay
       rm(DT)
     }
 
-    # extract normalised group variances
-    if ("normalised.group.variances" %in% ctrl@summarise || "normalised.group.variances" %in% ctrl@keep) {
+    # extract normalised group stdevs
+    if ("normalised.group.stdevs" %in% ctrl@summarise || "normalised.group.stdevs" %in% ctrl@keep) {
       DT <- as.data.table(fit.model$VCV[, grep("^Group.*\\.units", colnames(fit.model$VCV))])
       DT[, chain := item]
       DT[, sample := 1:nrow(DT)]
       DT <- melt(DT, variable.name = "Group", value.name = "value", id.vars = c("chain", "sample"))
+      DT[, value := sqrt(value)]
       DT[, Group := as.integer(sub("^Group(.+)\\.units", "\\1", as.character(Group)))]
       setcolorder(DT, "Group")
       # write
       setorder(DT, Group)
-      fst::write.fst(DT, file.path(filepath(object), input, "normalised.group.variances", paste(item, "fst", sep = ".")))
+      fst::write.fst(DT, file.path(filepath(object), input, "normalised.group.stdevs", paste(item, "fst", sep = ".")))
       if (item == 1) {
-        DT <- DT[, .(file = factor(file.path("normalised.group.variances", "1.fst")), from = min(.I), to = max(.I)), by = Group]
+        DT <- DT[, .(file = factor(file.path("normalised.group.stdevs", "1.fst")), from = min(.I), to = max(.I)), by = Group]
         DT[, Group := factor(Group, levels = 1:nlevels(DT.summary[, Group]), labels = levels(DT.summary[, Group]))]
-        fst::write.fst(DT, file.path(filepath(object), input, "normalised.group.variances.index.fst"))
+        fst::write.fst(DT, file.path(filepath(object), input, "normalised.group.stdevs.index.fst"))
       }
       rm(DT)
     }

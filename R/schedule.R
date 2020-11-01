@@ -26,25 +26,27 @@ setMethod("run", "schedule_local", function(object, fit.sigma) {
   ctrl <- control(fit.sigma)
 
   cat(paste0("[", Sys.time(), "]  running seaMass-sigma with name=", name(fit.sigma), "...\n"))
+  job.id <- uuid::UUIDgenerate()
 
   # run empirical bayes process0
   for (block in blocks(fit.sigma)) {
-    for (chain in 1:ctrl@model.nchain) process0(block, chain)
+    for (chain in 1:ctrl@model.nchain) process0(block, chain, job.id)
   }
 
   # run full process1
   for (block in blocks(fit.sigma)) {
-    for (chain in 1:ctrl@model.nchain) process1(block, chain)
-  }
-
-  # run plots if you want
-  if (ctrl@plots == T) for (block in blocks(fit.sigma)) {
-    for (chain in 1:ctrl@model.nchain) seaMass:::plots(block, chain)
+    for (chain in 1:ctrl@model.nchain) process1(block, chain, job.id)
   }
 
   # run delta if they exist
   for (fit.delta in open_deltas(fit.sigma, force = T)) {
-    run(fit.delta)
+    for (chain in 1:control(fit.delta)@model.nchain) process(fit.delta, chain, job.id)
+  }
+
+  # run plots if you want
+  if (ctrl@plots == T) for (block in blocks(fit.sigma)) {
+    job.id <- uuid::UUIDgenerate()
+    for (chain in 1:ctrl@model.nchain) seaMass:::plots(block, chain, job.id)
   }
 
   # finish

@@ -20,17 +20,17 @@
 \alias{assay_design,seaMass_sigma-method}
 \alias{timings,seaMass_sigma-method}
 \alias{assay_means,seaMass_sigma-method}
-\alias{assay_variances,seaMass_sigma-method}
+\alias{assay_stdevs,seaMass_sigma-method}
 \alias{assay_deviations,seaMass_sigma-method}
 \alias{measurement_means,seaMass_sigma-method}
-\alias{measurement_variances,seaMass_sigma-method}
+\alias{measurement_stdevs,seaMass_sigma-method}
 \alias{component_means,seaMass_sigma-method}
-\alias{component_variances,seaMass_sigma-method}
+\alias{component_stdevs,seaMass_sigma-method}
 \alias{component_deviations,seaMass_sigma-method}
 \alias{group_quants,seaMass_sigma-method}
 \alias{group_means,seaMass_sigma-method}
 \alias{normalised_group_means,seaMass_sigma-method}
-\alias{normalised_group_variances,seaMass_sigma-method}
+\alias{normalised_group_stdevs,seaMass_sigma-method}
 \alias{normalised_group_quants,seaMass_sigma-method}
 \alias{standardised_group_deviations,seaMass_sigma-method}
 \alias{name,sigma_block-method}
@@ -84,7 +84,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
   as.data.table = FALSE
 )
 
-\S4method{assay_variances}{seaMass_sigma}(object, input = "model1", as.data.table = FALSE)
+\S4method{assay_stdevs}{seaMass_sigma}(object, input = "model1", as.data.table = FALSE)
 
 \S4method{assay_deviations}{seaMass_sigma}(
   object,
@@ -104,7 +104,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
   as.data.table = FALSE
 )
 
-\S4method{measurement_variances}{seaMass_sigma}(
+\S4method{measurement_stdevs}{seaMass_sigma}(
   object,
   measurements = NULL,
   summary = FALSE,
@@ -122,7 +122,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
   as.data.table = FALSE
 )
 
-\S4method{component_variances}{seaMass_sigma}(
+\S4method{component_stdevs}{seaMass_sigma}(
   object,
   components = NULL,
   summary = FALSE,
@@ -167,7 +167,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
   as.data.table = FALSE
 )
 
-\S4method{normalised_group_variances}{seaMass_sigma}(
+\S4method{normalised_group_stdevs}{seaMass_sigma}(
   object,
   groups = NULL,
   summary = FALSE,
@@ -252,17 +252,17 @@ Fits the seaMass-Σ Bayesian group-level quantification model to imported data.
 
 \item \code{assay_means,seaMass_sigma-method}: Get the model assay means as a \link{data.frame}.
 
-\item \code{assay_variances,seaMass_sigma-method}: Get the model assay variances as a \link{data.frame}.
+\item \code{assay_stdevs,seaMass_sigma-method}: Get the model assay stdevs as a \link{data.frame}.
 
 \item \code{assay_deviations,seaMass_sigma-method}: Get the model assay deviations as a \link{data.frame}.
 
 \item \code{measurement_means,seaMass_sigma-method}: Get the model measurement means as a \link{data.frame}.
 
-\item \code{measurement_variances,seaMass_sigma-method}: Get the model measurement variances as a \link{data.frame}.
+\item \code{measurement_stdevs,seaMass_sigma-method}: Get the model measurement stdevs as a \link{data.frame}.
 
 \item \code{component_means,seaMass_sigma-method}: Get the model component means as a \link{data.frame}.
 
-\item \code{component_variances,seaMass_sigma-method}: Get the model component variances as a \link{data.frame}.
+\item \code{component_stdevs,seaMass_sigma-method}: Get the model component stdevs as a \link{data.frame}.
 
 \item \code{component_deviations,seaMass_sigma-method}: Gets the model component deviations as a \link{data.frame}.
 
@@ -270,9 +270,9 @@ Fits the seaMass-Σ Bayesian group-level quantification model to imported data.
 
 \item \code{group_means,seaMass_sigma-method}: Get the model group means as a \link{data.frame}.
 
-\item \code{normalised_group_means,seaMass_sigma-method}: Get the model normalised group variances as a \link{data.frame}.
+\item \code{normalised_group_means,seaMass_sigma-method}: Get the model normalised group stdevs as a \link{data.frame}.
 
-\item \code{normalised_group_variances,seaMass_sigma-method}: Get the model normalised group variances as a \link{data.frame}.
+\item \code{normalised_group_stdevs,seaMass_sigma-method}: Get the model normalised group stdevs as a \link{data.frame}.
 
 \item \code{normalised_group_quants,seaMass_sigma-method}: Get the model normalised group quantifications as a \link{data.frame}.
 

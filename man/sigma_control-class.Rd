@@ -7,10 +7,10 @@
 \title{Control parameters for seaMass-Σ}
 \usage{
 sigma_control(
-  summarise = c("assay.means", "assay.variances", "group.quants",
-    "normalised.group.means", "normalised.group.variances",
-    "standardised.group.deviations", "component.deviations", "component.means",
-    "component.variances", "measurement.means", "measurement.variances"),
+  summarise = c("assay.means", "assay.stdevs", "group.quants",
+    "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations",
+    "component.deviations", "component.means", "component.stdevs", "measurement.means",
+    "measurement.stdevs"),
   keep = NULL,
   plot = c("assay.means", "assay.stdevs", "group.quants", "group.quants.pca",
     "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations",
@@ -43,11 +43,11 @@ sigma_control(
 }
 \arguments{
 \item{summarise}{Outputs to write csv summaries for, \code{NULL} or a subset of
-\code{c("group.quants", "group.means", "normalised.group.means", "normalised.group.variances", "standardised.group.deviations", "component.deviations", "component.means", "component.variances", "measurement.means", "measurement.variances")}
+\code{c("group.quants", "group.means", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}
 Note, you must summarise or keep \code{"standardised.group.deviations"} if you want to run seaMass-Δ!}
 
 \item{keep}{Outputs to keep MCMC samples for, \code{NULL} or a subset of
-\code{c("summaries", "model0", "assay.means", "group.quants", "group.means", "normalised.group.means", "normalised.group.variances", "standardised.group.deviations", "component.deviations", "component.means", "component.variances", "measurement.means", "measurement.variances")}}
+\code{c("summaries", "model0", "assay.means", "group.quants", "group.means", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}}
 
 \item{plot}{Outputs to plot, \code{NULL} or a subset of
 \code{c("assay.means", "group.quants", "group.quants.pca", "group.means", "normalised.group.quants", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}}

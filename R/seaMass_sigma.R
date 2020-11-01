@@ -506,12 +506,12 @@ setMethod("assay_means", "seaMass_sigma", function(object, assays = NULL, summar
 })
 
 
-#' @describeIn seaMass_sigma-class Get the model assay variances as a \link{data.frame}.
+#' @describeIn seaMass_sigma-class Get the model assay stdevs as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("assay_variances", "seaMass_sigma", function(object, input = "model1", as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) assay_variances(block, input, as.data.table = T)))
+setMethod("assay_stdevs", "seaMass_sigma", function(object, input = "model1", as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) assay_stdevs(block, input, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
@@ -549,12 +549,12 @@ setMethod("measurement_means", "seaMass_sigma", function(object, measurements = 
 })
 
 
-#' @describeIn seaMass_sigma-class Get the model measurement variances as a \link{data.frame}.
+#' @describeIn seaMass_sigma-class Get the model measurement stdevs as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("measurement_variances", "seaMass_sigma", function(object, measurements = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) measurement_variances(block, measurements, summary, input, chains, as.data.table = T)))
+setMethod("measurement_stdevs", "seaMass_sigma", function(object, measurements = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) measurement_stdevs(block, measurements, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
@@ -577,12 +577,12 @@ setMethod("component_means", "seaMass_sigma", function(object, components = NULL
 })
 
 
-#' @describeIn seaMass_sigma-class Get the model component variances as a \link{data.frame}.
+#' @describeIn seaMass_sigma-class Get the model component stdevs as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_variances", "seaMass_sigma", function(object, components = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) component_variances(block, components, summary, input, chains, as.data.table = T)))
+setMethod("component_stdevs", "seaMass_sigma", function(object, components = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) component_stdevs(block, components, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
@@ -633,7 +633,7 @@ setMethod("group_means", "seaMass_sigma", function(object, groups = NULL, summar
 })
 
 
-#' @describeIn seaMass_sigma-class Get the model normalised group variances as a \link{data.frame}.
+#' @describeIn seaMass_sigma-class Get the model normalised group stdevs as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
@@ -647,12 +647,12 @@ setMethod("normalised_group_means", "seaMass_sigma", function(object, groups = N
 })
 
 
-#' @describeIn seaMass_sigma-class Get the model normalised group variances as a \link{data.frame}.
+#' @describeIn seaMass_sigma-class Get the model normalised group stdevs as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("normalised_group_variances", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) normalised_group_variances(block, groups, summary, input, chains, as.data.table = T)))
+setMethod("normalised_group_stdevs", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) normalised_group_stdevs(block, groups, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
@@ -701,7 +701,7 @@ setMethod("plot_assay_means", "seaMass_sigma", function(object, data, limits = N
 #' @export
 #' @include generics.R
 setMethod("plot_assay_stdevs", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = c("Block", "Assay"), label.cols = c("Block", "Assay", "Sample"), title = NULL, horizontal = TRUE, colour = "A.qD", fill = "A.qD", file = NULL, value.length = 80, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length, trans = scales::sqrt_trans()))
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length))
 })
 
 #' @import data.table
@@ -740,7 +740,7 @@ setMethod("plot_normalised_group_means", "seaMass_sigma", function(object, data,
 #' @export
 #' @include generics.R
 setMethod("plot_normalised_group_stdevs", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Block"), label.cols = "Block", title = NULL, horizontal = TRUE, colour = "G.qC", fill = "G.qC", file = NULL, value.length = 80, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length, trans = scales::sqrt_trans()))
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length))
 })
 
 
@@ -772,7 +772,7 @@ setMethod("plot_component_means", "seaMass_sigma", function(object, data, limits
 #' @export
 #' @include generics.R
 setMethod("plot_component_stdevs", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Component, sort.cols = c("Group", "Component", "Block"), label.cols = "Block", title = "Group", horizontal = TRUE, colour = "C.qM", fill = "C.qM", file = NULL, value.length = 80, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length, trans = scales::sqrt_trans()))
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length))
 })
 
 
@@ -788,5 +788,5 @@ setMethod("plot_measurement_means", "seaMass_sigma", function(object, data, limi
 #' @export
 #' @include generics.R
 setMethod("plot_measurement_stdevs", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Component + Measurement, sort.cols = c("Group", "Component", "Measurement", "Block"), label.cols = "Block", title = "Group", horizontal = TRUE, colour = "M.qD", fill = "M.qD", file = NULL, value.length = 80, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length, trans = scales::sqrt_trans()))
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length))
 })

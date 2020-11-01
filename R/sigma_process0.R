@@ -1,7 +1,7 @@
 #' @import data.table
 #' @include generics.R
 #' @include sigma_block.R
-setMethod("process0", "sigma_block", function(object, chain, job.id = NULL) {
+setMethod("process0", "sigma_block", function(object, chain, job.id) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))
       stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
@@ -69,26 +69,26 @@ setMethod("process0", "sigma_block", function(object, chain, job.id = NULL) {
 
     # Measurement EB prior
     cat(paste0("[", Sys.time(), "]    calculating measurement prior...\n"))
-    DT.measurement.prior <- measurement_variances(object, input = "model0", summary = T, as.data.table = T)
-    set.seed(ctrl@random.seed + chain - 1)
-    DT.measurement.prior <- data.table(Effect = "Measurements", DT.measurement.prior[, squeeze_var(v, df)])
-    # delete measurement variances if not in 'keep'
-    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "measurement.variances*"), recursive = T)
+    DT.measurement.prior <- measurement_stdevs(object, input = "model0", summary = T, as.data.table = T)
+    set.seed(ctrl@random.seed - 1)
+    DT.measurement.prior <- data.table(Effect = "Measurements", DT.measurement.prior[, squeeze_stdev(s, df)])
+    # delete measurement stdevs if not in 'keep'
+    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "measurement.stdevs*"), recursive = T)
 
     DT.design <- assay_design(object, as.data.table = T)
-    DT.design[, Measurement.SD := DT.measurement.prior[, sqrt(v)]]
+    DT.design[, Measurement.SD := DT.measurement.prior[, s]]
 
     # Component EB prior
     if(ctrl@component.model != "") {
       cat(paste0("[", Sys.time(), "]    calculating component prior...\n"))
-      DT.component.prior <- component_variances(object, input = "model0", summary = T, as.data.table = T)
-      set.seed(ctrl@random.seed + chain - 1)
-      DT.component.prior <- data.table(Effect = "Components", DT.component.prior[, squeeze_var(v, df)])
+      DT.component.prior <- component_stdevs(object, input = "model0", summary = T, as.data.table = T)
+      set.seed(ctrl@random.seed - 1)
+      DT.component.prior <- data.table(Effect = "Components", DT.component.prior[, squeeze_stdev(s, df)])
       DT.measurement.prior <- rbind(DT.measurement.prior, DT.component.prior, use.names = T, fill = T)
-      DT.design[, Component.SD := DT.component.prior[, sqrt(v)]]
+      DT.design[, Component.SD := DT.component.prior[, s]]
     }
-    # delete component variances if not in 'keep'
-    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "component.variances*"), recursive = T)
+    # delete component stdevs if not in 'keep'
+    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "component.stdevs*"), recursive = T)
 
     # Assay EB priors
     if(ctrl@assay.model != "") {
@@ -135,13 +135,13 @@ setMethod("process0", "sigma_block", function(object, chain, job.id = NULL) {
         }
         if (is.null(fit.model)) stop(paste0("[", Sys.time(), "] ERROR: MCMCglmm failed more than 10 times"))
 
-        return(data.table(Assay = item[1, Assay], chain = item[1, chain], sample = 1:nrow(fit.model$VCV), value = fit.model$VCV[, "Item"]))
+        return(data.table(Assay = item[1, Assay], chain = item[1, chain], sample = 1:nrow(fit.model$VCV), value = sqrt(fit.model$VCV[, "Item"])))
       }, nthread = ctrl@nthread))
 
-      DT.assay.prior <- data.table(Effect = "Assay", DT.assay.prior[, dist_samples_invchisq(chain, sample, value), by = Assay])
+      DT.assay.prior <- data.table(Effect = "Assay", DT.assay.prior[, dist_samples_invchi(chain, sample, value), by = Assay])
       DT.measurement.prior <- rbind(DT.measurement.prior, DT.assay.prior, use.names = T, fill = T)
       if ("Assay.SD" %in% colnames(DT.design)) DT.design[, Assay.SD := NULL]
-      DT.design <- merge(DT.design, DT.assay.prior[, .(Assay, Assay.SD = sqrt(v))], by = "Assay", sort = F, all.x = T)
+      DT.design <- merge(DT.design, DT.assay.prior[, .(Assay, Assay.SD = s)], by = "Assay", sort = F, all.x = T)
     }
 
     # update design with standard deviations

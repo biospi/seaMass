@@ -118,10 +118,42 @@ dist_samples_lst_ash <- function(chain, sample, value, ...) {
 }
 
 
-#' fit scaled inverse chi squared distribution with fitdistrplus, note our values as stdevs not variances!
+#' Probability density function of an inverse scaled chi distribution
 #'
 #' @export
-dist_invchisq <- function(value, plots = FALSE, ...) {
+dinvchi <- function(x, df, s) {
+  return(2 * x^-3 * dgamma(x^-2, 0.5*df, 0.5*df*s*s))
+}
+
+
+#' Cumulative distribution function (CDF) of an inverse scaled inverse chi distribution
+#'
+#' @export
+pinvchi <- function(x, df, s) {
+  return(1 - pgamma(x^-2, 0.5*df, 0.5*df*s*s))
+}
+
+
+#' Quantile function (inverse CDF) of a scaled inverse chi distribution
+#'
+#' @export
+qinvchi <- function(p, df, s) {
+  return(1 / sqrt(qgamma(1-p, 0.5*df, 0.5*df*s*s)))
+}
+
+
+# random number generation for a scaled inverse chi distribution
+#'
+#' @export
+rinvchi <- function(n, df, s) {
+  return(1 / sqrt(rgamma(n, 0.5*df, 0.5*df*s*s)))
+}
+
+
+#' fit scaled inverse chi squared distribution with fitdistrplus, note our input is stdevs not variances!
+#'
+#' @export
+dist_invchi <- function(value, plots = FALSE, ...) {
   est <- dist_normal_robust(log(value^2))
   est <- list(s = sqrt(exp(est$m)), df = 2.0 * est$s^-2)
 
@@ -155,7 +187,7 @@ dist_invchisq <- function(value, plots = FALSE, ...) {
       if (plots == T) plot(ft)
       est <- list(s = sqrt(exp(ft$estimate[["log_v"]])), df = exp(ft$estimate[["log_df"]]))
     }, error = function(e) {
-      warning("'dist_invchisq' fitting failed, falling back to robust approximation.")
+      warning("'dist_invchi' fitting failed, falling back to robust approximation.")
     })
   }
 
@@ -163,13 +195,13 @@ dist_invchisq <- function(value, plots = FALSE, ...) {
 }
 
 
-#' fit scaled inverse chi squared distribution
+#' fit scaled inverse chi distribution
 #'
 #' Clarke et al 2012 ("A fast robust method for fitting gamma distributions") are right - CvM is about the only robust way to fit gamma distributions!!
 #'
 #' @export
-dist_samples_invchisq <- function(chain, sample, value, ...) {
-  return(c(dist_invchisq(value, method = "mge", gof = "CvM", ...), list(rhat = rhat(chain, sample, value, T))))
+dist_samples_invchi <- function(chain, sample, value, ...) {
+  return(c(dist_invchi(value, method = "mge", gof = "CvM", ...), list(rhat = rhat(chain, sample, value, T))))
 }
 
 
@@ -178,7 +210,7 @@ dist_samples_invchisq <- function(chain, sample, value, ...) {
 #' @export
 dist_sf_with_fixed_df1_fitdistrplus <- function(value, df1, plots = FALSE, ...) {
   # first fit a _sample_ of value to an inverse chi squared distribution
-  est0 <- dist_invchisq(sapply(1:length(value), function(i) extraDistr::rinvchisq(1, df1[i], value[i])), plots = plots)
+  est0 <- dist_invchi(sapply(1:length(value), function(i) rinvchi(1, df1[i], value[i])), plots = plots)
 
   # this then seeds the fit to a scaled F distribution
   d_seaMass_scaled_f <<- function(x, log_df2, log_scale, log = FALSE) {
@@ -206,27 +238,27 @@ dist_sf_with_fixed_df1_fitdistrplus <- function(value, df1, plots = FALSE, ...) 
   }
 
   tryCatch({
-    ft <- fitdistrplus::fitdist(log2(as.vector(value)), "_seaMass_scaled_f", start = list(log_df2 = log(est0$df), log_scale = log(est0$v)), ...)
+    ft <- fitdistrplus::fitdist(log2(as.vector(value)^2), "_seaMass_scaled_f", start = list(log_df2 = log(est0$df), log_scale = log(est0$s^2)), ...)
     if (plots == T) plot(ft)
-    est <- list(v = exp(ft$estimate[["log_scale"]]), df = exp(ft$estimate[["log_df2"]]))
+    est <- list(s = sqrt(exp(ft$estimate[["log_scale"]])), df = exp(ft$estimate[["log_df2"]]))
   }, error = function(e) {
-    warning("'dist_sf_with_fixed_df1_fitdistrplus' fitting failed, falling back to 'dist_invchisq' fit to random sample.")
+    warning("'dist_sf_with_fixed_df1_fitdistrplus' fitting failed, falling back to 'dist_invchi' fit to random sample.")
     est <- est0
   })
 
-  return(list(v0 = est0$v, df0 = est0$df, v = est$v, df = est$df))
+  return(list(s0 = est0$s, df0 = est0$df, s = est$s, df = est$df))
 }
 
 
 #' Our squeezeVar function - works for small DF unlike Limma squeezeVar, but slower
 #'
 #' @export
-squeeze_var <- function(v, df, use.deconvolution = TRUE, ...) {
+squeeze_stdev <- function(s, df, use.deconvolution = TRUE, ...) {
   if (use.deconvolution) {
-    return(dist_sf_with_fixed_df1_fitdistrplus(v, df, ...))
+    return(dist_sf_with_fixed_df1_fitdistrplus(s, df, ...))
   } else {
-    est <- dist_invchisq(sapply(1:length(v), function(i) extraDistr::rinvchisq(1, df[i], v[i])), ...)
-    return(list(v0 = est$v, df0 = est$df, v = est$v, df = est$df))
+    est <- dist_invchi(sapply(1:length(s), function(i) rinvchi(1, df[i], s[i])), ...)
+    return(list(s0 = est$s, df0 = est$df, s = est$s, df = est$df))
   }
 }
 
@@ -234,8 +266,8 @@ squeeze_var <- function(v, df, use.deconvolution = TRUE, ...) {
 #' Limma squeezeVar function
 #'
 #' @export
-squeeze_var_limma <- function(v, df) {
-  ft <- limma::fitFDist(v, df)
-  return(list(v = ft$scale, df = ft$df2))
+squeeze_stdev_limma <- function(s, df) {
+  ft <- limma::fitFDist(s^2, df)
+  return(list(s = sqrt(ft$scale), df = ft$df2))
 }
 

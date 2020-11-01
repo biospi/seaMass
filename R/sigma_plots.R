@@ -1,7 +1,7 @@
 #' @import data.table
 #' @include generics.R
 #' @include sigma_block.R
-setMethod("plots", "sigma_block", function(object, chain, job.id = NULL) {
+setMethod("plots", "sigma_block", function(object, chain, job.id) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))
     stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
@@ -34,9 +34,9 @@ setMethod("plots", "sigma_block", function(object, chain, job.id = NULL) {
     if ("standardised.group.deviations" %in% ctrl@plot) plot_standardised_group_deviations(fit.sigma, standardised_group_deviations(fit.sigma, item, as.data.table = T), lims$standardised.group.deviations, file = file.path(filepath(fit.sigma), "output", "log2_standardised_group_deviations", paste0(item2, ".pdf")))
     if ("component.deviations" %in% ctrl@plot) plot_component_deviations(fit.sigma, component_deviations(fit.sigma, item, as.data.table = T), lims$component.deviations, file = file.path(filepath(fit.sigma), "output", "log2_component_deviations", paste0(item2, ".pdf")))
     if ("component.means" %in% ctrl@plot) plot_component_means(fit.sigma, component_means(fit.sigma, item, as.data.table = T), lims$component.means, file = file.path(filepath(fit.sigma), "output", "log2_component_means", paste0(item2, ".pdf")))
-    if ("component.stdevs" %in% ctrl@plot) plot_component_stdevs(fit.sigma, component_variances(fit.sigma, item, as.data.table = T), lims$component.variances, file = file.path(filepath(fit.sigma), "output", "log2_component_stdevs", paste0(item2, ".pdf")))
+    if ("component.stdevs" %in% ctrl@plot) plot_component_stdevs(fit.sigma, component_stdevs(fit.sigma, item, as.data.table = T), lims$component.stdevs, file = file.path(filepath(fit.sigma), "output", "log2_component_stdevs", paste0(item2, ".pdf")))
     if ("measurement.means" %in% ctrl@plot) plot_measurement_means(fit.sigma, measurement_means(fit.sigma, item, as.data.table = T), lims$measurement.means, file = file.path(filepath(fit.sigma), "output", "log2_measurement_means", paste0(item2, ".pdf")))
-    if ("measurement.stdevs" %in% ctrl@plot) plot_measurement_stdevs(fit.sigma, measurement_variances(fit.sigma, item, as.data.table = T), lims$measurement.variances, file = file.path(filepath(fit.sigma), "output", "log2_measurement_stdevs", paste0(item2, ".pdf")))
+    if ("measurement.stdevs" %in% ctrl@plot) plot_measurement_stdevs(fit.sigma, measurement_stdevs(fit.sigma, item, as.data.table = T), lims$measurement.stdevs, file = file.path(filepath(fit.sigma), "output", "log2_measurement_stdevs", paste0(item2, ".pdf")))
     return(NULL)
   }, nthread = ctrl@nthread)
 
@@ -46,9 +46,9 @@ setMethod("plots", "sigma_block", function(object, chain, job.id = NULL) {
     if (!("standardised.group.deviations" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "standardised.group.deviations*"), recursive = T)
     if (!("component.deviations" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "component.deviations*"), recursive = T)
     if (!("component.means" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "component.means*"), recursive = T)
-    if (!("component.variances" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "component.variances*"), recursive = T)
+    if (!("component.stdevs" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "component.stdevs*"), recursive = T)
     if (!("measurement.means" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "measurement.means*"), recursive = T)
-    if (!("measurement.variances" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "measurement.variances*"), recursive = T)
+    if (!("measurement.stdevs" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "measurement.stdevs*"), recursive = T)
   }
 
   return(invisible(NULL))

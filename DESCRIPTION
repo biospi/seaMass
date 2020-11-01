@@ -37,7 +37,8 @@ Imports:
     preprocessCore (>= 1.46.0),
     R.utils (>= 2.9.0),
     robust (>= 0.4-18.1),
-    utf8 (>= 1.1.4)
+    utf8 (>= 1.1.4),
+    uuid (>= 0.1-4)
 RoxygenNote: 7.1.1
 Collate: 
     'delta_control.R'

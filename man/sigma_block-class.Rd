@@ -18,16 +18,16 @@
 \alias{summary,sigma_block-method}
 \alias{timings,sigma_block-method}
 \alias{assay_means,sigma_block-method}
-\alias{assay_variances,sigma_block-method}
+\alias{assay_stdevs,sigma_block-method}
 \alias{assay_deviations,sigma_block-method}
 \alias{measurement_means,sigma_block-method}
-\alias{measurement_variances,sigma_block-method}
+\alias{measurement_stdevs,sigma_block-method}
 \alias{component_means,sigma_block-method}
-\alias{component_variances,sigma_block-method}
+\alias{component_stdevs,sigma_block-method}
 \alias{component_deviations,sigma_block-method}
 \alias{group_quants,sigma_block-method}
 \alias{normalised_group_means,sigma_block-method}
-\alias{normalised_group_variances,sigma_block-method}
+\alias{normalised_group_stdevs,sigma_block-method}
 \title{seaMass-Σ block}
 \usage{
 \S4method{filepath}{sigma_block}(object)
@@ -65,7 +65,7 @@
   as.data.table = FALSE
 )
 
-\S4method{assay_variances}{sigma_block}(object, input = "model1", as.data.table = FALSE)
+\S4method{assay_stdevs}{sigma_block}(object, input = "model1", as.data.table = FALSE)
 
 \S4method{assay_deviations}{sigma_block}(
   object,
@@ -85,7 +85,7 @@
   as.data.table = FALSE
 )
 
-\S4method{measurement_variances}{sigma_block}(
+\S4method{measurement_stdevs}{sigma_block}(
   object,
   groups = NULL,
   summary = FALSE,
@@ -103,7 +103,7 @@
   as.data.table = FALSE
 )
 
-\S4method{component_variances}{sigma_block}(
+\S4method{component_stdevs}{sigma_block}(
   object,
   groups = NULL,
   summary = FALSE,
@@ -139,7 +139,7 @@
   as.data.table = FALSE
 )
 
-\S4method{normalised_group_variances}{sigma_block}(
+\S4method{normalised_group_stdevs}{sigma_block}(
   object,
   groups = NULL,
   summary = FALSE,
@@ -181,24 +181,24 @@ The results of a seaMass-Σ block to a single block, returned by /link{seaMass_s
 
 \item \code{assay_means}: Get the model assay means as a \link{data.frame}.
 
-\item \code{assay_variances}: Get the model assay variances as a \link{data.frame}.
+\item \code{assay_stdevs}: Get the model assay stdevs as a \link{data.frame}.
 
 \item \code{assay_deviations}: Get the model assay deviations as a \link{data.frame}.
 
 \item \code{measurement_means}: Get the model measurement means as a \link{data.frame}.
 
-\item \code{measurement_variances}: Get the model measurement variances as a \link{data.frame}.
+\item \code{measurement_stdevs}: Get the model measurement stdevs as a \link{data.frame}.
 
 \item \code{component_means}: Get the model component means as a \link{data.frame}.
 
-\item \code{component_variances}: Get the model component variances as a \link{data.frame}.
+\item \code{component_stdevs}: Get the model component stdevs as a \link{data.frame}.
 
 \item \code{component_deviations}: Gets the model component deviations as a \link{data.frame}.
 
 \item \code{group_quants}: Get the model group quantifications as a \link{data.frame}.
 
-\item \code{normalised_group_means}: Get the model normalised group variances as a \link{data.frame}.
+\item \code{normalised_group_means}: Get the model normalised group stdevs as a \link{data.frame}.
 
-\item \code{normalised_group_variances}: Get the model normalised group variances as a \link{data.frame}.
+\item \code{normalised_group_stdevs}: Get the model normalised group stdevs as a \link{data.frame}.
 }}
 

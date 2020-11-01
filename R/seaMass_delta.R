@@ -109,7 +109,8 @@ open_delta <- function(fit, name = "fit", quiet = FALSE, force = FALSE) {
 setMethod("run", "seaMass_delta", function(object) {
   cat(paste0("[", Sys.time(), "]  running seaMass-delta with name=", name(object), " for sigma fit=", name(object@fit), "...\n"))
 
-  for (chain in 1:control(object)@model.nchain) process(object, chain)
+  job.id <- uuid::UUIDgenerate()
+  for (chain in 1:control(object)@model.nchain) process(object, chain, job.id)
 
   return(invisible(object))
 })

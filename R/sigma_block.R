@@ -215,18 +215,18 @@ setMethod("assay_means", "sigma_block", function(object, assays = NULL, summary 
 })
 
 
-#' @describeIn sigma_block Get the model assay variances as a \link{data.frame}.
+#' @describeIn sigma_block Get the model assay stdevs as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("assay_variances", "sigma_block", function(object, input = "model1", as.data.table = FALSE) {
+setMethod("assay_stdevs", "sigma_block", function(object, input = "model1", as.data.table = FALSE) {
   DT <- priors(object, input, as.data.table = T)
 
   if (!is.null(DT)) {
     DT <- cbind(
-      DT[Effect == "Assay", .(Block, Assay, v, df)],
-      DT[Effect == "Measurements", .(M_v = v, M_df = df)],
-      DT[Effect == "Components", .(C_v = v, C_df = df)]
+      DT[Effect == "Assay", .(Block, Assay, s, df)],
+      DT[Effect == "Measurements", .(M_s = s, M_df = df)],
+      DT[Effect == "Components", .(C_s = s, C_df = df)]
     )
   }
 
@@ -263,12 +263,12 @@ setMethod("measurement_means", "sigma_block", function(object, groups = NULL, su
 })
 
 
-#' @describeIn sigma_block Get the model measurement variances as a \link{data.frame}.
+#' @describeIn sigma_block Get the model measurement stdevs as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("measurement_variances", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- read_samples(object, input, "measurement.variances", groups, chains, summary, summary.func = "invchisq", as.data.table = as.data.table)
+setMethod("measurement_stdevs", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- read_samples(object, input, "measurement.stdevs", groups, chains, summary, summary.func = "invchi", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -289,12 +289,12 @@ setMethod("component_means", "sigma_block", function(object, groups = NULL, summ
 })
 
 
-#' @describeIn sigma_block Get the model component variances as a \link{data.frame}.
+#' @describeIn sigma_block Get the model component stdevs as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_variances", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- read_samples(object, input, "component.variances", groups, chains, summary, summary.func = "invchisq", as.data.table = as.data.table)
+setMethod("component_stdevs", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- read_samples(object, input, "component.stdevs", groups, chains, summary, summary.func = "invchi", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -341,7 +341,7 @@ setMethod("group_means", "sigma_block", function(object, groups = NULL, summary 
 })
 
 
-#' @describeIn sigma_block Get the model normalised group variances as a \link{data.frame}.
+#' @describeIn sigma_block Get the model normalised group stdevs as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
@@ -354,12 +354,12 @@ setMethod("normalised_group_means", "sigma_block", function(object, groups = NUL
 })
 
 
-#' @describeIn sigma_block Get the model normalised group variances as a \link{data.frame}.
+#' @describeIn sigma_block Get the model normalised group stdevs as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("normalised_group_variances", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- read_samples(object, input, "normalised.group.variances", groups, chains, summary, summary.func = "invchisq", as.data.table = as.data.table)
+setMethod("normalised_group_stdevs", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+  DT <- read_samples(object, input, "normalised.group.stdevs", groups, chains, summary, summary.func = "invchi", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -436,7 +436,7 @@ setMethod("plot_normalised_group_means", "sigma_block", function(object, data, l
 #' @export
 #' @include generics.R
 setMethod("plot_normalised_group_stdevs", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = "Group", label.cols = "Group", horizontal = TRUE, colour = "qC.G", fill = "qC.G", file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length, trans = scales::sqrt_trans()))
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length))
 })
 
 
@@ -468,7 +468,7 @@ setMethod("plot_component_means", "sigma_block", function(object, data, limits =
 #' @export
 #' @include generics.R
 setMethod("plot_component_stdevs", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Component"), label.cols = "Component", horizontal = TRUE, colour = "qM.C", fill = "qM.C", file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length, trans = scales::sqrt_trans()))
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length))
 })
 
 
@@ -484,5 +484,5 @@ setMethod("plot_measurement_means", "sigma_block", function(object, data, limits
 #' @export
 #' @include generics.R
 setMethod("plot_measurement_stdevs", "sigma_block", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Component", "Measurement"), label.cols = c("Component", "Measurement"), horizontal = TRUE, colour = "qD.M", fill = "qD.M", file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length, trans = scales::sqrt_trans()))
+  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length))
 })

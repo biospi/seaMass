@@ -158,7 +158,7 @@ data.design$Assay <- factor(c(
 ))
 ```
 
-seaMass-Σ computes raw protein group quants (together with peptide deviations from the protein group quants, and peptide/feature variances) for each block. To allow comparisons to be made across blocks (standardisation), and optionally normalisation and/or false discovery rate controlled differential expression analysis, run seaMass-Δ on the *seaMass_sigma_fits* object returned by seaMass-Σ. Firstly, define which assays will be used as references: 
+seaMass-Σ computes raw protein group quants (together with peptide deviations from the protein group quants, and peptide/feature stdevs) for each block. To allow comparisons to be made across blocks (standardisation), and optionally normalisation and/or false discovery rate controlled differential expression analysis, run seaMass-Δ on the *seaMass_sigma_fits* object returned by seaMass-Σ. Firstly, define which assays will be used as references: 
 
 ```
 # Define reference weights for each block

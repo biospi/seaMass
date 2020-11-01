@@ -132,10 +132,10 @@ limits_dists <- function(data, probs = c(0.005, 0.995), include.zero = FALSE) {
       xs <- extraDistr::rlst(1048576, dd$df, dd$PosteriorMean, dd$PosteriorSD)
     } else if ("m" %in% colnames(dd)) {
       xs <- extraDistr::rlst(1048576, dd$df, dd$m, dd$s)
-    } else if ("v" %in% colnames(dd)) {
-      xs <- extraDistr::rinvchisq(1048576, dd$df, dd$v)
-    } else {
+    } else if ("value" %in% colnames(dd)) {
       xs <- dd$value
+    } else {
+      xs <- rinvchi(1048576, dd$df, dd$s)
     }
 
     lim <- quantile(xs, probs = probs, na.rm = T)
@@ -162,7 +162,7 @@ limits_dists <- function(data, probs = c(0.005, 0.995), include.zero = FALSE) {
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = NULL, label.cols = NULL, title = NULL, value.label = "value", horizontal = TRUE, colour = NULL, fill = NULL, file = NULL, value.length = 120, level.length = 5, trans = scales::identity_trans()) {
+setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = NULL, label.cols = NULL, title = NULL, value.label = "value", horizontal = TRUE, colour = NULL, fill = NULL, file = NULL, value.length = 120, level.length = 5) {
   library(extraDistr)
 
   if (is.data.frame(data)) {
@@ -175,12 +175,12 @@ setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha =
   if ("PosteriorMean" %in% colnames(DTs[[1]]) || "m" %in% colnames(DTs[[1]])) {
     summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "m") - 1)]
     summary.cols2 <- setdiff(colnames(DTs[[1]]), c(summary.cols, "m", "s", "df", "rhat"))
-  } else if ("v" %in% colnames(DTs[[1]])) {
-    summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "v") - 1)]
-    summary.cols2 <- setdiff(colnames(DTs[[1]]), c(summary.cols, "v", "df", "rhat"))
-  } else {
+  } else if ("value" %in% colnames(DTs[[1]])) {
     summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "chain") - 1)]
     summary.cols2 <- setdiff(colnames(DTs[[1]]), c(summary.cols, "chain", "sample", "value"))
+  } else {
+    summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "s") - 1)]
+    summary.cols2 <- setdiff(colnames(DTs[[1]]), c(summary.cols, "s", "df", "rhat"))
   }
 
   # metadata for each column level
@@ -224,14 +224,12 @@ setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha =
   if (horizontal) {
     g <- ggplot2::ggplot(DT1, ggplot2::aes(y = Summary))
     g <- g + ggplot2::xlab(paste("log2", value.label))
-    g <- g + ggplot2::scale_x_continuous(trans = trans, breaks = scales::trans_breaks(trans$trans, trans$inv), labels = scales::trans_format(trans$trans, scales::number_format()))
     g <- g + ggplot2::coord_cartesian(xlim = limits, ylim = c(0.5, nlevels(DT1$Summary) + 0.5), expand = F)
     g <- g + ggplot2::theme(legend.position = "bottom", axis.title.y = ggplot2::element_blank(), strip.text = ggplot2::element_text(angle = 0, hjust = 0))
   } else {
     g <- ggplot2::ggplot(DT1, ggplot2::aes(x = Summary))
     g <- g + ggplot2::ylab(paste("log2", value.label))
     g <- g + ggplot2::scale_x_discrete(expand = ggplot2::expansion())
-    g <- g + ggplot2::scale_y_continuous(trans = trans, breaks = scales::trans_breaks(trans$trans, trans$inv), labels = scales::trans_format(trans$trans, scales::number_format()))
     g <- g + ggplot2::coord_cartesian(ylim = limits, expand = F)
     g <- g + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "left", axis.title.x = ggplot2::element_blank(), strip.text = ggplot2::element_text(angle = 0, hjust = 0))
   }
@@ -276,12 +274,12 @@ setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha =
     } else if ("m" %in% colnames(DTs[[i]])) {
       value <- "m"
       summary.cols2 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "m") - 1)]
-    } else if ("v" %in% colnames(DTs[[i]])) {
-      value <- "v"
-      summary.cols2 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "v") - 1)]
-    } else {
+    } else if ("value" %in% colnames(DTs[[i]])) {
       value <- "value"
       summary.cols2 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "chain") - 1)]
+    } else {
+      value <- "s"
+      summary.cols2 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "s") - 1)]
     }
 
     DTs[[i]] <- merge(DT1[, unique(cols), with = F], DTs[[i]], by = intersect(summary.cols, summary.cols2), sort = F)
@@ -305,8 +303,8 @@ setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha =
           if (is.null(limits) || limits[1] < 0) g <- g + ggdist::stat_dist_cdfinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg1 = "df", arg2 = value, arg3 = ifelse(value == "m", "s", "PosteriorSD"), fill = fill_), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(NA, 0), p_limits = c(0.025, 0.975))
           g <- g + ggdist::stat_dist_pointinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg1 = "df", arg2 = value, arg3 = ifelse(value == "m", "s", "PosteriorSD"), colour = colour_), DTs[[i]], point_size = 1.5, interval_size_range = c(0.5, 1), position = ggplot2::position_nudge(y = positions[i]))
         }
-      } else if (value == "v") {
-        dist <- "invchisq"
+      } else if (value == "s") {
+        dist <- "invchi"
         if (i > 1) {
           g <- g + ggdist::stat_dist_pointinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg1 = "df", arg2 = value), DTs[[i]], colour = colours[i], point_size = 1.5, interval_size_range = c(0.5, 1), position = ggplot2::position_nudge(y = positions[i]))
         } else if (is.null(fill_)) {

@@ -15,9 +15,9 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     if (ctrl@eb.model == "") {
       DT.priors <- NULL
     } else if (ctrl@eb.model == "fit") {
-      DT.priors[Effect == "Measurements"]$v <- DT.priors[Effect == "Measurements", v0]
+      DT.priors[Effect == "Measurements"]$s <- DT.priors[Effect == "Measurements", s0]
       DT.priors[Effect == "Measurements"]$df <- DT.priors[Effect == "Measurements", df0]
-      DT.priors[Effect == "Components"]$v <- DT.priors[Effect == "Components", v0]
+      DT.priors[Effect == "Components"]$s <- DT.priors[Effect == "Components", s0]
       DT.priors[Effect == "Components"]$df <- DT.priors[Effect == "Components", df0]
     }
   }
@@ -26,11 +26,11 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
   dir.create(file.path(filepath(object), input, "timings"), showWarnings = F)
   if ("summaries" %in% ctrl@keep) dir.create(file.path(filepath(object), input, "summaries"), showWarnings = F)
 
-  unlink(file.path(filepath(object), input, "dist_*.measurement.variances.fst"))
-  unlink(file.path(filepath(object), input, "dist_*.component.variances.fst"))
+  unlink(file.path(filepath(object), input, "dist_*.measurement.stdevs.fst"))
+  unlink(file.path(filepath(object), input, "dist_*.component.stdevs.fst"))
   unlink(file.path(filepath(object), input, "dist_*.assay.deviations.fst"))
-  dir.create(file.path(filepath(object), input, "measurement.variances"), showWarnings = F)
-  dir.create(file.path(filepath(object), input, "component.variances"), showWarnings = F)
+  dir.create(file.path(filepath(object), input, "measurement.stdevs"), showWarnings = F)
+  dir.create(file.path(filepath(object), input, "component.stdevs"), showWarnings = F)
   dir.create(file.path(filepath(object), input, "assay.deviations"), showWarnings = F)
 
   if (input != "model0" || "model0" %in% ctrl@keep) {
@@ -76,14 +76,14 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       if (is.null(DT.priors)) {
         prior.rcov <- list(V = 1, nu = 0.02)
       } else {
-        prior.rcov <- list(V = (log(2) * sqrt(DT.priors[Effect == "Measurements", v]))^2, nu = DT.priors[Effect == "Measurements", df])
+        prior.rcov <- list(V = (log(2) * DT.priors[Effect == "Measurements", s])^2, nu = DT.priors[Effect == "Measurements", df])
       }
     } else {
       rcov <- as.formula("~idh(Measurement):units")
       if (is.null(DT.priors)) {
         prior.rcov <- list(V = diag(nM), nu = 0.02)
       } else {
-        prior.rcov <- list(V = (log(2) * sqrt(DT.priors[Effect == "Measurements", v]))^2 * diag(nM), nu = DT.priors[Effect == "Measurements", df])
+        prior.rcov <- list(V = (log(2) * DT.priors[Effect == "Measurements", s])^2 * diag(nM), nu = DT.priors[Effect == "Measurements", df])
       }
     }
 
@@ -95,14 +95,14 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       if (is.null(DT.priors)) {
         prior.component <- list(Component = list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2))
       } else {
-        prior.component <- list(Component = list(V = (log(2) * sqrt(DT.priors[Effect == "Components", v]))^2, nu = DT.priors[Effect == "Components", df]))
+        prior.component <- list(Component = list(V = (log(2) * DT.priors[Effect == "Components", s])^2, nu = DT.priors[Effect == "Components", df]))
       }
     } else {
       random.component <- "idh(Component):Assay"
       if (is.null(DT.priors)) {
         prior.component <- list(Component = list(V = diag(nC), nu = nC, alpha.mu = rep(0, nC), alpha.V = diag(25^2, nC)))
       } else {
-        prior.component <- list(Component = list(V = (log(2) * sqrt(DT.priors[Effect == "Components", v]))^2 * diag(nC), nu = DT.priors[Effect == "Components", df]))
+        prior.component <- list(Component = list(V = (log(2) * DT.priors[Effect == "Components", s])^2 * diag(nC), nu = DT.priors[Effect == "Components", df]))
       }
     }
 
@@ -116,7 +116,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
         prior.assay <- lapply(levels(DT$Assay), function(a) list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2))
       } else {
         DT.priors[, Assay := factor(Assay, levels = levels(DT$Assay))]
-        prior.assay <- lapply(levels(DT$Assay), function(a) list(V = (log(2) * sqrt(DT.priors[Assay == a, v]))^2, nu = DT.priors[Assay == a, df]))
+        prior.assay <- lapply(levels(DT$Assay), function(a) list(V = (log(2) * DT.priors[Assay == a, s])^2, nu = DT.priors[Assay == a, df]))
       }
       names(prior.assay) <- paste0("Assay", levels(DT$Assay))
     } else {
@@ -126,7 +126,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
         prior.assay <- lapply(levels(DT$Assay), function(a) list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2))
       } else {
         DT.priors[, Assay := factor(Assay, levels = levels(DT$Assay))]
-        prior.assay <- lapply(levels(DT$Assay), function(a) list(V = (log(2) * sqrt(DT.priors[Assay == a, v]))^2, nu = DT.priors[Assay == a, df]))
+        prior.assay <- lapply(levels(DT$Assay), function(a) list(V = (log(2) * DT.priors[Assay == a, s])^2, nu = DT.priors[Assay == a, df]))
       }
       names(prior.assay) <- paste0("Assay", levels(DT$Assay))
     }
@@ -281,10 +281,6 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
         colnames(output$DT.component.means) <- "value"
         output$DT.component.means[, Component := as.integer(as.character(DT[1, Component]))]
         output$DT.component.means[, sample := 1:nrow(output$DT.component.means)]
-        output$DT.component.means[, chain := chain]
-        output$DT.component.means[, value := value / log(2)]
-        output$DT.component.means[, Group := group]
-        setcolorder(output$DT.component.means, c("Group", "Component", "chain", "sample"))
       } else {
         # do each level separately otherwise huge memory problem
         newlevs <- sub("\\..+$", "", levels(DT$Measurement))
@@ -353,61 +349,61 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     # conserve memory
     fit.model$Sol <- NULL
 
-    ### EXTRACT MEASUREMENT VARIANCES
-    if (input == "model0" || "measurement.variances" %in% ctrl@summarise || "measurement.variances" %in% ctrl@keep) {
+    ### EXTRACT MEASUREMENT STDEVS
+    if (input == "model0" || "measurement.stdevs" %in% ctrl@summarise || "measurement.stdevs" %in% ctrl@keep) {
       if (ctrl@measurement.model == "single" || nM == 1) {
-        output$DT.measurement.variances <- as.data.table(fit.model$VCV[, "units", drop = F])
+        output$DT.measurement.stdevs <- as.data.table(fit.model$VCV[, "units", drop = F])
       } else {
-        output$DT.measurement.variances <- as.data.table(fit.model$VCV[, grep("^Measurement.+\\..+\\.units$", colnames(fit.model$VCV)), drop = F])
+        output$DT.measurement.stdevs <- as.data.table(fit.model$VCV[, grep("^Measurement.+\\..+\\.units$", colnames(fit.model$VCV)), drop = F])
       }
-      output$DT.measurement.variances[, sample := 1:nrow(output$DT.measurement.variances)]
-      output$DT.measurement.variances <- melt(output$DT.measurement.variances, id.vars = "sample")
+      output$DT.measurement.stdevs[, sample := 1:nrow(output$DT.measurement.stdevs)]
+      output$DT.measurement.stdevs <- melt(output$DT.measurement.stdevs, id.vars = "sample")
 
       # component and measurement
       if (ctrl@measurement.model == "single") {
-        output$DT.measurement.variances[, Component := group]
-        output$DT.measurement.variances[, Measurement := group]
+        output$DT.measurement.stdevs[, Component := group]
+        output$DT.measurement.stdevs[, Measurement := group]
       } else if (nM == 1) {
-        output$DT.measurement.variances[, Component := as.integer(as.character(DT[1, Component]))]
-        output$DT.measurement.variances[, Measurement := as.integer(sub("^.+\\.(.+)$", "\\1", as.character(DT[1, Measurement])))]
+        output$DT.measurement.stdevs[, Component := as.integer(as.character(DT[1, Component]))]
+        output$DT.measurement.stdevs[, Measurement := as.integer(sub("^.+\\.(.+)$", "\\1", as.character(DT[1, Measurement])))]
       } else {
-        output$DT.measurement.variances[, Component := as.integer(sub("^Measurement(.+)\\..+\\.units", "\\1", variable))]
-        output$DT.measurement.variances[, Measurement := as.integer(sub("^Measurement.+\\.(.+)\\.units", "\\1", variable))]
+        output$DT.measurement.stdevs[, Component := as.integer(sub("^Measurement(.+)\\..+\\.units", "\\1", variable))]
+        output$DT.measurement.stdevs[, Measurement := as.integer(sub("^Measurement.+\\.(.+)\\.units", "\\1", variable))]
       }
 
       # rest
-      output$DT.measurement.variances[, Group := group]
-      output$DT.measurement.variances[, chain := chain]
-      output$DT.measurement.variances[, value := (sqrt(value) / log(2))^2]
-      output$DT.measurement.variances[, variable := NULL]
-      setcolorder(output$DT.measurement.variances, c("Group", "Component", "Measurement", "chain", "sample"))
+      output$DT.measurement.stdevs[, Group := group]
+      output$DT.measurement.stdevs[, chain := chain]
+      output$DT.measurement.stdevs[, value := sqrt(value) / log(2)]
+      output$DT.measurement.stdevs[, variable := NULL]
+      setcolorder(output$DT.measurement.stdevs, c("Group", "Component", "Measurement", "chain", "sample"))
     }
 
-    # EXTRACT COMPONENT VARIANCES
-    if (ctrl@component.model != "" && (input == "model0" || "component.variances" %in% ctrl@summarise || "component.variances" %in% ctrl@keep)) {
+    # EXTRACT COMPONENT STDEVS
+    if (ctrl@component.model != "" && (input == "model0" || "component.stdevs" %in% ctrl@summarise || "component.stdevs" %in% ctrl@keep)) {
       if (ctrl@component.model == "single" || nC == 1) {
-        output$DT.component.variances <- as.data.table(fit.model$VCV[, "Component:Assay", drop = F])
+        output$DT.component.stdevs <- as.data.table(fit.model$VCV[, "Component:Assay", drop = F])
       } else {
-        output$DT.component.variances <- as.data.table(fit.model$VCV[, grep("^Component.+\\.Assay$", colnames(fit.model$VCV)), drop = F])
+        output$DT.component.stdevs <- as.data.table(fit.model$VCV[, grep("^Component.+\\.Assay$", colnames(fit.model$VCV)), drop = F])
       }
-      output$DT.component.variances[, sample := 1:nrow(output$DT.component.variances)]
-      output$DT.component.variances <- melt(output$DT.component.variances, id.vars = "sample")
+      output$DT.component.stdevs[, sample := 1:nrow(output$DT.component.stdevs)]
+      output$DT.component.stdevs <- melt(output$DT.component.stdevs, id.vars = "sample")
 
       # component
       if (ctrl@component.model == "single") {
-        output$DT.component.variances[, Component := group]
+        output$DT.component.stdevs[, Component := group]
       } else if (nC == 1) {
-        output$DT.component.variances[, Component := as.integer(as.character(DT[1, Component]))]
+        output$DT.component.stdevs[, Component := as.integer(as.character(DT[1, Component]))]
       } else {
-        output$DT.component.variances[, Component := as.integer(sub("^Component(.+)\\.Assay$", "\\1", variable))]
+        output$DT.component.stdevs[, Component := as.integer(sub("^Component(.+)\\.Assay$", "\\1", variable))]
       }
 
       # rest
-      output$DT.component.variances[, Group := group]
-      output$DT.component.variances[, chain := chain]
-      output$DT.component.variances[, value := (sqrt(value) / log(2))^2]
-      output$DT.component.variances[, variable := NULL]
-      setcolorder(output$DT.component.variances, c("Group", "Component", "chain", "sample"))
+      output$DT.component.stdevs[, Group := group]
+      output$DT.component.stdevs[, chain := chain]
+      output$DT.component.stdevs[, value := sqrt(value) / log(2)]
+      output$DT.component.stdevs[, variable := NULL]
+      setcolorder(output$DT.component.stdevs, c("Group", "Component", "chain", "sample"))
     }
 
     ### WRITE OUT
@@ -566,51 +562,51 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       }
     }
 
-    # if large enough write out measurement variances now to conserve memory, otherwise don't to conserve disk space
-    if (object.size(output$DT.measurement.variances) > 2^18) {
-      filename <- file.path("measurement.variances", paste0(chain, ".", group, ".fst"))
-      fst::write.fst(output$DT.measurement.variances, file.path(filepath(object), input, filename))
+    # if large enough write out measurement stdevs now to conserve memory, otherwise don't to conserve disk space
+    if (object.size(output$DT.measurement.stdevs) > 2^18) {
+      filename <- file.path("measurement.stdevs", paste0(chain, ".", group, ".fst"))
+      fst::write.fst(output$DT.measurement.stdevs, file.path(filepath(object), input, filename))
 
       if (chain == 1) {
         # construct index
-        output$DT.index.measurement.variances <- output$DT.measurement.variances[, .(
-          from = .I[!duplicated(output$DT.measurement.variances, by = c("Group", "Component", "Measurement"))],
-          to = .I[!duplicated(output$DT.measurement.variances, fromLast = T, by = c("Group", "Component", "Measurement"))]
+        output$DT.index.measurement.stdevs <- output$DT.measurement.stdevs[, .(
+          from = .I[!duplicated(output$DT.measurement.stdevs, by = c("Group", "Component", "Measurement"))],
+          to = .I[!duplicated(output$DT.measurement.stdevs, fromLast = T, by = c("Group", "Component", "Measurement"))]
         )]
-        output$DT.index.measurement.variances <- cbind(
-          output$DT.measurement.variances[output$DT.index.measurement.variances$from, .(Group, Component, Measurement)],
+        output$DT.index.measurement.stdevs <- cbind(
+          output$DT.measurement.stdevs[output$DT.index.measurement.stdevs$from, .(Group, Component, Measurement)],
           data.table(file = factor(filename)),
-          output$DT.index.measurement.variances
+          output$DT.index.measurement.stdevs
         )
       }
 
-      output$DT.measurement.variances <- data.table()
+      output$DT.measurement.stdevs <- data.table()
     } else {
-      if (chain == 1) output$DT.index.measurement.variances <- data.table()
+      if (chain == 1) output$DT.index.measurement.stdevs <- data.table()
     }
 
-    # if large enough write out component variances now to conserve memory, otherwise don't to conserve disk space
-    if ("DT.component.variances" %in% names(output)) {
-      if (object.size(output$DT.component.variances) > 2^18) {
-        filename <- file.path("component.variances", paste0(chain, ".", group, ".fst"))
-        fst::write.fst(output$DT.component.variances, file.path(filepath(object), input, filename))
+    # if large enough write out component stdevs now to conserve memory, otherwise don't to conserve disk space
+    if ("DT.component.stdevs" %in% names(output)) {
+      if (object.size(output$DT.component.stdevs) > 2^18) {
+        filename <- file.path("component.stdevs", paste0(chain, ".", group, ".fst"))
+        fst::write.fst(output$DT.component.stdevs, file.path(filepath(object), input, filename))
 
         if (chain == 1) {
           # construct index
-          output$DT.index.component.variances <- output$DT.component.variances[, .(
-            from = .I[!duplicated(output$DT.component.variances, by = c("Group", "Component"))],
-            to = .I[!duplicated(output$DT.component.variances, fromLast = T, by = c("Group", "Component"))]
+          output$DT.index.component.stdevs <- output$DT.component.stdevs[, .(
+            from = .I[!duplicated(output$DT.component.stdevs, by = c("Group", "Component"))],
+            to = .I[!duplicated(output$DT.component.stdevs, fromLast = T, by = c("Group", "Component"))]
           )]
-          output$DT.index.component.variances <- cbind(
-            output$DT.component.variances[output$DT.index.component.variances$from, .(Group, Component)],
+          output$DT.index.component.stdevs <- cbind(
+            output$DT.component.stdevs[output$DT.index.component.stdevs$from, .(Group, Component)],
             data.table(file = factor(filename)),
-            output$DT.index.component.variances
+            output$DT.index.component.stdevs
           )
         }
 
-        output$DT.component.variances <- data.table()
+        output$DT.component.stdevs <- data.table()
       } else {
-        if (chain == 1) output$DT.index.component.variances <- data.table()
+        if (chain == 1) output$DT.index.component.stdevs <- data.table()
       }
     }
 
@@ -843,87 +839,87 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     }
   }
 
-  # write out measurement variances
-  if ("DT.measurement.variances" %in% names(outputs)) {
-    if (nrow(outputs$DT.measurement.variances) > 0) {
-      # write out remaining measurement variances
+  # write out measurement stdevs
+  if ("DT.measurement.stdevs" %in% names(outputs)) {
+    if (nrow(outputs$DT.measurement.stdevs) > 0) {
+      # write out remaining measurement stdevs
       if(ctrl@measurement.model == "independent") {
-        setorder(outputs$DT.measurement.variances, Group, Component, Measurement, chain, sample)
-        filename <- file.path("measurement.variances", paste0(chain, ".fst"))
-        fst::write.fst(outputs$DT.measurement.variances, file.path(filepath(object), input, filename))
+        setorder(outputs$DT.measurement.stdevs, Group, Component, Measurement, chain, sample)
+        filename <- file.path("measurement.stdevs", paste0(chain, ".fst"))
+        fst::write.fst(outputs$DT.measurement.stdevs, file.path(filepath(object), input, filename))
         # finish index construction
         if (chain == 1) {
-          DT.index.measurement.variances <- outputs$DT.measurement.variances[, .(
-            from = .I[!duplicated(outputs$DT.measurement.variances, by = c("Group", "Component", "Measurement"))],
-            to = .I[!duplicated(outputs$DT.measurement.variances, fromLast = T, by = c("Group", "Component", "Measurement"))]
+          DT.index.measurement.stdevs <- outputs$DT.measurement.stdevs[, .(
+            from = .I[!duplicated(outputs$DT.measurement.stdevs, by = c("Group", "Component", "Measurement"))],
+            to = .I[!duplicated(outputs$DT.measurement.stdevs, fromLast = T, by = c("Group", "Component", "Measurement"))]
           )]
-          outputs$DT.index.measurement.variances <- rbind(outputs$DT.index.measurement.variances, cbind(
-            outputs$DT.measurement.variances[DT.index.measurement.variances$from, .(Group, Component, Measurement)],
+          outputs$DT.index.measurement.stdevs <- rbind(outputs$DT.index.measurement.stdevs, cbind(
+            outputs$DT.measurement.stdevs[DT.index.measurement.stdevs$from, .(Group, Component, Measurement)],
             data.table(file = factor(filename)),
-            DT.index.measurement.variances
+            DT.index.measurement.stdevs
           ))
         }
       } else {
-        setorder(outputs$DT.measurement.variances, Group, chain, sample)
-        filename <- file.path("measurement.variances", paste0(chain, ".fst"))
-        fst::write.fst(outputs$DT.measurement.variances, file.path(filepath(object), input, filename))
+        setorder(outputs$DT.measurement.stdevs, Group, chain, sample)
+        filename <- file.path("measurement.stdevs", paste0(chain, ".fst"))
+        fst::write.fst(outputs$DT.measurement.stdevs, file.path(filepath(object), input, filename))
         # finish index construction
         if (chain == 1) {
-          DT.index.measurement.variances <- outputs$DT.measurement.variances[, .(
-            from = .I[!duplicated(outputs$DT.measurement.variances, by = c("Group"))],
-            to = .I[!duplicated(outputs$DT.measurement.variances, fromLast = T, by = c("Group"))]
+          DT.index.measurement.stdevs <- outputs$DT.measurement.stdevs[, .(
+            from = .I[!duplicated(outputs$DT.measurement.stdevs, by = c("Group"))],
+            to = .I[!duplicated(outputs$DT.measurement.stdevs, fromLast = T, by = c("Group"))]
           )]
-          outputs$DT.index.measurement.variances <- rbind(outputs$DT.index.measurement.variances, cbind(
-            outputs$DT.measurement.variances[DT.index.measurement.variances$from, .(Group)],
+          outputs$DT.index.measurement.stdevs <- rbind(outputs$DT.index.measurement.stdevs, cbind(
+            outputs$DT.measurement.stdevs[DT.index.measurement.stdevs$from, .(Group)],
             data.table(file = factor(filename)),
-            DT.index.measurement.variances
+            DT.index.measurement.stdevs
           ))
         }
       }
-      outputs$DT.measurement.variances <- NULL
+      outputs$DT.measurement.stdevs <- NULL
     }
     # write index
     if (chain == 1) {
       if(ctrl@measurement.model == "independent") {
-        outputs$DT.index.measurement.variances[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
-        outputs$DT.index.measurement.variances[, Component := factor(Component, levels = 1:nlevels(DT.components[, Component]), labels = levels(DT.components[, Component]))]
-        outputs$DT.index.measurement.variances[, Measurement := factor(Measurement, levels = 1:nlevels(DT.measurements[, Measurement]), labels = levels(DT.measurements[, Measurement]))]
-        setkey(outputs$DT.index.measurement.variances, Group, file, from)
-        fst::write.fst(outputs$DT.index.measurement.variances, file.path(filepath(object), input, paste0("measurement.variances.index.fst")))
+        outputs$DT.index.measurement.stdevs[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
+        outputs$DT.index.measurement.stdevs[, Component := factor(Component, levels = 1:nlevels(DT.components[, Component]), labels = levels(DT.components[, Component]))]
+        outputs$DT.index.measurement.stdevs[, Measurement := factor(Measurement, levels = 1:nlevels(DT.measurements[, Measurement]), labels = levels(DT.measurements[, Measurement]))]
+        setkey(outputs$DT.index.measurement.stdevs, Group, file, from)
+        fst::write.fst(outputs$DT.index.measurement.stdevs, file.path(filepath(object), input, paste0("measurement.stdevs.index.fst")))
       } else {
-        outputs$DT.index.measurement.variances[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
-        setkey(outputs$DT.index.measurement.variances, Group, file, from)
-        fst::write.fst(outputs$DT.index.measurement.variances, file.path(filepath(object), input, paste0("measurement.variances.index.fst")))
+        outputs$DT.index.measurement.stdevs[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
+        setkey(outputs$DT.index.measurement.stdevs, Group, file, from)
+        fst::write.fst(outputs$DT.index.measurement.stdevs, file.path(filepath(object), input, paste0("measurement.stdevs.index.fst")))
       }
     }
   }
 
-  # write out component variances
-  if ("DT.component.variances" %in% names(outputs)) {
-    if (nrow(outputs$DT.component.variances) > 0) {
-      setorder(outputs$DT.component.variances, Group, Component, chain, sample)
-      filename <- file.path("component.variances", paste0(chain, ".fst"))
-      fst::write.fst(outputs$DT.component.variances, file.path(filepath(object), input, filename))
+  # write out component stdevs
+  if ("DT.component.stdevs" %in% names(outputs)) {
+    if (nrow(outputs$DT.component.stdevs) > 0) {
+      setorder(outputs$DT.component.stdevs, Group, Component, chain, sample)
+      filename <- file.path("component.stdevs", paste0(chain, ".fst"))
+      fst::write.fst(outputs$DT.component.stdevs, file.path(filepath(object), input, filename))
       # finish index construction
       if (chain == 1) {
-        DT.index.component.variances <- outputs$DT.component.variances[, .(
-          from = .I[!duplicated(outputs$DT.component.variances, by = c("Group", "Component"))],
-          to = .I[!duplicated(outputs$DT.component.variances, fromLast = T, by = c("Group", "Component"))]
+        DT.index.component.stdevs <- outputs$DT.component.stdevs[, .(
+          from = .I[!duplicated(outputs$DT.component.stdevs, by = c("Group", "Component"))],
+          to = .I[!duplicated(outputs$DT.component.stdevs, fromLast = T, by = c("Group", "Component"))]
         )]
-        outputs$DT.index.component.variances <- rbind(outputs$DT.index.component.variances, cbind(
-          outputs$DT.component.variances[DT.index.component.variances$from, .(Group, Component)],
+        outputs$DT.index.component.stdevs <- rbind(outputs$DT.index.component.stdevs, cbind(
+          outputs$DT.component.stdevs[DT.index.component.stdevs$from, .(Group, Component)],
           data.table(file = factor(filename)),
-          DT.index.component.variances
+          DT.index.component.stdevs
         ))
       }
-      outputs$DT.component.variances <- NULL
+      outputs$DT.component.stdevs <- NULL
     }
     # write index
     if (chain == 1) {
-      outputs$DT.index.component.variances[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
-      outputs$DT.index.component.variances[, Component := factor(Component, levels = 1:nlevels(DT.components[, Component]), labels = levels(DT.components[, Component]))]
-      setkey(outputs$DT.index.component.variances, Group, file, from)
-      fst::write.fst(outputs$DT.index.component.variances, file.path(filepath(object), input, paste0("component.variances.index.fst")))
+      outputs$DT.index.component.stdevs[, Group := factor(Group, levels = 1:nlevels(DT.groups[, Group]), labels = levels(DT.groups[, Group]))]
+      outputs$DT.index.component.stdevs[, Component := factor(Component, levels = 1:nlevels(DT.components[, Component]), labels = levels(DT.components[, Component]))]
+      setkey(outputs$DT.index.component.stdevs, Group, file, from)
+      fst::write.fst(outputs$DT.index.component.stdevs, file.path(filepath(object), input, paste0("component.stdevs.index.fst")))
     }
   }
 

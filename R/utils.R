@@ -97,7 +97,7 @@ stop_parallel <- function() {
 
 
 increment_completed <- function(path, name = "complete", job.id = NULL) {
-  filename <- file.path(path, paste0(name, ifelse(is.null(job.id), "", paste0(".", job.id))))
+  filename <- file.path(path, paste0(name, ifelse(is.null(job.id), "", paste0(".", sub("^(.*)\\[.*$", "\\1", job.id)))))
   lock <- filelock::lock(paste0(filename, ".lock"), timeout = 10000)
   if (file.exists(paste0(filename, ".rds"))) {
     cp <- readRDS(paste0(filename, ".rds")) + 1
@@ -112,7 +112,7 @@ increment_completed <- function(path, name = "complete", job.id = NULL) {
 
 
 read_completed <- function(path, name = "complete", job.id = NULL) {
-  filename <- file.path(path, paste0(name, ifelse(is.null(job.id), "", paste0(".", job.id))))
+  filename <- file.path(path, paste0(name, ifelse(is.null(job.id), "", paste0(".", sub("^(.*)\\[.*$", "\\1", job.id)))))
   if (file.exists(paste0(filename, ".rds"))) {
     lock <- filelock::lock(paste0(filename, ".lock"), F, 10000)
     cp <- readRDS(paste0(filename, ".rds"))

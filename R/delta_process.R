@@ -1,7 +1,7 @@
 #' @import data.table
 #' @include generics.R
 #' @include seaMass_delta.R
-setMethod("process", "seaMass_delta", function(object, chain, job.id = NULL) {
+setMethod("process", "seaMass_delta", function(object, chain, job.id) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))
     stop(paste0("version mismatch - '", name(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
