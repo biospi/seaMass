@@ -288,6 +288,37 @@ seaMass_sigma <- function(
 }
 
 
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("finish", "seaMass_sigma", function(object) {
+  ctrl <- control(object)
+
+  # delete model0
+  if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "component.stdevs*"), recursive = T)
+  if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "measurement.stdevs*"), recursive = T)
+  if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "assay.deviations*"), recursive = T)
+
+  # delete model1
+  if (!("measurement.means" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "measurement.means*"), recursive = T)
+  if (!("measurement.stdevs" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "measurement.stdevs*"), recursive = T)
+  if (!("component.means" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "component.means*"), recursive = T)
+  if (!("component.stdevs" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "component.stdevs*"), recursive = T)
+  if (!("assay.means" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "assay.means*"), recursive = T)
+  if (!("assay.deviations" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "assay.deviations*"), recursive = T)
+  if (!("component.deviations" %in% ctrl@keep || "component.deviations" %in% ctrl@plot)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "component.deviations*"), recursive = T)
+  if (!("group.means" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "group.means*"), recursive = T)
+  if (!("group.quants" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "group.quants*"), recursive = T)
+  if (!("normalised.group.means" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "normalised.group.means*"), recursive = T)
+  if (!("normalised.group.stdevs" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "normalised.group.stdevs*"), recursive = T)
+  if (!("normalised.group.quants" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "normalised.group.quants*"), recursive = T)
+  if (!("standardised.group.deviations" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "standardised.group.deviations*"), recursive = T)
+
+  increment_completed(file.path(filepath(object), "sigma"))
+  return(invisible(NULL))
+})
+
+
 #' @describeIn seaMass_sigma-class Open a complete \code{seaMass_sigma} run from the supplied \code{path}.
 #' @export
 open_sigma <- function(

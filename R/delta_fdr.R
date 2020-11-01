@@ -42,8 +42,7 @@ setMethod("fdr_ash", "seaMass_delta", function(
   warn <- getOption("warn")
   options(warn = 1)
 
-  cat(paste0("[", Sys.time(), "]   ash false discovery rate correction for ", gsub("\\.", " ", type), "\n"))
-  cat(paste0("[", Sys.time(), "]    getting summaries...\n"))
+  cat(paste0("[", Sys.time(), "]   getting ", gsub("\\.", " ", type), " dea summaries...\n"))
 
   if (is.null(data)) {
     DT <- read_samples(object, ".", type, summary = T, summary.func = summary.func, as.data.table = T)
@@ -75,7 +74,7 @@ setMethod("fdr_ash", "seaMass_delta", function(
     DT[, Batch := factor("all")]
   }
 
-  cat(paste0("[", Sys.time(), "]    running model...\n"))
+  cat(paste0("[", Sys.time(), "]    running ash fdr...\n"))
   DT <- rbindlist(parallel_lapply(split(DT, by = "Batch"), function(item, type, ash.mixcompdist, ash.optmethod, ash.nullweight, ash.pointmass, ash.prior, ash.mixsd, ash.gridmult, ash.g, ash.fixg, ash.mode, ash.alpha, ash.grange, ash.control, ash.pi_thresh) {
     if (nrow(item[use == T]) > 0) {
       # run ash, but allowing variable DF

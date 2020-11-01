@@ -6,6 +6,8 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
   if (ctrl@version != as.character(packageVersion("seaMass")))
     stop(paste0("version mismatch - '", name(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
 
+  cat(paste0("[", Sys.time(), "]  DELTA-PROCESS name=", name(object)," chain=", chain, "\n"))
+
   ellipsis <- ctrl@ellipsis
   ellipsis$object <- object
   ellipsis$chains <- chain
@@ -22,6 +24,8 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
   }
 
   if (increment_completed(filepath(object), job.id = job.id) == ctrl@model.nchain) {
+    cat(paste0("[", Sys.time(), "]  DELTA-OUTPUT name=", name(object), "\n"))
+
     # summarise group de and perform fdr correction
     if (file.exists(file.path(filepath(object), "standardised.group.deviations.index.fst"))) {
       if(ctrl@fdr.model != "") {
@@ -29,13 +33,13 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
         ellipsis$object <- object
         do.call(paste("fdr", ctrl@fdr.model, sep = "_"), ellipsis)
       } else {
-        cat(paste0("[", Sys.time(), "]    getting standardised group deviations differential expression...\n"))
+        cat(paste0("[", Sys.time(), "]   getting standardised group deviations differential expression...\n"))
         standardised_group_deviations_de(object, summary = T, as.data.table = T)
       }
     }
 
     if ("de.standardised.group.deviations" %in% ctrl@plot) {
-      cat(paste0("[", Sys.time(), "]    plotting standardised group deviations differential expression...\n"))
+      cat(paste0("[", Sys.time(), "]   plotting standardised group deviations differential expression...\n"))
       DT <- de_standardised_group_deviations(object, as.data.table = T)
       plot_de_standardised_group_deviations(object, DT, limits_dists(DT, include.zero = T), file = file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_de_standardised_group_deviations.pdf"))
       rm(DT)
@@ -60,7 +64,7 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
       }
 
       if ("fdr.standardised.group.deviations" %in% ctrl@plot) {
-        cat(paste0("[", Sys.time(), "]    plotting standardised group deviations fdr controlled differential expression...\n"))
+        cat(paste0("[", Sys.time(), "]   plotting standardised group deviations fdr controlled differential expression...\n"))
         DTs <- list(
           fdr_standardised_group_deviations(object, as.data.table = T),
           de_standardised_group_deviations(object, as.data.table = T)
@@ -79,7 +83,7 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
           ellipsis$type <- "component.deviations"
           do.call(paste("fdr", ctrl@fdr.model, sep = "_"), ellipsis)
         } else {
-          cat(paste0("[", Sys.time(), "]    getting component deviations differential expression summaries...\n"))
+          cat(paste0("[", Sys.time(), "]   getting component deviations differential expression summaries...\n"))
           component_deviations_de(object, summary = T, as.data.table = T)
         }
       }
@@ -110,9 +114,6 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
         }
       }
     }
-
-    if (!("de.standardised.group.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "standardised.group.deviations*"), recursive = T)
-    if (!("de.component.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "component.deviations*"), recursive = T)
   }
 
   return(invisible(NULL))

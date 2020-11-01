@@ -107,12 +107,22 @@ open_delta <- function(fit, name = "fit", quiet = FALSE, force = FALSE) {
 #' @export
 #' @include generics.R
 setMethod("run", "seaMass_delta", function(object) {
-  cat(paste0("[", Sys.time(), "]  running seaMass-delta with name=", name(object), " for sigma fit=", name(object@fit), "...\n"))
-
   job.id <- uuid::UUIDgenerate()
   for (chain in 1:control(object)@model.nchain) process(object, chain, job.id)
 
   return(invisible(object))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("finish", "seaMass_delta", function(object) {
+  ctrl <- control(object)
+  if (!("de.standardised.group.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "standardised.group.deviations*"), recursive = T)
+  if (!("de.component.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "component.deviations*"), recursive = T)
+
+  return(invisible(NULL))
 })
 
 

@@ -20,7 +20,8 @@ setMethod("plots", "sigma_block", function(object, chain, job.id) {
   # PROCESS OUTPUT
   nbatch <- length(blocks(object)) * ctrl@model.nchain
   batch <- (as.integer(assay_design(object, as.data.table = T)[1, Block]) - 1) * ctrl@model.nchain + chain
-  cat(paste0("[", Sys.time(), "]   PLOTS batch=", batch, "/", nbatch, "\n"))
+  cat(paste0("[", Sys.time(), "]  PLOTS batch=", batch, "/", nbatch, "\n"))
+  cat(paste0("[", Sys.time(), "]   generating...\n"))
 
   # grab out batch of groups
   groups <- unique(groups(object, as.data.table = T)[G.qC > 0, Group])
@@ -40,17 +41,7 @@ setMethod("plots", "sigma_block", function(object, chain, job.id) {
     return(NULL)
   }, nthread = ctrl@nthread)
 
-  if (increment_completed(file.path(filepath(parent(object)), "sigma"), "plots", job.id) == nbatch) {
-    if (!("group.quants" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "group.quants*"), recursive = T)
-    if (!("normalised.group.quants" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "normalised.group.quants*"), recursive = T)
-    if (!("standardised.group.deviations" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "standardised.group.deviations*"), recursive = T)
-    if (!("component.deviations" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "component.deviations*"), recursive = T)
-    if (!("component.means" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "component.means*"), recursive = T)
-    if (!("component.stdevs" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "component.stdevs*"), recursive = T)
-    if (!("measurement.means" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "measurement.means*"), recursive = T)
-    if (!("measurement.stdevs" %in% ctrl@keep)) for (block in blocks(parent(object))) unlink(file.path(filepath(block), "model1", "measurement.stdevs*"), recursive = T)
-  }
-
+  increment_completed(file.path(filepath(parent(object)), "sigma"), "plots", job.id)
   return(invisible(NULL))
 })
 
@@ -163,7 +154,7 @@ setMethod("plot_pca_contours", "seaMass", function(
     # replace centre point
     DT.design <- merge(DT.design[, !c("x", "y")], DT[, .(x = median(x), y = median(y)), by = .(Block, Assay)], by = c("Block", "Assay"), sort = F)
 
-    cat(paste0("[", Sys.time(), "]     generating contours...\n"))
+    cat(paste0("[", Sys.time(), "]    generating contours...\n"))
 
     # kde bandwidth across all assays
     H <- ks::Hpi(cbind(DT$x, DT$y))

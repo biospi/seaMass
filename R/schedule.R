@@ -24,15 +24,13 @@ setMethod("prepare_delta", "schedule_local", function(object, fit.delta) {
 #' @include generics.R
 setMethod("run", "schedule_local", function(object, fit.sigma) {
   ctrl <- control(fit.sigma)
-
-  cat(paste0("[", Sys.time(), "]  running seaMass-sigma with name=", name(fit.sigma), "...\n"))
   job.id <- uuid::UUIDgenerate()
 
+  cat(paste0("[", Sys.time(), "] running seaMass v", ctrl@version, " name=", name(fit.sigma), "...\n"))
   # run empirical bayes process0
   for (block in blocks(fit.sigma)) {
     for (chain in 1:ctrl@model.nchain) process0(block, chain, job.id)
   }
-
   # run full process1
   for (block in blocks(fit.sigma)) {
     for (chain in 1:ctrl@model.nchain) process1(block, chain, job.id)
@@ -45,12 +43,13 @@ setMethod("run", "schedule_local", function(object, fit.sigma) {
 
   # run plots if you want
   if (ctrl@plots == T) for (block in blocks(fit.sigma)) {
-    job.id <- uuid::UUIDgenerate()
     for (chain in 1:ctrl@model.nchain) seaMass:::plots(block, chain, job.id)
   }
 
   # finish
+  for (fit.delta in open_deltas(fit.sigma, force = T)) finish(fit.delta)
   finish(fit.sigma)
+  cat(paste0("[", Sys.time(), "] seaMass finished!\n"))
 
   return(invisible(object))
 })
@@ -598,6 +597,7 @@ hpc_finish <- function(job.id, task) {
   fit.sigma <- open_sigma("..", force = T)
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  finishing...\n"))
+  for (fit.delta in open_deltas(fit.sigma, force = T)) finish(fit.delta)
   finish(fit.sigma, job.id)
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))

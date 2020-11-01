@@ -1,7 +1,7 @@
 #' @include generics.R
 #' @export
 setMethod("normalise_theta", "sigma_block", function(object, data.design = assay_design(object), norm.groups = NULL, input = "model1", type = "group.quants", ...) {
-  cat(paste0("[", Sys.time(), "]    seaMass-theta normalisation...\n"))
+  cat(paste0("[", Sys.time(), "]   seaMass-theta normalisation...\n"))
 
   unlink(file.path(filepath(object), input, "*.normalised.group.quants.fst"))
   unlink(file.path(filepath(object), input, "*.normalised.group.means.fst"))

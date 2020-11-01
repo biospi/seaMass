@@ -34,7 +34,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
   # this is needed to stop foreach massive memory leak!!!
   rm("...")
 
-  cat(paste0("[", Sys.time(), "]   MCMCglmm differential expression analysis for ", gsub("\\.", " ", type), "\n"))
+  cat(paste0("[", Sys.time(), "]   running mcmcglmm ", gsub("\\.", " ", type), " dea...\n"))
 
   # prepare
   ctrl <- control(object)
@@ -55,8 +55,6 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
   # loop over all chains and all groups/components
   dir.create(file.path(filepath(object), type), showWarnings = F)
   for (chain in chains) {
-    cat(paste0("[", Sys.time(), "]    chain ", chain ,"/", ctrl@model.nchain, "...\n"))
-
     DT.index <- parallel_lapply(DTs, function(item, object, type, cols, chain, specs, contrasts, fixed1, random, rcov, start, prior, tune, pedigree, nodes, scale, pr, pl, DIC, saveX, saveZ, saveXL, slice, ginverse, trunc) {
       ctrl <- control(object)
       batch <- item[1, Batch]

@@ -163,8 +163,6 @@ limits_dists <- function(data, probs = c(0.005, 0.995), include.zero = FALSE) {
 #' @export
 #' @include generics.R
 setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = NULL, label.cols = NULL, title = NULL, value.label = "value", horizontal = TRUE, colour = NULL, fill = NULL, file = NULL, value.length = 120, level.length = 5) {
-  library(extraDistr)
-
   if (is.data.frame(data)) {
     DTs <- list(as.data.table(data))
   } else {
@@ -369,12 +367,3 @@ setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha =
   return(g)
 })
 
-
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("finish", "seaMass", function(object) {
-  increment_completed(file.path(filepath(object), "sigma"))
-  cat(paste0("[", Sys.time(), "] seaMass finished!\n"))
-  return(invisible(NULL))
-})

@@ -11,7 +11,7 @@ setMethod("process0", "sigma_block", function(object, chain, job.id) {
 
   if (increment_completed(file.path(filepath(object), "model0"), job.id = job.id) == ctrl@model.nchain) {
     # PROCESS OUTPUT
-    cat(paste0("[", Sys.time(), "]   OUTPUT0 block=", sub("^.*sigma\\.(.*)$", "\\1", object@filepath), "\n"))
+    cat(paste0("[", Sys.time(), "]  SIGMA-PROCESS0 block=", sub("^.*sigma\\.(.*)$", "\\1", object@filepath), "\n"))
 
     ## WRITE ASSAY STATS
     DT <- imported_data(object, as.data.table = T)[!is.na(Assay)]
@@ -68,31 +68,25 @@ setMethod("process0", "sigma_block", function(object, chain, job.id) {
     rm(DT.assay.components)
 
     # Measurement EB prior
-    cat(paste0("[", Sys.time(), "]    calculating measurement prior...\n"))
+    cat(paste0("[", Sys.time(), "]   calculating measurement prior...\n"))
     DT.measurement.prior <- measurement_stdevs(object, input = "model0", summary = T, as.data.table = T)
     set.seed(ctrl@random.seed - 1)
     DT.measurement.prior <- data.table(Effect = "Measurements", DT.measurement.prior[, squeeze_stdev(s, df)])
-    # delete measurement stdevs if not in 'keep'
-    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "measurement.stdevs*"), recursive = T)
-
     DT.design <- assay_design(object, as.data.table = T)
     DT.design[, Measurement.SD := DT.measurement.prior[, s]]
 
     # Component EB prior
     if(ctrl@component.model != "") {
-      cat(paste0("[", Sys.time(), "]    calculating component prior...\n"))
+      cat(paste0("[", Sys.time(), "]   calculating component prior...\n"))
       DT.component.prior <- component_stdevs(object, input = "model0", summary = T, as.data.table = T)
       set.seed(ctrl@random.seed - 1)
       DT.component.prior <- data.table(Effect = "Components", DT.component.prior[, squeeze_stdev(s, df)])
       DT.measurement.prior <- rbind(DT.measurement.prior, DT.component.prior, use.names = T, fill = T)
       DT.design[, Component.SD := DT.component.prior[, s]]
     }
-    # delete component stdevs if not in 'keep'
-    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "component.stdevs*"), recursive = T)
-
     # Assay EB priors
     if(ctrl@assay.model != "") {
-      cat(paste0("[", Sys.time(), "]    calculating assay prior...\n"))
+      cat(paste0("[", Sys.time(), "]   calculating assay prior...\n"))
 
       items <- split(CJ(Assay = unique(na.omit(assay_design(object, as.data.table = T)[, Assay])), chain = 1:ctrl@model.nchain), by = c("Assay", "chain"), drop = T)
       DT.assay.prior <- rbindlist(parallel_lapply(items, function(item, object) {
@@ -149,9 +143,6 @@ setMethod("process0", "sigma_block", function(object, chain, job.id) {
 
     # save priors
     fst::write.fst(DT.measurement.prior, file.path(object@filepath, "model1", "priors.fst"))
-
-    # delete assay deviations if not in 'keep'
-    if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "assay.deviations*"), recursive = T)
   }
 
   return(invisible(NULL))

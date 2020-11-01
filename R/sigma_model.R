@@ -2,7 +2,7 @@
 #' @include generics.R
 setMethod("model", "sigma_block", function(object, input, chain = 1) {
   ctrl <- control(object)
-  cat(paste0("[", Sys.time(), "]   ", toupper(input), " block=", sub("^.*sigma\\.(.*)$", "\\1", filepath(object)), " chain=", chain, "/", ctrl@model.nchain, "\n"))
+  cat(paste0("[", Sys.time(), "]  SIGMA-", toupper(input), " block=", sub("^.*sigma\\.(.*)$", "\\1", filepath(object)), " chain=", chain, "/", ctrl@model.nchain, "\n"))
 
   # load metadata
   DT.index <- fst::read.fst(file.path(filepath(object), input, "input.index.fst"), as.data.table = T)
@@ -46,7 +46,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     dir.create(file.path(filepath(object), input, "component.deviations"), showWarnings = F)
   }
 
-  cat(paste0("[", Sys.time(), "]    modelling ngroup=", nrow(DT.index), " nitt=", nitt, "...\n"))
+  cat(paste0("[", Sys.time(), "]   modelling ngroup=", nrow(DT.index), " nitt=", nitt, "...\n"))
 
   # run model
   DT.index <- merge(DT.index, groups(object, as.data.table = T)[, .(Group, pred.time)], by = "Group", sort = F)
