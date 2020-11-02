@@ -163,7 +163,7 @@ limits_dists <- function(data, probs = c(0.005, 0.995), include.zero = FALSE) {
 #' @export
 #' @include generics.R
 setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = NULL, label.cols = NULL, title = NULL, value.label = "value", horizontal = TRUE, colour = NULL, fill = NULL, file = NULL, value.length = 120, level.length = 5) {
-  library(seaMass) # so ggdist can see our inaki functions
+  try(library(seaMass), silent = T) # so ggdist can see our inaki functions
 
   if (is.data.frame(data)) {
     DTs <- list(as.data.table(data))

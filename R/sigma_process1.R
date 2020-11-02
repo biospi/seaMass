@@ -479,9 +479,9 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
         if ("measurement.stdevs" %in% ctrl@plot) lims$measurement.stdevs <- limits_dists(measurement_stdevs(fit.sigma, summary = T, as.data.table = T), probs = c(0, 0.99), include.zero = T)
         saveRDS(lims, file.path(filepath(fit.sigma), "sigma", "limits.rds"))
       }
-    }
 
-    increment_completed(file.path(filepath(fit.sigma), "sigma"))
+      increment_completed(file.path(filepath(fit.sigma), "sigma"))
+    }
   }
 
   return(invisible(NULL))
