@@ -23,7 +23,7 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
     do.call(paste("dea", ctrl@dea.model, sep = "_"), ellipsis)
   }
 
-  if (increment_completed(filepath(object), job.id = job.id) == ctrl@model.nchain) {
+  if (increment_completed(filepath(object), "process", job.id) == ctrl@model.nchain) {
     cat(paste0("[", Sys.time(), "]  DELTA-OUTPUT name=", name(object), "\n"))
 
     # summarise group de and perform fdr correction
@@ -114,6 +114,8 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
         }
       }
     }
+
+    increment_completed(filepath(object))
   }
 
   return(invisible(NULL))

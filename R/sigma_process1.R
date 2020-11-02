@@ -480,6 +480,8 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
         saveRDS(lims, file.path(filepath(fit.sigma), "sigma", "limits.rds"))
       }
     }
+
+    increment_completed(file.path(filepath(fit.sigma), "sigma"))
   }
 
   return(invisible(NULL))

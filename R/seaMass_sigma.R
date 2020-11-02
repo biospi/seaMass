@@ -291,7 +291,7 @@ seaMass_sigma <- function(
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("finish", "seaMass_sigma", function(object) {
+setMethod("finish", "seaMass_sigma", function(object, job.id) {
   ctrl <- control(object)
 
   # delete model0
@@ -314,7 +314,6 @@ setMethod("finish", "seaMass_sigma", function(object) {
   if (!("normalised.group.quants" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "normalised.group.quants*"), recursive = T)
   if (!("standardised.group.deviations" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "standardised.group.deviations*"), recursive = T)
 
-  increment_completed(file.path(filepath(object), "sigma"))
   return(invisible(NULL))
 })
 

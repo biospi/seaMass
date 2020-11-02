@@ -597,7 +597,7 @@ hpc_finish <- function(job.id, task) {
   fit.sigma <- open_sigma("..", force = T)
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  finishing...\n"))
-  for (fit.delta in open_deltas(fit.sigma, force = T)) finish(fit.delta)
+  for (fit.delta in open_deltas(fit.sigma, force = T)) finish(fit.delta, job.id)
   finish(fit.sigma, job.id)
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
