@@ -295,9 +295,9 @@ setMethod("finish", "seaMass_sigma", function(object, job.id) {
   ctrl <- control(object)
 
   # delete model0
-  if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "component.stdevs*"), recursive = T)
-  if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "measurement.stdevs*"), recursive = T)
-  if (!("model0" %in% ctrl@keep)) unlink(file.path(object@filepath, "model0", "assay.deviations*"), recursive = T)
+  if (!("model0" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model0", "component.stdevs*"), recursive = T)
+  if (!("model0" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model0", "measurement.stdevs*"), recursive = T)
+  if (!("model0" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model0", "assay.deviations*"), recursive = T)
 
   # delete model1
   if (!("measurement.means" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "measurement.means*"), recursive = T)
@@ -306,7 +306,7 @@ setMethod("finish", "seaMass_sigma", function(object, job.id) {
   if (!("component.stdevs" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "component.stdevs*"), recursive = T)
   if (!("assay.means" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "assay.means*"), recursive = T)
   if (!("assay.deviations" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "assay.deviations*"), recursive = T)
-  if (!("component.deviations" %in% ctrl@keep || "component.deviations" %in% ctrl@plot)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "component.deviations*"), recursive = T)
+  if (!("component.deviations" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "component.deviations*"), recursive = T)
   if (!("group.means" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "group.means*"), recursive = T)
   if (!("group.quants" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "group.quants*"), recursive = T)
   if (!("normalised.group.means" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "normalised.group.means*"), recursive = T)
