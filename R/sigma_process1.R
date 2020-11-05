@@ -362,7 +362,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       if ("normalised.group.means" %in% ctrl@plot) {
         cat(paste0("[", Sys.time(), "]   plotting normalised group means...\n"))
         DT <- normalised_group_means(fit.sigma, as.data.table = T)
-        plot_normalised_group_means(fit.sigma, DT, limits_dists(DT), file = file.path(filepath(fit.sigma), "output", "log2_normalised_group_means.pdf"))
+        if (!is.null(DT)) plot_normalised_group_means(fit.sigma, DT, limits_dists(DT), file = file.path(filepath(fit.sigma), "output", "log2_normalised_group_means.pdf"))
       }
 
       if ("normalised.group.stdevs" %in% ctrl@plot) {

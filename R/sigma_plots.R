@@ -39,7 +39,7 @@ setMethod("plots", "sigma_block", function(object, chain, job.id) {
     if ("measurement.means" %in% ctrl@plot) plot_measurement_means(fit.sigma, measurement_means(fit.sigma, item, as.data.table = T), lims$measurement.means, file = file.path(filepath(fit.sigma), "output", "log2_measurement_means", paste0(item2, ".pdf")))
     if ("measurement.stdevs" %in% ctrl@plot) plot_measurement_stdevs(fit.sigma, measurement_stdevs(fit.sigma, item, as.data.table = T), lims$measurement.stdevs, file = file.path(filepath(fit.sigma), "output", "log2_measurement_stdevs", paste0(item2, ".pdf")))
     return(NULL)
-  }, nthread = ctrl@nthread)
+  }, nthread = 1)
 
   increment_completed(file.path(filepath(parent(object)), "sigma"), "plots", job.id)
   return(invisible(NULL))
