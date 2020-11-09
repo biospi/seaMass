@@ -206,7 +206,7 @@ setMethod("timings", "sigma_block", function(object, input = "model1", as.data.t
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("assay_means", "sigma_block", function(object, assays = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("assay_means", "sigma_block", function(object, assays = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- read_samples(object, input, "assay.means", assays, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
@@ -241,7 +241,7 @@ setMethod("assay_stdevs", "sigma_block", function(object, input = "model1", as.d
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("assay_deviations", "sigma_block", function(object, assays = NULL, summary = FALSE, input = "model0", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("assay_deviations", "sigma_block", function(object, assays = NULL, summary = FALSE, input = "model0", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- read_samples(object, input, "assay.deviations", assays, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
@@ -254,7 +254,7 @@ setMethod("assay_deviations", "sigma_block", function(object, assays = NULL, sum
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("measurement_means", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("measurement_means", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- read_samples(object, input, "measurement.means", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
@@ -267,7 +267,7 @@ setMethod("measurement_means", "sigma_block", function(object, groups = NULL, su
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("measurement_stdevs", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("measurement_stdevs", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- read_samples(object, input, "measurement.stdevs", groups, chains, summary, summary.func = "inaka", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
@@ -280,7 +280,7 @@ setMethod("measurement_stdevs", "sigma_block", function(object, groups = NULL, s
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_means", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("component_means", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- read_samples(object, input, "component.means", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
@@ -293,7 +293,7 @@ setMethod("component_means", "sigma_block", function(object, groups = NULL, summ
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_stdevs", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("component_stdevs", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- read_samples(object, input, "component.stdevs", groups, chains, summary, summary.func = "inaka", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
@@ -306,7 +306,7 @@ setMethod("component_stdevs", "sigma_block", function(object, groups = NULL, sum
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_deviations", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("component_deviations", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- read_samples(object, input, "component.deviations", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
@@ -319,7 +319,7 @@ setMethod("component_deviations", "sigma_block", function(object, groups = NULL,
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("group_quants", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("group_quants", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- read_samples(object, input, "group.quants", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
@@ -332,7 +332,7 @@ setMethod("group_quants", "sigma_block", function(object, groups = NULL, summary
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("group_means", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("group_means", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- read_samples(object, input, "group.means", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
@@ -345,7 +345,7 @@ setMethod("group_means", "sigma_block", function(object, groups = NULL, summary 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("normalised_group_means", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("normalised_group_means", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- read_samples(object, input, "normalised.group.means", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
@@ -358,7 +358,7 @@ setMethod("normalised_group_means", "sigma_block", function(object, groups = NUL
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("normalised_group_stdevs", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("normalised_group_stdevs", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- read_samples(object, input, "normalised.group.stdevs", groups, chains, summary, summary.func = "inaka", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
@@ -371,7 +371,7 @@ setMethod("normalised_group_stdevs", "sigma_block", function(object, groups = NU
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("normalised_group_quants", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("normalised_group_quants", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- read_samples(object, input, "normalised.group.quants", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
@@ -384,7 +384,7 @@ setMethod("normalised_group_quants", "sigma_block", function(object, groups = NU
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("standardised_group_deviations", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("standardised_group_deviations", "sigma_block", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- read_samples(object, input, "standardised.group.deviations", groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)

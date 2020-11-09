@@ -61,7 +61,7 @@
   assays = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -72,7 +72,7 @@
   assays = NULL,
   summary = FALSE,
   input = "model0",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -81,7 +81,7 @@
   groups = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -90,7 +90,7 @@
   groups = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -99,7 +99,7 @@
   groups = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -108,7 +108,7 @@
   groups = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -117,7 +117,7 @@
   groups = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -126,7 +126,7 @@
   groups = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -135,7 +135,7 @@
   groups = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -144,7 +144,7 @@
   groups = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 }

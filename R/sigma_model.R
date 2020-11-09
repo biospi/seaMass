@@ -2,12 +2,12 @@
 #' @include generics.R
 setMethod("model", "sigma_block", function(object, input, chain = 1) {
   ctrl <- control(object)
-  cat(paste0("[", Sys.time(), "]  SIGMA-", toupper(input), " block=", sub("^.*sigma\\.(.*)$", "\\1", filepath(object)), " chain=", chain, "/", ctrl@model.nchain, "\n"))
+  cat(paste0("[", Sys.time(), "]  SIGMA-", toupper(input), " block=", sub("^.*sigma\\.(.*)$", "\\1", filepath(object)), " chain=", chain, "/", ctrl@nchain, "\n"))
 
   # load metadata
   DT.index <- fst::read.fst(file.path(filepath(object), input, "input.index.fst"), as.data.table = T)
 
-  nitt <- ctrl@model.nwarmup + (ctrl@model.nsample * ctrl@model.thin) / ctrl@model.nchain
+  nitt <- ctrl@nwarmup + (ctrl@nsample * ctrl@thin) / ctrl@nchain
   DT.priors <- priors(object, input = input, as.data.table = T)
   if (!is.null(DT.priors)) {
     DT.priors[, Assay := as.integer(Assay)]
@@ -53,7 +53,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
   DT.index[, Group := as.integer(Group)]
   outputs <- rbindlists(parallel_lapply(split(DT.index, by = "Group", drop = T), function(item, object, input, chain, DT.priors) {
     ctrl <- control(object)
-    nitt <- ctrl@model.nwarmup + (ctrl@model.nsample * ctrl@model.thin) / ctrl@model.nchain
+    nitt <- ctrl@nwarmup + (ctrl@nsample * ctrl@thin) / ctrl@nchain
 
     # load data
     group <- item[1, Group]
@@ -191,10 +191,10 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
         }
       }
 
-      set.seed(ctrl@random.seed + (group - 1) * ctrl@model.nchain + (chain - 1))
+      set.seed(ctrl@random.seed + (group - 1) * ctrl@nchain + (chain - 1))
       try(output$DT.timings <- system.time(fit.model <- MCMCglmm::MCMCglmm(
         fixed, random, rcov, family, data = DT, prior = prior,
-        nitt = nitt, burnin = ctrl@model.nwarmup, thin = ctrl@model.thin, pr = T, verbose = F, singular.ok = T
+        nitt = nitt, burnin = ctrl@nwarmup, thin = ctrl@thin, pr = T, verbose = F, singular.ok = T
       )))
 
       attempt <- attempt + 1

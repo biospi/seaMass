@@ -27,28 +27,28 @@ setMethod("run", "schedule_local", function(object, fit.sigma) {
   job.id <- uuid::UUIDgenerate()
 
   cat(paste0("[", Sys.time(), "] running...\n"))
+
+  # SIGMA
   # run empirical bayes process0
   for (block in blocks(fit.sigma)) {
-    for (chain in 1:ctrl@model.nchain) process0(block, chain, job.id)
+    for (chain in 1:ctrl@nchain) process0(block, chain, job.id)
   }
   # run full process1
   for (block in blocks(fit.sigma)) {
-    for (chain in 1:ctrl@model.nchain) process1(block, chain, job.id)
+    for (chain in 1:ctrl@nchain) process1(block, chain, job.id)
   }
+  # run plots if you want
+  if (ctrl@plots == T) plots(fit.sigma)
+  # finish
+  finish(fit.sigma)
 
+  # DELTA
   # run delta if they exist
   for (fit.delta in open_deltas(fit.sigma, force = T)) {
-    for (chain in 1:control(fit.delta)@model.nchain) process(fit.delta, chain, job.id)
+    for (chain in 1:control(fit.delta)@nchain) process(fit.delta, chain, job.id)
   }
-
-  # run plots if you want
-  if (ctrl@plots == T) for (block in blocks(fit.sigma)) {
-    for (chain in 1:ctrl@model.nchain) seaMass:::plots(block, chain, job.id)
-  }
-
-  # finish
   for (fit.delta in open_deltas(fit.sigma, force = T)) finish(fit.delta)
-  finish(fit.sigma)
+
   cat(paste0("[", Sys.time(), "] finished!\n"))
 
   return(invisible(object))
@@ -143,7 +143,7 @@ setMethod("config", "schedule_slurm", function(object, prefix, name, n, notify, 
 setMethod("prepare_sigma", "schedule_slurm", function(object, fit.sigma) {
   name <- name(fit.sigma)
   ctrl <- control(fit.sigma)
-  n <- length(blocks(fit.sigma)) * ctrl@model.nchain
+  n <- length(blocks(fit.sigma)) * ctrl@nchain
 
   dir.create(file.path(filepath(fit.sigma), "slurm"))
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(filepath(fit.sigma), "slurm", "submit.process0"))
@@ -204,7 +204,7 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, fit.sigma) {
 
 #' @include generics.R
 setMethod("prepare_delta", "schedule_slurm", function(object, fit.delta) {
-  cat(config(object, "D", name(fit.delta@fit), length(open_deltas(fit.delta@fit, force = T)) * control(fit.delta@fit)@model.nchain, F, "hpc_delta"), file = file.path(filepath(fit.delta@fit), "slurm", "submit.delta"))
+  cat(config(object, "D", name(fit.delta@fit), length(open_deltas(fit.delta@fit, force = T)) * control(fit.delta@fit)@nchain, F, "hpc_delta"), file = file.path(filepath(fit.delta@fit), "slurm", "submit.delta"))
   return(invisible(object))
 })
 
@@ -304,7 +304,7 @@ setMethod("config", "schedule_pbs", function(object, prefix, name, n, notify, fu
 setMethod("prepare_sigma", "schedule_pbs", function(object, fit.sigma) {
   name <- name(fit.sigma)
   ctrl <- control(fit.sigma)
-  n <- length(blocks(fit.sigma)) * ctrl@model.nchain
+  n <- length(blocks(fit.sigma)) * ctrl@nchain
 
   dir.create(file.path(filepath(fit.sigma), "pbs"))
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(filepath(fit.sigma), "pbs", "submit.process0"))
@@ -365,7 +365,7 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, fit.sigma) {
 
 #' @include generics.R
 setMethod("prepare_delta", "schedule_pbs", function(object, fit.delta) {
-  cat(config(object, "D", name(fit.delta@fit), length(open_deltas(fit.delta@fit, force = T)) * control(fit.delta@fit)@model.nchain, F, "hpc_delta"), file = file.path(filepath(fit.delta@fit), "pbs", "submit.delta"))
+  cat(config(object, "D", name(fit.delta@fit), length(open_deltas(fit.delta@fit, force = T)) * control(fit.delta@fit)@nchain, F, "hpc_delta"), file = file.path(filepath(fit.delta@fit), "pbs", "submit.delta"))
   return(invisible(object))
 })
 
@@ -465,7 +465,7 @@ setMethod("config", "schedule_sge", function(object, prefix, name, n, notify, fu
 setMethod("prepare_sigma", "schedule_sge", function(object, fit.sigma) {
   name <- name(fit.sigma)
   ctrl <- control(fit.sigma)
-  n <- length(blocks(fit.sigma)) * ctrl@model.nchain
+  n <- length(blocks(fit.sigma)) * ctrl@nchain
 
   dir.create(file.path(filepath(fit.sigma), "sge"))
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(filepath(fit.sigma), "sge", "submit.process0"))
@@ -525,7 +525,7 @@ setMethod("prepare_sigma", "schedule_sge", function(object, fit.sigma) {
 
 #' @include generics.R
 setMethod("prepare_delta", "schedule_sge", function(object, fit.delta) {
-  cat(config(object, "D", name(fit.delta@fit), length(open_deltas(fit.delta@fit, force = T)) * control(fit.delta@fit)@model.nchain, F, "hpc_delta"), file = file.path(filepath(fit.delta@fit), "sge", "submit.delta"))
+  cat(config(object, "D", name(fit.delta@fit), length(open_deltas(fit.delta@fit, force = T)) * control(fit.delta@fit)@nchain, F, "hpc_delta"), file = file.path(filepath(fit.delta@fit), "sge", "submit.delta"))
 
   return(invisible(object))
 })
@@ -541,7 +541,7 @@ setMethod("run", "schedule_sge", function(object, fit.sigma) {
 
 hpc_process0 <- function(job.id, task) {
   fit.sigma <- open_sigma("..", force = T)
-  nchain <- control(fit.sigma)@model.nchain
+  nchain <- control(fit.sigma)@nchain
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running process0 for name=", name(fit.sigma), "...\n"))
   process0(blocks(fit.sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1, job.id)
@@ -554,7 +554,7 @@ hpc_process0 <- function(job.id, task) {
 
 hpc_process1 <- function(job.id, task) {
   fit.sigma <- open_sigma("..", force = T)
-  nchain <- control(fit.sigma)@model.nchain
+  nchain <- control(fit.sigma)@nchain
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running process1 for name=", name(fit.sigma), "...\n"))
   process1(blocks(fit.sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1, job.id)
@@ -567,7 +567,7 @@ hpc_process1 <- function(job.id, task) {
 
 hpc_plots <- function(job.id, task) {
   fit.sigma <- open_sigma("..", force = T)
-  nchain <- control(fit.sigma)@model.nchain
+  nchain <- control(fit.sigma)@nchain
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running plots for name=", name(fit.sigma), "...\n"))
   plots(blocks(fit.sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1, job.id)
@@ -581,7 +581,7 @@ hpc_plots <- function(job.id, task) {
 hpc_delta <- function(job.id, task) {
   fit.sigma <- open_sigma("..", force = T)
   fit.deltas <- open_deltas(fit.sigma, force = T)
-  nchain <- control(fit.sigma)@model.nchain
+  nchain <- control(fit.sigma)@nchain
   fit.delta <- fit.deltas[[(task-1) %/% nchain + 1]]
   cat(paste0("[", Sys.time(), "] seaMass-delta v", control(fit.delta)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running name=", name(fit.delta), "...\n"))

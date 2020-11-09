@@ -7,7 +7,6 @@ setClass("sigma_control", slots = c(
   summarise = "character",
   keep = "character",
   plot = "character",
-  plots = "logical",
   measurement.model = "character",
   measurement.eb.min = "integer",
   component.model = "character",
@@ -18,20 +17,19 @@ setClass("sigma_control", slots = c(
   error.model = "character",
   missingness.model = "character",
   missingness.threshold = "numeric",
-  model.nchain = "integer",
-  model.nwarmup = "integer",
-  model.thin = "integer",
-  model.nsample = "integer",
+  nchain = "integer",
+  nwarmup = "integer",
+  thin = "integer",
+  nsample = "integer",
   eb.model = "character",
   eb.max = "integer",
-  norm.nchain = "integer",
-  norm.model = "character",
-  norm.nwarmup = "integer",
-  norm.thin = "integer",
   random.seed = "numeric",
   nthread = "integer",
   schedule = "schedule",
+
+  plots = "logical",
   version = "character",
+
   blocks = "character",
   ellipsis = "list"
 ))
@@ -57,23 +55,21 @@ setClass("sigma_control", slots = c(
 #' @param missingness.model Either \code{NULL} (do nothing), \code{"rm"} (NAs removed), \code{"one"} (NAs set to 1), \code{"minimum"} (NAs set to lowest quant of that measurement) or
 #'   \code{"censored"} (NAs modelled as censored below lowest quant of that measurement; default)
 #' @param missingness.threshold All datapoints equal to or below this count are treated as missing
+#' @param assay.eb.min Minimum number of assays per group group to use for computing Empirical Bayes priors
+#' @param assay.eb.nsample Number of MCMC samples to use for assay model input
 #' @param random.seed Random number seed
-#' @param model.nchain Number of MCMC chains to run
-#' @param model.nwarmup Number of MCMC warmup iterations to run for each chain
-#' @param model.thin MCMC thinning factor
-#' @param model.nsample Total number of MCMC samples to deliver downstream
+#' @param nchain Number of MCMC chains to run
+#' @param nwarmup Number of MCMC warmup iterations to run for each chain
+#' @param thin MCMC thinning factor
+#' @param nsample Total number of MCMC samples to deliver downstream
 #' @param schedule Either \link{schedule_local} (execute locally), \link{schedule_pbs} or \link{schedule_slurm} (prepare for submission to HPC cluster)
 #' @export sigma_control
 sigma_control <- function(
-  summarise = c("assay.means", "assay.stdevs",
-                "group.quants", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations",
-                "component.deviations", "component.means", "component.stdevs",
-                "measurement.means", "measurement.stdevs"),
+  summarise = c("assay.means", "assay.stdevs", "group.quants", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs"),
   keep = NULL,
-  plot = c("assay.means", "assay.stdevs",
-           "group.quants", "group.quants.pca", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations",
-           "component.deviations", "component.means", "component.stdevs",
-           "measurement.means", "measurement.stdevs"),
+  plot = c("assay.means", "assay.stdevs", "group.quants", "group.quants.pca", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs"),
+  eb.model = "deconvolve",
+  eb.max = 1024,
   measurement.model = "independent",
   measurement.eb.min = 2,
   component.model = "independent",
@@ -84,16 +80,10 @@ sigma_control <- function(
   error.model = "lognormal",
   missingness.model = "censored",
   missingness.threshold = 0,
-  model.nchain = 4,
-  model.nwarmup = 256,
-  model.thin = 4,
-  model.nsample = 1024,
-  eb.model = "deconvolve",
-  eb.max = 1024,
-  norm.model = "theta",
-  norm.nchain = 8,
-  norm.nwarmup = 128,
-  norm.thin = 1,
+  nchain = 4,
+  nwarmup = 256,
+  thin = 4,
+  nsample = 1024,
   random.seed = 0,
   nthread = parallel::detectCores() %/% 2,
   schedule = schedule_local()
@@ -103,7 +93,8 @@ sigma_control <- function(
   if (!is.null(summarise)) params$summarise <- as.character(summarise)
   if (!is.null(keep)) params$keep <- as.character(keep)
   if (!is.null(plot)) params$plot <- as.character(plot)
-  params$plots <- any(c("group.quants", "normalised.group.quants", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs") %in% params$plot)
+  if (!is.null(eb.model)) params$eb.model <- as.character(eb.model) else params$eb.model <- ""
+  params$eb.max <- as.integer(eb.max)
   params$measurement.model <- as.character(measurement.model)
   params$measurement.eb.min <- as.integer(measurement.eb.min)
   if (!is.null(component.model)) params$component.model <- as.character(component.model) else params$component.model <- ""
@@ -114,44 +105,29 @@ sigma_control <- function(
   params$error.model <- as.character(error.model)
   if (!is.null(missingness.model)) params$missingness.model <- as.character(missingness.model) else params$missingness.model <- ""
   params$missingness.threshold <- as.numeric(missingness.threshold)
-  params$model.nchain <- as.integer(model.nchain)
-  params$model.nwarmup <- as.integer(model.nwarmup)
-  params$model.thin <- as.integer(model.thin)
-  params$model.nsample <- as.integer(model.nsample)
-  if (!is.null(eb.model)) params$eb.model <- as.character(eb.model) else params$eb.model <- ""
-  params$eb.max <- as.integer(eb.max)
-  if (!is.null(norm.model)) params$norm.model <- norm.model else params$norm.model <- ""
-  params$norm.nchain <- as.integer(norm.nchain)
-  params$norm.nwarmup <- as.integer(norm.nwarmup)
-  params$norm.thin <- as.integer(norm.thin)
+  params$nchain <- as.integer(nchain)
+  params$nwarmup <- as.integer(nwarmup)
+  params$thin <- as.integer(thin)
+  params$nsample <- as.integer(nsample)
+  params$nchain <- as.integer(nchain)
+  params$nwarmup <- as.integer(nwarmup)
+  params$thin <- as.integer(thin)
   params$random.seed <- as.integer(random.seed)
   params$nthread <- as.integer(nthread)
   params$schedule <- schedule
+
+  params$plots <- any(c("group.quants", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs") %in% params$plot)
   params$version <- as.character(packageVersion("seaMass"))
 
   return(do.call(new, params))
 }
 
 setValidity("sigma_control", function(object) {
-  if (!(all(object@summarise %in% c("assay.means", "assay.stdevs", "assay.deviations",
-                                    "group.quants", "group.means",
-                                    "normalised.group.quants", "normalised.group.means", "normalised.group.stdevs",
-                                    "standardised.group.deviations",
-                                    "component.deviations", "component.means", "component.stdevs",
-                                    "measurement.means", "measurement.stdevs")))) return("'summarise' is not valid!")
-  if (!(all(object@keep %in% c("summaries", "model0",
-                               "assay.means", "assay.deviations",
-                               "group.quants", "group.means",
-                               "normalised.group.quants", "normalised.group.means", "normalised.group.stdevs",
-                               "standardised.group.deviations",
-                               "component.deviations", "component.means", "component.stdevs",
-                               "measurement.means", "measurement.stdevs")))) return("'keep' is not valid!")
-  if (!(all(object@plot %in% c("assay.means", "assay.stdevs",
-                               "group.quants", "group.quants.pca", "group.means",
-                               "normalised.group.quants", "normalised.group.means", "normalised.group.stdevs",
-                               "standardised.group.deviations",
-                               "component.deviations", "component.deviations.pca", "component.means", "component.stdevs",
-                               "measurement.means", "measurement.stdevs")))) return("'plot' is not valid!")
+  if (!(all(object@summarise %in% c("assay.means", "assay.stdevs", "assay.deviations", "group.quants", "group.means", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")))) return("'summarise' is not valid!")
+  if (!(all(object@keep %in% c("summaries", "model0", "assay.means", "assay.deviations", "group.quants", "group.means", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")))) return("'keep' is not valid!")
+  if (!(all(object@plot %in% c("assay.means", "assay.stdevs", "group.quants", "group.quants.pca", "group.means", "component.deviations", "component.deviations.pca", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")))) return("'plot' is not valid!")
+  if (length(object@eb.model) != 1 || !(object@eb.model %in% c("", "fit", "deconvolve"))) return("'eb.model' is not valid!")
+  if (length(object@eb.max) != 1 || object@eb.max <= 0) return("'eb.max' must be positive!")
   if (length(object@measurement.model) != 1 || !(object@measurement.model %in% c("single", "independent"))) return("'measurement.model' is not valid!")
   if (length(object@measurement.eb.min) != 1 || object@measurement.eb.min <= 0) return("'measurement.eb.min' must be positive!")
   if (length(object@component.model) != 1 || !(object@component.model %in% c("", "single", "independent"))) return("'component.model' is not valid!")
@@ -162,16 +138,13 @@ setValidity("sigma_control", function(object) {
   if (length(object@error.model) != 1 || !(object@error.model %in% c("", "poisson", "lognormal"))) return("'error.model' is not valid!")
   if (length(object@missingness.model) != 1 || !(object@missingness.model %in% c("", "rm", "one", "minimum") || substr(object@missingness.model, 1, 8) == "censored")) return("'missingness.model' is not valid!")
   if (length(object@missingness.threshold) != 1 || object@missingness.threshold < 0) return("'missingness.threshold' must be non-negative!")
-  if (length(object@model.nchain) != 1 || object@model.nchain <= 0) return("'model.nchain' must be positive!")
-  if (length(object@model.nwarmup) != 1 || object@model.nwarmup < 0) return("'model.nwarmup' must be non-negative!")
-  if (length(object@model.thin) != 1 || object@model.thin <= 0) return("'model.thin' must be positive!")
-  if (length(object@model.nsample) != 1 || object@model.nsample <= 0) return("'model.nsample' must be positive!")
-  if (length(object@eb.model) != 1 || !(object@eb.model %in% c("", "fit", "deconvolve"))) return("'eb.model' is not valid!")
-  if (length(object@eb.max) != 1 || object@eb.max <= 0) return("'eb.max' must be positive!")
-  if (length(object@norm.nchain) != 1 || object@norm.nchain <= 0) return("'norm.nchain' must be positive!")
-  if (length(object@norm.model) != 1 || !(object@norm.model %in% c("", "median", "quantile", "theta"))) return("'norm.model' is not valid!")
-  if (length(object@norm.nwarmup) != 1 || object@norm.nwarmup < 0) return("'norm.nwarmup' must be non-negative!")
-  if (length(object@norm.thin) != 1 || object@norm.thin <= 0) return("'norm.thin' must be positive!")
+  if (length(object@nchain) != 1 || object@nchain <= 0) return("'nchain' must be positive!")
+  if (length(object@nwarmup) != 1 || object@nwarmup < 0) return("'nwarmup' must be non-negative!")
+  if (length(object@thin) != 1 || object@thin <= 0) return("'thin' must be positive!")
+  if (length(object@nsample) != 1 || object@nsample <= 0) return("'nsample' must be positive!")
+  if (length(object@nchain) != 1 || object@nchain <= 0) return("'nchain' must be positive!")
+  if (length(object@nwarmup) != 1 || object@nwarmup < 0) return("'nwarmup' must be non-negative!")
+  if (length(object@thin) != 1 || object@thin <= 0) return("'thin' must be positive!")
   if (length(object@nthread) != 1 || object@nthread <= 0) return("'nthread' must be positive!")
 
   return(T)

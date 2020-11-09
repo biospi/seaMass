@@ -9,7 +9,7 @@ setMethod("process0", "sigma_block", function(object, chain, job.id) {
   # EXECUTE MODEL
   model(object, "model0", chain)
 
-  if (increment_completed(file.path(filepath(object), "model0"), job.id = job.id) == ctrl@model.nchain) {
+  if (increment_completed(file.path(filepath(object), "model0"), job.id = job.id) == ctrl@nchain) {
     # PROCESS OUTPUT
     cat(paste0("[", Sys.time(), "]  SIGMA-PROCESS0 block=", sub("^.*sigma\\.(.*)$", "\\1", object@filepath), "\n"))
 
@@ -88,11 +88,11 @@ setMethod("process0", "sigma_block", function(object, chain, job.id) {
     if(ctrl@assay.model != "") {
       cat(paste0("[", Sys.time(), "]   calculating assay prior...\n"))
 
-      items <- split(CJ(Assay = unique(na.omit(assay_design(object, as.data.table = T)[, Assay])), chain = 1:ctrl@model.nchain), by = c("Assay", "chain"), drop = T)
+      items <- split(CJ(Assay = unique(na.omit(assay_design(object, as.data.table = T)[, Assay])), chain = 1:ctrl@nchain), by = c("Assay", "chain"), drop = T)
       DT.assay.prior <- rbindlist(parallel_lapply(items, function(item, object) {
         ctrl <- control(object)
         DT <- assay_deviations(object, item[1, Assay], input = "model0", as.data.table = T)
-        DT <- DT[sample %% (ctrl@model.nsample / ctrl@assay.eb.nsample) == 0]
+        DT <- DT[sample %% (ctrl@nsample / ctrl@assay.eb.nsample) == 0]
         if ("Measurement" %in% colnames(DT)) {
           DT[, Item := factor(paste(as.integer(Group), as.integer(Component), as.integer(Measurement), sep = "."))]
         } else {
@@ -107,7 +107,7 @@ setMethod("process0", "sigma_block", function(object, chain, job.id) {
         while (is.null(fit.model) && attempt <= 10) {
           if (attempt != 1) DT[, value := value + rnorm(length(value), sd = 1e-5)]
 
-          set.seed(ctrl@random.seed + (as.integer(item[, Assay]) - 1) * ctrl@model.nchain + (item[, chain] - 1))
+          set.seed(ctrl@random.seed + (as.integer(item[, Assay]) - 1) * ctrl@nchain + (item[, chain] - 1))
           try(fit.model <- MCMCglmm::MCMCglmm(
             value ~ 1,
             random = ~ Item,
@@ -118,9 +118,9 @@ setMethod("process0", "sigma_block", function(object, chain, job.id) {
               G = list(list(V = 1, nu = 1, alpha.mu = 0, alpha.V = 25^2)),
               R = list(V = diag(nlevels(DT$Item)), nu = 2e-4)
             ),
-            burnin = ctrl@model.nwarmup,
-            nitt = ctrl@model.nwarmup + (ctrl@model.nsample * ctrl@model.thin) / ctrl@model.nchain,
-            thin = ctrl@model.thin,
+            burnin = ctrl@nwarmup,
+            nitt = ctrl@nwarmup + (ctrl@nsample * ctrl@thin) / ctrl@nchain,
+            thin = ctrl@thin,
             singular.ok = T,
             verbose = F
           ))

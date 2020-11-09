@@ -104,7 +104,7 @@ add_Navarro_spikein_truth(data.fdr)
   groups = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -113,7 +113,7 @@ add_Navarro_spikein_truth(data.fdr)
   groups = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -122,7 +122,7 @@ add_Navarro_spikein_truth(data.fdr)
   groups = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 }

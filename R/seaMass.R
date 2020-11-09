@@ -12,9 +12,56 @@ setClass("seaMass", contains = "VIRTUAL")
 
 
 #' @import data.table
+#' @include generics.R
+setMethod("plots", "seaMass", function(object, batch, job.id) {
+  ctrl <- control(object)
+  if (ctrl@version != as.character(packageVersion("seaMass")))
+    stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
+
+  # plots directories
+  fit.sigma <- parent(object)
+  if ("group.quants" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_group_quants"), showWarnings = F)
+  if (ctrl@norm.model != "" && "normalised.group.quants" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_normalised_group_quants"), showWarnings = F)
+  if ("standardised.group.deviations" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_standardised_group_deviations"), showWarnings = F)
+  if (ctrl@component.model != "" && "component.deviations" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_component_deviations"), showWarnings = F)
+  if (ctrl@component.model != "" && "component.means" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_component_means"), showWarnings = F)
+  if (ctrl@component.model != "" && "component.stdevs" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_component_stdevs"), showWarnings = F)
+  if ("measurement.means" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_measurement_means"), showWarnings = F)
+  if ("measurement.stdevs" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_measurement_stdevs"), showWarnings = F)
+
+  # PROCESS OUTPUT
+  nbatch <- length(blocks(object)) * ctrl@model.nchain
+  batch <- (as.integer(assay_design(object, as.data.table = T)[1, Block]) - 1) * ctrl@model.nchain + chain
+  cat(paste0("[", Sys.time(), "]  PLOTS batch=", batch, "/", nbatch, "\n"))
+  cat(paste0("[", Sys.time(), "]   generating...\n"))
+
+  # grab out batch of groups
+  groups <- unique(groups(object, as.data.table = T)[G.qC > 0, Group])
+  groups <- groups[rep_len(1:nbatch, length(groups)) == batch]
+  lims <- readRDS(file.path(filepath(fit.sigma), "sigma", "limits.rds"))
+  # plots!
+  parallel_lapply(groups, function(item, fit.sigma, ctrl, lims) {
+    item2 <- substr(item, 0, 60)
+    if ("group.quants" %in% ctrl@plot) plot_group_quants(fit.sigma, group_quants(fit.sigma, item, as.data.table = T), lims$group.quants, file = file.path(filepath(fit.sigma), "output", "log2_group_quants", paste0(item2, ".pdf")))
+    if ("normalised.group.quants" %in% ctrl@plot) plot_normalised_group_quants(fit.sigma, normalised_group_quants(fit.sigma, item, as.data.table = T), lims$normalised.group.quants, file = file.path(filepath(fit.sigma), "output", "log2_normalised_group_quants", paste0(item2, ".pdf")))
+    if ("standardised.group.deviations" %in% ctrl@plot) plot_standardised_group_deviations(fit.sigma, standardised_group_deviations(fit.sigma, item, as.data.table = T), lims$standardised.group.deviations, file = file.path(filepath(fit.sigma), "output", "log2_standardised_group_deviations", paste0(item2, ".pdf")))
+    if ("component.deviations" %in% ctrl@plot) plot_component_deviations(fit.sigma, component_deviations(fit.sigma, item, as.data.table = T), lims$component.deviations, file = file.path(filepath(fit.sigma), "output", "log2_component_deviations", paste0(item2, ".pdf")))
+    if ("component.means" %in% ctrl@plot) plot_component_means(fit.sigma, component_means(fit.sigma, item, as.data.table = T), lims$component.means, file = file.path(filepath(fit.sigma), "output", "log2_component_means", paste0(item2, ".pdf")))
+    if ("component.stdevs" %in% ctrl@plot) plot_component_stdevs(fit.sigma, component_stdevs(fit.sigma, item, as.data.table = T), lims$component.stdevs, file = file.path(filepath(fit.sigma), "output", "log2_component_stdevs", paste0(item2, ".pdf")))
+    if ("measurement.means" %in% ctrl@plot) plot_measurement_means(fit.sigma, measurement_means(fit.sigma, item, as.data.table = T), lims$measurement.means, file = file.path(filepath(fit.sigma), "output", "log2_measurement_means", paste0(item2, ".pdf")))
+    if ("measurement.stdevs" %in% ctrl@plot) plot_measurement_stdevs(fit.sigma, measurement_stdevs(fit.sigma, item, as.data.table = T), lims$measurement.stdevs, file = file.path(filepath(fit.sigma), "output", "log2_measurement_stdevs", paste0(item2, ".pdf")))
+    return(NULL)
+  }, nthread = 1)
+
+  increment_completed(file.path(filepath(parent(object)), "sigma"), "plots", job.id)
+  return(invisible(NULL))
+})
+
+
+#' @import data.table
 #' @export
 #' @include generics.R
-setMethod("read_samples", "seaMass", function(object, input, type, items = NULL, chains = 1:control(object)@model.nchain, summary = NULL, summary.func = "robust_normal", as.data.table = FALSE) {
+setMethod("read_samples", "seaMass", function(object, input, type, items = NULL, chains = 1:control(object)@nchain, summary = NULL, summary.func = "robust_normal", as.data.table = FALSE) {
   if (is.null(summary) || summary == F) summary <- NULL
   if (!is.null(summary)) {
     summary <- ifelse(summary == T, paste0("dist_samples_", summary.func), paste0("dist_samples_", summary))
@@ -107,7 +154,7 @@ setMethod("read_samples", "seaMass", function(object, input, type, items = NULL,
     for (col in summary.cols) DT[, (col) := factor(get(col), levels = 1:nlevels(DT.index[, get(col)]), labels = levels(DT.index[, get(col)]))]
 
     # cache results
-    if (!is.null(summary) && is.null(items) && identical(chains, 1:ctrl@model.nchain)) {
+    if (!is.null(summary) && is.null(items) && identical(chains, 1:ctrl@nchain)) {
       fst::write.fst(DT, filename)
     }
   }
@@ -156,6 +203,132 @@ limits_dists <- function(data, probs = c(0.005, 0.995), include.zero = FALSE) {
   }
 
   return(lims)
+}
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_dists", "seaMass", function(object, data, limits = limits_dists(data), alpha = 1, facets = NULL, sort.cols = NULL, label.cols = NULL, title = NULL, value.label = "value", colour = NULL, fill = NULL, file = NULL, value.length = 120, level.length = 5) {
+  if (is.data.frame(data)) {
+    DTs <- list(as.data.table(data))
+  } else {
+    DTs <- lapply(data, function(dd) as.data.table(dd))
+  }
+
+  # cope with different inputs
+  if ("PosteriorMean" %in% colnames(DTs[[i]]) || "m" %in% colnames(DTs[[i]])) {
+    summary.cols <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "m") - 1)]
+    summary.cols2 <- setdiff(colnames(DTs[[i]]), c(summary.cols, "m", "s", "df", "rhat"))
+  } else if ("value" %in% colnames(DTs[[i]])) {
+    value <- "value"
+    summary.cols <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "chain") - 1)]
+    summary.cols2 <- setdiff(colnames(DTs[[i]]), c(summary.cols, "chain", "sample", "value"))
+  } else {
+    value <- "s"
+    summary.cols <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "s") - 1)]
+    summary.cols2 <- setdiff(colnames(DTs[[i]]), c(summary.cols, "s", "df", "rhat"))
+  }
+
+  # metadata for each column level
+  DT1 <- DTs[[i]][, .N, by = c(summary.cols, summary.cols2)]
+  block <- NULL
+  if ("Block" %in% summary.cols) block <- "Block"
+  if ("Group" %in% summary.cols) DT1 <- merge(DT1, groups(object, as.data.table = T), sort = F, by = c(block, "Group"))
+  if ("Group" %in% summary.cols && "Component" %in% summary.cols) DT1 <- merge(DT1, components(object, as.data.table = T), sort = F, by = c(block, "Group", "Component"))
+  if ("Group" %in% summary.cols && "Component" %in% summary.cols && "Measurement" %in% summary.cols) DT1 <- merge(DT1, measurements(object, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Measurement"))
+  if ("Assay" %in% summary.cols) DT1 <- merge(DT1, assay_design(object, as.data.table = T), sort = F, by = c(block, "Assay"), suffixes = c("", ".AD"))
+  if ("Group" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_groups(object, as.data.table = T), sort = F, by = c(block, "Group", "Assay"))
+  if ("Group" %in% summary.cols && "Component" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_components(object, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Assay"))
+
+  # text.cols
+  if (is.null(label.cols)) {
+    text.cols <- summary.cols
+  } else {
+    text.cols <- label.cols
+  }
+
+  # elements are summary.cols with text.cols labels
+  if (is.null(sort.cols)) {
+    DT1 <- DT1[nrow(DT1):1]
+  } else {
+    data.table::setorderv(DT1, sort.cols, order = -1, na.last = T)
+  }
+  DT1[, Summary := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(summary.cols)]))]
+  DT1[, labels := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(text.cols)]))]
+  DT1[, Summary := factor(Summary, levels = unique(Summary), labels = labels)]
+  DT1[, labels := NULL]
+
+  # set up plot
+  g <- ggplot2::ggplot(DT1, ggplot2::aes(y = Summary))
+  g <- g + ggplot2::xlab(paste("log2", value.label))
+  g <- g + ggplot2::coord_cartesian(xlim = limits, ylim = c(0.5, nlevels(DT1$Summary) + 0.5), expand = F)
+  g <- g + ggplot2::theme(legend.position = "bottom", axis.title.y = ggplot2::element_blank(), strip.text = ggplot2::element_text(angle = 0, hjust = 0))
+  if (!is.null(facets)) g <- g + ggplot2::facet_wrap(facets, ncol = 1)
+  if (!is.null(title)) g <- g + ggplot2::ggtitle(DT1[1, get(title)])
+  if (!is.null(colour) && colour %in% colnames(DT1) && !all(is.na(DT1[, get(colour)]))) {
+    colour_ <- colour
+    if (is.numeric(DT1[, get(colour_)])) {
+      g <- g + ggplot2::scale_colour_viridis_c(option = "plasma", end = 0.75, na.value = "black")
+      g <- g + ggplot2::guides(colour = ggplot2::guide_colorbar(barwidth = value.length / 10))
+    } else {
+      g <- g + ggplot2::scale_colour_viridis_d(option = "plasma", end = 0.75, na.value = "black")
+    }
+  } else {
+    colour_ <- NULL
+  }
+  if (!is.null(fill) && fill %in% colnames(DT1) && !all(is.na(DT1[, get(fill)]))) {
+    fill_ <- fill
+    if (is.numeric(DT1[, get(fill_)])) {
+      g <- g + ggplot2::scale_fill_viridis_c(option = "plasma", end = 0.75, na.value = "black")
+      g <- g + ggplot2::guides(fill = ggplot2::guide_colorbar(barwidth = value.length / 10))
+    } else {
+      g <- g + ggplot2::scale_fill_viridis_d(option = "plasma", end = 0.75, na.value = "black")
+    }
+  } else {
+    fill_ <- NULL
+  }
+
+  # columns for merging with DTs[[i]]
+  cols <- c("Summary", summary.cols)
+  if (!is.null(colour_) && colour %in% colnames(DT1)) cols <- c(cols, colour_)
+  if (!is.null(fill_) && fill %in% colnames(DT1)) cols <- c(cols, fill_)
+  # plot each dataset
+  i <-1
+  #for (i in length(DTs):1) {
+    if ("PosteriorMean" %in% colnames(DTs[[i]])) {
+      value <- "PosteriorMean"
+      summary.cols2 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "m") - 1)]
+    } else if ("m" %in% colnames(DTs[[i]])) {
+      value <- "m"
+      summary.cols2 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "m") - 1)]
+    } else if ("value" %in% colnames(DTs[[i]])) {
+      value <- "value"
+      summary.cols2 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "chain") - 1)]
+    } else {
+      value <- "s"
+      summary.cols2 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "s") - 1)]
+    }
+
+    # transform for ecdf
+    lfdr_violin <- function(x, limits) {
+      return(data.table(x = sort(x), violinwidth = c((1:ceiling(length(x)/2) - 0.5) / length(x), (floor(length(x)/2):1 - 0.5) / length(x))))
+    }
+
+    #DTs[[i]] <- DTs[[i]][, lfdr_violin(value, limits), by = intersect(summary.cols, summary.cols2)]
+    DTs[[i]] <- merge(DT1[, unique(cols), with = F], DTs[[i]], by = intersect(summary.cols, summary.cols2), sort = F)
+    #DTs[[i]] <- merge(DT1[, unique(cols), with = F], DTs[[i]], by = intersect(summary.cols, summary.cols2), sort = F)
+
+    g <- g + ggplot2::geom_violin(ggplot2::aes(x = value, y = Summary), DTs[[i]], stat = "ydpmdensity")
+
+
+
+    DT[order(-rank(x), y)]
+
+    DTs[[i]] <- merge(DT1[, unique(cols), with = F], DTs[[i]], by = intersect(summary.cols, summary.cols2), sort = F)
+
+    #
+  }
 }
 
 

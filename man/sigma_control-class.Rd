@@ -7,15 +7,14 @@
 \title{Control parameters for seaMass-Σ}
 \usage{
 sigma_control(
-  summarise = c("assay.means", "assay.stdevs", "group.quants",
-    "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations",
-    "component.deviations", "component.means", "component.stdevs", "measurement.means",
-    "measurement.stdevs"),
+  summarise = c("assay.means", "assay.stdevs", "group.quants", "component.deviations",
+    "component.means", "component.stdevs", "measurement.means", "measurement.stdevs"),
   keep = NULL,
   plot = c("assay.means", "assay.stdevs", "group.quants", "group.quants.pca",
-    "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations",
     "component.deviations", "component.means", "component.stdevs", "measurement.means",
     "measurement.stdevs"),
+  eb.model = "deconvolve",
+  eb.max = 1024,
   measurement.model = "independent",
   measurement.eb.min = 2,
   component.model = "independent",
@@ -26,16 +25,10 @@ sigma_control(
   error.model = "lognormal",
   missingness.model = "censored",
   missingness.threshold = 0,
-  model.nchain = 4,
-  model.nwarmup = 256,
-  model.thin = 4,
-  model.nsample = 1024,
-  eb.model = "deconvolve",
-  eb.max = 1024,
-  norm.model = "theta",
-  norm.nchain = 8,
-  norm.nwarmup = 128,
-  norm.thin = 1,
+  nchain = 4,
+  nwarmup = 256,
+  thin = 4,
+  nsample = 1024,
   random.seed = 0,
   nthread = parallel::detectCores()\%/\%2,
   schedule = schedule_local()
@@ -75,13 +68,13 @@ or \code{"componenet"} (per-assay independent random effects across components; 
 
 \item{missingness.threshold}{All datapoints equal to or below this count are treated as missing}
 
-\item{model.nchain}{Number of MCMC chains to run}
+\item{nchain}{Number of MCMC chains to run}
 
-\item{model.nwarmup}{Number of MCMC warmup iterations to run for each chain}
+\item{nwarmup}{Number of MCMC warmup iterations to run for each chain}
 
-\item{model.thin}{MCMC thinning factor}
+\item{thin}{MCMC thinning factor}
 
-\item{model.nsample}{Total number of MCMC samples to deliver downstream}
+\item{nsample}{Total number of MCMC samples to deliver downstream}
 
 \item{random.seed}{Random number seed}
 

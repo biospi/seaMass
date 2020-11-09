@@ -6,15 +6,13 @@ setClass("delta_control", slots = c(
   component.deviations = "logical",
   keep = "character",
   plot = "character",
-  dea.model = "character",
-  dea.nwarmup = "integer",
-  dea.thin = "integer",
+  model = "character",
+  nwarmup = "integer",
+  thin = "integer",
   fdr.model = "character",
   random.seed = "integer",
   version = "character",
   ellipsis = "list",
-  model.nchain = "integer",
-  model.nsample = "integer",
   nthread = "integer"
 ))
 

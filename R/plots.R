@@ -9,8 +9,8 @@ setMethod("plots", "sigma_block", function(object, chain, job.id) {
   # plots directories
   fit.sigma <- parent(object)
   if ("group.quants" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_group_quants"), showWarnings = F)
-  if (ctrl@norm.model != "" && "normalised.group.quants" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_normalised_group_quants"), showWarnings = F)
-  if ("standardised.group.deviations" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_standardised_group_deviations"), showWarnings = F)
+  #if (ctrl@norm.model != "" && "normalised.group.quants" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_normalised_group_quants"), showWarnings = F)
+  #if ("standardised.group.deviations" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_standardised_group_deviations"), showWarnings = F)
   if (ctrl@component.model != "" && "component.deviations" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_component_deviations"), showWarnings = F)
   if (ctrl@component.model != "" && "component.means" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_component_means"), showWarnings = F)
   if (ctrl@component.model != "" && "component.stdevs" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_component_stdevs"), showWarnings = F)
@@ -286,67 +286,3 @@ setMethod("plot_pca", "seaMass", function(
 ) {
   return(plot_pca_contours(object, data.design, variables, input, type, scale, robust, NULL, aspect.ratio, labels, colour, fill, shape, data, ...))
 })
-
-
-# setMethod("plot_group_quants", "seaMass", function(
-#   object,
-#   group
-# ) {
-#   DT.group.quants <- group_quants(object, group, as.data.table = T)
-#   if (is.null(DT.group.quants)) return(NULL)
-#
-#   DT.normalised.group.quants <- normalised_group_quants(object, group, as.data.table = T)
-#   if (is.null(DT.normalised.group.quants)) DT.normalised.group.quants <- DT.group.quants
-#
-#   DT.standardised.group.deviations <- standardised_group_deviations(object, group, as.data.table = T)
-#   if (is.null(DT.normalised.group.quants)) {
-#     DT.standardised.group.deviations <- DT.normalised.group.quants
-#   } else {
-#     DT.standardised.group.means <- group_means(obje?ct, as.data.table = T)
-#     DT.standardised.group.means <- DT.standardised.group.means[, .(value = mean(value)), by = .(Group, chain, sample)]
-#     DT.standardised.group.deviations <- merge(DT.standardised.group.deviations, DT.standardised.group.means[, .(Group, chain, sample, deviation = value)], by = c("Group", "chain", "sample"))
-#     rm(DT.standardised.group.means)
-#     DT.standardised.group.deviations[, value := value + deviation]
-#     DT.standardised.group.deviations[, deviation := NULL]
-#   }
-#
-#   g <- ggplot2::ggplot(DT.group.quants, ggplot2::aes(x = value, y = Assay))
-#   g <- g + ggdist::stat_slab(side = "both", alpha = 0.2)
-#   g <- g + ggdist::stat_slab(data = DT.normalised.group.quants, side = "both", alpha = 0.4)
-#   g <- g + ggdist::stat_eye(data = DT.standardised.group.deviations)
-#   g
-#
-#
-#
-#
-#   DT.group.quants <- group_quants(object, group, as.data.table = T)
-#   DT.group.mean <- group_means(object, group, as.data.table = T)
-#   DT.group.mean[, Assay := "mean"]
-#   DT.group.mean2 <- read_samples(object, "model1", "normalised.group.means", group, as.data.table = T)
-#   DT.group.mean2[, Assay := "mean2"]
-#
-#
-#   g <- ggplot2::ggplot(rbind(DT.group.quants, DT.group.mean, DT.group.mean2), aes(x = value))
-#   g <- g + ggdist::stat_eye(aes(y = Assay))
-#   g
-#
-#   g <- g + ggdist::stat_slab(data = DT.group.mean, side = "both", alpha = 0.2, position = "dodge")
-#   g <- g + ggdist::stat_eye(data = DT.group.mean2, alpha = 0.2, position = "dodge")
-#   g
-#
-#   DT.normalised.group.quants <- normalised_group_quants(object, group, as.data.table = T)
-#   if (is.null(DT.normalised.group.quants)) DT.normalised.group.quants <- DT.group.quants
-#   DT.standardised.group.deviations <- standardised_group_deviations(object, group, as.data.table = T)
-#   if (is.null(DT.standardised.group.deviations)) DT.standardised.group.deviations <- DT.normalised.group.quants
-#   # truncate to 95% quantiles
-#   #DT.group.quants[, lower := quantile(value, probs = 0.025), by = Assay]
-#   #DT.group.quants[, upper := quantile(value, probs = 0.975), by = Assay]
-#   #DT.group.quants <- DT.group.quants[value >= lower & value <= upper]
-#
-#   g <- ggplot2::ggplot(DT.group.quants, aes(x = value, y = Assay))
-#   g <- g + ggdist::stat_slab(side = "both", alpha = 0.2)
-#   g <- g + ggdist::stat_slab(data = DT.normalised.group.quants, side = "both", alpha = 0.4)
-#   g <- g + ggdist::stat_eye(data = DT.standardised.group.deviations)
-#   g
-#
-#   #gridExtra::grid.arrange(egg::set_panel_size(p=g, width=unit(15, "cm"), height=unit(15, "cm")))

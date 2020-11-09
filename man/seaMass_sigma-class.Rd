@@ -29,10 +29,6 @@
 \alias{component_deviations,seaMass_sigma-method}
 \alias{group_quants,seaMass_sigma-method}
 \alias{group_means,seaMass_sigma-method}
-\alias{normalised_group_means,seaMass_sigma-method}
-\alias{normalised_group_stdevs,seaMass_sigma-method}
-\alias{normalised_group_quants,seaMass_sigma-method}
-\alias{standardised_group_deviations,seaMass_sigma-method}
 \alias{name,sigma_block-method}
 \title{seaMass-Σ}
 \usage{
@@ -80,7 +76,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
   assays = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -91,7 +87,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
   assays = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -100,7 +96,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
   measurements = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -109,7 +105,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
   measurements = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -118,7 +114,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
   components = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -127,7 +123,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
   components = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -136,7 +132,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
   components = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -145,7 +141,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
   groups = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -154,43 +150,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
   groups = NULL,
   summary = FALSE,
   input = "model1",
-  chains = 1:control(object)@model.nchain,
-  as.data.table = FALSE
-)
-
-\S4method{normalised_group_means}{seaMass_sigma}(
-  object,
-  groups = NULL,
-  summary = FALSE,
-  input = "model1",
-  chains = 1:control(object)@model.nchain,
-  as.data.table = FALSE
-)
-
-\S4method{normalised_group_stdevs}{seaMass_sigma}(
-  object,
-  groups = NULL,
-  summary = FALSE,
-  input = "model1",
-  chains = 1:control(object)@model.nchain,
-  as.data.table = FALSE
-)
-
-\S4method{normalised_group_quants}{seaMass_sigma}(
-  object,
-  groups = NULL,
-  summary = FALSE,
-  input = "model1",
-  chains = 1:control(object)@model.nchain,
-  as.data.table = FALSE
-)
-
-\S4method{standardised_group_deviations}{seaMass_sigma}(
-  object,
-  groups = NULL,
-  summary = FALSE,
-  input = "model1",
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -269,14 +229,6 @@ Fits the seaMass-Σ Bayesian group-level quantification model to imported data.
 \item \code{group_quants,seaMass_sigma-method}: Get the model group quantifications as a \link{data.frame}.
 
 \item \code{group_means,seaMass_sigma-method}: Get the model group means as a \link{data.frame}.
-
-\item \code{normalised_group_means,seaMass_sigma-method}: Get the model normalised group stdevs as a \link{data.frame}.
-
-\item \code{normalised_group_stdevs,seaMass_sigma-method}: Get the model normalised group stdevs as a \link{data.frame}.
-
-\item \code{normalised_group_quants,seaMass_sigma-method}: Get the model normalised group quantifications as a \link{data.frame}.
-
-\item \code{standardised_group_deviations,seaMass_sigma-method}: Get the model standardised group deviations as a \link{data.frame}.
 
 \item \code{name,sigma_block-method}: Get the block name.
 }}
