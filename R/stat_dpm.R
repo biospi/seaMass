@@ -1,6 +1,3 @@
-#' @inheritParams layer
-#' @inheritParams geom_point
-#' @inheritParams stat_density
 #' @param scale if "area" (default), all violins have the same area (before trimming
 #'   the tails). If "count", areas are scaled proportionally to the number of
 #'   observations. If "width", all violins have the same maximum width.
@@ -14,10 +11,8 @@
 #'   \item{n}{number of points}
 #'   \item{width}{width of violin bounding box}
 #' }
-#' @seealso [geom_violin()] for examples, and [stat_density()]
-#'   for examples with data along the x axis.
 #' @export
-#' @rdname geom_violin
+#' @rdname geom_biolin
 stat_ydpmdensity <- function(
   mapping = NULL,
   data = NULL,
@@ -33,7 +28,7 @@ stat_ydpmdensity <- function(
 ) {
   scale <- match.arg(scale, c("area", "count", "width"))
 
-  return(layer(
+  return(ggplot2::layer(
     data = data,
     mapping = mapping,
     stat = StatYdpmdensity,
@@ -51,17 +46,14 @@ stat_ydpmdensity <- function(
 }
 
 
-#' @rdname ggplot2-ggproto
-#' @format NULL
-#' @usage NULL
 #' @export
-StatYdpmdensity <- ggproto(
+StatYdpmdensity <- ggplot2::ggproto(
   "StatYdpmdensity",
-  Stat,
+  ggplot2::Stat,
   required_aes = c("x", "y"),
 
   setup_params = function(data, params) {
-    params$flipped_aes <- has_flipped_aes(data, params, main_is_orthogonal = TRUE, group_has_equal = TRUE)
+    params$flipped_aes <- ggplot2::has_flipped_aes(data, params, main_is_orthogonal = TRUE, group_has_equal = TRUE)
     return(params)
   },
 
@@ -73,7 +65,6 @@ StatYdpmdensity <- ggproto(
       return(data.frame())
     }
     range <- range(data$y, na.rm = TRUE)
-    print("bang")
     dens <- compute_density(data$y, range[1], range[2])
     dens$y <- dens$x
     dens$x <- mean(range(data$x))
@@ -82,12 +73,13 @@ StatYdpmdensity <- ggproto(
     if (length(unique(data$x)) > 1) width <- diff(range(data$x)) * 0.9
     dens$width <- width
 
+    print(as.data.table(dens))
     return(dens)
   },
 
   compute_panel = function(self, data, scales, width = NULL, trim = TRUE, na.rm = FALSE, scale = "area", flipped_aes = FALSE) {
-    data <- flip_data(data, flipped_aes)
-    data <- ggproto_parent(Stat, self)$compute_panel(data, scales, width = width, trim = trim, na.rm = na.rm)
+    data <- ggplot2::flip_data(data, flipped_aes)
+    data <- ggplot2::ggproto_parent(ggplot2::Stat, self)$compute_panel(data, scales, width = width, trim = trim, na.rm = na.rm)
     data$violinwidth <- switch(
       scale, # choose how violins are scaled relative to each other
       area = data$density / max(data$density), # area : keep the original densities but scale them to a max width of 1 for plotting purposes only
@@ -95,7 +87,7 @@ StatYdpmdensity <- ggproto(
       width = data$scaled # width: constant width (density scaled to a maximum of 1)
     )
     data$flipped_aes <- flipped_aes
-    return(flip_data(data, flipped_aes))
+    return(ggplot2::flip_data(data, flipped_aes))
   }
 )
 
@@ -110,7 +102,7 @@ compute_density <- function(x, from, to, n = 512) {
 
   #grr <<- x
   x <- scale(x)
-  dp <- dirichletprocess::Burn(dirichletprocess::Fit(dirichletprocess::DirichletProcessGaussian(x), 2048), 1024)
+  dp <- dirichletprocess::Burn(dirichletprocess::Fit(dirichletprocess::DirichletProcessGaussian(x), 2), 1)
   #DiagnosticPlots(dp)
   dens <- dirichletprocess::PosteriorFrame(dp, seq(-3, 3, length.out = n))
   dens$x <- dens$x * attr(x, 'scaled:scale') + attr(x, 'scaled:center')
@@ -120,6 +112,7 @@ compute_density <- function(x, from, to, n = 512) {
     density = dens$Mean,
     scaled = dens$Mean / max(dens$Mean, na.rm = T),
     ndensity = dens$Mean / max(dens$Mean, na.rm = T),
-    count = dens$Mean * nx,n = nx
+    count = dens$Mean * nx,
+    n = nx
   ))
 }

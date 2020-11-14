@@ -74,7 +74,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{assay_means}{seaMass_sigma}(
   object,
   assays = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
@@ -85,7 +85,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{assay_deviations}{seaMass_sigma}(
   object,
   assays = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
@@ -94,7 +94,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{measurement_means}{seaMass_sigma}(
   object,
   measurements = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
@@ -103,7 +103,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{measurement_stdevs}{seaMass_sigma}(
   object,
   measurements = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
@@ -112,7 +112,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{component_means}{seaMass_sigma}(
   object,
   components = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
@@ -121,7 +121,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{component_stdevs}{seaMass_sigma}(
   object,
   components = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
@@ -130,7 +130,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{component_deviations}{seaMass_sigma}(
   object,
   components = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
@@ -139,7 +139,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{group_quants}{seaMass_sigma}(
   object,
   groups = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
@@ -148,7 +148,7 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{group_means}{seaMass_sigma}(
   object,
   groups = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE

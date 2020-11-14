@@ -102,7 +102,7 @@ add_Navarro_spikein_truth(data.fdr)
 \S4method{group_means}{sigma_block}(
   object,
   groups = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
@@ -111,7 +111,7 @@ add_Navarro_spikein_truth(data.fdr)
 \S4method{normalised_group_quants}{sigma_block}(
   object,
   groups = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
@@ -120,7 +120,7 @@ add_Navarro_spikein_truth(data.fdr)
 \S4method{standardised_group_deviations}{sigma_block}(
   object,
   groups = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE

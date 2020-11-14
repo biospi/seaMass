@@ -392,7 +392,7 @@ setMethod("control", "seaMass_theta", function(object) {
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("groups", "seaMass_theta", function(object, summary = FALSE, as.data.table = FALSE) {
+setMethod("groups", "seaMass_theta", function(object, summary = TRUE, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) groups(block, as.data.table = T)))
   if (summary) DT <- DT[, .(GroupInfo = GroupInfo[1], G.qC = max(G.qC), G.uC = max(G.uC), G.nC = max(G.nC), G.qM = max(G.qM), G.uM = max(G.uM), G.nM = max(G.nM), G.qD = max(G.qD), G.uD = max(G.uD), G.nD = max(G.nD)), by = Group]
 
@@ -406,7 +406,7 @@ setMethod("groups", "seaMass_theta", function(object, summary = FALSE, as.data.t
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("components", "seaMass_theta", function(object, summary = FALSE, as.data.table = FALSE) {
+setMethod("components", "seaMass_theta", function(object, summary = TRUE, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) components(block, as.data.table = T)))
   if (summary) DT <- DT[, .(C.qM = max(C.qM), C.uM = max(C.uM), C.nM = max(C.nM), C.qD = max(C.qD), C.uD = max(C.uD), C.nD = max(C.nD)), by = .(Group, Component)]
 
@@ -420,7 +420,7 @@ setMethod("components", "seaMass_theta", function(object, summary = FALSE, as.da
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("assay_groups", "seaMass_theta", function(object, summary = FALSE, as.data.table = FALSE) {
+setMethod("assay_groups", "seaMass_theta", function(object, summary = TRUE, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) assay_groups(block, as.data.table = T)))
   if (summary) DT <- DT[, .(AG.qC = max(AG.qC), AG.uC = max(AG.uC), AG.nC = max(AG.nC), AG.qM = max(AG.qM), AG.uM = max(AG.uM), AG.nM = max(AG.nM), AG.qD = max(AG.qD), AG.uD = max(AG.uD), AG.nD = max(AG.nD)), by = .(Group, Assay)]
 
@@ -434,7 +434,7 @@ setMethod("assay_groups", "seaMass_theta", function(object, summary = FALSE, as.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("assay_components", "seaMass_theta", function(object, summary = FALSE, as.data.table = FALSE) {
+setMethod("assay_components", "seaMass_theta", function(object, summary = TRUE, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) assay_components(block, as.data.table = T)))
   if (summary) DT <- DT[, .(AC.qM = max(AC.qM), AC.uM = max(AC.uM), AC.nM = max(AC.nM), AC.qD = max(AC.qD), AC.uD = max(AC.uD), AC.nD = max(AC.nD)), by = .(Group, Component, Assay)]
 
@@ -448,7 +448,7 @@ setMethod("assay_components", "seaMass_theta", function(object, summary = FALSE,
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("measurements", "seaMass_theta", function(object, summary = FALSE, as.data.table = FALSE) {
+setMethod("measurements", "seaMass_theta", function(object, summary = TRUE, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) measurements(block, as.data.table = T)))
   if (summary) DT <- DT[, .(M.qD = max(M.qD), M.uD = max(M.uD), M.nD = max(M.nD)), by = .(Group, Component, Measurement)]
 
@@ -526,7 +526,7 @@ setMethod("read_samples", "seaMass_theta", function(object, input, type, items =
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("assay_means", "seaMass_theta", function(object, assays = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("assay_means", "seaMass_theta", function(object, assays = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) assay_means(block, assays, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -555,7 +555,7 @@ setMethod("assay_stdevs", "seaMass_theta", function(object, input = "model1", as
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("assay_deviations", "seaMass_theta", function(object, assays = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("assay_deviations", "seaMass_theta", function(object, assays = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) assay_deviations(block, assays, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -569,7 +569,7 @@ setMethod("assay_deviations", "seaMass_theta", function(object, assays = NULL, s
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("measurement_means", "seaMass_theta", function(object, measurements = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("measurement_means", "seaMass_theta", function(object, measurements = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) measurement_means(block, measurements, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -583,7 +583,7 @@ setMethod("measurement_means", "seaMass_theta", function(object, measurements = 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("measurement_stdevs", "seaMass_theta", function(object, measurements = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("measurement_stdevs", "seaMass_theta", function(object, measurements = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) measurement_stdevs(block, measurements, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -597,7 +597,7 @@ setMethod("measurement_stdevs", "seaMass_theta", function(object, measurements =
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_means", "seaMass_theta", function(object, components = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("component_means", "seaMass_theta", function(object, components = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) component_means(block, components, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -611,7 +611,7 @@ setMethod("component_means", "seaMass_theta", function(object, components = NULL
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_stdevs", "seaMass_theta", function(object, components = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("component_stdevs", "seaMass_theta", function(object, components = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) component_stdevs(block, components, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -625,7 +625,7 @@ setMethod("component_stdevs", "seaMass_theta", function(object, components = NUL
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_deviations", "seaMass_theta", function(object, components = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("component_deviations", "seaMass_theta", function(object, components = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) component_deviations(block, components, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -639,7 +639,7 @@ setMethod("component_deviations", "seaMass_theta", function(object, components =
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("group_quants", "seaMass_theta", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("group_quants", "seaMass_theta", function(object, groups = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) group_quants(block, groups, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -653,7 +653,7 @@ setMethod("group_quants", "seaMass_theta", function(object, groups = NULL, summa
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("group_means", "seaMass_theta", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("group_means", "seaMass_theta", function(object, groups = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) group_means(block, groups, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -667,7 +667,7 @@ setMethod("group_means", "seaMass_theta", function(object, groups = NULL, summar
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("normalised_group_means", "seaMass_theta", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("normalised_group_means", "seaMass_theta", function(object, groups = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) normalised_group_means(block, groups, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -681,7 +681,7 @@ setMethod("normalised_group_means", "seaMass_theta", function(object, groups = N
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("normalised_group_stdevs", "seaMass_theta", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("normalised_group_stdevs", "seaMass_theta", function(object, groups = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) normalised_group_stdevs(block, groups, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -695,7 +695,7 @@ setMethod("normalised_group_stdevs", "seaMass_theta", function(object, groups = 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("normalised_group_quants", "seaMass_theta", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("normalised_group_quants", "seaMass_theta", function(object, groups = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) normalised_group_quants(block, groups, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -709,7 +709,7 @@ setMethod("normalised_group_quants", "seaMass_theta", function(object, groups = 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("standardised_group_deviations", "seaMass_theta", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("standardised_group_deviations", "seaMass_theta", function(object, groups = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) standardised_group_deviations(block, groups, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 

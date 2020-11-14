@@ -559,7 +559,7 @@ setMethod("read_samples", "seaMass_sigma", function(object, input, type, items =
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("assay_means", "seaMass_sigma", function(object, assays = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+setMethod("assay_means", "seaMass_sigma", function(object, assays = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) assay_means(block, assays, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -588,7 +588,7 @@ setMethod("assay_stdevs", "seaMass_sigma", function(object, input = "model1", as
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("assay_deviations", "seaMass_sigma", function(object, assays = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+setMethod("assay_deviations", "seaMass_sigma", function(object, assays = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) assay_deviations(block, assays, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -602,7 +602,7 @@ setMethod("assay_deviations", "seaMass_sigma", function(object, assays = NULL, s
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("measurement_means", "seaMass_sigma", function(object, measurements = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+setMethod("measurement_means", "seaMass_sigma", function(object, measurements = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) measurement_means(block, measurements, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -616,7 +616,7 @@ setMethod("measurement_means", "seaMass_sigma", function(object, measurements = 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("measurement_stdevs", "seaMass_sigma", function(object, measurements = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+setMethod("measurement_stdevs", "seaMass_sigma", function(object, measurements = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) measurement_stdevs(block, measurements, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -630,7 +630,7 @@ setMethod("measurement_stdevs", "seaMass_sigma", function(object, measurements =
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_means", "seaMass_sigma", function(object, components = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+setMethod("component_means", "seaMass_sigma", function(object, components = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) component_means(block, components, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -644,7 +644,7 @@ setMethod("component_means", "seaMass_sigma", function(object, components = NULL
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_stdevs", "seaMass_sigma", function(object, components = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+setMethod("component_stdevs", "seaMass_sigma", function(object, components = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) component_stdevs(block, components, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -658,7 +658,7 @@ setMethod("component_stdevs", "seaMass_sigma", function(object, components = NUL
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_deviations", "seaMass_sigma", function(object, components = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+setMethod("component_deviations", "seaMass_sigma", function(object, components = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) component_deviations(block, components, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -672,7 +672,7 @@ setMethod("component_deviations", "seaMass_sigma", function(object, components =
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("group_quants", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+setMethod("group_quants", "seaMass_sigma", function(object, groups = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) group_quants(block, groups, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -686,7 +686,7 @@ setMethod("group_quants", "seaMass_sigma", function(object, groups = NULL, summa
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("group_means", "seaMass_sigma", function(object, groups = NULL, summary = FALSE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+setMethod("group_means", "seaMass_sigma", function(object, groups = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) group_means(block, groups, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 

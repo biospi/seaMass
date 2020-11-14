@@ -221,11 +221,9 @@ setMethod("plot_dists", "seaMass", function(object, data, limits = limits_dists(
     summary.cols <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "m") - 1)]
     summary.cols2 <- setdiff(colnames(DTs[[i]]), c(summary.cols, "m", "s", "df", "rhat"))
   } else if ("value" %in% colnames(DTs[[i]])) {
-    value <- "value"
     summary.cols <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "chain") - 1)]
     summary.cols2 <- setdiff(colnames(DTs[[i]]), c(summary.cols, "chain", "sample", "value"))
   } else {
-    value <- "s"
     summary.cols <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "s") - 1)]
     summary.cols2 <- setdiff(colnames(DTs[[i]]), c(summary.cols, "s", "df", "rhat"))
   }
@@ -296,40 +294,32 @@ setMethod("plot_dists", "seaMass", function(object, data, limits = limits_dists(
   # plot each dataset
   i <-1
   #for (i in length(DTs):1) {
-    if ("PosteriorMean" %in% colnames(DTs[[i]])) {
-      value <- "PosteriorMean"
+    if ("PosteriorMean" %in% colnames(DTs[[i]]) || "m" %in% colnames(DTs[[i]])) {
       summary.cols2 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "m") - 1)]
-    } else if ("m" %in% colnames(DTs[[i]])) {
-      value <- "m"
-      summary.cols2 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "m") - 1)]
+      dist <- "lst"
+      x <- ifelse("PosteriorMean" %in% colnames(DTs[[i]]), "PosteriorMean", "m")
+      arg2 <- ifelse("PosteriorMean" %in% colnames(DTs[[i]]), "PosteriorSD", "s")
+      arg3 <- "df"
     } else if ("value" %in% colnames(DTs[[i]])) {
-      value <- "value"
       summary.cols2 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "chain") - 1)]
+      dist <- NULL
+      x <- "value"
+      arg2 <- NULL
+      arg3 <- NULL
     } else {
-      value <- "s"
       summary.cols2 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "s") - 1)]
+      dist <- "inaka"
+      x <- "s"
+      arg2 <- "df"
+      arg3 <- NULL
     }
-
-    # transform for ecdf
-    lfdr_violin <- function(x, limits) {
-      return(data.table(x = sort(x), violinwidth = c((1:ceiling(length(x)/2) - 0.5) / length(x), (floor(length(x)/2):1 - 0.5) / length(x))))
-    }
-
-    #DTs[[i]] <- DTs[[i]][, lfdr_violin(value, limits), by = intersect(summary.cols, summary.cols2)]
-    DTs[[i]] <- merge(DT1[, unique(cols), with = F], DTs[[i]], by = intersect(summary.cols, summary.cols2), sort = F)
-    #DTs[[i]] <- merge(DT1[, unique(cols), with = F], DTs[[i]], by = intersect(summary.cols, summary.cols2), sort = F)
-
-    g <- g + ggplot2::geom_violin(ggplot2::aes(x = value, y = Summary), DTs[[i]], stat = "ydpmdensity")
-
-
-
-    DT[order(-rank(x), y)]
 
     DTs[[i]] <- merge(DT1[, unique(cols), with = F], DTs[[i]], by = intersect(summary.cols, summary.cols2), sort = F)
 
-    #
-  }
-}
+    g <- g + geom_biolin(ggplot2::aes_string(x = x, dist = "dist", arg2 = arg2, arg3 = arg3), DTs[[i]])
+
+    g
+})
 
 
 #' @import data.table

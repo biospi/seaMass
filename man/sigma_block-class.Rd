@@ -59,7 +59,7 @@
 \S4method{assay_means}{sigma_block}(
   object,
   assays = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
@@ -70,7 +70,7 @@
 \S4method{assay_deviations}{sigma_block}(
   object,
   assays = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model0",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
@@ -79,7 +79,7 @@
 \S4method{measurement_means}{sigma_block}(
   object,
   groups = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
@@ -88,7 +88,7 @@
 \S4method{measurement_stdevs}{sigma_block}(
   object,
   groups = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
@@ -97,7 +97,7 @@
 \S4method{component_means}{sigma_block}(
   object,
   groups = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
@@ -106,7 +106,7 @@
 \S4method{component_stdevs}{sigma_block}(
   object,
   groups = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
@@ -115,7 +115,7 @@
 \S4method{component_deviations}{sigma_block}(
   object,
   groups = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
@@ -124,7 +124,7 @@
 \S4method{group_quants}{sigma_block}(
   object,
   groups = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
@@ -133,7 +133,7 @@
 \S4method{normalised_group_means}{sigma_block}(
   object,
   groups = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
@@ -142,7 +142,7 @@
 \S4method{normalised_group_stdevs}{sigma_block}(
   object,
   groups = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE

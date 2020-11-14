@@ -56,15 +56,15 @@ open_theta(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 
 \S4method{control}{seaMass_theta}(object)
 
-\S4method{groups}{seaMass_theta}(object, summary = FALSE, as.data.table = FALSE)
+\S4method{groups}{seaMass_theta}(object, summary = TRUE, as.data.table = FALSE)
 
-\S4method{components}{seaMass_theta}(object, summary = FALSE, as.data.table = FALSE)
+\S4method{components}{seaMass_theta}(object, summary = TRUE, as.data.table = FALSE)
 
-\S4method{assay_groups}{seaMass_theta}(object, summary = FALSE, as.data.table = FALSE)
+\S4method{assay_groups}{seaMass_theta}(object, summary = TRUE, as.data.table = FALSE)
 
-\S4method{assay_components}{seaMass_theta}(object, summary = FALSE, as.data.table = FALSE)
+\S4method{assay_components}{seaMass_theta}(object, summary = TRUE, as.data.table = FALSE)
 
-\S4method{measurements}{seaMass_theta}(object, summary = FALSE, as.data.table = FALSE)
+\S4method{measurements}{seaMass_theta}(object, summary = TRUE, as.data.table = FALSE)
 
 \S4method{blocks}{seaMass_theta}(object)
 
@@ -77,7 +77,7 @@ open_theta(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{assay_means}{seaMass_theta}(
   object,
   assays = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@model.nchain,
   as.data.table = FALSE
@@ -88,7 +88,7 @@ open_theta(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{assay_deviations}{seaMass_theta}(
   object,
   assays = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@model.nchain,
   as.data.table = FALSE
@@ -97,7 +97,7 @@ open_theta(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{measurement_means}{seaMass_theta}(
   object,
   measurements = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@model.nchain,
   as.data.table = FALSE
@@ -106,7 +106,7 @@ open_theta(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{measurement_stdevs}{seaMass_theta}(
   object,
   measurements = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@model.nchain,
   as.data.table = FALSE
@@ -115,7 +115,7 @@ open_theta(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{component_means}{seaMass_theta}(
   object,
   components = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@model.nchain,
   as.data.table = FALSE
@@ -124,7 +124,7 @@ open_theta(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{component_stdevs}{seaMass_theta}(
   object,
   components = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@model.nchain,
   as.data.table = FALSE
@@ -133,7 +133,7 @@ open_theta(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{component_deviations}{seaMass_theta}(
   object,
   components = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@model.nchain,
   as.data.table = FALSE
@@ -142,7 +142,7 @@ open_theta(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{group_quants}{seaMass_theta}(
   object,
   groups = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@model.nchain,
   as.data.table = FALSE
@@ -151,7 +151,7 @@ open_theta(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{group_means}{seaMass_theta}(
   object,
   groups = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@model.nchain,
   as.data.table = FALSE
@@ -160,7 +160,7 @@ open_theta(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{normalised_group_means}{seaMass_theta}(
   object,
   groups = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@model.nchain,
   as.data.table = FALSE
@@ -169,7 +169,7 @@ open_theta(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{normalised_group_stdevs}{seaMass_theta}(
   object,
   groups = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@model.nchain,
   as.data.table = FALSE
@@ -178,7 +178,7 @@ open_theta(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{normalised_group_quants}{seaMass_theta}(
   object,
   groups = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@model.nchain,
   as.data.table = FALSE
@@ -187,7 +187,7 @@ open_theta(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 \S4method{standardised_group_deviations}{seaMass_theta}(
   object,
   groups = NULL,
-  summary = FALSE,
+  summary = TRUE,
   input = "model1",
   chains = 1:control(object)@model.nchain,
   as.data.table = FALSE
