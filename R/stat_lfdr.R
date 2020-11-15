@@ -1,6 +1,6 @@
 #' @export
 #' @rdname geom_biolin
-stat_lfsr <- function(
+stat_lfdr <- function(
   mapping = NULL,
   data = NULL,
   geom = "biolin",
@@ -15,7 +15,7 @@ stat_lfsr <- function(
   return(ggplot2::layer(
     data = data,
     mapping = mapping,
-    stat = StatLfsr,
+    stat = StatLfdr,
     geom = geom,
     position = position,
     show.legend = show.legend,
@@ -30,8 +30,8 @@ stat_lfsr <- function(
 
 
 #' @export
-StatLfsr <- ggplot2::ggproto(
-  "StatLfsr",
+StatLfdr <- ggplot2::ggproto(
+  "StatLfdr",
   ggplot2::Stat,
   required_aes = c("x", "y"),
   optional_aes = c("dist", "arg2", "arg3"),
@@ -57,11 +57,14 @@ StatLfsr <- ggplot2::ggproto(
 
     dd <- new_data_frame(list(ecdf = seq(bounds[1], bounds[2], length.out = 512), x = mean(range(data$x))), 512)
     if ("dist" %in% colnames(data)) {
-      dd$y <- do.call(paste0("q", data$dist), list(dd$ecdf, data$y, data$arg2, data$arg3))
+      args <- list(dd$ecdf, data$y)
+      if (!is.null(data$arg2)) args <- append(args, data$arg2)
+      if (!is.null(data$arg3)) args <- append(args, data$arg3)
+      dd$y <- do.call(paste0("q", data$dist), args)
     } else {
-      dd$y <- approxfun((1:n-0.5)/n, sort(data$y), ties = list("ordered", max))(dd$ecdf)
+      dd$y <- approxfun((1:n-0.5)/n, sort(data$y))(dd$ecdf)
     }
-    dd$lfsr <- ifelse(dd$ecdf <= 0.5, dd$ecdf, 1 - dd$ecdf)
+    dd$lfdr <- ifelse(dd$ecdf <= 0.5, dd$ecdf, 1 - dd$ecdf)
 
     return(dd)
   },
@@ -69,7 +72,7 @@ StatLfsr <- ggplot2::ggproto(
   compute_panel = function(self, data, scales, width = NULL, trim = TRUE, na.rm = FALSE, scale = "area", flipped_aes = FALSE) {
     data <- ggplot2::flip_data(data, flipped_aes)
     data <- ggplot2::ggproto_parent(ggplot2::Stat, self)$compute_panel(data, scales, width = width, trim = trim, na.rm = na.rm)
-    data$biolinwidth <- 2 * data$lfsr
+    data$biolinwidth <- 2 * data$lfdr
     data$flipped_aes <- flipped_aes
     return(ggplot2::flip_data(data, flipped_aes))
   }

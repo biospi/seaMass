@@ -18,7 +18,7 @@ setMethod("normalise_theta", "sigma_block", function(object, data.design = assay
   ctrl <- control(object)
   parallel_lapply(1:ctrl@norm.nchain, function(item, object, norm.groups, input, type) {
     ctrl <- control(object)
-    DT.summary <- read_samples(object, input, type, norm.groups, summary = T, as.data.table = T)[, .(Group, Assay, m, s)]
+    DT.summary <- read(object, input, type, norm.groups, summary = T, as.data.table = T)[, .(Group, Assay, m, s)]
     DT <- copy(DT.summary)
     DT[, Assay := factor(as.integer(Assay))]
     DT[, Group := factor(as.integer(Group))]
@@ -112,7 +112,7 @@ setMethod("normalise_theta", "sigma_block", function(object, data.design = assay
     diff <- ctrl@norm.nchain / ctrl@model.nchain
     DT.assay.means[, chain := (item - 1) %/% diff + 1]
     DT.assay.means[, sample := sample + ((item - 1) %% diff) * (ctrl@model.nsample * ctrl@norm.thin) / ctrl@norm.nchain]
-    DT <- read_samples(object, input, "group.quants", chain = DT.assay.means[1, chain], as.data.table = T)[, Block := NULL]
+    DT <- read(object, input, "group.quants", chain = DT.assay.means[1, chain], as.data.table = T)[, Block := NULL]
     DT <- merge(DT, DT.assay.means[, .(Assay, chain, sample, deviation = value)], by = c("Assay", "chain", "sample"), sort = F)
     DT[, value := value - deviation]
     DT[, deviation := NULL]
@@ -143,7 +143,7 @@ setMethod("normalise_median", "sigma_block", function(object, norm.groups = NULL
 
   if (is.null(norm.groups)) norm.groups <- ".*"
   parallel_lapply(as.list(1:control(object)@model.nchain), function(item, object, norm.groups, input, type) {
-    DT <- read_samples(object, input, type, chain = item, as.data.table = T)[, Block := NULL]
+    DT <- read(object, input, type, chain = item, as.data.table = T)[, Block := NULL]
 
     # group mean centre
     DT[, value := value - mean(value), by = .(Group, chain, sample)]
@@ -184,7 +184,7 @@ setMethod("normalise_quantile", "sigma_block", function(object, input = "model1"
   dir.create(file.path(filepath(object), input, "assay.means"), showWarnings = F)
 
   parallel_lapply(as.list(1:control(object)@model.nchain), function(item, object, input, type) {
-    DT <- read_samples(object, input, type, chain = item, as.data.table = T)[, Block := NULL]
+    DT <- read(object, input, type, chain = item, as.data.table = T)[, Block := NULL]
 
     # quantile normalisation
     DT[, mean := value]

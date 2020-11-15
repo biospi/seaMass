@@ -9,7 +9,7 @@
 geom_biolin <- function(
   mapping = NULL,
   data = NULL,
-  stat = "lfsr",
+  stat = "lfdr",
   position = "dodge",
   ...,
   draw_outline = FALSE,

@@ -240,14 +240,11 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       # write and plot assay stdevs
       if ("assay.stdevs" %in% ctrl@summarise || "assay.stdevs" %in% ctrl@plot) {
         DT <- assay_stdevs(fit.sigma, as.data.table = T)
-        if (!is.null(DT)) {
-          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_stdevs.csv"))
-          if ("assay.stdevs" %in% ctrl@plot) {
-            cat(paste0("[", Sys.time(), "]   plotting assay stdevs...\n"))
-            DT <- assay_stdevs(fit.sigma, as.data.table = T)
-            plot_assay_stdevs(fit.sigma, DT, limits_dists(DT, probs = c(0, 0.99), include.zero = T), file = file.path(filepath(fit.sigma), "output", "log2_assay_stdevs.pdf"))
-          }
-        }
+        if (!is.null(DT)) fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_stdevs.csv"))
+      }
+      if ("assay.stdevs" %in% ctrl@plot) {
+        cat(paste0("[", Sys.time(), "]   plotting assay stdevs...\n"))
+        plot_assay_stdevs(fit.sigma, file = file.path(filepath(fit.sigma), "output", "log2_assay_stdevs.pdf"))
       }
 
       # write assay deviations

@@ -545,8 +545,8 @@ setMethod("timings", "seaMass_sigma", function(object, input = "model1", as.data
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("read_samples", "seaMass_sigma", function(object, input, type, items = NULL, chains = 1:control(object)@nchain, summary = NULL, summary.func = "robust_normal", as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) read_samples(block, input, type, items, chains, summary, summary.func, as.data.table = T)))
+setMethod("read", "seaMass_sigma", function(object, input, type, items = NULL, chains = 1:control(object)@nchain, summary = NULL, summary.func = "robust_normal", as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) read(block, input, type, items, chains, summary, summary.func, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
@@ -695,21 +695,6 @@ setMethod("group_means", "seaMass_sigma", function(object, groups = NULL, summar
   return(DT)
 })
 
-
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("plot_assay_means", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = c("Block", "Assay"), label.cols = c("Block", "Assay", "Sample"), title = NULL, horizontal = TRUE, colour = "A.qD", fill = "A.qD", file = NULL, value.length = 80, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "mean", horizontal, colour, fill, file, value.length, level.length))
-})
-
-
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("plot_assay_stdevs", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = c("Block", "Assay"), label.cols = c("Block", "Assay", "Sample"), title = NULL, horizontal = TRUE, colour = "A.qD", fill = "A.qD", file = NULL, value.length = 80, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length))
-})
 
 #' @import data.table
 #' @export

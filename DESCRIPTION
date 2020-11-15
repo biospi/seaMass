@@ -66,7 +66,7 @@ Collate:
     'sigma_process0.R'
     'sigma_process1.R'
     'stat_dpm.R'
-    'stat_lfsr.R'
+    'stat_lfdr.R'
     'theta_control.R'
     'theta_normalise.R'
     'theta_process.R'

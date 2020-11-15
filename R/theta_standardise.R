@@ -11,7 +11,7 @@ setMethod("standardise_group_quants", "sigma_block", function(object, data.desig
   dir.create(file.path(filepath(object), input, "standardised.group.deviations"), showWarnings = F)
 
   parallel_lapply(as.list(1:ctrl@model.nchain), function(item, object, ctrl, DT.refweights, input, type) {
-    DT <- read_samples(object, input = input, type = type, chain = item, as.data.table = T)[, Block := NULL]
+    DT <- read(object, input = input, type = type, chain = item, as.data.table = T)[, Block := NULL]
 
     # standardise using RefWeighted mean of assays as denominator
     DT.refweights[, Assay := factor(Assay, levels = levels(DT$Assay))]

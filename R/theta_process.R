@@ -343,26 +343,23 @@ setMethod("process", "seaMass_theta", function(object, chain, job.id) {
 
       if ("assay.means" %in% ctrl@plot) {
         cat(paste0("[", Sys.time(), "]   plotting assay means...\n"))
-        DT <- assay_means(fit.sigma, as.data.table = T)
-        if (!is.null(DT)) plot_assay_means(fit.sigma, DT, limits_dists(DT, probs = c(0.0005, 0.9995)), file = file.path(filepath(fit.sigma), "output", "log2_assay_means.pdf"))
+        plot_assay_means(fit.sigma, file = file.path(filepath(fit.sigma), "output", "log2_assay_means.pdf"))
       }
 
       if ("assay.stdevs" %in% ctrl@plot) {
         cat(paste0("[", Sys.time(), "]   plotting assay stdevs...\n"))
         DT <- assay_stdevs(fit.sigma, as.data.table = T)
-        if (!is.null(DT)) plot_assay_stdevs(fit.sigma, DT, limits_dists(DT, probs = c(0, 0.99), include.zero = T), file = file.path(filepath(fit.sigma), "output", "log2_assay_stdevs.pdf"))
+        plot_assay_stdevs(fit.sigma, file = file.path(filepath(fit.sigma), "output", "log2_assay_stdevs.pdf"))
       }
 
       if ("group.means" %in% ctrl@plot) {
         cat(paste0("[", Sys.time(), "]   plotting group means...\n"))
-        DT <- group_means(fit.sigma, as.data.table = T)
-        if (!is.null(DT)) plot_group_means(fit.sigma, DT, limits_dists(DT), file = file.path(filepath(fit.sigma), "output", "log2_group_means.pdf"))
+        plot_group_means(fit.sigma, file = file.path(filepath(fit.sigma), "output", "log2_group_means.pdf"))
       }
 
       if ("normalised.group.means" %in% ctrl@plot) {
         cat(paste0("[", Sys.time(), "]   plotting normalised group means...\n"))
-        DT <- normalised_group_means(fit.sigma, as.data.table = T)
-        if (!is.null(DT)) plot_normalised_group_means(fit.sigma, DT, limits_dists(DT), file = file.path(filepath(fit.sigma), "output", "log2_normalised_group_means.pdf"))
+        plot_normalised_group_means(fit.sigma, file = file.path(filepath(fit.sigma), "output", "log2_normalised_group_means.pdf"))
       }
 
       if ("normalised.group.stdevs" %in% ctrl@plot) {

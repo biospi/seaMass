@@ -43,7 +43,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
   fixed1 <- as.formula(paste("m", deparse(fixed, width.cutoff = 500), collapse=""))
 
   if (is.null(data)) {
-    DTs <- read_samples(object@fit, input, type, summary = T, summary.func = "robust_normal", as.data.table = T)
+    DTs <- read(object@fit, input, type, summary = T, summary.func = "robust_normal", as.data.table = T)
   } else {
     DTs <- as.data.table(data)
   }

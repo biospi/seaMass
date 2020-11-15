@@ -35,7 +35,7 @@ setMethod("plot_pca_contours", "seaMass", function(
   if (!("Block" %in% colnames(DT.design))) DT.design <- merge(DT.design, assay_design(object, as.data.table = T), by = "Assay", sort = F, suffixes = c("", ".old"))
 
   # determine which individuals and variables to use
-  DT.summary <- read_samples(object, input, type, variables, summary = T, summary.func = "robust_normal", as.data.table = T)
+  DT.summary <- read(object, input, type, variables, summary = T, summary.func = "robust_normal", as.data.table = T)
   summary.cols <- setdiff(colnames(DT.summary)[1:(which(colnames(DT.summary) == "m") - 1)], c("Assay", "Block"))
   DT.individuals <- merge(DT.summary[, .(use = var(m, na.rm = T) >= 1e-5), keyby = .(Assay, Block)][use == T, .(Assay, Block)], DT.design[, .(Assay, Block)], by = c("Assay", "Block"), sort = F)
   DT.variables <- dcast(DT.summary, paste(paste(summary.cols, collapse = " + "), "~ Assay + Block"), value.var = "m")
@@ -94,7 +94,7 @@ setMethod("plot_pca_contours", "seaMass", function(
     # predict from PCA fit
     DT <- rbindlist(parallel_lapply(batch_split(DT.individuals, c("Block", "Assay"), nrow(DT.individuals), drop = T, keep.by = F), function(item, DT.variables, object, input, type, summary.cols, fit) {
       DT1 <- merge(item[,c(k = 1, .SD)], DT.variables[,c(k = 1, .SD)], by = "k", all = T, allow.cartesian = T)[, k := NULL]
-      DT1 <- read_samples(object, input, type, DT1, as.data.table = T)
+      DT1 <- read(object, input, type, DT1, as.data.table = T)
       DT1 <- dcast(DT1, paste("chain + sample ~", paste(summary.cols, collapse = " + ")), value.var = "value")
       DT1[, c("chain", "sample") := NULL]
       pred <- predict(fit, DT1)

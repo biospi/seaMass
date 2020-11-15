@@ -35,7 +35,7 @@ setMethod("plots", "seaMass", function(object, batch, job.id) {
   cat(paste0("[", Sys.time(), "]  PLOTS batch=", batch, "/", nbatch, "\n"))
   cat(paste0("[", Sys.time(), "]   generating...\n"))
 
-  # grab out batch of groups
+  # grab our batch of groups
   groups <- unique(groups(object, as.data.table = T)[G.qC > 0, Group])
   groups <- groups[rep_len(1:nbatch, length(groups)) == batch]
   lims <- readRDS(file.path(filepath(fit.sigma), "sigma", "limits.rds"))
@@ -61,7 +61,15 @@ setMethod("plots", "seaMass", function(object, batch, job.id) {
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("read_samples", "seaMass", function(object, input, type, items = NULL, chains = 1:control(object)@nchain, summary = NULL, summary.func = "robust_normal", as.data.table = FALSE) {
+setMethod("read", "seaMass", function(
+  object,
+  input,
+  type,
+  items = NULL,
+  chains = 1:control(object)@nchain, summary = NULL,
+  summary.func = "robust_normal",
+  as.data.table = FALSE
+) {
   if (is.null(summary) || summary == F) summary <- NULL
   if (!is.null(summary)) {
     summary <- ifelse(summary == T, paste0("dist_samples_", summary.func), paste0("dist_samples_", summary))
@@ -168,24 +176,32 @@ setMethod("read_samples", "seaMass", function(object, input, type, items = NULL,
 #' @import data.table
 #' @export
 #' @include generics.R
-limits_dists <- function(data, probs = c(0.005, 0.995), include.zero = FALSE) {
+limits <- function(data, trim = c(0.05, 0.95), quantiles = c(0.05, 0.95), include.zero = FALSE) {
   compute_limits <- function(dd) {
     idt <- is.data.table(dd)
     setDT(dd)
 
     # calculate limits from 99.9% of samples
-    set.seed(0)
     if ("PosteriorMean" %in% colnames(dd)) {
-      xs <- rlst(1048576, dd$PosteriorMean, dd$PosteriorSD, dd$df)
+      x0s <- qlst(trim[1], dd$PosteriorMean, dd$PosteriorSD, dd$df)
+      x1s <- qlst(trim[2], dd$PosteriorMean, dd$PosteriorSD, dd$df)
     } else if ("m" %in% colnames(dd)) {
-      xs <- rlst(1048576, dd$m, dd$s, dd$df)
+      x0s <- qlst(trim[1], dd$m, dd$s, dd$df)
+      x1s <- qlst(trim[2], dd$m, dd$s, dd$df)
     } else if ("value" %in% colnames(dd)) {
       xs <- dd$value
     } else {
-      xs <- rinaka(1048576, dd$s, dd$df)
+      x0s <- qinaka(trim[1], dd$s, dd$df)
+      x1s <- qinaka(trim[2], dd$s, dd$df)
     }
 
-    lim <- quantile(xs, probs = probs, na.rm = T)
+    # compute quantiles
+    n <- length(x0s)
+    lim <- c(
+      approxfun((1:n-0.5)/n, sort(x0s), yleft = min(x0s), yright = max(x0s))(quantiles[1]),
+      approxfun((1:n-0.5)/n, sort(x1s), yleft = min(x1s), yright = max(x1s))(quantiles[2])
+    )
+
     if (include.zero) {
       if (lim[1] > 0) lim[1] <- 0
       if (lim[2] < 0) lim[2] <- 0
@@ -209,27 +225,81 @@ limits_dists <- function(data, probs = c(0.005, 0.995), include.zero = FALSE) {
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_dists", "seaMass", function(object, data, limits = limits_dists(data), alpha = 1, facets = NULL, sort.cols = NULL, label.cols = NULL, title = NULL, value.label = "value", colour = NULL, fill = NULL, file = NULL, value.length = 120, level.length = 5) {
+setMethod("plot_dists", "seaMass", function(
+  object,
+  data,
+  draw_outline = TRUE,
+  draw_quantiles = 0.5,
+  trim = c(0.05, 0.95),
+  colour = NULL,
+  fill = NULL,
+  alpha = list(0.5, 0.35, 0.2),
+  title = NULL,
+  facets = NULL,
+  x.label = "value",
+  x.limits = limits(data),
+  x.length = 120,
+  y.sort.cols = NULL,
+  y.label.cols = NULL,
+  y.interval = 5,
+  show.legend = TRUE,
+  file = NULL
+) {
   if (is.data.frame(data)) {
     DTs <- list(as.data.table(data))
   } else {
     DTs <- lapply(data, function(dd) as.data.table(dd))
   }
 
-  # cope with different inputs
-  if ("PosteriorMean" %in% colnames(DTs[[i]]) || "m" %in% colnames(DTs[[i]])) {
-    summary.cols <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "m") - 1)]
-    summary.cols2 <- setdiff(colnames(DTs[[i]]), c(summary.cols, "m", "s", "df", "rhat"))
-  } else if ("value" %in% colnames(DTs[[i]])) {
-    summary.cols <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "chain") - 1)]
-    summary.cols2 <- setdiff(colnames(DTs[[i]]), c(summary.cols, "chain", "sample", "value"))
+  if (!is.list(draw_outline)) {
+    draw_outlines <- list(draw_outline)
   } else {
-    summary.cols <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "s") - 1)]
-    summary.cols2 <- setdiff(colnames(DTs[[i]]), c(summary.cols, "s", "df", "rhat"))
+    draw_outlines <- draw_outline
   }
 
-  # metadata for each column level
-  DT1 <- DTs[[i]][, .N, by = c(summary.cols, summary.cols2)]
+  if (!is.list(draw_quantiles)) {
+    draw_quantiless <- list(draw_quantiles)
+  } else {
+    draw_quantiless <- draw_quantiles
+  }
+
+  if (!is.list(trim)) {
+    trims <- list(trim)
+  } else {
+    trims <- trim
+  }
+
+  if (!is.list(colour)) {
+    colours <- list(colour)
+  } else {
+    colours <- colour
+  }
+
+  if (!is.list(fill)) {
+    fills <- list(fill)
+  } else {
+    fills <- fill
+  }
+
+  if (!is.list(alpha)) {
+    alphas <- list(alpha)
+  } else {
+    alphas <- alpha
+  }
+
+  ## GATHER METADATA FROM FIRST INPUT ONLY
+
+  # cope with different inputs
+  if ("PosteriorMean" %in% colnames(DTs[[1]]) || "m" %in% colnames(DTs[[1]])) {
+    summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "m") - 1)]
+  } else if ("value" %in% colnames(DTs[[1]])) {
+    summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "chain") - 1)]
+  } else {
+    summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "s") - 1)]
+  }
+
+  # merge metadata
+  DT1 <- DTs[[1]][, .N, by = summary.cols]
   block <- NULL
   if ("Block" %in% summary.cols) block <- "Block"
   if ("Group" %in% summary.cols) DT1 <- merge(DT1, groups(object, as.data.table = T), sort = F, by = c(block, "Group"))
@@ -239,296 +309,119 @@ setMethod("plot_dists", "seaMass", function(object, data, limits = limits_dists(
   if ("Group" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_groups(object, as.data.table = T), sort = F, by = c(block, "Group", "Assay"))
   if ("Group" %in% summary.cols && "Component" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_components(object, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Assay"))
 
-  # text.cols
-  if (is.null(label.cols)) {
-    text.cols <- summary.cols
+  # remove summary cols that contain inhomogenous data
+  summary.cols <- summary.cols[sapply(summary.cols, function(col) uniqueN(DTs[[1]][, col, with = F]) > 1)]
+
+  ## SET UP PLOT
+
+  if (is.null(y.label.cols)) {
+    label.cols <- summary.cols
   } else {
-    text.cols <- label.cols
+    label.cols <- y.label.cols
   }
 
   # elements are summary.cols with text.cols labels
-  if (is.null(sort.cols)) {
+  if (is.null(y.sort.cols)) {
     DT1 <- DT1[nrow(DT1):1]
   } else {
     data.table::setorderv(DT1, sort.cols, order = -1, na.last = T)
   }
   DT1[, Summary := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(summary.cols)]))]
-  DT1[, labels := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(text.cols)]))]
+  DT1[, labels := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(label.cols)]))]
   DT1[, Summary := factor(Summary, levels = unique(Summary), labels = labels)]
   DT1[, labels := NULL]
 
   # set up plot
   g <- ggplot2::ggplot(DT1, ggplot2::aes(y = Summary))
-  g <- g + ggplot2::xlab(paste("log2", value.label))
-  g <- g + ggplot2::coord_cartesian(xlim = limits, ylim = c(0.5, nlevels(DT1$Summary) + 0.5), expand = F)
+  if (!is.null(title)) g <- g + ggplot2::ggtitle(title)
+  g <- g + ggplot2::xlab(paste("log2", x.label))
+  g <- g + ggplot2::coord_cartesian(xlim = x.limits, ylim = c(0.5, nlevels(DT1$Summary) + 0.5), expand = F)
   g <- g + ggplot2::theme(legend.position = "bottom", axis.title.y = ggplot2::element_blank(), strip.text = ggplot2::element_text(angle = 0, hjust = 0))
   if (!is.null(facets)) g <- g + ggplot2::facet_wrap(facets, ncol = 1)
-  if (!is.null(title)) g <- g + ggplot2::ggtitle(DT1[1, get(title)])
-  if (!is.null(colour) && colour %in% colnames(DT1) && !all(is.na(DT1[, get(colour)]))) {
-    colour_ <- colour
-    if (is.numeric(DT1[, get(colour_)])) {
+  if (!is.null(colours[[1]]) && colours[[1]] %in% colnames(DT1) && !all(is.na(DT1[, get(colours[[1]])]))) {
+    if (is.numeric(DT1[, get(colours[[1]])])) {
       g <- g + ggplot2::scale_colour_viridis_c(option = "plasma", end = 0.75, na.value = "black")
-      g <- g + ggplot2::guides(colour = ggplot2::guide_colorbar(barwidth = value.length / 10))
+      g <- g + ggplot2::guides(colour = ggplot2::guide_colorbar(barwidth = x.length / 10))
     } else {
       g <- g + ggplot2::scale_colour_viridis_d(option = "plasma", end = 0.75, na.value = "black")
     }
-  } else {
-    colour_ <- NULL
   }
-  if (!is.null(fill) && fill %in% colnames(DT1) && !all(is.na(DT1[, get(fill)]))) {
-    fill_ <- fill
-    if (is.numeric(DT1[, get(fill_)])) {
+  if (!is.null(fills[[1]]) && fills[[1]] %in% colnames(DT1) && !all(is.na(DT1[, get(fills[[1]])]))) {
+    if (is.numeric(DT1[, get(fills[[1]])])) {
       g <- g + ggplot2::scale_fill_viridis_c(option = "plasma", end = 0.75, na.value = "black")
-      g <- g + ggplot2::guides(fill = ggplot2::guide_colorbar(barwidth = value.length / 10))
+      g <- g + ggplot2::guides(fill = ggplot2::guide_colorbar(barwidth = x.length / 10))
     } else {
       g <- g + ggplot2::scale_fill_viridis_d(option = "plasma", end = 0.75, na.value = "black")
     }
-  } else {
-    fill_ <- NULL
   }
 
-  # columns for merging with DTs[[i]]
-  cols <- c("Summary", summary.cols)
-  if (!is.null(colour_) && colour %in% colnames(DT1)) cols <- c(cols, colour_)
-  if (!is.null(fill_) && fill %in% colnames(DT1)) cols <- c(cols, fill_)
-  # plot each dataset
-  i <-1
-  #for (i in length(DTs):1) {
+  ## PLOT EACH DATASET
+  for (i in length(DTs):1) {
+    # cope with different inputs
     if ("PosteriorMean" %in% colnames(DTs[[i]]) || "m" %in% colnames(DTs[[i]])) {
-      summary.cols2 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "m") - 1)]
+      summary.cols1 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "m") - 1)]
       dist <- "lst"
       x <- ifelse("PosteriorMean" %in% colnames(DTs[[i]]), "PosteriorMean", "m")
       arg2 <- ifelse("PosteriorMean" %in% colnames(DTs[[i]]), "PosteriorSD", "s")
       arg3 <- "df"
     } else if ("value" %in% colnames(DTs[[i]])) {
-      summary.cols2 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "chain") - 1)]
+      summary.cols1 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "chain") - 1)]
       dist <- NULL
       x <- "value"
       arg2 <- NULL
       arg3 <- NULL
     } else {
-      summary.cols2 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "s") - 1)]
+      summary.cols1 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "s") - 1)]
       dist <- "inaka"
       x <- "s"
       arg2 <- "df"
       arg3 <- NULL
     }
 
-    DTs[[i]] <- merge(DT1[, unique(cols), with = F], DTs[[i]], by = intersect(summary.cols, summary.cols2), sort = F)
-
-    g <- g + geom_biolin(ggplot2::aes_string(x = x, dist = "dist", arg2 = arg2, arg3 = arg3), DTs[[i]])
-
-    g
-})
-
-
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("plot_dists", "seaMass", function(object, data, limits = NULL, alpha = 1, facets = NULL, sort.cols = NULL, label.cols = NULL, title = NULL, value.label = "value", horizontal = TRUE, colour = NULL, fill = NULL, file = NULL, value.length = 120, level.length = 5) {
-  try(library(seaMass), silent = T) # so ggdist can see our inaki functions
-
-  if (is.data.frame(data)) {
-    DTs <- list(as.data.table(data))
-  } else {
-    DTs <- lapply(data, function(dd) as.data.table(dd))
-  }
-
-  # set up plot using first dataset
-  if ("PosteriorMean" %in% colnames(DTs[[1]]) || "m" %in% colnames(DTs[[1]])) {
-    summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "m") - 1)]
-    summary.cols2 <- setdiff(colnames(DTs[[1]]), c(summary.cols, "m", "s", "df", "rhat"))
-  } else if ("value" %in% colnames(DTs[[1]])) {
-    summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "chain") - 1)]
-    summary.cols2 <- setdiff(colnames(DTs[[1]]), c(summary.cols, "chain", "sample", "value"))
-  } else {
-    summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "s") - 1)]
-    summary.cols2 <- setdiff(colnames(DTs[[1]]), c(summary.cols, "s", "df", "rhat"))
-  }
-
-  # metadata for each column level
-  DT1 <- DTs[[1]][, .N, by = c(summary.cols, summary.cols2)]
-  if ("Block" %in% summary.cols) {
-    block <- "Block"
-  } else {
-    block <- NULL
-  }
-  if ("Group" %in% summary.cols) DT1 <- merge(DT1, groups(object, as.data.table = T), sort = F, by = c(block, "Group"))
-  if ("Group" %in% summary.cols && "Component" %in% summary.cols) DT1 <- merge(DT1, components(object, as.data.table = T), sort = F, by = c(block, "Group", "Component"))
-  if ("Group" %in% summary.cols && "Component" %in% summary.cols && "Measurement" %in% summary.cols) DT1 <- merge(DT1, measurements(object, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Measurement"))
-  if ("Assay" %in% summary.cols) DT1 <- merge(DT1, assay_design(object, as.data.table = T), sort = F, by = c(block, "Assay"), suffixes = c("", ".AD"))
-  if ("Group" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_groups(object, as.data.table = T), sort = F, by = c(block, "Group", "Assay"))
-  if ("Group" %in% summary.cols && "Component" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_components(object, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Assay"))
-
-  # text.cols
-  if (is.null(label.cols)) {
-    text.cols <- summary.cols
-  } else {
-    text.cols <- label.cols
-  }
-
-  # elements are summary.cols with text.cols labels
-  if (is.null(sort.cols)) {
-    if (horizontal) DT1 <- DT1[nrow(DT1):1]
-  } else {
-    data.table::setorderv(DT1, sort.cols, order = ifelse(horizontal, -1, 1), na.last = T)
-  }
-  DT1[, Summary := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(summary.cols)]))]
-  DT1[, labels := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(text.cols)]))]
-  DT1[, Summary := factor(Summary, levels = unique(Summary), labels = labels)]
-  DT1[, labels := NULL]
-
-  # merge with DTs[[i]]
-  cols <- c("Summary", summary.cols)
-  if (!is.null(colour) && colour %in% colnames(DT1)) cols <- c(cols, colour)
-  if (!is.null(fill) && fill %in% colnames(DT1)) cols <- c(cols, fill)
-
-  # set up plot
-  if (horizontal) {
-    g <- ggplot2::ggplot(DT1, ggplot2::aes(y = Summary))
-    g <- g + ggplot2::xlab(paste("log2", value.label))
-    g <- g + ggplot2::coord_cartesian(xlim = limits, ylim = c(0.5, nlevels(DT1$Summary) + 0.5), expand = F)
-    g <- g + ggplot2::theme(legend.position = "bottom", axis.title.y = ggplot2::element_blank(), strip.text = ggplot2::element_text(angle = 0, hjust = 0))
-  } else {
-    g <- ggplot2::ggplot(DT1, ggplot2::aes(x = Summary))
-    g <- g + ggplot2::ylab(paste("log2", value.label))
-    g <- g + ggplot2::scale_x_discrete(expand = ggplot2::expansion())
-    g <- g + ggplot2::coord_cartesian(ylim = limits, expand = F)
-    g <- g + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust = 1), legend.position = "left", axis.title.x = ggplot2::element_blank(), strip.text = ggplot2::element_text(angle = 0, hjust = 0))
-  }
-  if (!is.null(facets)) g <- g + ggplot2::facet_wrap(facets, ncol = 1)
-  if (!is.null(title)) g <- g + ggplot2::ggtitle(DT1[1, get(title)])
-  if (!is.null(colour) && colour %in% colnames(DT1) && !all(is.na(DT1[, get(colour)]))) {
-    colour_ <- colour
-    if (is.numeric(DT1[, get(colour_)])) {
-      g <- g + ggplot2::scale_colour_viridis_c(option = "plasma", end = 0.75, na.value = "black")
-      if (horizontal) {
-        g <- g + ggplot2::guides(colour = ggplot2::guide_colorbar(barwidth = value.length / 10))
-      } else {
-        g <- g + ggplot2::guides(colour = ggplot2::guide_colorbar(barheight = value.length / 10))
-      }
+    # colour
+    j <- (i-1) %% length(colours) + 1
+    if (!is.null(colours[[j]]) && colours[[j]] %in% colnames(DT1) && !all(is.na(DT1[, get(colours[[j]])]))) {
+      ggcolour <- colours[[j]]
     } else {
-      g <- g + ggplot2::scale_colour_viridis_d(option = "plasma", end = 0.75, na.value = "black")
+      ggcolour <- NULL
     }
-  } else {
-    colour_ <- NULL
-  }
-  if (!is.null(fill) && fill %in% colnames(DT1) && !all(is.na(DT1[, get(fill)]))) {
-    fill_ <- fill
-    if (is.numeric(DT1[, get(fill_)])) {
-      g <- g + ggplot2::scale_fill_viridis_c(option = "plasma", end = 0.75, na.value = "black")
-      if (horizontal) {
-        g <- g + ggplot2::guides(fill = ggplot2::guide_colorbar(barwidth = value.length / 10))
-      } else {
-        g <- g + ggplot2::guides(fill = ggplot2::guide_colorbar(barheight = value.length / 10))
-      }
+
+    # fill
+    j <- (i-1) %% length(fills) + 1
+    if (!is.null(fills[[j]]) && fill %in% colnames(DT1) && !all(is.na(DT1[, get(fills[[j]])]))) {
+      ggfill <- fills[[j]]
     } else {
-      g <- g + ggplot2::scale_fill_viridis_d(option = "plasma", end = 0.75, na.value = "black")
+      ggfill <- NULL
     }
-  } else {
-    fill_ <- NULL
+
+    # merge metadata
+    DTs[[i]] <- merge(DT1[, unique(c("Summary", summary.cols, ggcolour, ggfill)), with = F], DTs[[i]], by = intersect(summary.cols, summary.cols1), sort = F)
+
+    # plot biolin!
+    args <- list(x = x, dist = "dist", arg2 = arg2, arg3 = arg3)
+    if (!is.null(ggcolour)) args$colour <- ggcolour
+    if (!is.null(ggfill)) args$fill <- ggfill
+    g <- g + geom_biolin(
+      do.call(eval(parse(text = "ggplot2::aes_string")), args),
+      DTs[[i]],
+      alpha = alphas[[(i-1) %% length(alpha) + 1]],
+      draw_outline = draw_outlines[[(i-1) %% length(draw_outlines) + 1]],
+      draw_quantiles = draw_quantiless[[(i-1) %% length(draw_quantiless) + 1]],
+      trim = trims[[(i-1) %% length(trims) + 1]],
+      show.legend = show.legend
+    )
   }
 
-  # plot each dataset
-  for (i in length(DTs):1) {
-    if ("PosteriorMean" %in% colnames(DTs[[i]])) {
-      value <- "PosteriorMean"
-      summary.cols2 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "m") - 1)]
-    } else if ("m" %in% colnames(DTs[[i]])) {
-      value <- "m"
-      summary.cols2 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "m") - 1)]
-    } else if ("value" %in% colnames(DTs[[i]])) {
-      value <- "value"
-      summary.cols2 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "chain") - 1)]
-    } else {
-      value <- "s"
-      summary.cols2 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "s") - 1)]
-    }
+  # origin
+  g <- g + ggplot2::geom_vline(xintercept = 0, show.legend = F)
 
-    DTs[[i]] <- merge(DT1[, unique(cols), with = F], DTs[[i]], by = intersect(summary.cols, summary.cols2), sort = F)
+  ## SAVE AS FILE
 
-    # plot dataset
-    j <- (i + 1) %% length(alpha) + 1
-    colours <- c(NA, "darkgrey", "lightgrey")
-    positions <- c(0, -0.25, 0.25)
-    zero <- 0
-    if (horizontal) {
-      if (value == "PosteriorMean" || value == "m") {
-        dist <- "student_t"
-        if (i > 1) {
-          g <- g + ggdist::stat_dist_pointinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg1 = "df", arg2 = value, arg3 = ifelse(value == "m", "s", "PosteriorSD")), DTs[[i]], colour = colours[i], point_size = 1.5, interval_size_range = c(0.5, 1), position = ggplot2::position_nudge(y = positions[i]))
-        } else if (is.null(fill_)) {
-          if (is.null(limits) || limits[2] > 0) g <- g + ggdist::stat_dist_ccdfinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg1 = "df", arg2 = value, arg3 = ifelse(value == "m", "s", "PosteriorSD")), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(0, NA), p_limits = c(0.025, 0.975))
-          if (is.null(limits) || limits[1] < 0) g <- g + ggdist::stat_dist_cdfinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg1 = "df", arg2 = value, arg3 = ifelse(value == "m", "s", "PosteriorSD")), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(NA, 0), p_limits = c(0.025, 0.975))
-          g <- g + ggdist::stat_dist_pointinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg1 = "df", arg2 = value, arg3 = ifelse(value == "m", "s", "PosteriorSD")), DTs[[i]], point_size = 1.5, interval_size_range = c(0.5, 1), position = ggplot2::position_nudge(y = positions[i]))
-        } else {
-          if (is.null(limits) || limits[2] > 0) g <- g + ggdist::stat_dist_ccdfinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg1 = "df", arg2 = value, arg3 = ifelse(value == "m", "s", "PosteriorSD"), fill = fill_), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(0, NA), p_limits = c(0.025, 0.975))
-          if (is.null(limits) || limits[1] < 0) g <- g + ggdist::stat_dist_cdfinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg1 = "df", arg2 = value, arg3 = ifelse(value == "m", "s", "PosteriorSD"), fill = fill_), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(NA, 0), p_limits = c(0.025, 0.975))
-          g <- g + ggdist::stat_dist_pointinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg1 = "df", arg2 = value, arg3 = ifelse(value == "m", "s", "PosteriorSD"), colour = colour_), DTs[[i]], point_size = 1.5, interval_size_range = c(0.5, 1), position = ggplot2::position_nudge(y = positions[i]))
-        }
-      } else if (value == "s") {
-        dist <- "inaka"
-        if (i > 1) {
-          g <- g + ggdist::stat_dist_pointinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg2 = "df", arg1 = value), DTs[[i]], colour = colours[i], point_size = 1.5, interval_size_range = c(0.5, 1), position = ggplot2::position_nudge(y = positions[i]))
-        } else if (is.null(fill_)) {
-          if (is.null(limits) || limits[2] > 0) g <- g + ggdist::stat_dist_ccdfinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg2 = "df", arg1 = value), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(0, NA), p_limits = c(0.025, 0.975))
-          if (is.null(limits) || limits[1] < 0) g <- g + ggdist::stat_dist_cdfinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg2 = "df", arg1 = value), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(NA, 0), p_limits = c(0.025, 0.975))
-          g <- g + ggdist::stat_dist_pointinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg2 = "df", arg1 = value), DTs[[i]], point_size = 1.5, interval_size_range = c(0.5, 1), position = ggplot2::position_nudge(y = positions[i]))
-        } else {
-          if (is.null(limits) || limits[2] > 0) g <- g + ggdist::stat_dist_ccdfinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg2 = "df", arg1 = value, fill = fill_), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(0, NA), p_limits = c(0.025, 0.975))
-          if (is.null(limits) || limits[1] < 0) g <- g + ggdist::stat_dist_cdfinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg2 = "df", arg1 = value, fill = fill_), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(NA, 0), p_limits = c(0.025, 0.975))
-          g <- g + ggdist::stat_dist_pointinterval(ggplot2::aes_string(y = "Summary", dist = "dist", arg2 = "df", arg1 = value, colour = colour_), DTs[[i]], point_size = 1.5, interval_size_range = c(0.5, 1), position = ggplot2::position_nudge(y = positions[i]))
-        }
-      } else {
-        if (i > 1) {
-          g <- g + ggdist::stat_pointinterval(ggplot2::aes_string(x = value, y = "Summary"), DTs[[i]], colour = colours[i], point_size = 1.5, interval_size_range = c(0.5, 1), position = ggplot2::position_nudge(y = positions[i]))
-        } else if (is.null(fill_)) {
-          if (is.null(limits) || limits[2] > 0) g <- g + ggdist::stat_ccdfinterval(ggplot2::aes_string(x = value, y = "Summary"), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(0, NA))
-          if (is.null(limits) || limits[1] < 0) g <- g + ggdist::stat_cdfinterval(ggplot2::aes_string(x = value, y = "Summary"), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(NA, 0))
-          g <- g + ggdist::stat_pointinterval(ggplot2::aes_string(x = value, y = "Summary"), DTs[[i]], point_size = 1.5, interval_size_range = c(0.5, 1), position = ggplot2::position_nudge(y = positions[i]))
-        } else {
-          if (is.null(limits) || limits[2] > 0) g <- g + ggdist::stat_ccdfinterval(ggplot2::aes_string(x = value, y = "Summary", fill = fill_), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(0, NA))
-          if (is.null(limits) || limits[1] < 0) g <- g + ggdist::stat_cdfinterval(ggplot2::aes_string(x = value, y = "Summary", fill = fill_), DTs[[i]], side = "both", colour = NA, alpha = 0.25 * alpha[j], limits = c(NA, 0))
-          g <- g + ggdist::stat_pointinterval(ggplot2::aes_string(x = value, y = "Summary", colour = colour_), DTs[[i]], point_size = 1.5, interval_size_range = c(0.5, 1), position = ggplot2::position_nudge(y = positions[i]))
-        }
-        # if (i > 1) {
-        #   g <- g + ggdist::stat_eye(
-        #     ggplot2::aes_string(x = value, y = "Summary"), DTs[[i]],
-        #     slab_type = "lfdr", slab_alpha = 0.25 * alpha[j], slab_colour = "grey", n = 5001, scale = 1,
-        #     interval_size_range = c(0.5, 1), point_size = 1.5
-        #   )
-        # } else {
-        #   g <- g + ggdist::stat_eye(
-        #     ggplot2::aes_string(x = value, y = "Summary", fill = fill_, colour = colour_), DTs[[i]],
-        #     slab_type = "lfdr", slab_alpha = 0.25 * alpha[j], side = "both", n = 5001, scale = 1,
-        #     interval_size_range = c(0.5, 1), point_size = 1.5
-        #   )
-        # }
-      }
-    }
-  }
-
-  zero <- 0
-  if (horizontal) {
-    #g <- g + ggplot2::geom_tile(ggplot2::aes_string(x = "zero", y = "Summary"), DT1, width = Inf, height = 1, colour = "white", fill = NA)
-    g <- g + ggplot2::geom_vline(xintercept = 0)
-
-    if (!is.null(file)) {
-      print(g)
-      gt <- egg::set_panel_size(g, width = grid::unit(value.length, "mm"), height = grid::unit(level.length * nlevels(DT1$Summary), "mm"))
-      ggplot2::ggsave(file, gt, width = 10 + sum(as.numeric(grid::convertUnit(gt$widths, "mm"))), height = 10 + sum(as.numeric(grid::convertUnit(gt$heights, "mm"))), units = "mm", limitsize = F)
-    }
-  } else {
-    #g <- g + ggplot2::geom_tile(ggplot2::aes_string(y = "zero", x = "Summary"), DT1, height = Inf, width = 1, colour = "white", fill = NA, size = 0.5)
-    g <- g + ggplot2::geom_hline(yintercept = 0)
-
-    if (!is.null(file)) {
-      print(g)
-      gt <- egg::set_panel_size(g, height = grid::unit(value.length, "mm"), width = grid::unit(level.length * nlevels(DT1$Summary), "mm"))
-      ggplot2::ggsave(file, gt, width = 10 + sum(as.numeric(grid::convertUnit(gt$widths, "mm"))), height = 10 + sum(as.numeric(grid::convertUnit(gt$heights, "mm"))), units = "mm", limitsize = F)
-    }
+  if (!is.null(file)) {
+    print(g) # bug workaround
+    gt <- egg::set_panel_size(g, width = grid::unit(x.length, "mm"), height = grid::unit(y.interval * nlevels(DT1$Summary), "mm"))
+    ggplot2::ggsave(file, gt, width = 10 + sum(as.numeric(grid::convertUnit(gt$widths, "mm"))), height = 10 + sum(as.numeric(grid::convertUnit(gt$heights, "mm"))), units = "mm", limitsize = F)
   }
 
   return(g)
 })
-
