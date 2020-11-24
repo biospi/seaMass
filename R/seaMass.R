@@ -228,6 +228,7 @@ limits <- function(data, trim = c(0.05, 0.95), quantiles = c(0.05, 0.95), includ
 setMethod("plot_dists", "seaMass", function(
   object,
   data,
+  horizontal = TRUE,
   draw_outline = TRUE,
   draw_quantiles = 0.5,
   trim = c(0.05, 0.95),
@@ -236,12 +237,12 @@ setMethod("plot_dists", "seaMass", function(
   alpha = list(0.5, 0.35, 0.2),
   title = NULL,
   facets = NULL,
-  x.label = "value",
-  x.limits = limits(data),
-  x.length = 120,
-  y.sort.cols = NULL,
-  y.label.cols = NULL,
-  y.interval = 5,
+  value.label = "value",
+  value.limits = limits(data),
+  value.length = 120,
+  variable.sort.cols = NULL,
+  variable.label.cols = NULL,
+  variable.interval = 5,
   show.legend = TRUE,
   file = NULL
 ) {
@@ -314,17 +315,18 @@ setMethod("plot_dists", "seaMass", function(
 
   ## SET UP PLOT
 
-  if (is.null(y.label.cols)) {
+  if (is.null(variable.label.cols)) {
     label.cols <- summary.cols
   } else {
-    label.cols <- y.label.cols
+    label.cols <- variable.label.cols
   }
 
   # elements are summary.cols with text.cols labels
-  if (is.null(y.sort.cols)) {
+  if (is.null(variable.sort.cols)) {
     DT1 <- DT1[nrow(DT1):1]
   } else {
-    data.table::setorderv(DT1, sort.cols, order = -1, na.last = T)
+    #data.table::setorderv(DT1, sort.cols, order = -1, na.last = T)
+    data.table::setorderv(DT1, sort.cols, na.last = T)
   }
   DT1[, Summary := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(summary.cols)]))]
   DT1[, labels := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(label.cols)]))]
@@ -332,16 +334,22 @@ setMethod("plot_dists", "seaMass", function(
   DT1[, labels := NULL]
 
   # set up plot
-  g <- ggplot2::ggplot(DT1, ggplot2::aes(y = Summary))
+  g <- ggplot2::ggplot(DT1, ggplot2::aes(x = Summary))
+  if (horizontal) {
+    g <- g + ggplot2::facet_wrap(facets, ncol = 1)
+    g <- g + coord_flip()
+    g <- g + ggplot2::theme(legend.position = "bottom", axis.title.x = ggplot2::element_blank(), strip.text = ggplot2::element_text(angle = 0, hjust = 0))
+  } else {
+    g <- g + ggplot2::facet_wrap(facets, nrow = 1)
+    g <- g + ggplot2::coord_cartesian(xlim = c(0.5, nlevels(DT1$Summary) + 0.5), ylim = value.limits, expand = F)
+    g <- g + ggplot2::theme(axis.title.x = ggplot2::element_blank(), axis.text.x = ggplot2::element_text(angle = 90), strip.text = ggplot2::element_text(angle = 0, hjust = 0))
+  }
   if (!is.null(title)) g <- g + ggplot2::ggtitle(title)
-  g <- g + ggplot2::xlab(paste("log2", x.label))
-  g <- g + ggplot2::coord_cartesian(xlim = x.limits, ylim = c(0.5, nlevels(DT1$Summary) + 0.5), expand = F)
-  g <- g + ggplot2::theme(legend.position = "bottom", axis.title.y = ggplot2::element_blank(), strip.text = ggplot2::element_text(angle = 0, hjust = 0))
-  if (!is.null(facets)) g <- g + ggplot2::facet_wrap(facets, ncol = 1)
+  g <- g + ggplot2::ylab(paste("log2", value.label))
   if (!is.null(colours[[1]]) && colours[[1]] %in% colnames(DT1) && !all(is.na(DT1[, get(colours[[1]])]))) {
     if (is.numeric(DT1[, get(colours[[1]])])) {
       g <- g + ggplot2::scale_colour_viridis_c(option = "plasma", end = 0.75, na.value = "black")
-      g <- g + ggplot2::guides(colour = ggplot2::guide_colorbar(barwidth = x.length / 10))
+      g <- g + ggplot2::guides(colour = ggplot2::guide_colorbar(barwidth = value.length / 10))
     } else {
       g <- g + ggplot2::scale_colour_viridis_d(option = "plasma", end = 0.75, na.value = "black")
     }
@@ -349,7 +357,7 @@ setMethod("plot_dists", "seaMass", function(
   if (!is.null(fills[[1]]) && fills[[1]] %in% colnames(DT1) && !all(is.na(DT1[, get(fills[[1]])]))) {
     if (is.numeric(DT1[, get(fills[[1]])])) {
       g <- g + ggplot2::scale_fill_viridis_c(option = "plasma", end = 0.75, na.value = "black")
-      g <- g + ggplot2::guides(fill = ggplot2::guide_colorbar(barwidth = x.length / 10))
+      g <- g + ggplot2::guides(fill = ggplot2::guide_colorbar(barwidth = value.length / 10))
     } else {
       g <- g + ggplot2::scale_fill_viridis_d(option = "plasma", end = 0.75, na.value = "black")
     }
@@ -361,19 +369,19 @@ setMethod("plot_dists", "seaMass", function(
     if ("PosteriorMean" %in% colnames(DTs[[i]]) || "m" %in% colnames(DTs[[i]])) {
       summary.cols1 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "m") - 1)]
       dist <- "lst"
-      x <- ifelse("PosteriorMean" %in% colnames(DTs[[i]]), "PosteriorMean", "m")
+      y <- ifelse("PosteriorMean" %in% colnames(DTs[[i]]), "PosteriorMean", "m")
       arg2 <- ifelse("PosteriorMean" %in% colnames(DTs[[i]]), "PosteriorSD", "s")
       arg3 <- "df"
     } else if ("value" %in% colnames(DTs[[i]])) {
       summary.cols1 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "chain") - 1)]
       dist <- NULL
-      x <- "value"
+      y <- "value"
       arg2 <- NULL
       arg3 <- NULL
     } else {
       summary.cols1 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "s") - 1)]
       dist <- "inaka"
-      x <- "s"
+      y <- "s"
       arg2 <- "df"
       arg3 <- NULL
     }
@@ -397,31 +405,57 @@ setMethod("plot_dists", "seaMass", function(
     # merge metadata
     DTs[[i]] <- merge(DT1[, unique(c("Summary", summary.cols, ggcolour, ggfill)), with = F], DTs[[i]], by = intersect(summary.cols, summary.cols1), sort = F)
 
-    # plot biolin!
-    args <- list(x = x, dist = "dist", arg2 = arg2, arg3 = arg3)
+    # plot violin!
+    args <- list(y = y, dist = "dist", arg2 = arg2, arg3 = arg3)
     if (!is.null(ggcolour)) args$colour <- ggcolour
     if (!is.null(ggfill)) args$fill <- ggfill
-    g <- g + geom_biolin(
+    g <- g + geom_violin(
       do.call(eval(parse(text = "ggplot2::aes_string")), args),
       DTs[[i]],
+      "ylfdr",
       alpha = alphas[[(i-1) %% length(alpha) + 1]],
-      draw_outline = draw_outlines[[(i-1) %% length(draw_outlines) + 1]],
-      draw_quantiles = draw_quantiless[[(i-1) %% length(draw_quantiless) + 1]],
       trim = trims[[(i-1) %% length(trims) + 1]],
       show.legend = show.legend
     )
+
+    # plot quantiles
+    for (qt in draw_quantiless[[(i-1) %% length(draw_quantiless) + 1]]) {
+      g <- g + geom_violin(
+        do.call(eval(parse(text = "ggplot2::aes_string")), args),
+        DTs[[i]],
+        "ylfdr",
+        trim = c(qt, 1 - qt),
+        show.legend = show.legend
+      )
+    }
   }
 
   # origin
-  g <- g + ggplot2::geom_vline(xintercept = 0, show.legend = F)
+  g <- g + ggplot2::geom_hline(yintercept = 0, show.legend = F)
 
-  ## SAVE AS FILE
+  ## CONVERT TO PLOTLY
 
+  # set panel size and get resulting overall size
+  width <- ifelse(horizontal, value.length, variable.interval * nlevels(DT1$Summary))
+  height <- ifelse(horizontal, variable.interval * nlevels(DT1$Summary), value.length)
+  gt <- egg::set_panel_size(g, width = grid::unit(width, "mm"), height = grid::unit(height, "mm"))
+  width <- 10 + sum(as.numeric(grid::convertUnit(gt$widths, "points")))
+  height <- 10 + sum(as.numeric(grid::convertUnit(gt$heights, "points")))
+
+  # save static image if indicated
   if (!is.null(file)) {
     print(g) # bug workaround
-    gt <- egg::set_panel_size(g, width = grid::unit(x.length, "mm"), height = grid::unit(y.interval * nlevels(DT1$Summary), "mm"))
-    ggplot2::ggsave(file, gt, width = 10 + sum(as.numeric(grid::convertUnit(gt$widths, "mm"))), height = 10 + sum(as.numeric(grid::convertUnit(gt$heights, "mm"))), units = "mm", limitsize = F)
+    ggplot2::ggsave(
+      file, gt, units = "mm", limitsize = F,
+      width = as.numeric(grid::convertUnit(grid::unit(width, "points"), "mm")),
+      height = as.numeric(grid::convertUnit(grid::unit(height, "points"), "mm"))
+    )
   }
 
-  return(g)
+  # convert to plotly
+  figure <- suppressWarnings(plotly::ggplotly(g, tooltip = "x"))
+  # horrible hack for ggplotly tooltip
+  figure$x$data[[1]]$text <- sapply(figure$x$data[[1]]$text, function(s) gsub("density", value.label, s))
+
+  return(figure)
 })

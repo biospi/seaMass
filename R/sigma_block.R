@@ -403,6 +403,7 @@ setMethod("plot_assay_stdevs", "sigma_block", function(
     assay_stdevs(object, as.data.table = T)[, .(Block, Assay, s = M_s, df = M_df)],
     assay_stdevs(object, as.data.table = T)[, .(Block, Assay, s = C_s, df = C_df)]
   ),
+  horizontal = TRUE,
   draw_outline = list(TRUE, FALSE, FALSE),
   draw_quantiles = list(0.5, NULL, NULL),
   trim = c(0.05, 0.95),
@@ -411,16 +412,16 @@ setMethod("plot_assay_stdevs", "sigma_block", function(
   alpha = list(0.5, 0.35, 0.2),
   title = NULL,
   facets = "Block",
-  x.label = "stdev",
-  x.limits = limits(data, trim, include.zero = T),
-  x.length = 120,
-  y.sort.cols = NULL,
-  y.label.cols = c("Assay", "Sample"),
-  y.interval = 5,
+  value.label = "stdev",
+  value.limits = limits(data, trim, include.zero = T),
+  value.length = 120,
+  variable.sort.cols = NULL,
+  variable.label.cols = c("Assay", "Sample"),
+  variable.interval = 5,
   show.legend = TRUE,
   file = NULL
 ) {
-  return(plot_dists(object, data, draw_outline, draw_quantiles, trim, colour, fill, alpha, title, facets, x.label, x.limits, x.length, y.sort.cols, y.label.cols, y.interval, show.legend, file))
+  return(plot_dists(object, data, horizontal, draw_outline, draw_quantiles, trim, colour, fill, alpha, title, facets, value.label, value.limits, value.length, variable.sort.cols, variable.label.cols, variable.interval, show.legend, file))
 })
 
 
