@@ -1,7 +1,7 @@
 Package: seaMass
 Type: Package
 Title: Statistical modelling for mass spectrometry omics
-Version: 1.0.1.17
+Version: 1.0.1.18
 Authors@R: as.person(c(
     "Andrew Dowsey <andrew.dowsey@bristol.ac.uk> [aut, cre]",
     "Alexander Phillips <a.m.phillips@liverpool.ac.uk> [ctb]",

@@ -38,18 +38,21 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
       }
     }
 
-    if ("de.standardised.group.deviations" %in% ctrl@plot) {
-      cat(paste0("[", Sys.time(), "]   plotting standardised group deviations dea...\n"))
-      DT <- de_standardised_group_deviations(object, as.data.table = T)
-      plot_de_standardised_group_deviations(object, DT, limits_dists(DT, include.zero = T), file = file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_de_standardised_group_deviations.pdf"))
-      rm(DT)
-    }
+    #if ("de.standardised.group.deviations" %in% ctrl@plot) {
+    #  cat(paste0("[", Sys.time(), "]   plotting standardised group deviations dea...\n"))
+    #  DTs <- de_standardised_group_deviations(object, as.data.table = T)
+    #  plot_de_standardised_group_deviations(object, DT, limits_dists(DT, include.zero = T), file = file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_de_standardised_group_deviations.pdf"))
+    #  rm(DT)
+    #}
 
     # write out group fdr
     if (file.exists(file.path(filepath(object), "fdr.standardised.group.deviations.fst"))) {
+      cat(paste0("[", Sys.time(), "]   plotting standardised group deviations fdr\n"))
       DTs.fdr <- fst::read.fst(file.path(filepath(object), "fdr.standardised.group.deviations.fst"), as.data.table = T)
       DTs.fdr <- split(DTs.fdr, drop = T, by = "Batch")
       for (name in names(DTs.fdr)) {
+        cat(paste0("[", Sys.time(), "]    batch=", name, "...\n"))
+
         # save
         fwrite(DTs.fdr[[name]], file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_fdr_standardised_group_deviations.", gsub("\\.", "_", name), ".csv")))
         # plot fdr
@@ -61,16 +64,15 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
         # plot fc
         plot_volcano(DTs.fdr[[name]], stdev.col = "s", x.col = "m", y.col = "s")
         ggplot2::ggsave(file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_fdr_standardised_group_deviations_fc.", gsub("\\.", "_", name), ".pdf")), width = 8, height = 8)
-      }
 
-      if ("fdr.standardised.group.deviations" %in% ctrl@plot) {
-        cat(paste0("[", Sys.time(), "]   plotting standardised group deviations fdr...\n"))
-        DTs <- list(
-          fdr_standardised_group_deviations(object, as.data.table = T),
-          de_standardised_group_deviations(object, as.data.table = T)
-        )
-        plot_fdr_standardised_group_deviations(object, DTs, limits_dists(DTs, include.zero = T), file = file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_fdr_standardised_group_deviations.pdf"))
-        rm(DTs)
+        if ("fdr.standardised.group.deviations" %in% ctrl@plot) {
+          DTs <- list(
+            DTs.fdr[[name]],
+            de_standardised_group_deviations(object, unique(DTs.fdr[[name]][, .(Effect, Contrast, Baseline)]), as.data.table = T)
+          )
+          plot_fdr_standardised_group_deviations(object, DTs, limits_dists(DTs, include.zero = T), file = file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_fdr_standardised_group_deviations_dists.", gsub("\\.", "_", name), ".pdf")))
+          rm(DTs)
+        }
       }
     }
 
@@ -88,13 +90,13 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
         }
       }
 
-      if ("de.component.deviations" %in% ctrl@plot) {
+      #if ("de.component.deviations" %in% ctrl@plot) {
         #cat(paste0("[", Sys.time(), "]    plotting component deviations differential expression...\n"))
         #parallel_lapply(groups(object, as.data.table = T)[, Group], function(item, object) {
         #  item <- substr(item, 0, 60)
         #  plot_de_component_deviations(object, item, file = file.path(dirname(filepath(object)), "output", basename(filepath(object)), "log2_de_component_deviations", paste0(item, ".pdf")))
         #}, nthread = ctrl@nthread)
-      }
+      #}
 
       # write out group fdr
       if (file.exists(file.path(filepath(object), "fdr.component.deviations.fst"))) {
