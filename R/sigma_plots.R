@@ -66,9 +66,9 @@ setMethod("plot_pca_contours", "seaMass", function(
   type = "standardised.group.deviations",
   scale = FALSE,
   robust = TRUE,
-  contours = 1,
+  contours = 1:2,
   aspect.ratio = 3/4,
-  labels = 25,
+  labels = 50,
   colour = "Condition",
   fill = "Condition",
   shape = "Condition",
@@ -77,15 +77,16 @@ setMethod("plot_pca_contours", "seaMass", function(
   # this is needed to stop foreach massive memory leak!!!
   rm("...")
 
-  # ensure Assay/Block combinations in our processed design
+  # ensure Assay/Block combinations in our processed design, sorted by Block, Assay
   DT.design <- as.data.table(data.design)
   if (!is.factor(DT.design$Assay)) DT.design[, Assay := factor(Assay, levels = levels(assay_design(object, as.data.table = T)$Assay))]
-  if (!("Block" %in% colnames(DT.design))) DT.design <- merge(DT.design, assay_design(object, as.data.table = T), by = "Assay", sort = F, suffixes = c("", ".old"))
+  if (!("Block" %in% colnames(DT.design))) DT.design <- merge(DT.design, assay_design(object, as.data.table = T), by = "Assay", suffixes = c("", ".old"))
+  setorder(DT.design, Assay, Block)
 
-  # determine which individuals and variables to use
+  # determine which individuals and variables to use, ensure same Assay order
   DT.summary <- read_samples(object, input, type, variables, summary = T, summary.func = "robust_normal", as.data.table = T)
   summary.cols <- setdiff(colnames(DT.summary)[1:(which(colnames(DT.summary) == "m") - 1)], c("Assay", "Block"))
-  DT.individuals <- merge(DT.summary[, .(use = var(m, na.rm = T) >= 1e-5), keyby = .(Assay, Block)][use == T, .(Assay, Block)], DT.design[, .(Assay, Block)], by = c("Assay", "Block"), sort = F)
+  DT.individuals <- merge(DT.summary[, .(use = var(m, na.rm = T) >= 1e-5), keyby = .(Assay, Block)][use == T, .(Assay, Block)], DT.design[, .(Assay, Block)], by = c("Assay", "Block"))
   DT.variables <- dcast(DT.summary, paste(paste(summary.cols, collapse = " + "), "~ Assay + Block"), value.var = "m")
   nvariable <- nrow(DT.variables)
   DT.variables <- DT.variables[complete.cases(DT.variables), summary.cols, with = F]
@@ -95,9 +96,8 @@ setMethod("plot_pca_contours", "seaMass", function(
   DT.use <- merge(DT.individuals[,c(k = 1, .SD)], DT.variables[,c(k = 1, .SD)], by = "k", all = T, allow.cartesian = T)[, k := NULL]
   if (robust) {
     # can row.w and col.w calculation be improved?
-    DT.summary.se <- merge(DT.summary, DT.use, by = colnames(DT.use), sort = F)
+    DT.summary.se <- merge(DT.summary, DT.use, by = colnames(DT.use))
     DT.summary.se <- dcast(DT.summary.se, paste("Assay + Block ~", paste(summary.cols, collapse = " + ")), value.var = "s")
-    DT.summary.se <- merge(DT.design[, .(Assay, Block)], DT.summary.se, by = c("Assay", "Block"), sort = F) # ensure Assay order
     DT.summary.se[, c("Assay", "Block") := NULL]
     row.weights <- as.numeric(1.0 / apply(DT.summary.se, 1, function(x) median(x, na.rm = T))^2)
     col.weights <- as.numeric(1.0 / apply(DT.summary.se, 2, function(x) median(x, na.rm = T))^2)
@@ -106,7 +106,6 @@ setMethod("plot_pca_contours", "seaMass", function(
   # prepare PCA input
   DT.summary <- merge(DT.summary, DT.use, by = colnames(DT.use))
   DT.summary <- dcast(DT.summary, paste("Assay + Block ~", paste(summary.cols, collapse = " + ")), value.var = "m")
-  DT.summary <- merge(DT.design[, .(Assay, Block)], DT.summary, by = c("Assay", "Block"), sort = F) # ensure Assay order
   DT.summary[, c("Assay", "Block") := NULL]
   rm(DT.use)
 
@@ -152,7 +151,7 @@ setMethod("plot_pca_contours", "seaMass", function(
     }, nthread = control(object)@nthread, .packages = c("seaMass", "FactoMineR")))
 
     # replace centre point
-    DT.design <- merge(DT.design[, !c("x", "y")], DT[, .(x = median(x), y = median(y)), by = .(Block, Assay)], by = c("Block", "Assay"), sort = F)
+    DT.design <- merge(DT.design[, !c("x", "y")], DT[, .(x = median(x), y = median(y)), by = .(Block, Assay)], by = c("Assay", "Block"))
 
     # kde bandwidth across all assays
     H <- ks::Hpi(cbind(DT$x, DT$y))
@@ -230,13 +229,13 @@ setMethod("plot_pca_contours", "seaMass", function(
 
   if (!(is.null(contours) || length(contours) == 0)) {
     if (is.null(colour) || uniqueN(DT.design[, get(colour)]) <= 1) {
-      if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z1"), colour = "black", breaks = 1)
-      if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z2"), colour = "black", breaks = 1, alpha = 0.5)
-      if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z3"), colour = "black", breaks = 1, alpha = 0.25)
+      if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z1"), colour = "black", breaks = 1, alpha = 0.4)
+      if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z2"), colour = "black", breaks = 1, alpha = 0.3)
+      if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z3"), colour = "black", breaks = 1, alpha = 0.2)
     } else {
-      if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z1"), breaks = 1)
-      if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z2"), breaks = 1, alpha = 0.5)
-      if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z3"), breaks = 1, alpha = 0.25)
+      if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z1"), breaks = 1, alpha = 0.4)
+      if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z2"), breaks = 1, alpha = 0.3)
+      if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z3"), breaks = 1, alpha = 0.2)
     }
   }
 
@@ -275,16 +274,14 @@ setMethod("plot_pca", "seaMass", function(
   type = "standardised.group.deviations",
   scale = FALSE,
   robust = TRUE,
-  contours = 1,
   aspect.ratio = 3/4,
-  labels = 25,
+  labels = 50,
   colour = "Condition",
   fill = "Condition",
   shape = "Condition",
-  data = NULL,
   ...
 ) {
-  return(plot_pca_contours(object, data.design, variables, input, type, scale, robust, NULL, aspect.ratio, labels, colour, fill, shape, data, ...))
+  return(plot_pca_contours(object, data.design, variables, input, type, scale, robust, NULL, aspect.ratio, labels, colour, fill, shape, ...))
 })
 
 

@@ -12,13 +12,11 @@
   type = "standardised.group.deviations",
   scale = FALSE,
   robust = TRUE,
-  contours = 1,
   aspect.ratio = 3/4,
-  labels = 25,
+  labels = 50,
   colour = "Condition",
   fill = "Condition",
   shape = "Condition",
-  data = NULL,
   ...
 )
 }
@@ -29,11 +27,11 @@
 
 \item{robust}{.}
 
-\item{contours}{.}
-
 \item{data}{.}
 
 \item{data.summary}{.}
+
+\item{contours}{.}
 }
 \value{
 A ggplot2 object .
