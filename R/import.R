@@ -88,6 +88,10 @@ import_ProteomeDiscoverer <- function(
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Channel", "Count"))
   setorder(DT, Group, Component, Measurement, Run, Channel)
 
+  setattr(DT, "group", c("ProteinGroup", "ProteinGroups"))
+  setattr(DT, "component", c("Peptidoform", "Peptidoforms"))
+  setattr(DT, "measurement", c("Spectrum", "Spectra"))
+
   setDF(DT)
   return(DT[])
 }
@@ -172,6 +176,10 @@ import_ProteinPilot <- function(
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Injection", "Run", "Channel", "Count", "Use"))
   setorder(DT, Group, Component, Measurement, Injection, Run, Channel)
 
+  setattr(DT, "group", c("ProteinGroup", "ProteinGroups"))
+  setattr(DT, "component", c("Peptidoform", "Peptidoforms"))
+  setattr(DT, "measurement", c("Spectrum", "Spectra"))
+
   setDF(DT)
   return(DT[])
 }
@@ -252,6 +260,10 @@ import_OpenSWATH <- function(
 
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Channel"))
   setorder(DT, Group, Component, Measurement, Run, Channel)
+
+  setattr(DT, "group", c("ProteinGroup", "ProteinGroups"))
+  setattr(DT, "component", c("Peptidoform", "Peptidoforms"))
+  setattr(DT, "measurement", c("Transition", "Transitions"))
 
   setDF(DT)
   return(DT[])
@@ -348,6 +360,10 @@ import_MaxQuant <- function(
 
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Channel", "Count"))
   setorder(DT, Group, Component, Measurement, Run, Channel)
+
+  setattr(DT, "group", c("ProteinGroup", "ProteinGroups"))
+  setattr(DT, "component", c("Peptidoform", "Peptidoforms"))
+  setattr(DT, "measurement", c("Feature", "Features"))
 
   setDF(DT)
   return(DT)

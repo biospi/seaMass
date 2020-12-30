@@ -182,7 +182,7 @@ dist_samples_lst_ash <- function(chain, sample, value, ...) {
 }
 
 
-#' fit scaled inverse chi squared distribution with fitdistrplus, note our input is stdevs not variances!
+#' fit inverse nakagami distribution with fitdistrplus, note our input is stdevs not variances!
 #'
 #' @export
 dist_inaka <- function(value, plots = FALSE, ...) {
@@ -241,8 +241,8 @@ dist_samples_inaka <- function(chain, sample, value, ...) {
 #'
 #' @export
 dist_sf_with_fixed_df1_fitdistrplus <- function(value, df1, plots = FALSE, ...) {
-  # first fit a _sample_ of value to an inverse chi squared distribution
-  est0 <- dist_inaka(sapply(1:length(value), function(i) rinaka(1, value[i], df1[i])), plots = plots)
+  # first fit a _sample_ of value to an inverse nakagami distribution
+  est0 <- dist_inaka(rinaka(length(value), value, df1), plots = plots)
 
   # this then seeds the fit to a scaled F distribution
   d_seaMass_scaled_f <<- function(x, log_df2, log_scale, log = FALSE) {

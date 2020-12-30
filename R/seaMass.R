@@ -176,47 +176,62 @@ setMethod("read", "seaMass", function(
 #' @import data.table
 #' @export
 #' @include generics.R
-limits <- function(data, trim = c(0.05, 0.95), quantiles = c(0.05, 0.95), include.zero = FALSE) {
-  compute_limits <- function(dd) {
+limits_dists <- function(data, quantiles.dist = c(0.05, 0.95), quantiles.dists = c(0.05, 0.95), include.zero = FALSE, non.negative = FALSE) {
+  if (is.data.frame(data)) data <- list(data)
+
+  lims <- sapply(data, function(dd) {
     idt <- is.data.table(dd)
     setDT(dd)
 
     # calculate limits from 99.9% of samples
     if ("PosteriorMean" %in% colnames(dd)) {
-      x0s <- qlst(trim[1], dd$PosteriorMean, dd$PosteriorSD, dd$df)
-      x1s <- qlst(trim[2], dd$PosteriorMean, dd$PosteriorSD, dd$df)
+      x0s <- qlst(quantiles.dist[1], dd$PosteriorMean, dd$PosteriorSD, dd$df)
+      x1s <- qlst(quantiles.dist[2], dd$PosteriorMean, dd$PosteriorSD, dd$df)
     } else if ("m" %in% colnames(dd)) {
-      x0s <- qlst(trim[1], dd$m, dd$s, dd$df)
-      x1s <- qlst(trim[2], dd$m, dd$s, dd$df)
+      x0s <- qlst(quantiles.dist[1], dd$m, dd$s, dd$df)
+      x1s <- qlst(quantiles.dist[2], dd$m, dd$s, dd$df)
     } else if ("value" %in% colnames(dd)) {
-      xs <- dd$value
+      summary.cols <- colnames(dd)[1:(which(colnames(dd) == "value") - 1)]
+      summary.cols <- setdiff(summary.cols, c("chain", "samples"))
+      x0s <- dd[, .(q = quantile(value, quantiles.dist[1])), by = summary.cols]$q
+      x1s <- dd[, .(q = quantile(dd$value, quantiles.dist[2])), by = summary.cols]$q
     } else {
-      x0s <- qinaka(trim[1], dd$s, dd$df)
-      x1s <- qinaka(trim[2], dd$s, dd$df)
+      x0s <- qinaka(quantiles.dist[1], dd$s, dd$df)
+      x1s <- qinaka(quantiles.dist[2], dd$s, dd$df)
+    }
+    x0s <- x0s[!is.na(x0s)]
+    x1s <- x1s[!is.na(x1s)]
+
+    # compute quantiles.dists
+    n <- length(x0s)
+    if (n > 1) {
+      lim <- c(
+        approxfun((1:n-0.5)/n, sort(x0s), yleft = min(x0s), yright = max(x0s))(quantiles.dists[1]),
+        approxfun((1:n-0.5)/n, sort(x1s), yleft = min(x1s), yright = max(x1s))(quantiles.dists[2])
+      )
+    } else {
+      lim <- c(x0s, x1s)
     }
 
-    # compute quantiles
-    n <- length(x0s)
-    lim <- c(
-      approxfun((1:n-0.5)/n, sort(x0s), yleft = min(x0s), yright = max(x0s))(quantiles[1]),
-      approxfun((1:n-0.5)/n, sort(x1s), yleft = min(x1s), yright = max(x1s))(quantiles[2])
-    )
+    # expand
+    lim[1] <- 0.5 * (lim[1] + lim[2]) - 1.05 * 0.5 * (lim[2] - lim[1])
+    lim[2] <- 0.5 * (lim[1] + lim[2]) + 1.05 * 0.5 * (lim[2] - lim[1])
 
     if (include.zero) {
       if (lim[1] > 0) lim[1] <- 0
       if (lim[2] < 0) lim[2] <- 0
     }
+    if (non.negative) {
+      if (lim[1] < 0) lim[1] <- 0
+      if (lim[2] < 0) lim[2] <- 1
+    }
 
     if (!idt) setDF(dd)
-    return(lim)
-  }
 
-  if (is.data.frame(data)) {
-    lims <- compute_limits(data)
-  } else {
-    lims <- sapply(data, function(dd) compute_limits(dd))
-    lims <- c(min(lims[1,]), max(lims[2,]))
-  }
+    return(lim)
+  })
+
+  lims <- c(min(lims[1,]), max(lims[2,]))
 
   return(lims)
 }
@@ -229,33 +244,27 @@ setMethod("plot_dists", "seaMass", function(
   object,
   data,
   horizontal = TRUE,
-  draw_outline = TRUE,
   draw_quantiles = 0.5,
   trim = c(0.05, 0.95),
-  colour = NULL,
+  colour = "black",
   fill = NULL,
-  alpha = list(0.5, 0.35, 0.2),
-  title = NULL,
+  alpha = 1,
   facets = NULL,
   value.label = "value",
-  value.limits = limits(data),
-  value.length = 120,
+  value.limits = limits_dists(data),
+  value.length = 160,
+  variable.labels = TRUE,
   variable.sort.cols = NULL,
   variable.label.cols = NULL,
   variable.interval = 5,
   show.legend = TRUE,
-  file = NULL
+  min.width = 0,
+  min.height = 0
 ) {
   if (is.data.frame(data)) {
     DTs <- list(as.data.table(data))
   } else {
     DTs <- lapply(data, function(dd) as.data.table(dd))
-  }
-
-  if (!is.list(draw_outline)) {
-    draw_outlines <- list(draw_outline)
-  } else {
-    draw_outlines <- draw_outline
   }
 
   if (!is.list(draw_quantiles)) {
@@ -294,7 +303,8 @@ setMethod("plot_dists", "seaMass", function(
   if ("PosteriorMean" %in% colnames(DTs[[1]]) || "m" %in% colnames(DTs[[1]])) {
     summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "m") - 1)]
   } else if ("value" %in% colnames(DTs[[1]])) {
-    summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "chain") - 1)]
+    summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "value") - 1)]
+    summary.cols <- setdiff(summary.cols, c("chain", "sample"))
   } else {
     summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "s") - 1)]
   }
@@ -311,7 +321,8 @@ setMethod("plot_dists", "seaMass", function(
   if ("Group" %in% summary.cols && "Component" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_components(object, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Assay"))
 
   # remove summary cols that contain inhomogenous data
-  summary.cols <- summary.cols[sapply(summary.cols, function(col) uniqueN(DTs[[1]][, col, with = F]) > 1)]
+  imho <- sapply(summary.cols, function(col) uniqueN(DTs[[1]][, col, with = F]) > 1)
+  if (!all(!imho)) summary.cols <- summary.cols[imho]
 
   ## SET UP PLOT
 
@@ -323,10 +334,9 @@ setMethod("plot_dists", "seaMass", function(
 
   # elements are summary.cols with text.cols labels
   if (is.null(variable.sort.cols)) {
-    DT1 <- DT1[nrow(DT1):1]
+    if (horizontal) DT1 <- DT1[nrow(DT1):1]
   } else {
-    #data.table::setorderv(DT1, sort.cols, order = -1, na.last = T)
-    data.table::setorderv(DT1, sort.cols, na.last = T)
+    data.table::setorderv(DT1, sort.cols, order = ifelse(horizontal, -1, 1), na.last = T)
   }
   DT1[, Summary := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(summary.cols)]))]
   DT1[, labels := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(label.cols)]))]
@@ -336,20 +346,20 @@ setMethod("plot_dists", "seaMass", function(
   # set up plot
   g <- ggplot2::ggplot(DT1, ggplot2::aes(x = Summary))
   if (horizontal) {
-    g <- g + ggplot2::facet_wrap(facets, ncol = 1)
-    g <- g + coord_flip()
-    g <- g + ggplot2::theme(legend.position = "bottom", axis.title.x = ggplot2::element_blank(), strip.text = ggplot2::element_text(angle = 0, hjust = 0))
+    if (!is.null(facets)) g <- g + ggplot2::facet_wrap(facets, shrink = F, dir = "v", ncol = 1)
+    g <- g + ggplot2::coord_flip(ylim = value.limits, expand = F)
+    g <- g + ggplot2::theme(axis.title.y = ggplot2::element_blank())
+    if (!variable.labels) g <- g + ggplot2::theme(axis.text.y = ggplot2::element_blank())
   } else {
-    g <- g + ggplot2::facet_wrap(facets, nrow = 1)
-    g <- g + ggplot2::coord_cartesian(xlim = c(0.5, nlevels(DT1$Summary) + 0.5), ylim = value.limits, expand = F)
-    g <- g + ggplot2::theme(axis.title.x = ggplot2::element_blank(), axis.text.x = ggplot2::element_text(angle = 90), strip.text = ggplot2::element_text(angle = 0, hjust = 0))
+    if (!is.null(facets)) g <- g + ggplot2::facet_wrap(facets, shrink = F, dir = "h", nrow = 1)
+    g <- g + ggplot2::coord_cartesian(ylim = value.limits, expand = F)
+    g <- g + ggplot2::theme(axis.title.x = ggplot2::element_blank(), axis.text.x = ggplot2::element_text(angle = 90))
+    if (!variable.labels) g <- g + ggplot2::theme(axis.text.x = ggplot2::element_blank())
   }
-  if (!is.null(title)) g <- g + ggplot2::ggtitle(title)
   g <- g + ggplot2::ylab(paste("log2", value.label))
   if (!is.null(colours[[1]]) && colours[[1]] %in% colnames(DT1) && !all(is.na(DT1[, get(colours[[1]])]))) {
     if (is.numeric(DT1[, get(colours[[1]])])) {
       g <- g + ggplot2::scale_colour_viridis_c(option = "plasma", end = 0.75, na.value = "black")
-      g <- g + ggplot2::guides(colour = ggplot2::guide_colorbar(barwidth = value.length / 10))
     } else {
       g <- g + ggplot2::scale_colour_viridis_d(option = "plasma", end = 0.75, na.value = "black")
     }
@@ -357,7 +367,6 @@ setMethod("plot_dists", "seaMass", function(
   if (!is.null(fills[[1]]) && fills[[1]] %in% colnames(DT1) && !all(is.na(DT1[, get(fills[[1]])]))) {
     if (is.numeric(DT1[, get(fills[[1]])])) {
       g <- g + ggplot2::scale_fill_viridis_c(option = "plasma", end = 0.75, na.value = "black")
-      g <- g + ggplot2::guides(fill = ggplot2::guide_colorbar(barwidth = value.length / 10))
     } else {
       g <- g + ggplot2::scale_fill_viridis_d(option = "plasma", end = 0.75, na.value = "black")
     }
@@ -368,19 +377,20 @@ setMethod("plot_dists", "seaMass", function(
     # cope with different inputs
     if ("PosteriorMean" %in% colnames(DTs[[i]]) || "m" %in% colnames(DTs[[i]])) {
       summary.cols1 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "m") - 1)]
-      dist <- "lst"
+      DTs[[i]][, dist := "lst"]
       y <- ifelse("PosteriorMean" %in% colnames(DTs[[i]]), "PosteriorMean", "m")
       arg2 <- ifelse("PosteriorMean" %in% colnames(DTs[[i]]), "PosteriorSD", "s")
       arg3 <- "df"
     } else if ("value" %in% colnames(DTs[[i]])) {
-      summary.cols1 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "chain") - 1)]
-      dist <- NULL
+      summary.cols1 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "value") - 1)]
+      summary.cols1 <- setdiff(summary.cols1, c("chain", "sample"))
+      DTs[[i]][, dist := NA]
       y <- "value"
       arg2 <- NULL
       arg3 <- NULL
     } else {
       summary.cols1 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "s") - 1)]
-      dist <- "inaka"
+      DTs[[i]][, dist := "inaka"]
       y <- "s"
       arg2 <- "df"
       arg3 <- NULL
@@ -388,45 +398,103 @@ setMethod("plot_dists", "seaMass", function(
 
     # colour
     j <- (i-1) %% length(colours) + 1
-    if (!is.null(colours[[j]]) && colours[[j]] %in% colnames(DT1) && !all(is.na(DT1[, get(colours[[j]])]))) {
-      ggcolour <- colours[[j]]
-    } else {
+    ggcolour <- NULL
+    if (is.null(colours[[j]])) {
+      ggcolour.aes <- NULL
+      ggcolour <- NA
+    } else if (colours[[j]] %in% colnames(DT1)) {
+      ggcolour.aes <- colours[[j]]
       ggcolour <- NULL
+    } else {
+      ggcolour.aes <- NULL
+      ggcolour <- colours[[j]]
     }
 
     # fill
     j <- (i-1) %% length(fills) + 1
-    if (!is.null(fills[[j]]) && fill %in% colnames(DT1) && !all(is.na(DT1[, get(fills[[j]])]))) {
-      ggfill <- fills[[j]]
-    } else {
+    if (is.null(fills[[j]])) {
+      ggfill.aes <- NULL
+      ggfill <- NA
+    } else if (fills[[j]] %in% colnames(DT1)) {
+      ggfill.aes <- fills[[j]]
       ggfill <- NULL
+    } else {
+      ggfill.aes <- NULL
+      ggfill <- fills[[j]]
     }
 
     # merge metadata
-    DTs[[i]] <- merge(DT1[, unique(c("Summary", summary.cols, ggcolour, ggfill)), with = F], DTs[[i]], by = intersect(summary.cols, summary.cols1), sort = F)
+    DTs[[i]] <- merge(DT1[, unique(c("Summary", summary.cols, ggcolour.aes, ggfill.aes)), with = F], DTs[[i]], by = intersect(summary.cols, summary.cols1), sort = F)
+
+    # prettify names
+    ctrl <- control(object)
+    tmp <- unique(c(ggcolour.aes, ggfill.aes))
+    if (length(tmp) > 0) setnames(DTs[[i]], tmp, sapply(tmp, function(t) lingofy(object, t)), skip_absent = T)
+    ggcolour.aes <- lingofy(object, ggcolour.aes)
+    ggfill.aes <- lingofy(object, ggfill.aes)
 
     # plot violin!
-    args <- list(y = y, dist = "dist", arg2 = arg2, arg3 = arg3)
-    if (!is.null(ggcolour)) args$colour <- ggcolour
-    if (!is.null(ggfill)) args$fill <- ggfill
-    g <- g + geom_violin(
-      do.call(eval(parse(text = "ggplot2::aes_string")), args),
-      DTs[[i]],
-      "ylfdr",
+    args.aes <- list(
+      y = formula(paste0("~`", y, "`")),
+      dist = ~dist,
+      arg2 = NULL,
+      arg3 = NULL
+    )
+    if (!is.null(arg2)) args.aes$arg2 <- formula(paste0("~`", arg2, "`"))
+    if (!is.null(arg3)) args.aes$arg3 <- formula(paste0("~`", arg3, "`"))
+    if (!is.null(ggcolour.aes)) args.aes$colour <- formula(paste0("~`", ggcolour.aes, "`"))
+    if (!is.null(ggfill.aes)) args.aes$fill <- formula(paste0("~`", ggfill.aes, "`"))
+
+    args <- list(
+      mapping = do.call(eval(parse(text = "ggplot2::aes_")), args.aes),
+      data = DTs[[i]],
+      scale = NULL,
+      stat = "ylfdr",
       alpha = alphas[[(i-1) %% length(alpha) + 1]],
       trim = trims[[(i-1) %% length(trims) + 1]],
       show.legend = show.legend
     )
+    if (!is.null(ggcolour)) args$colour <- ggcolour
+    if (!is.null(ggfill)) args$fill <- ggfill
+
+    g <- g + do.call(eval(parse(text = "ggplot2::geom_violin")), args)
 
     # plot quantiles
     for (qt in draw_quantiless[[(i-1) %% length(draw_quantiless) + 1]]) {
-      g <- g + geom_violin(
-        do.call(eval(parse(text = "ggplot2::aes_string")), args),
-        DTs[[i]],
-        "ylfdr",
+      args.aes <- list(
+        y = formula(paste0("~`", y, "`")),
+        dist = ~dist,
+        arg2 = NULL,
+        arg3 = NULL
+      )
+      if (!is.null(arg2)) args.aes$arg2 <- formula(paste0("~`", arg2, "`"))
+      if (!is.null(arg3)) args.aes$arg3 <- formula(paste0("~`", arg3, "`"))
+      if (!is.null(ggcolour.aes)) {
+        args.aes$colour <- formula(paste0("~`", ggcolour.aes, "`"))
+      } else if (!is.null(ggfill.aes)) {
+        args.aes$colour <- formula(paste0("~`", ggfill.aes, "`"))
+      }
+
+      args <- list(
+        mapping = do.call(eval(parse(text = "ggplot2::aes_")), args.aes),
+        data = DTs[[i]],
+        scale = NULL,
+        stat = "ylfdr",
+        alpha = alphas[[(i-1) %% length(alpha) + 1]],
         trim = c(qt, 1 - qt),
         show.legend = show.legend
       )
+      if (is.null(args.aes$colour)) {
+        if (!is.null(ggcolour)) {
+          args$colour <- ggcolour
+        } else if (!is.null(ggfill.aes)) {
+          args$colour <- ggfill
+        } else {
+          args$colour <- "black"
+        }
+      }
+
+      g <- g + do.call(eval(parse(text = "ggplot2::geom_violin")), args)
     }
   }
 
@@ -438,24 +506,417 @@ setMethod("plot_dists", "seaMass", function(
   # set panel size and get resulting overall size
   width <- ifelse(horizontal, value.length, variable.interval * nlevels(DT1$Summary))
   height <- ifelse(horizontal, variable.interval * nlevels(DT1$Summary), value.length)
+  print(g) # workaround
   gt <- egg::set_panel_size(g, width = grid::unit(width, "mm"), height = grid::unit(height, "mm"))
-  width <- 10 + sum(as.numeric(grid::convertUnit(gt$widths, "points")))
-  height <- 10 + sum(as.numeric(grid::convertUnit(gt$heights, "points")))
+  width <- sum(as.numeric(grid::convertUnit(gt$widths, "mm")))
+  height <- sum(as.numeric(grid::convertUnit(gt$heights, "mm")))
 
   # save static image if indicated
-  if (!is.null(file)) {
-    print(g) # bug workaround
-    ggplot2::ggsave(
-      file, gt, units = "mm", limitsize = F,
-      width = as.numeric(grid::convertUnit(grid::unit(width, "points"), "mm")),
-      height = as.numeric(grid::convertUnit(grid::unit(height, "points"), "mm"))
-    )
-  }
+  #if (!is.null(file)) ggplot2::ggsave(file, gt, units = "mm", width = width, height = height, limitsize = F)
 
   # convert to plotly
-  figure <- suppressWarnings(plotly::ggplotly(g, tooltip = "x"))
+  width <- 70 + 3*width # nasty fudge factor
+  height <- 70 + 3*height # nasty fudge factor
+  fig <- suppressWarnings(plotly::ggplotly(g, max(min.width, width), max(min.height, height), "x"))
   # horrible hack for ggplotly tooltip
-  figure$x$data[[1]]$text <- sapply(figure$x$data[[1]]$text, function(s) gsub("density", value.label, s))
+  for (i in 1:length(fig$x$data)) fig$x$data[[i]]$text <- sapply(fig$x$data[[i]]$text, function(s) gsub("density", paste("log2", value.label), s), USE.NAMES = F)
 
-  return(figure)
+  return(fig)
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+merge_figs <- function(
+  figs,
+  margin = 50,
+  min.width = 500,
+  min.height = 500
+) {
+  height <- sum(sapply(figs, function(f) f$height) + margin) - margin
+  fig <- plotly::subplot(figs, nrows = length(figs), shareX = T, margin = margin / height / length(figs))
+  fig <- suppressWarnings(plotly::layout(fig, width = max(fig$width, min.width), height = max(height, min.height))) # stupid deprecation
+  fig <- plotly::layout(fig, xaxis = list(title = figs[[1]]$x$layout$annotations[[1]]$text)) # to fix disappearing axes labels
+  return(fig)
+}
+
+
+#' Robust PCA fit
+#'
+#' @param object .
+#' @param data.design .
+#' @param items .
+#' @param input .
+#' @param type .
+#' @param scale .
+#' @param robust .
+#' @return A ggplot2 object .
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("robust_pca", "seaMass", function(
+  object,
+  data.design = assay_design(object),
+  input = "model1",
+  type = "group.quants",
+  items = NULL,
+  scale = FALSE,
+  robust = TRUE,
+  ellipses = TRUE,
+  as.data.table = FALSE
+) {
+  # ensure Assay/Block combinations in our processed design, sorted by Block, Assay
+  DT <- as.data.table(data.design)
+  if (!is.factor(DT$Assay)) DT[, Assay := factor(Assay, levels = levels(assay_design(object, as.data.table = T)$Assay))]
+  if (!("Block" %in% colnames(DT))) DT <- merge(DT, assay_design(object, as.data.table = T), by = "Assay", suffixes = c("", ".old"))
+  setkey(DT, Block, Assay)
+
+  # merge in Assay stdevs and means if available
+  DT.a <- assay_stdevs(object, as.data.table = T)
+  if (!is.null(DT.a)) {
+    am <- substr(toupper(control(object)@assay.model), 1, 1)
+    DT.a <- DT.a[, .(Block, Assay, s)]
+    setnames(DT.a, "s", paste0("A.s", am))
+    DT <- merge(DT, DT.a, by = c("Block", "Assay"))
+  }
+  DT.a <- assay_means(object, as.data.table = T)
+  if (!is.null(DT.a)) {
+    am <- substr(toupper(control(object)@assay.model), 1, 1)
+    DT.a <- DT.a[, .(Block, Assay, m)]
+    setnames(DT.a, "s", paste0("A.m", am))
+    DT <- merge(DT, DT.a, by = c("Block", "Assay"))
+  }
+
+  # determine which individuals and variables to use
+  DT.summary <- read(object, input, type, items, summary = T, summary.func = "robust_normal", as.data.table = T)
+  summary.cols <- setdiff(colnames(DT.summary)[1:(which(colnames(DT.summary) == "m") - 1)], c("Assay", "Block"))
+  DT.individuals <- merge(DT.summary[, .(use = var(m, na.rm = T) >= 1e-5), keyby = .(Block, Assay)][use == T, .(Assay, Block)], DT[, .(Block, Assay)], by = c("Block", "Assay"))
+  DT.variables <- dcast(DT.summary, paste(paste(summary.cols, collapse = " + "), "~ Block + Assay"), value.var = "m")
+  nvariable <- nrow(DT.variables)
+  DT.variables <- DT.variables[complete.cases(DT.variables), summary.cols, with = F]
+  nvariable.complete <- nrow(DT.variables)
+
+  # row and column weights
+  DT.use <- merge(DT.individuals[,c(k = 1, .SD)], DT.variables[,c(k = 1, .SD)], by = "k", all = T, allow.cartesian = T)[, k := NULL]
+  if (robust) {
+    # can row.w and col.w calculation be improved?
+    DT.summary.se <- merge(DT.summary, DT.use, by = colnames(DT.use))
+    DT.summary.se <- dcast(DT.summary.se, paste("Block + Assay ~", paste(summary.cols, collapse = " + ")), value.var = "s")
+    DT.summary.se[, c("Block", "Assay") := NULL]
+    row.weights <- as.numeric(1.0 / apply(DT.summary.se, 1, function(x) median(x, na.rm = T))^2)
+    col.weights <- as.numeric(1.0 / apply(DT.summary.se, 2, function(x) median(x, na.rm = T))^2)
+    rm(DT.summary.se)
+  }
+  # prepare PCA input
+  DT.summary <- merge(DT.summary, DT.use, by = colnames(DT.use))
+  DT.summary <- dcast(DT.summary, paste("Block + Assay ~", paste(summary.cols, collapse = " + ")), value.var = "m")
+  DT.summary[, c("Block", "Assay") := NULL]
+  rm(DT.use)
+
+  # run PCA
+  if (robust && !any(is.na(row.weights)) && !any(is.na(col.weights))) {
+    fit <- FactoMineR::PCA(DT.summary, scale.unit = scale, row.w = row.weights, col.w = col.weights, graph = F)
+  } else {
+    fit <- FactoMineR::PCA(DT.summary, scale.unit = scale, graph = F)
+  }
+  rm(DT.summary)
+
+  # transform MCMC samples to compute ellipses
+  if (ellipses) {
+    DT <- merge(DT, rbindlist(parallel_lapply(batch_split(DT.individuals, c("Block", "Assay"), nrow(DT.individuals), drop = T, keep.by = F), function(item, DT.variables, object, input, type, summary.cols, fit) {
+      DT.items <- merge(item[,c(k = 1, .SD)], DT.variables[,c(k = 1, .SD)], by = "k", all = T, allow.cartesian = T)[, k := NULL]
+      DT1 <- read(object, input, type, DT.items, as.data.table = T)
+      if (is.null(DT1)) {
+        warning(paste0(type, " not kept, using summaries"))
+        DT1 <- read(object, input, type, DT.items, summary = T, as.data.table = T)
+        ctrl <- control(object)
+        DT1 <- DT1[, .(chain = rep(1:ctrl@nchain, each = ctrl@nsample/ctrl@nchain), sample = rep(1:(ctrl@nsample/ctrl@nchain), times = ctrl@nchain), value = rlst(ctrl@nsample, m, s, df)), by = summary.cols]
+      } else {
+        DT1[, Block := NULL]
+        DT1[, Assay := NULL]
+      }
+      DT1 <- dcast(DT1, paste("chain + sample ~", paste(summary.cols, collapse = " + ")), value.var = "value")
+      pred <- predict(fit, DT1[, !c("chain", "sample")])
+      colnames(pred$coord) <- paste0(sub("^.*\\.", "PC", colnames(pred$coord)), " (", format(round(fit$eig[1:ncol(pred$coord), "percentage of variance"], 2), T, nsmall = 2), "%)")
+      DT1 <- data.table(Block = item[1, Block], Assay = item[1, Assay], cbind(DT1[, .(chain, sample)], pred$coord))
+      rm(pred)
+      return(DT1)
+    }, nthread = control(object)@nthread, .packages = c("seaMass", "FactoMineR"))))
+  } else {
+    colnames(fit$ind$coord) <- paste0(sub("^.*\\.", "PC", colnames(fit$ind$coord)), " (", format(round(fit$eig[1:ncol(fit$ind$coord), "percentage of variance"], 2), T, nsmall = 2), "%)")
+    DT <- merge(DT, cbind(DT.individuals, fit$ind$coord), by = c("Assay", "Block"))
+  }
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' Plot robust PCA fit
+#'
+#' @param object .
+#' @param data.design .
+#' @param items .
+#' @param input .
+#' @param type .
+#' @param scale .
+#' @param robust .
+#' @return A ggplot2 object .
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_robust_pca", "seaMass", function(
+  object,
+  pcs = c(1, 2),
+  colour = "A.sC",
+  fill = "A.sC",
+  shape = "Condition",
+  ellipse.probs = c(0.5, 0.95),
+  ellipse.alpha = 0.2,
+  ellipse.size = 0.2,
+  point.size = 2,
+  width = 900,
+  height = 700,
+  data = NULL,
+  ...
+) {
+  if (is.null(data)) data <- robust_pca(object, ...)
+
+  ctrl <- control(object)
+  DT <- as.data.table(data)
+
+  # hack for plotly tooltips
+  DT[, Summary := interaction(Block, Assay, drop = T, lex.order = T)]
+  DT[, text := paste0(
+    "Block: ", Block, "\nAssay: ", Assay, "\nSample: ", Sample, "\nCondition: ", Condition, "\n",
+    ctrl@group[2], " q/u/n: ", A.qG, "/", A.uG, "/", A.nG, "\n",
+    ctrl@component[2], " q/u/n: ", A.qC, "/", A.uC, "/", A.nC, "\n",
+    ctrl@measurement[2], " q/u/n: ", A.qM, "/", A.uM, "/", A.nM, "\n",
+    "Data: q/u/n: ", A.qD, "/", A.uD, "/", A.nD
+  )]
+  DT[, text := factor(text, levels = unique(text))]
+  cols <- colnames(DT)[sapply(pcs, function(pc) grep(paste0("^PC", pc, " "), colnames(DT)))]
+  DT <- DT[, mget(intersect(c("Summary", "text", cols, colour, fill, shape), colnames(DT)))]
+  colnames(DT) <- sub("^(PC[0-9]+) .*$", "\\1", colnames(DT))
+
+  # pretty name mapping
+  tmp <- unique(c(colour, fill, shape))
+  if (length(tmp) > 0) setnames(DT, tmp, sapply(tmp, function(t) lingofy(object, t)), skip_absent = T)
+  colour0 <- lingofy(object, colour)
+  fill0 <- lingofy(object, fill)
+  shape0 <- lingofy(object, shape)
+
+  # summary
+  DT.summary <- merge(DT[, !c("PC1", "PC2")], DT[, as.list(MASS::cov.trob(data.table(PC1, PC2))$center), by = Summary], by = "Summary")
+
+  # setup plot
+  g <- ggplot2::ggplot(DT.summary, ggplot2::aes(x = PC1, y = PC2))
+  g <- g + xlab(cols[1])
+  g <- g + ylab(cols[2])
+  g <- g + ggplot2::coord_fixed(ratio = 1)
+
+  # scales
+  if (!is.null(colour0) && colour0 %in% colnames(DT) && !all(is.na(DT[, get(colour0)]))) {
+    if (is.numeric(DT[, get(colour0)])) {
+      g <- g + ggplot2::scale_colour_viridis_c(option = "plasma", end = 0.75, na.value = "black")
+    } else {
+      g <- g + ggplot2::scale_colour_viridis_d(option = "plasma", end = 0.75, na.value = "black")
+    }
+  }
+  if (!is.null(fill0) && fill0 %in% colnames(DT) && !all(is.na(DT[, get(fill0)]))) {
+    if (is.numeric(DT[, get(fill0)])) {
+      g <- g + ggplot2::scale_fill_viridis_c(option = "plasma", end = 0.75, na.value = "black")
+    } else {
+      g <- g + ggplot2::scale_fill_viridis_d(option = "plasma", end = 0.75, na.value = "black")
+    }
+  }
+
+  # colour
+  ggcolour <- NULL
+  if (is.null(colour0)) {
+    ggcolour.aes <- NULL
+    ggcolour <- NA
+  } else if (colour0 %in% colnames(DT)) {
+    ggcolour.aes <- colour0
+    ggcolour <- NULL
+  } else {
+    ggcolour.aes <- NULL
+    ggcolour <- colour0
+  }
+
+  # fill
+  if (is.null(fill0)) {
+    ggfill.aes <- NULL
+    ggfill <- NA
+  } else if (fill0 %in% colnames(DT)) {
+    ggfill.aes <- fill0
+    ggfill <- NULL
+  } else {
+    ggfill.aes <- NULL
+    ggfill <- fill0
+  }
+
+  # shape
+  if (is.null(shape0)) {
+    ggshape.aes <- NULL
+    ggshape <- NA
+  } else if (shape0 %in% colnames(DT)) {
+    ggshape.aes <- shape0
+    ggshape <- NULL
+  } else {
+    ggshape.aes <- NULL
+    ggshape <- shape0
+  }
+
+  # plot point
+  args.aes <- list(group = ~Summary, text = ~text)
+  if (!is.null(ggcolour.aes)) args.aes$colour <- formula(paste0("~ `", ggcolour.aes, "`"))
+  if (!is.null(ggfill.aes)) args.aes$fill <- formula(paste0("~ `", ggfill.aes, "`"))
+  if (!is.null(ggshape.aes)) args.aes$shape <- formula(paste0("~ `", ggshape.aes, "`"))
+
+  args <- list(mapping = do.call(
+    eval(parse(text = "ggplot2::aes_")), args.aes),
+    size = point.size
+  )
+  if (!is.null(ggcolour)) args$colour <- ggcolour
+  if (!is.null(ggshape)) args$shape <- ggshape
+
+  suppressWarnings(g <- g + do.call(eval(parse(text = "ggplot2::geom_point")), args))
+
+  # plot ellipse outlines
+  for (p in ellipse.probs) {
+    args.aes <- list(group = ~Summary, text = ~text)
+    if (!is.null(ggcolour.aes)) args.aes$colour <- formula(paste0("~ `", ggcolour.aes, "`"))
+    if (!is.null(ggfill.aes)) args.aes$fill <- formula(paste0("~ `", ggfill.aes, "`"))
+    if (!is.null(ggshape.aes)) args.aes$shape <- formula(paste0("~ `", ggshape.aes, "`"))
+
+    args <- list(mapping = do.call(
+      eval(parse(text = "ggplot2::aes_")), args.aes),
+      DT,
+      size = ellipse.size,
+      level = p
+    )
+    if (!is.null(ggcolour)) args$colour <- ggcolour
+
+    suppressWarnings(g <- g + do.call(eval(parse(text = "ggplot2::stat_ellipse")), args))
+  }
+
+  # plot ellipse fill
+  args.aes <- list(group = ~Summary, text = ~text)
+  if (!is.null(ggcolour.aes)) args.aes$colour <- formula(paste0("~ `", ggcolour.aes, "`"))
+  if (!is.null(ggfill.aes)) args.aes$fill <- formula(paste0("~ `", ggfill.aes, "`"))
+  if (!is.null(ggshape.aes)) args.aes$shape <- formula(paste0("~ `", ggshape.aes, "`"))
+
+  args <- list(mapping = do.call(
+    eval(parse(text = "ggplot2::aes_")), args.aes),
+    DT,
+    level = max(ellipse.probs),
+    geom = "polygon",
+    alpha = ellipse.alpha
+  )
+  if (!is.null(ggfill)) args$fill <- ggfill
+
+  suppressWarnings(g <- g + do.call(eval(parse(text = "ggplot2::stat_ellipse")), args))
+
+  suppressWarnings(fig <- plotly::ggplotly(g, tooltip = c("text", "x", "y"), dynamicTicks = T, width = width, height = height))
+  for (i in 1:length(fig$x$layout$annotations)) fig$x$layout$annotations[[i]]$y <- fig$x$layout$annotations[[i]]$y - 0.05 # another grim plotly hack
+
+  return(fig)
+})
+
+
+#' Initialise Rmarkdown report
+#'
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("init_report", "seaMass", function(object, name = seaMass::name(parent(object)), title = paste("seaMass report for project", name)) {
+  ctrl <- control(object)
+
+  cat(paste0(
+    'name: ', title, '\n',
+    'output_dir: ../output\n',
+    'navbar:\n',
+    '  title: ', name, '\n',
+    '  left:\n',
+    '    - text: "Index"\n',
+    '      href: index.html\n',
+    'output:\n',
+    '  html_document:\n'
+  ), file = file.path(filepath(parent(object)), "markdown", "_site.yml"))
+
+  cat(paste0(
+    '---\n',
+    'title: ', title, '\n',
+    "author: generated with seaMass v", ctrl@version, " by ", ctrl@user, "\n",
+    "date: ", Sys.Date(), "\n",
+    '---\n',
+    '* [CSV output](csv)\n'
+  ), file = file.path(filepath(parent(object)), "markdown", "index.Rmd"))
+
+  return(invisible(NULL))
+})
+
+
+#' Add figure to Rmarkdown report
+#'
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("add_to_report", "seaMass", function(object, fig, name, title = name) {
+  ctrl <- control(object)
+  path <- file.path(filepath(parent(object)), "markdown", name)
+  saveRDS(suppressWarnings(plotly::toWebGL(fig)), paste0(path, ".rds"))
+
+  cat(paste0(
+    "---\n",
+    "title: ", title, "\n",
+    "author: generated with seaMass v", ctrl@version, " by ", ctrl@user, "\n",
+    "date: ", Sys.Date(), "\n",
+    "---\n",
+    "```{r message = FALSE, echo = FALSE, warning = FALSE}\n",
+    "readRDS('", basename(path), ".rds')\n",
+    "```\n"
+  ), file = paste0(path, ".Rmd"))
+
+  cat(paste0(
+    '* [', title, '](', basename(path), '.html)\n'
+  ), file = file.path(filepath(parent(object)), "markdown", "index.Rmd"), append = T)
+
+  return(invisible(NULL))
+})
+
+
+#' Render Rmarkdown report
+#'
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("render_report", "seaMass", function(object) {
+  suppressWarnings(rmarkdown::render_site(file.path(filepath(parent(object)), "markdown"), quiet = T))
+
+  return(invisible(NULL))
+})
+
+
+#' Convert to local lingo
+#'
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("lingofy", "seaMass", function(object, x) {
+  if (is.null(x)) return(NULL)
+  ctrl <- control(object)
+  col <- sub("^.*\\.(.*)G$", paste0("\\1\n", ctrl@group[2]), x)
+  col <- sub("^.*\\.(.*)C$", paste0("\\1\n", ctrl@component[2]), col)
+  col <- sub("^.*\\.(.*)M$", paste0("\\1\n", ctrl@measurement[2]), col)
+  col <- sub("^.*\\.(.*)D$", paste0("\\1\nDatapoints"), col)
+  col <- sub("^q\n", "quantified\n", col)
+  col <- sub("^u\n", "used\n", col)
+  col <- sub("^n\n", "total\n", col)
+  col <- sub("^s\n", "stdev of\n", col)
+  col <- sub("^m\n$", "mean of\n", col)
+  return(col)
 })

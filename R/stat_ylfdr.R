@@ -59,27 +59,32 @@ StatYlfdr <- ggplot2::ggproto(
     dd[1] <- trim[1]
     dd[length(dd)] <- trim[2]
     dd <- new_data_frame(list(ecdf = dd, x = mean(range(data$x))), length(dd))
-    if ("dist" %in% colnames(data)) {
+
+    if (any(!is.na(data$dist))) {
       args <- list(dd$ecdf, data$y)
-      if (!is.null(data$arg2)) args <- append(args, data$arg2)
-      if (!is.null(data$arg3)) args <- append(args, data$arg3)
-      dd$y <- do.call(paste0("q", data$dist), args)
+      if (!is.null(data$arg2)) args <- append(args, data$arg2[1])
+      if (!is.null(data$arg3)) args <- append(args, data$arg3[1])
+      dd$y <- do.call(paste0("q", data$dist[1]), args)
     } else {
-      dd$y <- approxfun((1:n-0.5)/n, sort(data$y))(dd$ecdf)
+      if (n > 1) {
+        dd$y <- approxfun((1:n-0.5)/n, sort(data$y))(dd$ecdf)
+      } else {
+        dd$y <- data$y
+      }
     }
     dd$lfdr <- ifelse(dd$ecdf <= 0.5, dd$ecdf, 1 - dd$ecdf)
 
     # horrible hack for ggplotly tooltip
     dd$density <- paste0(
-      format(round(dd$y, 2), nsmall = 2, justify = "none"), "<br \\>",
-      "lFDR (up): ", format(round(dd$ecdf, 2), nsmall = 2, justify = "none"), "%<br \\>",
-      "lFDR (down): ", format(round(1 - dd$ecdf, 2), nsmall = 2, justify = "none"), "%"
+      format(round(dd$y, 3), nsmall = 3, justify = "none"), "<br \\>",
+      "lFDR (up): ", format(round(dd$ecdf, 3), nsmall = 3, justify = "none"), "%<br \\>",
+      "lFDR (down): ", format(round(1 - dd$ecdf, 3), nsmall = 3, justify = "none"), "%"
     )
 
     return(dd)
   },
 
-  compute_panel = function(self, data, scales, width = NULL, trim = TRUE, na.rm = FALSE, scale = "area", flipped_aes = FALSE) {
+  compute_panel = function(self, data, scales, width = NULL, trim = TRUE, na.rm = FALSE, scale = NULL, flipped_aes = FALSE) {
     data <- ggplot2::flip_data(data, flipped_aes)
     data <- ggplot2::ggproto_parent(ggplot2::Stat, self)$compute_panel(data, scales, width = width, trim = trim, na.rm = na.rm)
     data$violinwidth <- 1.8 * data$lfdr

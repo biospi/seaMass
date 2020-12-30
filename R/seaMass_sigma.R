@@ -25,6 +25,7 @@ seaMass_sigma <- function(
   data,
   data.design = new_assay_design(data),
   path = "fit",
+  user = Sys.info()[["user"]],
   run = TRUE,
   control = sigma_control(),
   ...
@@ -44,7 +45,7 @@ seaMass_sigma <- function(
   if (!grepl("\\.seaMass$", path)) path <- paste0(path, ".seaMass")
   if (file.exists(path)) unlink(path, recursive = T)
   if (!dir.create(path)) stop()
-  if (!dir.create(file.path(path, "output"))) stop()
+  if (!dir.create(file.path(path, "markdown", "csv"), recursive = T)) stop()
   if (!dir.create(file.path(path, "sigma"))) stop()
   path <- normalizePath(path)
 
@@ -68,6 +69,24 @@ seaMass_sigma <- function(
 
   # extract blocks and save control
   block.cols <- colnames(DT.design)[grep("^Block\\.(.*)$", colnames(DT.design))]
+
+  if (is.null(attr(DT, "group"))) {
+    control@group <- c("Group", "Groups")
+  } else {
+    control@group <- attr(DT, "group")
+  }
+  if (is.null(attr(DT, "component"))) {
+    control@component <- c("Component", "Components")
+  } else {
+    control@component <- attr(DT, "component")
+  }
+  if (is.null(attr(DT, "measurement"))) {
+    control@measurement <- c("Measurement", "Measurements")
+  } else {
+    control@measurement <- attr(DT, "measurement")
+  }
+
+  control@user <- user
   control@blocks <- sub("^Block\\.(.*)$", "\\1", block.cols)
   control@ellipsis <- list(...)
   validObject(control)
@@ -275,6 +294,7 @@ seaMass_sigma <- function(
 
   ### RUN
   object <- new("seaMass_sigma", filepath = path)
+  init_report(object)
   prepare_sigma(control@schedule, object)
 
   if (run) {
@@ -347,6 +367,10 @@ setMethod("finish", "seaMass_sigma", function(object) {
   if (!("group.means" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "group.means*"), recursive = T)
   if (!("group.quants" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "group.quants*"), recursive = T)
 
+  # render report and delete markdown
+  render_report(object)
+  #unlink(file.path(filepath(object), "markdown"), recursive = T)
+
   return(invisible(NULL))
 })
 
@@ -393,6 +417,13 @@ setMethod("del", "seaMass_sigma", function(object) {
 #' @include generics.R
 setMethod("name", "seaMass_sigma", function(object) {
   return(sub("\\.seaMass$", "", basename(filepath(object))))
+})
+
+
+#' @export
+#' @include generics.R
+setMethod("parent", "seaMass_sigma", function(object) {
+  return(object)
 })
 
 
@@ -569,6 +600,20 @@ setMethod("assay_means", "seaMass_sigma", function(object, assays = NULL, summar
 })
 
 
+#' @describeIn seaMass_sigma-class Get priors as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("priors", "seaMass_sigma", function(object, input = "model1", as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) priors(block, input, as.data.table = T)))
+  if (nrow(DT) == 0) return(NULL)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
 #' @describeIn seaMass_sigma-class Get the model assay stdevs as a \link{data.frame}.
 #' @import data.table
 #' @export
@@ -693,6 +738,40 @@ setMethod("group_means", "seaMass_sigma", function(object, groups = NULL, summar
   if (!as.data.table) setDF(DT)
   else DT[]
   return(DT)
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_priors", "seaMass_sigma", function(
+  object,
+  data = list(
+    priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Effect, s, df)],
+    priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Effect, s = s0, df = df0)],
+    rbind(
+      measurement_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Effect = "Measurements", value = rinaka(length(s), s, df))],
+      component_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Effect = "Components", value = rinaka(length(s), s, df))]
+    )
+  ),
+  horizontal = TRUE,
+  draw_outline = list(TRUE, TRUE, FALSE),
+  draw_quantiles = list(0.5, NULL, NULL),
+  trim = c(0.05, 0.95),
+  colour = list("blue", "black", NULL),
+  fill = list("lightblue", NULL, "grey"),
+  alpha = list(0.5, 0.5, 0.5),
+  facets = "Effect",
+  value.label = "stdev",
+  value.limits = limits_dists(data, trim, c(0, 1), include.zero = T),
+  value.length = 160,
+  variable.sort.cols = NULL,
+  variable.label.cols = "Block",
+  variable.interval = 5,
+  show.legend = TRUE,
+  file = NULL
+) {
+  return(plot_dists(object, data, horizontal, draw_outline, draw_quantiles, trim, colour, fill, alpha, facets, value.label, value.limits, value.length, variable.sort.cols, variable.label.cols, variable.interval, show.legend, file))
 })
 
 

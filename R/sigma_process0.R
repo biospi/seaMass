@@ -11,7 +11,7 @@ setMethod("process0", "sigma_block", function(object, chain, job.id) {
 
   if (increment_completed(file.path(filepath(object), "model0"), job.id = job.id) == ctrl@nchain) {
     # PROCESS OUTPUT
-    cat(paste0("[", Sys.time(), "]  SIGMA-PROCESS0 block=", sub("^.*sigma\\.(.*)$", "\\1", object@filepath), "\n"))
+    cat(paste0("[", Sys.time(), "]  SIGMA-PROCESS0 block=", sub("^.*sigma\\.(.*)$", "\\1", filepath(object)), "\n"))
 
     ## WRITE ASSAY STATS
     DT <- imported_data(object, as.data.table = T)[!is.na(Assay)]
@@ -73,7 +73,6 @@ setMethod("process0", "sigma_block", function(object, chain, job.id) {
     set.seed(ctrl@random.seed - 1)
     DT.measurement.prior <- data.table(Effect = "Measurements", DT.measurement.prior[, squeeze_stdev(s, df)])
     DT.design <- assay_design(object, as.data.table = T)
-    DT.design[, Measurement.SD := DT.measurement.prior[, s]]
 
     # Component EB prior
     if(ctrl@component.model != "") {
@@ -82,8 +81,8 @@ setMethod("process0", "sigma_block", function(object, chain, job.id) {
       set.seed(ctrl@random.seed - 1)
       DT.component.prior <- data.table(Effect = "Components", DT.component.prior[, squeeze_stdev(s, df)])
       DT.measurement.prior <- rbind(DT.measurement.prior, DT.component.prior, use.names = T, fill = T)
-      DT.design[, Component.SD := DT.component.prior[, s]]
     }
+
     # Assay EB priors
     if(ctrl@assay.model != "") {
       cat(paste0("[", Sys.time(), "]   calculating assay prior...\n"))
@@ -91,7 +90,7 @@ setMethod("process0", "sigma_block", function(object, chain, job.id) {
       items <- split(CJ(Assay = unique(na.omit(assay_design(object, as.data.table = T)[, Assay])), chain = 1:ctrl@nchain), by = c("Assay", "chain"), drop = T)
       DT.assay.prior <- rbindlist(parallel_lapply(items, function(item, object) {
         ctrl <- control(object)
-        DT <- assay_deviations(object, item[1, Assay], input = "model0", as.data.table = T)
+        DT <- assay_deviations(object, item[1, Assay], input = "model0", summary = F, as.data.table = T)
         DT <- DT[sample %% (ctrl@nsample / ctrl@assay.eb.nsample) == 0]
         if ("Measurement" %in% colnames(DT)) {
           DT[, Item := factor(paste(as.integer(Group), as.integer(Component), as.integer(Measurement), sep = "."))]
@@ -129,20 +128,18 @@ setMethod("process0", "sigma_block", function(object, chain, job.id) {
         }
         if (is.null(fit.model)) stop(paste0("[", Sys.time(), "] ERROR: MCMCglmm failed more than 10 times"))
 
-        return(data.table(Assay = item[1, Assay], chain = item[1, chain], sample = 1:nrow(fit.model$VCV), value = sqrt(fit.model$VCV[, "Item"])))
+        return(data.table(Assay = item[1, Assay], chain = item[1, chain], sample = 1:nrow(fit.model$VCV), value = sqrt(as.numeric(fit.model$VCV[, "Item"]))))
       }, nthread = ctrl@nthread))
 
       DT.assay.prior <- data.table(Effect = "Assay", DT.assay.prior[, dist_samples_inaka(chain, sample, value), by = Assay])
       DT.measurement.prior <- rbind(DT.measurement.prior, DT.assay.prior, use.names = T, fill = T)
-      if ("Assay.SD" %in% colnames(DT.design)) DT.design[, Assay.SD := NULL]
-      DT.design <- merge(DT.design, DT.assay.prior[, .(Assay, Assay.SD = s)], by = "Assay", sort = F, all.x = T)
     }
 
     # update design with standard deviations
-    fst::write.fst(DT.design, file.path(object@filepath, "design.fst"))
+    fst::write.fst(DT.design, file.path(filepath(object), "design.fst"))
 
     # save priors
-    fst::write.fst(DT.measurement.prior, file.path(object@filepath, "model1", "priors.fst"))
+    fst::write.fst(DT.measurement.prior, file.path(filepath(object), "model1", "priors.fst"))
   }
 
   return(invisible(NULL))

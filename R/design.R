@@ -8,9 +8,9 @@
 #' @export
 runs <- function(data) {
   data.is.data.table <- is.data.table(data)
-  DT <- setDT(data)
+  setDT(data)
 
-  DT <- DT[, .(Run = first(Run)), keyby = Injection]
+  DT <- data[, .(Run = first(Run)), keyby = Injection]
   DT[, Run := as.character(Run)]
   DT[, Injection := as.character(Injection)]
 
@@ -34,6 +34,9 @@ runs <- function(data) {
   if (!is.factor(DT.runs$Injection)) DT.runs[, Injection := factor(Injection)]
   if (!is.factor(DT.runs$Run)) DT.runs[, Run := factor(Run)]
   DT <- merge(DT, DT.runs, by = "Injection", sort = F)
+  if (!is.null(attr(data, "group"))) setattr(DT, "group", attr(data, "group"))
+  if (!is.null(attr(data, "component"))) setattr(DT, "component", attr(data, "component"))
+  if (!is.null(attr(data, "measurement"))) setattr(DT, "measurement", attr(data, "measurement"))
 
   if (!data.is.data.table) setDF(data)
   setDF(DT)

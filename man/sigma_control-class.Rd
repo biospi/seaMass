@@ -7,12 +7,10 @@
 \title{Control parameters for seaMass-Σ}
 \usage{
 sigma_control(
-  summarise = c("assay.means", "assay.stdevs", "group.quants", "component.deviations",
-    "component.means", "component.stdevs", "measurement.means", "measurement.stdevs"),
-  keep = NULL,
-  plot = c("assay.means", "assay.stdevs", "group.quants", "group.quants.pca",
-    "component.deviations", "component.means", "component.stdevs", "measurement.means",
-    "measurement.stdevs"),
+  keep = "summaries",
+  summarise = c("groups", "components", "measurements"),
+  plot = c("assays", "groups", "components", "measurements", "group.quants.pca",
+    "component.deviations.pca"),
   eb.model = "deconvolve",
   eb.max = 1024,
   measurement.model = "independent",
@@ -35,15 +33,15 @@ sigma_control(
 )
 }
 \arguments{
-\item{summarise}{Outputs to write csv summaries for, \code{NULL} or a subset of
-\code{c("group.quants", "group.means", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}
-Note, you must summarise or keep \code{"standardised.group.deviations"} if you want to run seaMass-Δ!}
-
 \item{keep}{Outputs to keep MCMC samples for, \code{NULL} or a subset of
 \code{c("summaries", "model0", "assay.means", "group.quants", "group.means", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}}
 
+\item{summarise}{Outputs to write csv summaries for, \code{NULL} or a subset of
+\code{c("groups", "components", "measurements")}
+Note, you must summarise or keep \code{"standardised.group.deviations"} if you want to run seaMass-Δ!}
+
 \item{plot}{Outputs to plot, \code{NULL} or a subset of
-\code{c("assay.means", "group.quants", "group.quants.pca", "group.means", "normalised.group.quants", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}}
+\code{c("assays", "groups", "components", "measurements", "group.quants.pca", "component.deviations.pca")}}
 
 \item{measurement.model}{Either \code{"single"} (single residual) or \code{"independent"} (per-measurement independent residuals)}
 

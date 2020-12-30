@@ -20,6 +20,7 @@
 \alias{assay_design,seaMass_sigma-method}
 \alias{timings,seaMass_sigma-method}
 \alias{assay_means,seaMass_sigma-method}
+\alias{priors,seaMass_sigma-method}
 \alias{assay_stdevs,seaMass_sigma-method}
 \alias{assay_deviations,seaMass_sigma-method}
 \alias{measurement_means,seaMass_sigma-method}
@@ -36,6 +37,7 @@ seaMass_sigma(
   data,
   data.design = new_assay_design(data),
   path = "fit",
+  user = Sys.info()[["user"]],
   run = TRUE,
   control = sigma_control(),
   ...
@@ -79,6 +81,8 @@ open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
+
+\S4method{priors}{seaMass_sigma}(object, input = "model1", as.data.table = FALSE)
 
 \S4method{assay_stdevs}{seaMass_sigma}(object, input = "model1", as.data.table = FALSE)
 
@@ -211,6 +215,8 @@ Fits the seaMass-Σ Bayesian group-level quantification model to imported data.
 \item \code{timings,seaMass_sigma-method}: Get the model timings as a \link{data.frame}.
 
 \item \code{assay_means,seaMass_sigma-method}: Get the model assay means as a \link{data.frame}.
+
+\item \code{priors,seaMass_sigma-method}: Get priors as a \link{data.frame}.
 
 \item \code{assay_stdevs,seaMass_sigma-method}: Get the model assay stdevs as a \link{data.frame}.
 

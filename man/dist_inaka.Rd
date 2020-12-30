@@ -2,10 +2,10 @@
 % Please edit documentation in R/dist.R
 \name{dist_inaka}
 \alias{dist_inaka}
-\title{fit scaled inverse chi squared distribution with fitdistrplus, note our input is stdevs not variances!}
+\title{fit inverse nakagami distribution with fitdistrplus, note our input is stdevs not variances!}
 \usage{
 dist_inaka(value, plots = FALSE, ...)
 }
 \description{
-fit scaled inverse chi squared distribution with fitdistrplus, note our input is stdevs not variances!
+fit inverse nakagami distribution with fitdistrplus, note our input is stdevs not variances!
 }

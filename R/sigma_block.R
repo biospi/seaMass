@@ -225,8 +225,10 @@ setMethod("assay_stdevs", "sigma_block", function(object, input = "model1", as.d
   if (!is.null(DT)) {
     DT <- cbind(
       DT[Effect == "Assay", .(Block, Assay, s, df)],
-      DT[Effect == "Measurements", .(M_s = s, M_df = df)],
-      DT[Effect == "Components", .(C_s = s, C_df = df)]
+      DT[Effect == "Components", .(B.s0C = s0, B.df0C = df0)],
+      DT[Effect == "Components", .(B.sC = s, B.dfC = df)],
+      DT[Effect == "Measurements", .(B.s0M = s0, B.df0M = df0)],
+      DT[Effect == "Measurements", .(B.sM = s, B.dfM = df)]
     )
   }
 
@@ -396,32 +398,72 @@ setMethod("standardised_group_deviations", "sigma_block", function(object, group
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_assay_stdevs", "sigma_block", function(
+setMethod("plot_priors", "sigma_block", function(
   object,
   data = list(
-    assay_stdevs(object),
-    assay_stdevs(object, as.data.table = T)[, .(Block, Assay, s = M_s, df = M_df)],
-    assay_stdevs(object, as.data.table = T)[, .(Block, Assay, s = C_s, df = C_df)]
+    priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Effect, s, df)],
+    priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Effect, s = s0, df = df0)],
+    rbind(
+      measurement_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Effect = "Measurements", value = rinaka(length(s), s, df))],
+      component_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Effect = "Components", value = rinaka(length(s), s, df))]
+    )
   ),
   horizontal = TRUE,
-  draw_outline = list(TRUE, FALSE, FALSE),
   draw_quantiles = list(0.5, NULL, NULL),
   trim = c(0.05, 0.95),
-  colour = list("A.qD", NULL, NULL),
-  fill = list("A.qD", NULL, NULL),
-  alpha = list(0.5, 0.35, 0.2),
-  title = NULL,
+  colour = list("blue", "black", NULL),
+  fill = list("lightblue", NULL, "grey"),
+  alpha = list(0.5, 0.5, 0.5),
   facets = "Block",
   value.label = "stdev",
-  value.limits = limits(data, trim, include.zero = T),
-  value.length = 120,
+  value.limits = limits_dists(data, trim, c(0, 1), include.zero = T),
+  value.length = 160,
+  variables.labels = TRUE,
   variable.sort.cols = NULL,
-  variable.label.cols = c("Assay", "Sample"),
+  variable.label.cols = "Effect",
   variable.interval = 5,
   show.legend = TRUE,
   file = NULL
 ) {
-  return(plot_dists(object, data, horizontal, draw_outline, draw_quantiles, trim, colour, fill, alpha, title, facets, value.label, value.limits, value.length, variable.sort.cols, variable.label.cols, variable.interval, show.legend, file))
+  return(plot_dists(object, data, horizontal, draw_quantiles, trim, colour, fill, alpha, facets, value.label, value.limits, value.length, variables.labels, variable.sort.cols, variable.label.cols, variable.interval, show.legend, file))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_assay_stdevs", "sigma_block", function(
+  object,
+  data = list(
+    assay_stdevs(object, as.data.table = T)[, list(Block, Assay, s, df)],
+    assay_stdevs(object, as.data.table = T)[, list(Block, Assay, s = B.sC, df = B.dfC)],
+    assay_stdevs(object, as.data.table = T)[, list(Block, Assay, s = B.sM, df = B.dfM)]
+  ),
+  draw_quantiles = list(0.5, NULL, NULL),
+  trim = c(0.05, 0.95),
+  colour = list("A.qM", NULL, NULL),
+  fill = list(NULL, "darkgrey", "grey"),
+  alpha = list(1, 0.5, 0.5),
+  facets = "Block",
+  value.label = "stdev",
+  value.limits = limits_dists(data, trim, include.zero = T, non.negative = T),
+  variable.label.cols = c("Assay", "Sample"),
+  ...
+) {
+  return(plot_dists(
+    object = object,
+    data = data,
+    draw_quantiles = draw_quantiles,
+    trim = trim,
+    colour = colour,
+    fill = fill,
+    alpha = alpha,
+    facets = facets,
+    value.label = value.label,
+    value.limits = value.limits,
+    variable.label.cols = variable.label.cols,
+    ...
+  ))
 })
 
 

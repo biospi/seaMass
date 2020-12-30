@@ -12,277 +12,273 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
   if (increment_completed(file.path(filepath(object), "model1"), job.id = job.id) == ctrl@nchain) {
     cat(paste0("[", Sys.time(), "]  SIGMA-PROCESS1 block=", sub("^.*sigma\\.(.*)$", "\\1", filepath(object)), "\n"))
 
-    # load parameters
-    DT.groups <- groups(object, as.data.table = T)
-    DT.components <- components(object, as.data.table = T)
-
-    # measurement summary
-    if ("measurement.means" %in% ctrl@summarise) {
-      cat(paste0("[", Sys.time(), "]   getting measurement mean summaries...\n"))
-      measurement_means(object, summary = T, as.data.table = T)
+    # group summary
+    if ("groups" %in% ctrl@summarise) {
+      cat(paste0("[", Sys.time(), "]   getting group mean summaries...\n"))
+      group_means(object, summary = T, as.data.table = T)
     }
-
-    if ("measurement.stdevs" %in% ctrl@summarise) {
-      cat(paste0("[", Sys.time(), "]   getting measurement stdev summaries...\n"))
-      measurement_stdevs(object, summary = T, as.data.table = T)
-    }
-
-    # component summary
-    if("component.means" %in% ctrl@summarise && ctrl@component.model != "") {
-      cat(paste0("[", Sys.time(), "]   getting component mean summaries...\n"))
-      component_means(object, summary = T, as.data.table = T)
-    }
-
-    if("component.stdevs" %in% ctrl@summarise && ctrl@component.model != "") {
-      cat(paste0("[", Sys.time(), "]   getting component stdev summaries...\n"))
-      component_stdevs(object, summary = T, as.data.table = T)
-    }
-
-    # component deviations summary
-    if ("component.deviations" %in% ctrl@summarise || "component.deviations.pca" %in% ctrl@plot) {
-      cat(paste0("[", Sys.time(), "]   getting component deviation summaries...\n"))
-      component_deviations(object, summary = T, as.data.table = T)
-
-      if (ctrl@component.model == "independent" && "component.deviations.pca" %in% ctrl@plot && length(blocks(object)) > 1) {
-        ellipsis <- ctrl@ellipsis
-        ellipsis$object <- object
-        ellipsis$type <- "component.deviations"
-
-        DT.design <- assay_design(object, as.data.table = T)
-        if ("Assay.SD" %in% colnames(DT.design) || "Exposure" %in% colnames(DT.design)) {
-          if ("Assay.SD" %in% colnames(DT.design)) {
-            ellipsis$colour <- "Assay.SD"
-            ellipsis$shape <- "Condition"
-            cat(paste0("[", Sys.time(), "]   plotting component deviations pca with assay stdev contours...\n"))
-            do.call("plot_pca_contours", ellipsis)
-            ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_component_deviations_pca_block", name(object), "_assay_sd.pdf")), width = 300, height = 200, units = "mm")
-          }
-          if ("Exposure" %in% colnames(DT.design)) {
-            ellipsis$colour <- "Exposure"
-            ellipsis$shape <- "Condition"
-            cat(paste0("[", Sys.time(), "]   plotting component deviations pca with mean contours...\n"))
-            do.call("plot_pca_contours", ellipsis)
-            ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_component_deviations_pca_block", name(object), "_assay_mean.pdf")), width = 300, height = 200, units = "mm")
-          }
-        } else {
-          cat(paste0("[", Sys.time(), "]   plotting component deviations pca with condition contours...\n"))
-          do.call("plot_pca_contours", ellipsis)
-          ggplot2::ggsave(file.path(dirname(filepath(object)), "output", paste0("log2_component_deviations_pca_block", name(object), ".pdf")), width = 300, height = 200, units = "mm")
-        }
-      }
-    }
-
-    # assay deviations summary
-    if("assay.deviations" %in% ctrl@summarise && ctrl@assay.model == "component") {
-      cat(paste0("[", Sys.time(), "]   getting assay deviation summaries...\n"))
-      assay_deviations(object, summary = T, as.data.table = T)
-    }
-
-    # group quants summary
-    if ("group.quants" %in% ctrl@summarise || "group.quants.pca" %in% ctrl@plot) {
+    if ("groups" %in% ctrl@summarise || "group.quants.pca" %in% ctrl@plot) {
       cat(paste0("[", Sys.time(), "]   getting group quant summaries...\n"))
       group_quants(object, summary = T, as.data.table = T)
     }
-    if ("group.means" %in% ctrl@summarise) {
-      cat(paste0("[", Sys.time(), "]   getting group mean summaries...\n"))
-      group_means(object, summary = T, as.data.table = T)
+    if ("group.quants.pca" %in% ctrl@plot) {
+      cat(paste0("[", Sys.time(), "]   plotting robust PCA for group quants...\n"))
+      add_to_report(
+        object,
+        plot_robust_pca(object),
+        paste0("pca_", tolower(ctrl@group[1]), "_quants_block", name(object)),
+        paste0("PCA - ", ctrl@group[1], " Quants - Block ", name(object))
+      )
+    }
+
+    # component summary
+    if("components" %in% ctrl@summarise) {
+      cat(paste0("[", Sys.time(), "]   getting component mean summaries...\n"))
+      component_means(object, summary = T, as.data.table = T)
+      cat(paste0("[", Sys.time(), "]   getting component stdev summaries...\n"))
+      component_stdevs(object, summary = T, as.data.table = T)
+    }
+    if ("components" %in% ctrl@summarise || "component.deviations.pca" %in% ctrl@plot) {
+      cat(paste0("[", Sys.time(), "]   getting component deviation summaries...\n"))
+      component_deviations(object, summary = T, as.data.table = T)
+    }
+
+    # measurement summary
+    if ("measurements" %in% ctrl@summarise) {
+      cat(paste0("[", Sys.time(), "]   getting measurement mean summaries...\n"))
+      measurement_means(object, summary = T, as.data.table = T)
+      cat(paste0("[", Sys.time(), "]   getting measurement stdev summaries...\n"))
+      measurement_stdevs(object, summary = T, as.data.table = T)
     }
 
     if (increment_completed(file.path(filepath(parent(object)), "sigma"), "process", job.id) == length(blocks(object))) {
       cat(paste0("[", Sys.time(), "]  SIGMA-OUTPUT\n"))
       fit.sigma <- parent(object)
 
-      # write timings
-      DT <- timings(fit.sigma, as.data.table = T)
-      if (!is.null(DT)) {
-        DT <- dcast(DT, Group ~ Block + chain, value.var = "elapsed")
-        fwrite(DT, file.path(filepath(fit.sigma), "output", "group_timings.csv"))
-      }
-
-      # write groups
-      DT <- groups(fit.sigma, as.data.table = T)
-      if (!is.null(DT)) fwrite(DT, file.path(filepath(fit.sigma), "output", "groups.csv"))
-
-      # write components
-      DT <- components(fit.sigma, as.data.table = T)
-      if (!is.null(DT)) fwrite(DT, file.path(filepath(fit.sigma), "output", "components.csv"))
-
-      # write measurements
-      DT <- measurements(fit.sigma, as.data.table = T)
-      if (!is.null(DT)) fwrite(DT, file.path(filepath(fit.sigma), "output", "measurements.csv"))
-
-      # write assay design
+      # write design
       DT <- assay_design(fit.sigma, as.data.table = T)
-      if (!is.null(DT)) fwrite(DT, file.path(filepath(fit.sigma), "output", "assay_design.csv"))
+      cols <- sub("^A\\.(.*)$", "\\1", colnames(DT)[grep("^A\\..", colnames(DT))])
+      cols <- sub("G$", ctrl@group[1], cols)
+      cols <- sub("C$", ctrl@component[1], cols)
+      cols <- sub("M$", ctrl@measurement[1], cols)
+      cols <- sub("D$", "Data", cols)
+      colnames(DT)[grep("^A\\..", colnames(DT))] <- cols
 
-      # write assay groups
-      DT <- assay_groups(fit.sigma, as.data.table = T)
-      if (!is.null(DT)) {
-        DT <- dcast(DT, Group ~ Block + Assay, value.var = colnames(DT)[(which(colnames(DT) == "Assay") + 1):ncol(DT)])
-        fwrite(DT, file.path(filepath(fit.sigma), "output", "assay_groups.csv"))
+      DT2 <- assay_stdevs(fit.sigma, as.data.table = T)
+      if (!is.null(DT2)) {
+        cols <- sub("^(.*?)_(.*)$", "\\2:\\1", colnames(DT2)[grep("^.*?_.*$", colnames(DT2))])
+        cols <- sub("C$", ctrl@component[1], cols)
+        cols <- sub("M$", ctrl@measurement[1], cols)
+        colnames(DT2)[grep("^.*?_.*$", colnames(DT2))] <- cols
+        colnames(DT2) <- sub("^s(0?)(.*)$", "stdev\\1\\2", colnames(DT2))
+        colnames(DT2) <- sub("^df(0?)(.*)$", "stdev\\1.df\\2", colnames(DT2))
+        DT <- merge(DT, DT2, by = c("Block", "Assay"), all = T)
       }
 
-      # write assay components
-      DT <- assay_components(fit.sigma, as.data.table = T)
-      if (!is.null(DT)) {
-        DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = colnames(DT)[(which(colnames(DT) == "Assay") + 1):ncol(DT)])
-        fwrite(DT, file.path(filepath(fit.sigma), "output", "assay_components.csv"))
-      }
+      fwrite(DT, file.path(filepath(fit.sigma), "markdown", "csv", "design.csv"))
 
-      # write measurement means
-      if ("measurement.means" %in% ctrl@summarise) {
-        DT <- measurement_means(fit.sigma, summary = T, as.data.table = T)
-        if (!is.null(DT)) {
-          DT <- dcast(
-            DT,
-            as.formula(paste0("Group", ifelse("Component" %in% colnames(DT), " + Component", ""), ifelse("Measurement" %in% colnames(DT), " + Measurement", ""), " ~ Block")),
-            value.var = c("m", "s", "df", "rhat")
-          )
-          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_measurement_means.csv"))
+      # write group output
+      cat(paste0("[", Sys.time(), "]   writing group output...\n"))
+
+      if ("groups" %in% ctrl@summarise) {
+        DT <- groups(fit.sigma, as.data.table = T)[, !"pred.time"]
+        DT <- dcast(DT, Group + GroupInfo ~ Block, value.var = colnames(DT)[(which(colnames(DT) == "GroupInfo") + 1):ncol(DT)])
+        cols <- sub("^G\\.(..)_(.*)$", "\\2:\\1", colnames(DT)[grep("^G\\..", colnames(DT))])
+        cols <- sub("G$", ctrl@group[1], cols)
+        cols <- sub("C$", ctrl@component[1], cols)
+        cols <- sub("M$", ctrl@measurement[1], cols)
+        cols <- sub("D$", "Data", cols)
+        colnames(DT)[grep("^G\\..", colnames(DT))] <- cols
+
+        DT2 <- group_means(fit.sigma, summary = T, as.data.table = T)
+        if (!is.null(DT2)) {
+          if ("df" %in% colnames(DT2) && all(is.infinite(DT2[, df]))) DT2[, df := NULL]
+          DT2 <- dcast(DT2, Group ~ Block, value.var = colnames(DT2)[(which(colnames(DT2) == "Group") + 1):ncol(DT2)])
+          cols <- sub("^(.*?)_(.*)$", "\\2:\\1", colnames(DT2)[grep("^.*?_.*$", colnames(DT2))])
+          cols <- sub("m$", "mean", cols)
+          cols <- sub("s$", "mean_err", cols)
+          cols <- sub("df$", "mean_df", cols)
+          cols <- sub("rhat$", "mean_rhat", cols)
+          colnames(DT2)[grep("^.*?_.*$", colnames(DT2))] <- cols
+          DT <- merge(DT, DT2, by = "Group", all = T)
         }
-      }
 
-      # rwite measurement stdevs
-      if ("measurement.stdevs" %in% ctrl@summarise) {
-        DT <- measurement_stdevs(fit.sigma, summary = T, as.data.table = T)
-        if (!is.null(DT)) {
-          DT <- dcast(
-            DT,
-            as.formula(paste0("Group", ifelse("Component" %in% colnames(DT), " + Component", ""), ifelse("Measurement" %in% colnames(DT), " + Measurement", ""), " ~ Block")),
-            value.var = c("s", "df", "rhat")
-          )
-          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_measurement_stdevs.csv"))
+        DT2 <- assay_groups(fit.sigma, as.data.table = T)
+        if (!is.null(DT2)) {
+          DT2 <- dcast(DT2, Group ~ Assay + Block, value.var = colnames(DT2)[(which(colnames(DT2) == "Assay") + 1):ncol(DT2)])
+          cols <- sub("^AG\\.(..)_(.*)$", "\\2:\\1", colnames(DT2)[grep("^AG\\..", colnames(DT2))])
+          cols <- sub("C$", ctrl@component[1], cols)
+          cols <- sub("M$", ctrl@measurement[1], cols)
+          cols <- sub("D$", "Data", cols)
+          colnames(DT2)[grep("^AG\\..", colnames(DT2))] <- cols
+          DT <- merge(DT, DT2, by = "Group", all = T)
         }
+
+        DT2 <- group_quants(fit.sigma, summary = T, as.data.table = T)
+        if (!is.null(DT2)) {
+          if ("df" %in% colnames(DT2) && all(is.infinite(DT2[, df]))) DT2[, df := NULL]
+          DT2 <- dcast(DT2, Group ~ Assay + Block, value.var = colnames(DT2)[(which(colnames(DT2) == "Assay") + 1):ncol(DT2)])
+          cols <- sub("^(.*?)_(.*)$", "\\2:\\1", colnames(DT2)[grep("^.*?_.*$", colnames(DT2))])
+          cols <- sub("m$", "raw", cols)
+          cols <- sub("s$", "raw_err", cols)
+          cols <- sub("df$", "raw_df", cols)
+          cols <- sub("rhat$", "raw_rhat", cols)
+          colnames(DT2)[grep("^.*?_.*$", colnames(DT2))] <- cols
+          DT <- merge(DT, DT2, by = "Group", all = T)
+        }
+
+        fwrite(DT, file.path(filepath(fit.sigma), "markdown", "csv", paste0(tolower(ctrl@group[1]), ".csv")))
       }
 
-      # write component means
-      if ("component.means" %in% ctrl@summarise) {
-        DT <- component_means(fit.sigma, summary = T, as.data.table = T)
-        DT <- dcast(
-          DT,
-          as.formula(paste0("Group", ifelse("Component" %in% colnames(DT), " + Component", ""), " ~ Block")),
-          value.var = c("m", "s", "df", "rhat")
+      # write component output
+      cat(paste0("[", Sys.time(), "]   writing component output...\n"))
+
+      if ("components" %in% ctrl@summarise) {
+        DT <- components(fit.sigma, as.data.table = T)
+        DT <- dcast(DT, Group + Component ~ Block, value.var = colnames(DT)[(which(colnames(DT) == "Component") + 1):ncol(DT)])
+        cols <- sub("^C\\.(..)_(.*)$", "\\2:\\1", colnames(DT)[grep("^C\\..", colnames(DT))])
+        cols <- sub("M$", ctrl@measurement[1], cols)
+        cols <- sub("D$", "Data", cols)
+        colnames(DT)[grep("^C\\..", colnames(DT))] <- cols
+
+        DT2 <- component_means(fit.sigma, summary = T, as.data.table = T)
+        if (!is.null(DT2)) {
+          if ("df" %in% colnames(DT2) && all(is.infinite(DT2[, df]))) DT2[, df := NULL]
+          DT2 <- dcast(DT2, Group + Component ~ Block, value.var = colnames(DT2)[(which(colnames(DT2) == "Component") + 1):ncol(DT2)])
+          cols <- sub("^(.*?)_(.*)$", "\\2:\\1", colnames(DT2)[grep("^.*?_.*$", colnames(DT2))])
+          cols <- sub("m$", "mean", cols)
+          cols <- sub("s$", "mean_err", cols)
+          cols <- sub("df$", "mean_df", cols)
+          cols <- sub("rhat$", "mean_rhat", cols)
+          colnames(DT2)[grep("^.*?_.*$", colnames(DT2))] <- cols
+          DT <- merge(DT, DT2, by = c("Group", "Component"), all = T)
+        }
+
+        DT2 <- component_stdevs(fit.sigma, summary = T, as.data.table = T)
+        if (!is.null(DT2)) {
+          if ("df" %in% colnames(DT2) && all(is.infinite(DT2[, df]))) DT2[, df := NULL]
+          DT2 <- dcast(DT2, Group + Component ~ Block, value.var = colnames(DT2)[(which(colnames(DT2) == "Component") + 1):ncol(DT2)])
+          cols <- sub("^(.*?)_(.*)$", "\\2:\\1", colnames(DT2)[grep("^.*?_.*$", colnames(DT2))])
+          cols <- sub("s$", "stdev", cols)
+          cols <- sub("df$", "stdev_df", cols)
+          cols <- sub("rhat$", "stdev_rhat", cols)
+          colnames(DT2)[grep("^.*?_.*$", colnames(DT2))] <- cols
+          DT <- merge(DT, DT2, by = c("Group", "Component"), all = T)
+        }
+
+        DT2 <- assay_components(fit.sigma, as.data.table = T)
+        if (!is.null(DT2)) {
+          DT2 <- dcast(DT2, Group + Component ~ Assay + Block, value.var = colnames(DT2)[(which(colnames(DT2) == "Assay") + 1):ncol(DT2)])
+          cols <- sub("^AC\\.(..)_(.*)$", "\\2:\\1", colnames(DT2)[grep("^AC\\..", colnames(DT2))])
+          cols <- sub("M$", ctrl@measurement[1], cols)
+          cols <- sub("D$", "Data", cols)
+          colnames(DT2)[grep("^AC\\..", colnames(DT2))] <- cols
+          DT <- merge(DT, DT2, by = c("Group", "Component"), all = T)
+        }
+
+        DT2 <- component_deviations(fit.sigma, summary = T, as.data.table = T)
+        if (!is.null(DT2)) {
+          if ("df" %in% colnames(DT2) && all(is.infinite(DT2[, df]))) DT2[, df := NULL]
+          DT2 <- dcast(DT2, Group + Component ~ Assay + Block, value.var = colnames(DT2)[(which(colnames(DT2) == "Assay") + 1):ncol(DT2)])
+          cols <- sub("^(.*?)_(.*)$", "\\2:\\1", colnames(DT2)[grep("^.*?_.*$", colnames(DT2))])
+          cols <- sub("m$", "deviation", cols)
+          cols <- sub("s$", "deviation_err", cols)
+          cols <- sub("df$", "deviation_df", cols)
+          cols <- sub("rhat$", "deviation_rhat", cols)
+          colnames(DT2)[grep("^.*?_.*$", colnames(DT2))] <- cols
+          DT <- merge(DT, DT2, by = c("Group", "Component"), all = T)
+        }
+
+        fwrite(DT, file.path(filepath(fit.sigma), "markdown", "csv", paste0(tolower(ctrl@component[1]), ".csv")))
+      }
+
+      # component deviations pca
+      if ("component.deviations.pca" %in% ctrl@plot) {
+        cat(paste0("[", Sys.time(), "]   plotting robust PCA for component deviations...\n"))
+        DT <- robust_pca(fit.sigma, type = "component.deviations")
+        add_to_report(
+          fit.sigma,
+          plot_robust_pca(fit.sigma, data = DT, shape = "Block"),
+          paste0("pca_", tolower(ctrl@component[1]), "_deviations_blocks"),
+          paste0("PCA - ", ctrl@component[1], " Deviations by Block")
         )
-        fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_component_means.csv"))
+        add_to_report(
+          fit.sigma,
+          plot_robust_pca(fit.sigma, data = DT),
+          paste0("pca_", tolower(ctrl@component[1]), "_deviations_conditions"),
+          paste0("PCA - ", ctrl@component[1], " Deviations by Condition")
+        )
       }
 
-      # write component stdevs
-      if ("component.stdevs" %in% ctrl@summarise) {
-        DT <- component_stdevs(fit.sigma, summary = T, as.data.table = T)
-        if (!is.null(DT)) {
-          DT <- dcast(
-            DT,
-            as.formula(paste0("Group", ifelse("Component" %in% colnames(DT), " + Component", ""), " ~ Block")),
-            value.var = c("s", "df", "rhat")
-          )
-          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_component_stdevs.csv"))
+      # write measurement output
+      cat(paste0("[", Sys.time(), "]   writing measurement output...\n"))
+
+      if ("measurements" %in% ctrl@summarise) {
+        DT <- measurements(fit.sigma, as.data.table = T)
+        DT <- dcast(DT, Group + Component + Measurement ~ Block, value.var = colnames(DT)[(which(colnames(DT) == "Measurement") + 1):ncol(DT)])
+        cols <- sub("^M\\.(..)_(.*)$", "\\2:\\1", colnames(DT)[grep("^M\\..", colnames(DT))])
+        cols <- sub("D$", "Data", cols)
+        colnames(DT)[grep("^M\\..", colnames(DT))] <- cols
+
+        DT2 <- measurement_means(fit.sigma, summary = T, as.data.table = T)
+        if (!is.null(DT2)) {
+          if ("df" %in% colnames(DT2) && all(is.infinite(DT2[, df]))) DT2[, df := NULL]
+          DT2 <- dcast(DT2, Group + Component + Measurement ~ Block, value.var = colnames(DT2)[(which(colnames(DT2) == "Measurement") + 1):ncol(DT2)])
+          cols <- sub("^(.*?)_(.*)$", "\\2:\\1", colnames(DT2)[grep("^.*?_.*$", colnames(DT2))])
+          cols <- sub("m$", "mean", cols)
+          cols <- sub("s$", "mean_err", cols)
+          cols <- sub("df$", "mean_df", cols)
+          cols <- sub("rhat$", "mean_rhat", cols)
+          colnames(DT2)[grep("^.*?_.*$", colnames(DT2))] <- cols
+          DT <- merge(DT, DT2, by = c("Group", "Component", "Measurement"), all = T)
         }
-      }
 
-      # write and plot component deviations
-      if ("component.deviations" %in% ctrl@summarise) {
-        DT <- component_deviations(fit.sigma, summary = T, as.data.table = T)
-        if (!is.null(DT)) {
-          DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
-          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_component_deviations.csv"))
-
-          if (ctrl@component.model == "independent" && "component.deviations.pca" %in% ctrl@plot) {
-            cat(paste0("[", Sys.time(), "] component deviations plots...\n"))
-
-            ellipsis <- ctrl@ellipsis
-            ellipsis$object <- fit.sigma
-            ellipsis$type <- "component.deviations"
-
-            cat(paste0("[", Sys.time(), "]   plotting component deviations pca with condition contours...\n"))
-            do.call("plot_pca_contours", ellipsis)
-            ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_component_deviations_pca.pdf")), width = 300, height = 200, units = "mm")
-
-            DT.design <- assay_design(fit.sigma, as.data.table = T)
-            if ("Assay.SD" %in% colnames(DT.design)) {
-              ellipsis$colour <- "Assay.SD"
-              ellipsis$shape <- "Condition"
-              cat(paste0("[", Sys.time(), "]   plotting component deviations pca with assay stdev contours...\n"))
-              do.call("plot_pca_contours", ellipsis)
-              ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_component_deviations_pca_assay_sd.pdf")), width = 300, height = 200, units = "mm")
-            }
-            if ("Exposure" %in% colnames(DT.design)) {
-              ellipsis$colour <- "Exposure"
-              ellipsis$shape <- "Condition"
-              cat(paste0("[", Sys.time(), "]    plotting component deviations pca with mean contours...\n"))
-              do.call("plot_pca_contours", ellipsis)
-              ggplot2::ggsave(file.path(filepath(fit.sigma), "output", paste0("log2_component_deviations_pca_assay_mean.pdf")), width = 300, height = 200, units = "mm")
-            }
-            if (any(table(DT.design$Run) > 1) && uniqueN(DT.design$Run) > 1) {
-              ellipsis$colour <- "Run"
-              ellipsis$shape <- "Condition"
-              cat(paste0("[", Sys.time(), "]    plotting component deviations pca with run contours...\n"))
-              do.call("plot_pca_contours", ellipsis)
-              ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_component_deviations_pca_runs.pdf"), width = 300, height = 200, units = "mm")
-            }
-            if (nlevels(DT.design$Block) > 1 && nlevels(DT.design$Block) != nlevels(interaction(DT.design$Block, DT.design$Run, drop = T))) {
-              ellipsis$colour <- "Block"
-              ellipsis$shape <- "Condition"
-              cat(paste0("[", Sys.time(), "]   plotting component deviations pca with block contours...\n"))
-              do.call("plot_pca_contours", ellipsis)
-              ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_component_deviations_pca_blocks.pdf"), width = 300, height = 200, units = "mm")
-            }
-            if (any(table(DT.design$Channel) > 1) && uniqueN(DT.design$Channel) > 1) {
-              ellipsis$colour <- "Channel"
-              ellipsis$shape <- "Condition"
-              cat(paste0("[", Sys.time(), "]   plotting component deviations pca with assay channel contours...\n"))
-              do.call("plot_pca_contours", ellipsis)
-              ggplot2::ggsave(file.path(filepath(fit.sigma), "output", "log2_component_deviations_pca_channels.pdf"), width = 300, height = 200, units = "mm")
-            }
-          }
+        DT2 <- measurement_stdevs(fit.sigma, summary = T, as.data.table = T)
+        if (!is.null(DT2)) {
+          if ("df" %in% colnames(DT2) && all(is.infinite(DT2[, df]))) DT2[, df := NULL]
+          DT2 <- dcast(DT2, Group + Component + Measurement ~ Block, value.var = colnames(DT2)[(which(colnames(DT2) == "Measurement") + 1):ncol(DT2)])
+          cols <- sub("^(.*?)_(.*)$", "\\2:\\1", colnames(DT2)[grep("^.*?_.*$", colnames(DT2))])
+          cols <- sub("s$", "stdev", cols)
+          cols <- sub("df$", "stdev_df", cols)
+          cols <- sub("rhat$", "stdev_rhat", cols)
+          colnames(DT2)[grep("^.*?_.*$", colnames(DT2))] <- cols
+          DT <- merge(DT, DT2, by = c("Group", "Component", "Measurement"), all = T)
         }
-      }
 
-      # write and plot assay stdevs
-      if ("assay.stdevs" %in% ctrl@summarise || "assay.stdevs" %in% ctrl@plot) {
-        DT <- assay_stdevs(fit.sigma, as.data.table = T)
-        if (!is.null(DT)) fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_stdevs.csv"))
-      }
-      if ("assay.stdevs" %in% ctrl@plot) {
-        cat(paste0("[", Sys.time(), "]   plotting assay stdevs...\n"))
-        plot_assay_stdevs(fit.sigma, file = file.path(filepath(fit.sigma), "output", "log2_assay_stdevs.pdf"))
-      }
-
-      # write assay deviations
-      if ("assay.deviations" %in% ctrl@summarise) {
-        DT <- assay_deviations(fit.sigma, summary = T, as.data.table = T)
-        if (!is.null(DT)) {
-          DT <- dcast(DT, Group + Component ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
-          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_assay_deviations.csv"))
-        }
-      }
-
-      # write group means
-      if ("group.means" %in% ctrl@summarise) {
-        DT <- group_means(fit.sigma, summary = T, as.data.table = T)
-        if (!is.null(DT)) fwrite(dcast(DT, Group ~ Block, value.var = c("m", "s", "df", "rhat")), file.path(filepath(fit.sigma), "output", "log2_group_means.csv"))
-      }
-
-      # group quants
-      if ("group.quants" %in% ctrl@summarise) {
-        DT <- group_quants(fit.sigma, summary = T, as.data.table = T)
-        if (!is.null(DT)) {
-          DT <- dcast(DT, Group ~ Block + Assay, value.var = c("m", "s", "df", "rhat"))
-          fwrite(DT, file.path(filepath(fit.sigma), "output", "log2_group_quants.csv"))
-        }
+        fwrite(DT, file.path(filepath(fit.sigma), "markdown", "csv", paste0(tolower(ctrl@measurement[1]), ".csv")))
       }
 
       # calculate plot limits
       if (ctrl@plots == T) {
         cat(paste0("[", Sys.time(), "]   calculating plot limits...\n"))
         lims <- list(group.means = NULL, group.quants = NULL, component.deviations = NULL, component.means = NULL, component.stdevs = NULL, measurement.means = NULL, measurement.stdevs = NULL)
-        if ("group.means" %in% ctrl@plot) lims$group.means <- limits_dists(group_means(fit.sigma, summary = T, as.data.table = T))
-        if ("group.quants" %in% ctrl@plot) lims$group.quants <- limits_dists(group_quants(fit.sigma, summary = T, as.data.table = T))
-        if ("component.deviations" %in% ctrl@plot) lims$component.deviations <- limits_dists(component_deviations(fit.sigma, summary = T, as.data.table = T), include.zero = T)
-        if ("component.means" %in% ctrl@plot) lims$component.means <- limits_dists(component_means(fit.sigma, summary = T, as.data.table = T))
-        if ("component.stdevs" %in% ctrl@plot) lims$component.stdevs <- limits_dists(component_stdevs(fit.sigma, summary = T, as.data.table = T), probs = c(0, 0.99), include.zero = T)
-        if ("measurement.means" %in% ctrl@plot) lims$measurement.means <- limits_dists(measurement_means(fit.sigma, summary = T, as.data.table = T))
-        if ("measurement.stdevs" %in% ctrl@plot) lims$measurement.stdevs <- limits_dists(measurement_stdevs(fit.sigma, summary = T, as.data.table = T), probs = c(0, 0.99), include.zero = T)
+        if ("groups" %in% ctrl@plot) {
+          lims$group.means <- limits_dists(group_means(fit.sigma, summary = T, as.data.table = T))
+          lims$group.quants <- limits_dists(group_quants(fit.sigma, summary = T, as.data.table = T))
+        }
+        if ("components" %in% ctrl@plot) {
+          lims$component.deviations <- limits_dists(component_deviations(fit.sigma, summary = T, as.data.table = T), include.zero = T)
+          lims$component.means <- limits_dists(component_means(fit.sigma, summary = T, as.data.table = T))
+          lims$component.stdevs <- limits_dists(component_stdevs(fit.sigma, summary = T, as.data.table = T), include.zero = T)
+        }
+        if ("measurements" %in% ctrl@plot) {
+          lims$measurement.means <- limits_dists(measurement_means(fit.sigma, summary = T, as.data.table = T))
+          lims$measurement.stdevs <- limits_dists(measurement_stdevs(fit.sigma, summary = T, as.data.table = T), include.zero = T)
+        }
         saveRDS(lims, file.path(filepath(fit.sigma), "sigma", "limits.rds"))
+      }
+
+      # save assay stdevs plot
+      if (ctrl@assay.model != "" & "assays" %in% ctrl@plot) {
+        cat(paste0("[", Sys.time(), "]    plotting assay stdevs...\n"))
+
+        # contruct fig for each block
+        lim <- limits_dists(assay_stdevs(fit.sigma), include.zero = T, non.negative = T)
+        parallel_lapply(blocks(fit.sigma), function(item) saveRDS(plot_assay_stdevs(item), file.path(filepath(item), "assay.stdevs.plot.rds")))
+
+        # merge and add to report
+        figs <- lapply(blocks(fit.sigma), function(block) readRDS(file.path(filepath(block), "assay.stdevs.plot.rds")))
+        add_to_report(fit.sigma, merge_figs(figs), "assay_stats", "Assay stdevs QC plot")
       }
 
       increment_completed(file.path(filepath(fit.sigma), "sigma"))
