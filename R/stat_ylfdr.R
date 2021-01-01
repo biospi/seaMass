@@ -1,5 +1,4 @@
 #' @export
-#' @rdname geom_biolin
 stat_ylfdr <- function(
   mapping = NULL,
   data = NULL,
@@ -44,6 +43,9 @@ StatYlfdr <- ggplot2::ggproto(
   extra_params = c("na.rm", "orientation"),
 
   compute_group = function(data, scales, width = NULL, trim = TRUE, na.rm = FALSE, flipped_aes = FALSE) {
+    #print("compute_group")
+    #print(data)
+
     n <- nrow(data)
     if (is.logical(trim)) {
       if (trim) {
@@ -54,18 +56,28 @@ StatYlfdr <- ggplot2::ggproto(
     } else {
       trim <- c(trim, 1 - trim)
     }
+    #print(1)
 
     dd <- floor(100 * trim[1]):ceiling(100 * trim[2]) / 100
     dd[1] <- trim[1]
     dd[length(dd)] <- trim[2]
     dd <- new_data_frame(list(ecdf = dd, x = mean(range(data$x))), length(dd))
+    #print(2)
 
     if (any(!is.na(data$dist))) {
+      #print(2.1)
       args <- list(dd$ecdf, data$y)
+      #print(2.11)
       if (!is.null(data$arg2)) args <- append(args, data$arg2[1])
+      #print(2.12)
       if (!is.null(data$arg3)) args <- append(args, data$arg3[1])
-      dd$y <- do.call(paste0("q", data$dist[1]), args)
+      #print(2.13)
+      #print(dd)
+      #print(do.call(paste0("q", data$dist[1]), args))
+      dd$y <- do.call(paste0("q", data$dist[1]), args)[1:nrow(dd)]
+      #print(2.14)
     } else {
+      #print(2.2)
       if (n > 1) {
         dd$y <- approxfun((1:n-0.5)/n, sort(data$y))(dd$ecdf)
       } else {
@@ -73,6 +85,7 @@ StatYlfdr <- ggplot2::ggproto(
       }
     }
     dd$lfdr <- ifelse(dd$ecdf <= 0.5, dd$ecdf, 1 - dd$ecdf)
+    #print(4)
 
     # horrible hack for ggplotly tooltip
     dd$density <- paste0(

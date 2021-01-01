@@ -12,53 +12,6 @@ setClass("seaMass", contains = "VIRTUAL")
 
 
 #' @import data.table
-#' @include generics.R
-setMethod("plots", "seaMass", function(object, batch, job.id) {
-  ctrl <- control(object)
-  if (ctrl@version != as.character(packageVersion("seaMass")))
-    stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
-
-  # plots directories
-  fit.sigma <- parent(object)
-  if ("group.quants" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_group_quants"), showWarnings = F)
-  if (ctrl@norm.model != "" && "normalised.group.quants" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_normalised_group_quants"), showWarnings = F)
-  if ("standardised.group.deviations" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_standardised_group_deviations"), showWarnings = F)
-  if (ctrl@component.model != "" && "component.deviations" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_component_deviations"), showWarnings = F)
-  if (ctrl@component.model != "" && "component.means" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_component_means"), showWarnings = F)
-  if (ctrl@component.model != "" && "component.stdevs" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_component_stdevs"), showWarnings = F)
-  if ("measurement.means" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_measurement_means"), showWarnings = F)
-  if ("measurement.stdevs" %in% ctrl@plot) dir.create(file.path(filepath(fit.sigma), "output", "log2_measurement_stdevs"), showWarnings = F)
-
-  # PROCESS OUTPUT
-  nbatch <- length(blocks(object)) * ctrl@model.nchain
-  batch <- (as.integer(assay_design(object, as.data.table = T)[1, Block]) - 1) * ctrl@model.nchain + chain
-  cat(paste0("[", Sys.time(), "]  PLOTS batch=", batch, "/", nbatch, "\n"))
-  cat(paste0("[", Sys.time(), "]   generating...\n"))
-
-  # grab our batch of groups
-  groups <- unique(groups(object, as.data.table = T)[G.qC > 0, Group])
-  groups <- groups[rep_len(1:nbatch, length(groups)) == batch]
-  lims <- readRDS(file.path(filepath(fit.sigma), "sigma", "limits.rds"))
-  # plots!
-  parallel_lapply(groups, function(item, fit.sigma, ctrl, lims) {
-    item2 <- substr(item, 0, 60)
-    if ("group.quants" %in% ctrl@plot) plot_group_quants(fit.sigma, group_quants(fit.sigma, item, as.data.table = T), lims$group.quants, file = file.path(filepath(fit.sigma), "output", "log2_group_quants", paste0(item2, ".pdf")))
-    if ("normalised.group.quants" %in% ctrl@plot) plot_normalised_group_quants(fit.sigma, normalised_group_quants(fit.sigma, item, as.data.table = T), lims$normalised.group.quants, file = file.path(filepath(fit.sigma), "output", "log2_normalised_group_quants", paste0(item2, ".pdf")))
-    if ("standardised.group.deviations" %in% ctrl@plot) plot_standardised_group_deviations(fit.sigma, standardised_group_deviations(fit.sigma, item, as.data.table = T), lims$standardised.group.deviations, file = file.path(filepath(fit.sigma), "output", "log2_standardised_group_deviations", paste0(item2, ".pdf")))
-    if ("component.deviations" %in% ctrl@plot) plot_component_deviations(fit.sigma, component_deviations(fit.sigma, item, as.data.table = T), lims$component.deviations, file = file.path(filepath(fit.sigma), "output", "log2_component_deviations", paste0(item2, ".pdf")))
-    if ("component.means" %in% ctrl@plot) plot_component_means(fit.sigma, component_means(fit.sigma, item, as.data.table = T), lims$component.means, file = file.path(filepath(fit.sigma), "output", "log2_component_means", paste0(item2, ".pdf")))
-    if ("component.stdevs" %in% ctrl@plot) plot_component_stdevs(fit.sigma, component_stdevs(fit.sigma, item, as.data.table = T), lims$component.stdevs, file = file.path(filepath(fit.sigma), "output", "log2_component_stdevs", paste0(item2, ".pdf")))
-    if ("measurement.means" %in% ctrl@plot) plot_measurement_means(fit.sigma, measurement_means(fit.sigma, item, as.data.table = T), lims$measurement.means, file = file.path(filepath(fit.sigma), "output", "log2_measurement_means", paste0(item2, ".pdf")))
-    if ("measurement.stdevs" %in% ctrl@plot) plot_measurement_stdevs(fit.sigma, measurement_stdevs(fit.sigma, item, as.data.table = T), lims$measurement.stdevs, file = file.path(filepath(fit.sigma), "output", "log2_measurement_stdevs", paste0(item2, ".pdf")))
-    return(NULL)
-  }, nthread = 1)
-
-  increment_completed(file.path(filepath(parent(object)), "sigma"), "plots", job.id)
-  return(invisible(NULL))
-})
-
-
-#' @import data.table
 #' @export
 #' @include generics.R
 setMethod("read", "seaMass", function(
@@ -66,7 +19,8 @@ setMethod("read", "seaMass", function(
   input,
   type,
   items = NULL,
-  chains = 1:control(object)@nchain, summary = NULL,
+  chains = 1:control(object)@nchain,
+  summary = NULL,
   summary.func = "robust_normal",
   as.data.table = FALSE
 ) {
@@ -89,6 +43,7 @@ setMethod("read", "seaMass", function(
     else if (!is.null(items)) {
       DT <- DT[get(colnames(DT)[2]) %in% items]
     }
+    if (nrow(DT) == 0) return(NULL)
   } else {
     # load and filter index
     filename.index <- file.path(filepath(object), input, paste(type, "index.fst", sep = "."))
@@ -99,7 +54,10 @@ setMethod("read", "seaMass", function(
       setcolorder(DT.index, "Block")
     }
     if (is.data.frame(items)) {
-      DT.index <- merge(DT.index, items, by = colnames(items), sort = F)
+      # data.table bug says we need to convert these to factors...
+      DT.items <- merge(DT.index, items, by = colnames(items), sort = F)
+      for (col in colnames(items)) DT.items[, (col) := factor(DT.items[[col]], levels = levels(DT.index[[col]]))]
+      DT.index <- DT.items
     }  else if (!is.null(items)) {
       DT.index <- DT.index[get(setdiff(colnames(DT.index), "Block")[1]) %in% items]
     }
@@ -176,7 +134,7 @@ setMethod("read", "seaMass", function(
 #' @import data.table
 #' @export
 #' @include generics.R
-limits_dists <- function(data, quantiles.dist = c(0.05, 0.95), quantiles.dists = c(0.05, 0.95), include.zero = FALSE, non.negative = FALSE) {
+limits_dists <- function(data, quantiles.dist = c(0.05, 0.95), quantiles.dists = c(0.01, 0.99), include.zero = FALSE, non.negative = FALSE) {
   if (is.data.frame(data)) data <- list(data)
 
   lims <- sapply(data, function(dd) {
@@ -248,24 +206,26 @@ setMethod("plot_dists", "seaMass", function(
   trim = c(0.05, 0.95),
   colour = "black",
   fill = NULL,
-  alpha = 1,
+  alpha = 0.8,
   facets = NULL,
   value.label = "value",
   value.limits = limits_dists(data),
   value.length = 160,
   variable.labels = TRUE,
-  variable.sort.cols = NULL,
+  variable.summary.cols = NULL,
   variable.label.cols = NULL,
   variable.interval = 5,
   show.legend = TRUE,
-  min.width = 0,
-  min.height = 0
+  min.width = 300,
+  min.height = 300
 ) {
   if (is.data.frame(data)) {
     DTs <- list(as.data.table(data))
   } else {
     DTs <- lapply(data, function(dd) as.data.table(dd))
   }
+
+  if (is.null(data) || is.null(DTs[[1]])) return(NULL)
 
   if (!is.list(draw_quantiles)) {
     draw_quantiless <- list(draw_quantiles)
@@ -299,26 +259,32 @@ setMethod("plot_dists", "seaMass", function(
 
   ## GATHER METADATA FROM FIRST INPUT ONLY
 
-  # cope with different inputs
-  if ("PosteriorMean" %in% colnames(DTs[[1]]) || "m" %in% colnames(DTs[[1]])) {
-    summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "m") - 1)]
-  } else if ("value" %in% colnames(DTs[[1]])) {
-    summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "value") - 1)]
-    summary.cols <- setdiff(summary.cols, c("chain", "sample"))
+  # figure out summary.cols, coping with different inputs
+  if (is.null(variable.summary.cols)) {
+    if ("PosteriorMean" %in% colnames(DTs[[1]]) || "m" %in% colnames(DTs[[1]])) {
+      summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "m") - 1)]
+    } else if ("value" %in% colnames(DTs[[1]])) {
+      summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "value") - 1)]
+      summary.cols <- setdiff(summary.cols, c("chain", "sample"))
+    } else {
+      summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "s") - 1)]
+    }
   } else {
-    summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "s") - 1)]
+    summary.cols <- unique(c(facets, variable.summary.cols))
   }
 
   # merge metadata
-  DT1 <- DTs[[1]][, .N, by = summary.cols]
+  cols <- unique(c(summary.cols, colours[[1]], fills[[1]]))
+  cols <- cols[cols %in% colnames(DTs[[1]])]
+  DT1 <- DTs[[1]][, .N, by = cols]
   block <- NULL
-  if ("Block" %in% summary.cols) block <- "Block"
-  if ("Group" %in% summary.cols) DT1 <- merge(DT1, groups(object, as.data.table = T), sort = F, by = c(block, "Group"))
-  if ("Group" %in% summary.cols && "Component" %in% summary.cols) DT1 <- merge(DT1, components(object, as.data.table = T), sort = F, by = c(block, "Group", "Component"))
-  if ("Group" %in% summary.cols && "Component" %in% summary.cols && "Measurement" %in% summary.cols) DT1 <- merge(DT1, measurements(object, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Measurement"))
-  if ("Assay" %in% summary.cols) DT1 <- merge(DT1, assay_design(object, as.data.table = T), sort = F, by = c(block, "Assay"), suffixes = c("", ".AD"))
-  if ("Group" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_groups(object, as.data.table = T), sort = F, by = c(block, "Group", "Assay"))
-  if ("Group" %in% summary.cols && "Component" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_components(object, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Assay"))
+  if ("Block" %in% cols) block <- "Block"
+  if ("Group" %in% cols) DT1 <- merge(DT1, groups(object, as.data.table = T), sort = F, by = c(block, "Group"))
+  if ("Group" %in% cols && "Component" %in% summary.cols) DT1 <- merge(DT1, components(object, as.data.table = T), sort = F, by = c(block, "Group", "Component"))
+  if ("Group" %in% cols && "Component" %in% summary.cols && "Measurement" %in% summary.cols) DT1 <- merge(DT1, measurements(object, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Measurement"))
+  if ("Assay" %in% cols) DT1 <- merge(DT1, assay_design(object, as.data.table = T), sort = F, by = c(block, "Assay"), suffixes = c("", ".AD"))
+  if ("Group" %in% cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_groups(object, as.data.table = T), sort = F, by = c(block, "Group", "Assay"))
+  if ("Group" %in% cols && "Component" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_components(object, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Assay"))
 
   # remove summary cols that contain inhomogenous data
   imho <- sapply(summary.cols, function(col) uniqueN(DTs[[1]][, col, with = F]) > 1)
@@ -333,14 +299,14 @@ setMethod("plot_dists", "seaMass", function(
   }
 
   # elements are summary.cols with text.cols labels
-  if (is.null(variable.sort.cols)) {
-    if (horizontal) DT1 <- DT1[nrow(DT1):1]
+  if (is.null(variable.summary.cols)) {
+    data.table::setorderv(DT1, summary.cols, order = ifelse(horizontal, -1, 1), na.last = T)
   } else {
-    data.table::setorderv(DT1, sort.cols, order = ifelse(horizontal, -1, 1), na.last = T)
+    data.table::setorderv(DT1, variable.summary.cols, order = ifelse(horizontal, -1, 1), na.last = T)
   }
   DT1[, Summary := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(summary.cols)]))]
   DT1[, labels := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(label.cols)]))]
-  DT1[, Summary := factor(Summary, levels = unique(Summary), labels = labels)]
+  DT1[, Summary := factor(Summary, levels = unique(Summary), labels = unique(labels))]
   DT1[, labels := NULL]
 
   # set up plot
@@ -349,11 +315,13 @@ setMethod("plot_dists", "seaMass", function(
     if (!is.null(facets)) g <- g + ggplot2::facet_wrap(facets, shrink = F, dir = "v", ncol = 1)
     g <- g + ggplot2::coord_flip(ylim = value.limits, expand = F)
     g <- g + ggplot2::theme(axis.title.y = ggplot2::element_blank())
+    g <- g + ggplot2::scale_x_discrete(drop = F) # workaround for ggplot2 levels bug
     if (!variable.labels) g <- g + ggplot2::theme(axis.text.y = ggplot2::element_blank())
   } else {
     if (!is.null(facets)) g <- g + ggplot2::facet_wrap(facets, shrink = F, dir = "h", nrow = 1)
     g <- g + ggplot2::coord_cartesian(ylim = value.limits, expand = F)
     g <- g + ggplot2::theme(axis.title.x = ggplot2::element_blank(), axis.text.x = ggplot2::element_text(angle = 90))
+    g <- g + ggplot2::scale_y_discrete(drop = F) # workaround for ggplot2 levels bug
     if (!variable.labels) g <- g + ggplot2::theme(axis.text.x = ggplot2::element_blank())
   }
   g <- g + ggplot2::ylab(paste("log2", value.label))
@@ -373,23 +341,19 @@ setMethod("plot_dists", "seaMass", function(
   }
 
   ## PLOT EACH DATASET
-  for (i in length(DTs):1) {
+  for (i in 1:length(DTs)) {
     # cope with different inputs
     if ("PosteriorMean" %in% colnames(DTs[[i]]) || "m" %in% colnames(DTs[[i]])) {
-      summary.cols1 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "m") - 1)]
       DTs[[i]][, dist := "lst"]
       y <- ifelse("PosteriorMean" %in% colnames(DTs[[i]]), "PosteriorMean", "m")
       arg2 <- ifelse("PosteriorMean" %in% colnames(DTs[[i]]), "PosteriorSD", "s")
       arg3 <- "df"
     } else if ("value" %in% colnames(DTs[[i]])) {
-      summary.cols1 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "value") - 1)]
-      summary.cols1 <- setdiff(summary.cols1, c("chain", "sample"))
       DTs[[i]][, dist := NA]
       y <- "value"
       arg2 <- NULL
       arg3 <- NULL
     } else {
-      summary.cols1 <- colnames(DTs[[i]])[1:(which(colnames(DTs[[i]]) == "s") - 1)]
       DTs[[i]][, dist := "inaka"]
       y <- "s"
       arg2 <- "df"
@@ -424,7 +388,11 @@ setMethod("plot_dists", "seaMass", function(
     }
 
     # merge metadata
-    DTs[[i]] <- merge(DT1[, unique(c("Summary", summary.cols, ggcolour.aes, ggfill.aes)), with = F], DTs[[i]], by = intersect(summary.cols, summary.cols1), sort = F)
+    x.cols <- intersect(colnames(DT1), c("Summary", summary.cols, ggcolour.aes, ggfill.aes))
+    y.cols <- intersect(colnames(DTs[[i]]), c(summary.cols, y, "dist", arg2, arg3, ggcolour.aes, ggfill.aes))
+    by.cols <- intersect(intersect(colnames(DT1), c(summary.cols, ggcolour.aes, ggfill.aes)), colnames(DTs[[i]]))
+    DTs[[i]] <- merge(DT1[, mget(x.cols)], DTs[[i]][, mget(y.cols)], by = by.cols, sort = T, suffixes = c("_", ""))
+    for (col in summary.cols) if (!col %in% c(ggcolour.aes, ggfill.aes)) DTs[[i]][, (col) := NULL]
 
     # prettify names
     ctrl <- control(object)
@@ -448,6 +416,7 @@ setMethod("plot_dists", "seaMass", function(
     args <- list(
       mapping = do.call(eval(parse(text = "ggplot2::aes_")), args.aes),
       data = DTs[[i]],
+      position = "identity",
       scale = NULL,
       stat = "ylfdr",
       alpha = alphas[[(i-1) %% length(alpha) + 1]],
@@ -469,30 +438,21 @@ setMethod("plot_dists", "seaMass", function(
       )
       if (!is.null(arg2)) args.aes$arg2 <- formula(paste0("~`", arg2, "`"))
       if (!is.null(arg3)) args.aes$arg3 <- formula(paste0("~`", arg3, "`"))
-      if (!is.null(ggcolour.aes)) {
-        args.aes$colour <- formula(paste0("~`", ggcolour.aes, "`"))
-      } else if (!is.null(ggfill.aes)) {
-        args.aes$colour <- formula(paste0("~`", ggfill.aes, "`"))
-      }
+      if (!is.null(ggcolour.aes)) args.aes$colour <- formula(paste0("~`", ggcolour.aes, "`"))
+      if (!is.null(ggfill.aes)) args.aes$fill <- formula(paste0("~`", ggfill.aes, "`"))
 
       args <- list(
         mapping = do.call(eval(parse(text = "ggplot2::aes_")), args.aes),
         data = DTs[[i]],
+        position = "identity",
         scale = NULL,
         stat = "ylfdr",
         alpha = alphas[[(i-1) %% length(alpha) + 1]],
         trim = c(qt, 1 - qt),
         show.legend = show.legend
       )
-      if (is.null(args.aes$colour)) {
-        if (!is.null(ggcolour)) {
-          args$colour <- ggcolour
-        } else if (!is.null(ggfill.aes)) {
-          args$colour <- ggfill
-        } else {
-          args$colour <- "black"
-        }
-      }
+      if (!is.null(ggcolour)) args$colour <- ggcolour
+      if (!is.null(ggfill)) args$fill <- ggfill
 
       g <- g + do.call(eval(parse(text = "ggplot2::geom_violin")), args)
     }
@@ -511,9 +471,6 @@ setMethod("plot_dists", "seaMass", function(
   width <- sum(as.numeric(grid::convertUnit(gt$widths, "mm")))
   height <- sum(as.numeric(grid::convertUnit(gt$heights, "mm")))
 
-  # save static image if indicated
-  #if (!is.null(file)) ggplot2::ggsave(file, gt, units = "mm", width = width, height = height, limitsize = F)
-
   # convert to plotly
   width <- 70 + 3*width # nasty fudge factor
   height <- 70 + 3*height # nasty fudge factor
@@ -531,9 +488,12 @@ setMethod("plot_dists", "seaMass", function(
 merge_figs <- function(
   figs,
   margin = 50,
-  min.width = 500,
-  min.height = 500
+  min.width = 300,
+  min.height = 300
 ) {
+  # remove NULLs
+  figs[sapply(figs, is.null)] <- NULL
+
   height <- sum(sapply(figs, function(f) f$height) + margin) - margin
   fig <- plotly::subplot(figs, nrows = length(figs), shareX = T, margin = margin / height / length(figs))
   fig <- suppressWarnings(plotly::layout(fig, width = max(fig$width, min.width), height = max(height, min.height))) # stupid deprecation
@@ -561,6 +521,7 @@ setMethod("robust_pca", "seaMass", function(
   input = "model1",
   type = "group.quants",
   items = NULL,
+  summary = TRUE,
   scale = FALSE,
   robust = TRUE,
   ellipses = TRUE,
@@ -626,10 +587,8 @@ setMethod("robust_pca", "seaMass", function(
   if (ellipses) {
     DT <- merge(DT, rbindlist(parallel_lapply(batch_split(DT.individuals, c("Block", "Assay"), nrow(DT.individuals), drop = T, keep.by = F), function(item, DT.variables, object, input, type, summary.cols, fit) {
       DT.items <- merge(item[,c(k = 1, .SD)], DT.variables[,c(k = 1, .SD)], by = "k", all = T, allow.cartesian = T)[, k := NULL]
-      DT1 <- read(object, input, type, DT.items, as.data.table = T)
-      if (is.null(DT1)) {
-        warning(paste0(type, " not kept, using summaries"))
-        DT1 <- read(object, input, type, DT.items, summary = T, as.data.table = T)
+      DT1 <- read(object, input, type, DT.items, summary = summary, as.data.table = T)
+      if (summary == T) {
         ctrl <- control(object)
         DT1 <- DT1[, .(chain = rep(1:ctrl@nchain, each = ctrl@nsample/ctrl@nchain), sample = rep(1:(ctrl@nsample/ctrl@nchain), times = ctrl@nchain), value = rlst(ctrl@nsample, m, s, df)), by = summary.cols]
       } else {
@@ -713,8 +672,8 @@ setMethod("plot_robust_pca", "seaMass", function(
 
   # setup plot
   g <- ggplot2::ggplot(DT.summary, ggplot2::aes(x = PC1, y = PC2))
-  g <- g + xlab(cols[1])
-  g <- g + ylab(cols[2])
+  g <- g + ggplot2::xlab(cols[1])
+  g <- g + ggplot2::ylab(cols[2])
   g <- g + ggplot2::coord_fixed(ratio = 1)
 
   # scales
@@ -852,6 +811,10 @@ setMethod("init_report", "seaMass", function(object, name = seaMass::name(parent
     'title: ', title, '\n',
     "author: generated with seaMass v", ctrl@version, " by ", ctrl@user, "\n",
     "date: ", Sys.Date(), "\n",
+    'output:\n',
+    "  html_document:\n",
+    "    toc: true\n",
+    "    toc_float: true\n",
     '---\n',
     '* [CSV output](csv)\n'
   ), file = file.path(filepath(parent(object)), "markdown", "index.Rmd"))
@@ -881,11 +844,7 @@ setMethod("add_to_report", "seaMass", function(object, fig, name, title = name) 
     "```\n"
   ), file = paste0(path, ".Rmd"))
 
-  cat(paste0(
-    '* [', title, '](', basename(path), '.html)\n'
-  ), file = file.path(filepath(parent(object)), "markdown", "index.Rmd"), append = T)
-
-  return(invisible(NULL))
+  return(paste0(basename(path), ".html"))
 })
 
 
@@ -895,6 +854,21 @@ setMethod("add_to_report", "seaMass", function(object, fig, name, title = name) 
 #' @export
 #' @include generics.R
 setMethod("render_report", "seaMass", function(object) {
+  # gather index and sort
+  DT <- rbindlist(lapply(list.files(filepath(object), pattern = "^report\\.index.*\\.fst$", full.names = T, recursive = T), function(file) {
+    fst::read.fst(file, as.data.table = T)
+  }))
+  setkey(DT, section.order, section, item.order, item)
+  DT[, section.dup := duplicated(section)]
+
+  # populate index.Rmd
+  file <- file.path(filepath(parent(object)), "markdown", "index.Rmd")
+  for (i in 1:nrow(DT)) {
+    if (!DT[i, section.dup]) cat(paste0("\n### ", DT[i, section], "\n"), file = file, append = T)
+    cat(paste0("* [", DT[i, item], "](", DT[i, item.href] ,")\n"), file = file, append = T)
+  }
+
+  # render
   suppressWarnings(rmarkdown::render_site(file.path(filepath(parent(object)), "markdown"), quiet = T))
 
   return(invisible(NULL))

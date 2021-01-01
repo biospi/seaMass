@@ -311,44 +311,8 @@ seaMass_sigma <- function(
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plots", "seaMass_sigma", function(object, items = groups(object)$Group) {
-  items <- as.character(unique(groups(object, as.data.table = T)[items %in% Group][G.qC >= 1, Group]))
-  if (length(items) > 1) {
-    ctrl <- control(object)
-
-    # plots directories
-    if ("group.means" %in% ctrl@plot) dir.create(file.path(filepath(object), "output", "log2_group_means"), showWarnings = F)
-    if ("group.quants" %in% ctrl@plot) dir.create(file.path(filepath(object), "output", "log2_group_quants"), showWarnings = F)
-    if (ctrl@component.model != "" && "component.deviations" %in% ctrl@plot) dir.create(file.path(filepath(object), "output", "log2_component_deviations"), showWarnings = F)
-    if (ctrl@component.model != "" && "component.means" %in% ctrl@plot) dir.create(file.path(filepath(object), "output", "log2_component_means"), showWarnings = F)
-    if (ctrl@component.model != "" && "component.stdevs" %in% ctrl@plot) dir.create(file.path(filepath(object), "output", "log2_component_stdevs"), showWarnings = F)
-    if ("measurement.means" %in% ctrl@plot) dir.create(file.path(filepath(object), "output", "log2_measurement_means"), showWarnings = F)
-    if ("measurement.stdevs" %in% ctrl@plot) dir.create(file.path(filepath(object), "output", "log2_measurement_stdevs"), showWarnings = F)
-
-    # plot!
-    cat(paste0("[", Sys.time(), "]   generating plots...\n"))
-    lims <- readRDS(file.path(filepath(object), "sigma", "limits.rds"))
-    parallel_lapply(items, function(item, object, ctrl, lims) {
-      item2 <- substr(item, 0, 60)
-      if ("group.means" %in% ctrl@plot) plot_group_means(object, group_means(object, item, as.data.table = T), lims$group.means, file = file.path(filepath(object), "output", "log2_group_means", paste0(item2, ".pdf")))
-      if ("group.quants" %in% ctrl@plot) plot_group_quants(object, group_quants(object, item, as.data.table = T), lims$group.quants, file = file.path(filepath(object), "output", "log2_group_quants", paste0(item2, ".pdf")))
-      if ("component.deviations" %in% ctrl@plot) plot_component_deviations(object, component_deviations(object, item, as.data.table = T), lims$component.deviations, file = file.path(filepath(object), "output", "log2_component_deviations", paste0(item2, ".pdf")))
-      if ("component.means" %in% ctrl@plot) plot_component_means(object, component_means(object, item, as.data.table = T), lims$component.means, file = file.path(filepath(object), "output", "log2_component_means", paste0(item2, ".pdf")))
-      if ("component.stdevs" %in% ctrl@plot) plot_component_stdevs(object, component_stdevs(object, item, as.data.table = T), lims$component.stdevs, file = file.path(filepath(object), "output", "log2_component_stdevs", paste0(item2, ".pdf")))
-      if ("measurement.means" %in% ctrl@plot) plot_measurement_means(object, measurement_means(object, item, as.data.table = T), lims$measurement.means, file = file.path(filepath(object), "output", "log2_measurement_means", paste0(item2, ".pdf")))
-      if ("measurement.stdevs" %in% ctrl@plot) plot_measurement_stdevs(object, measurement_stdevs(object, item, as.data.table = T), lims$measurement.stdevs, file = file.path(filepath(object), "output", "log2_measurement_stdevs", paste0(item2, ".pdf")))
-      return(NULL)
-    }, nthread = ctrl@nthread)
-  }
-
-  return(invisible(NULL))
-})
-
-
-#' @import data.table
-#' @export
-#' @include generics.R
 setMethod("finish", "seaMass_sigma", function(object) {
+  cat(paste0("[", Sys.time(), "]  FINISH\n"))
   ctrl <- control(object)
 
   # delete model0
@@ -368,8 +332,9 @@ setMethod("finish", "seaMass_sigma", function(object) {
   if (!("group.quants" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "group.quants*"), recursive = T)
 
   # render report and delete markdown
+  cat(paste0("[", Sys.time(), "]   generating html report...\n"))
   render_report(object)
-  #unlink(file.path(filepath(object), "markdown"), recursive = T)
+  if (!("markdown" %in% ctrl@keep)) unlink(file.path(filepath(object), "markdown"), recursive = T)
 
   return(invisible(NULL))
 })
@@ -552,6 +517,7 @@ setMethod("open_deltas", "seaMass_sigma", function(object, quiet = FALSE, force 
 #' @include generics.R
 setMethod("assay_design", "seaMass_sigma", function(object, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) assay_design(block, as.data.table = T)))
+  if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -578,7 +544,7 @@ setMethod("timings", "seaMass_sigma", function(object, input = "model1", as.data
 #' @include generics.R
 setMethod("read", "seaMass_sigma", function(object, input, type, items = NULL, chains = 1:control(object)@nchain, summary = NULL, summary.func = "robust_normal", as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) read(block, input, type, items, chains, summary, summary.func, as.data.table = T)))
-  if (nrow(DT) == 0) return(NULL)
+  if (is.null(DT)) return(NULL)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -741,91 +707,237 @@ setMethod("group_means", "seaMass_sigma", function(object, groups = NULL, summar
 })
 
 
+#' #' @import data.table
+#' #' @export
+#' #' @include generics.R
+#' setMethod("plot_priors", "seaMass_sigma", function(
+#'   object,
+#'   data = list(
+#'     priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Effect, s, df)],
+#'     priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Effect, s = s0, df = df0)],
+#'     rbind(
+#'       measurement_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Effect = "Measurements", value = rinaka(length(s), s, df))],
+#'       component_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Effect = "Components", value = rinaka(length(s), s, df))]
+#'     )
+#'   ),
+#'   horizontal = TRUE,
+#'   draw_outline = list(TRUE, TRUE, FALSE),
+#'   draw_quantiles = list(0.5, NULL, NULL),
+#'   trim = c(0.05, 0.95),
+#'   colour = list("blue", "black", NULL),
+#'   fill = list("lightblue", NULL, "grey"),
+#'   alpha = list(0.5, 0.5, 0.5),
+#'   facets = "Effect",
+#'   value.label = "stdev",
+#'   value.limits = limits_dists(data, trim, c(0, 1), include.zero = T),
+#'   value.length = 160,
+#'   variable.sort.cols = NULL,
+#'   variable.label.cols = "Block",
+#'   variable.interval = 5,
+#'   show.legend = TRUE,
+#'   file = NULL
+#' ) {
+#'   return(plot_dists(object, data, horizontal, draw_outline, draw_quantiles, trim, colour, fill, alpha, facets, value.label, value.limits, value.length, variable.sort.cols, variable.label.cols, variable.interval, show.legend, file))
+#' })
+
+
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_priors", "seaMass_sigma", function(
+setMethod("plot_assay_stdevs", "seaMass_sigma", function(
   object,
   data = list(
-    priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Effect, s, df)],
-    priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Effect, s = s0, df = df0)],
-    rbind(
-      measurement_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Effect = "Measurements", value = rinaka(length(s), s, df))],
-      component_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Effect = "Components", value = rinaka(length(s), s, df))]
-    )
+    assay_stdevs(object, as.data.table = T)[, list(Block, Assay, s, df)],
+    assay_stdevs(object, as.data.table = T)[, list(Block, Assay, s = B.sC, df = B.dfC)],
+    assay_stdevs(object, as.data.table = T)[, list(Block, Assay, s = B.sM, df = B.dfM)]
   ),
-  horizontal = TRUE,
-  draw_outline = list(TRUE, TRUE, FALSE),
   draw_quantiles = list(0.5, NULL, NULL),
   trim = c(0.05, 0.95),
-  colour = list("blue", "black", NULL),
-  fill = list("lightblue", NULL, "grey"),
-  alpha = list(0.5, 0.5, 0.5),
-  facets = "Effect",
+  colour = list("A.qM", NULL, NULL),
+  fill = list(NULL, "darkgreen", "black"),
+  alpha = list(1, 0.2, 0.2),
+  facets = NULL,
   value.label = "stdev",
-  value.limits = limits_dists(data, trim, c(0, 1), include.zero = T),
-  value.length = 160,
-  variable.sort.cols = NULL,
-  variable.label.cols = "Block",
-  variable.interval = 5,
-  show.legend = TRUE,
-  file = NULL
+  value.limits = limits_dists(data, trim, include.zero = T, non.negative = T),
+  variable.label.cols = c("Assay", "Sample", "Block"),
+  ...
 ) {
-  return(plot_dists(object, data, horizontal, draw_outline, draw_quantiles, trim, colour, fill, alpha, facets, value.label, value.limits, value.length, variable.sort.cols, variable.label.cols, variable.interval, show.legend, file))
+  return(plot_dists(
+    object = object,
+    data = data,
+    draw_quantiles = draw_quantiles,
+    trim = trim,
+    colour = colour,
+    fill = fill,
+    alpha = alpha,
+    facets = facets,
+    value.label = value.label,
+    value.limits = value.limits,
+    variable.label.cols = variable.label.cols,
+    ...
+  ))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_group_means", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Block"), label.cols = "Block", title = NULL, horizontal = TRUE, colour = "G.qC", fill = "G.qC", file = NULL, value.length = 80, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "mean", horizontal, colour, fill, file, value.length, level.length))
+setMethod("plot_group_means", "seaMass_sigma", function(
+  object,
+  groups = NULL,
+  summary = TRUE,
+  colour = "Block",
+  value.label = "mean",
+  variable.summary.cols = "Group",
+  ...
+) {
+  return(plot_dists(
+    object,
+    data = group_means(object, groups, summary = summary, as.data.table = T),
+    colour = colour,
+    value.label = value.label,
+    variable.summary.cols = variable.summary.cols,
+    ...
+  ))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_group_quants", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Group, sort.cols = c("Group", "Assay"), label.cols = c("Assay", "Sample", "Block"), title = NULL, horizontal = TRUE, colour = "Condition", fill = "Condition", file = NULL, value.length = 80, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "quant", horizontal, colour, fill, file, value.length, level.length))
+setMethod("plot_group_quants", "seaMass_sigma", function(
+  object,
+  group,
+  summary = TRUE,
+  colour = "Condition",
+  variable.label.cols = c("Assay", "Sample", "Block"),
+  value.label = "quant",
+  ...
+) {
+  return(plot_dists(
+    object,
+    data = group_quants(object, group, summary = summary, as.data.table = T),
+    colour = colour,
+    variable.label.cols = variable.label.cols,
+    value.label = value.label,
+    ...
+  ))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_component_deviations", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Component, sort.cols = c("Group", "Component", "Assay"), label.cols = c("Block", "Assay", "Sample"), title = "Group", horizontal = TRUE, colour = "Condition", fill = "Condition", file = NULL, value.length = 80, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "deviation", horizontal, colour, fill, file, value.length, level.length))
+setMethod("plot_component_means", "seaMass_sigma", function(
+  object,
+  group,
+  summary = TRUE,
+  colour = "Block",
+  value.label = "mean",
+  variable.summary.cols = "Component",
+  ...
+) {
+  return(plot_dists(
+    object,
+    data = component_means(object, group, summary = summary, as.data.table = T),
+    colour = colour,
+    value.label = value.label,
+    variable.summary.cols = variable.summary.cols,
+    ...
+  ))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_component_means", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Component, sort.cols = c("Group", "Component", "Block"), label.cols = "Block", title = "Group", horizontal = TRUE, colour = "C.qM", fill = "C.qM", file = NULL, value.length = 80, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "mean", horizontal, colour, fill, file, value.length, level.length))
+setMethod("plot_component_stdevs", "seaMass_sigma", function(
+  object,
+  group,
+  summary = TRUE,
+  colour = "Block",
+  value.label = "stdev",
+  variable.summary.cols = "Component",
+  ...
+) {
+  return(plot_dists(
+    object,
+    data = component_stdevs(object, group, summary = summary, as.data.table = T),
+    colour = colour,
+    value.label = value.label,
+    variable.summary.cols = variable.summary.cols,
+    ...
+  ))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_component_stdevs", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Component, sort.cols = c("Group", "Component", "Block"), label.cols = "Block", title = "Group", horizontal = TRUE, colour = "C.qM", fill = "C.qM", file = NULL, value.length = 80, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length))
+setMethod("plot_component_deviations", "seaMass_sigma", function(
+  object,
+  group,
+  component,
+  summary = TRUE,
+  colour = "Condition",
+  variable.label.cols = c("Assay", "Sample", "Block"),
+  value.label = "quant",
+  ...
+) {
+  return(plot_dists(
+    object,
+    data = component_deviations(object, data.table(Group = group, Component = component), summary = summary, as.data.table = T),
+    colour = colour,
+    variable.label.cols = variable.label.cols,
+    value.label = value.label,
+    ...
+  ))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_measurement_means", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Component + Measurement, sort.cols = c("Group", "Component", "Measurement", "Block"), label.cols = "Block", title = "Group", horizontal = TRUE, colour = "M.qD", fill = "M.qD", file = NULL, value.length = 80, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "mean", horizontal, colour, fill, file, value.length, level.length))
+setMethod("plot_measurement_means", "seaMass_sigma", function(
+  object,
+  group,
+  component,
+  summary = TRUE,
+  colour = "Block",
+  value.label = "mean",
+  variable.summary.cols = "Measurement",
+  ...
+) {
+  return(plot_dists(
+    object,
+    data = measurement_means(object, data.table(Group = group, Component = component), summary = summary, as.data.table = T),
+    colour = colour,
+    value.label = value.label,
+    variable.summary.cols = variable.summary.cols,
+    ...
+  ))
 })
 
 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("plot_measurement_stdevs", "seaMass_sigma", function(object, data, limits = NULL, alpha = 1, facets = ~ Component + Measurement, sort.cols = c("Group", "Component", "Measurement", "Block"), label.cols = "Block", title = "Group", horizontal = TRUE, colour = "M.qD", fill = "M.qD", file = NULL, value.length = 80, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "stdev", horizontal, colour, fill, file, value.length, level.length))
+setMethod("plot_measurement_stdevs", "seaMass_sigma", function(
+  object,
+  group,
+  component,
+  summary = TRUE,
+  colour = "Block",
+  value.label = "stdev",
+  variable.summary.cols = "Measurement",
+  ...
+) {
+  return(plot_dists(
+    object,
+    data = measurement_stdevs(object, data.table(Group = group, Component = component), summary = summary, as.data.table = T),
+    colour = colour,
+    value.label = value.label,
+    variable.summary.cols = variable.summary.cols,
+    ...
+  ))
 })

@@ -10,6 +10,7 @@
   input = "model1",
   type = "group.quants",
   items = NULL,
+  summary = TRUE,
   scale = FALSE,
   robust = TRUE,
   ellipses = TRUE,

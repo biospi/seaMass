@@ -42,12 +42,12 @@ setClass("sigma_control", slots = c(
 
 #' @describeIn sigma_control-class Generator function
 #' @param keep Outputs to keep MCMC samples for, \code{NULL} or a subset of
-#'   \code{c("summaries", "model0", "assay.means", "group.quants", "group.means", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}
+#'   \code{c("summaries", "model0", "markdown", "assay.means", "group.quants", "group.means", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}
 #' @param summarise Outputs to write csv summaries for, \code{NULL} or a subset of
 #'   \code{c("groups", "components", "measurements")}
 #'   Note, you must summarise or keep \code{"standardised.group.deviations"} if you want to run seaMass-Δ!
 #' @param plot Outputs to plot, \code{NULL} or a subset of
-#'   \code{c("assays", "groups", "components", "measurements", "group.quants.pca", "component.deviations.pca")}
+#'   \code{c("assay.stats", "group.stats", "group.quants", "group.quants.pca", "component.stats",  "component.deviations", "component.deviations.pca", "measurement.stats")}
 #' @param measurement.model Either \code{"single"} (single residual) or \code{"independent"} (per-measurement independent residuals)
 #' @param measurement.eb.min Minimum number of measurements per component to use for computing Empirical Bayes priors
 #' @param component.model Either \code{NULL} (no component model), \code{"single"} (single random effect) or \code{"independent"}
@@ -73,7 +73,7 @@ setClass("sigma_control", slots = c(
 sigma_control <- function(
   keep = "summaries",
   summarise = c("groups", "components", "measurements"),
-  plot = c("assays", "groups", "components", "measurements", "group.quants.pca", "component.deviations.pca"),
+  plot = c("assay.stats", "group.stats", "group.quants", "group.quants.pca", "component.stats",  "component.deviations", "component.deviations.pca", "measurement.stats"),
   eb.model = "deconvolve",
   eb.max = 1024,
   measurement.model = "independent",
@@ -119,7 +119,7 @@ sigma_control <- function(
   params$nthread <- as.integer(nthread)
   params$schedule <- schedule
 
-  params$plots <- any(c("groups", "components", "measurements") %in% params$plot)
+  params$plots <- any(c("group.stats", "group.quants", "components.stats", "component.deviations", "measurements.stats") %in% params$plot)
   params$version <- as.character(packageVersion("seaMass"))
 
   return(do.call(new, params))
@@ -127,9 +127,9 @@ sigma_control <- function(
 
 
 setValidity("sigma_control", function(object) {
-  if (!(all(object@keep %in% c("summaries", "model0", "assay.means", "group.quants", "group.means", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")))) return("'keep' is not valid!")
+  if (!(all(object@keep %in% c("summaries", "model0", "markdown", "assay.means", "group.quants", "group.means", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")))) return("'keep' is not valid!")
   if (!(all(object@summarise %in% c("groups", "components", "measurements")))) return("'summarise' is not valid!")
-  if (!(all(object@plot %in% c("assays", "groups", "components", "measurements", "group.quants.pca", "component.deviations.pca")))) return("'plot' is not valid!")
+  if (!(all(object@plot %in% c("assay.stats", "group.stats", "group.quants", "group.quants.pca", "component.stats",  "component.deviations", "component.deviations.pca", "measurement.stats")))) return("'plot' is not valid!")
   if (length(object@eb.model) != 1 || !(object@eb.model %in% c("", "fit", "deconvolve"))) return("'eb.model' is not valid!")
   if (length(object@eb.max) != 1 || object@eb.max <= 0) return("'eb.max' must be positive!")
   if (length(object@measurement.model) != 1 || !(object@measurement.model %in% c("single", "independent"))) return("'measurement.model' is not valid!")

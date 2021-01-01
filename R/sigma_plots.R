@@ -1,289 +1,78 @@
+#' @import data.table
+#' @include generics.R
+#' @include sigma_block.R
+setMethod("plots", "sigma_block", function(object, chain, job.id) {
+  ctrl <- control(object)
+  if (ctrl@version != as.character(packageVersion("seaMass")))
+    stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
 
+  # PROCESS OUTPUT
+  nbatch <- length(blocks(object)) * ctrl@nchain
+  batch <- (as.integer(assay_design(object, as.data.table = T)[1, Block]) - 1) * ctrl@nchain + chain
+  cat(paste0("[", Sys.time(), "]  PLOTS batch=", batch, "/", nbatch, "\n"))
+  cat(paste0("[", Sys.time(), "]   generating...\n"))
 
+  # grab out batch of groups
+  fit.sigma <- parent(object)
+  groups <- unique(groups(fit.sigma, as.data.table = T)[G.qC > 0, Group])
+  groups <- groups[rep_len(1:nbatch, length(groups)) == batch]
+  # plots!
+  lims <- readRDS(file.path(filepath(fit.sigma), "sigma", "limits.rds"))
+  report.index <- rbindlists(parallel_lapply(groups, function(item, fit.sigma, ctrl, lims) {
+    report.index1 <- list()
 
+    if ("group.quants" %in% ctrl@plot) {
+      fig <- merge_figs(lapply(blocks(fit.sigma), function(block) plot_group_quants(block, item, facets = "Block", value.limits = lims$group.quants, summary = T, min.width = 0, min.height = 0)))
+      report.index1$group.quant <- data.table(
+        section = paste0(ctrl@group[1], " quants"), section.order = 100, item = item, item.order = as.integer(item),
+        item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@group[1]), "_quants_", as.integer(item)), paste0(ctrl@group[1], " quants for ", item))
+      )
+    }
 
+    if ("component.stats" %in% ctrl@plot) {
+      fig <- plot_component_means(fit.sigma, item, value.limits = lims$component.means, summary = T)
+      report.index1$component.means <- data.table(
+        section = paste0(ctrl@component[1], " means"), section.order = 200, item = item, item.order = as.integer(item),
+        item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@component[1]), "_means_", as.integer(item)), paste0(ctrl@component[1], " means for ", item))
+      )
 
+      fig <- plot_component_stdevs(fit.sigma, item, value.limits = lims$component.stdevs, summary = T)
+      report.index1$component.stdevs <- data.table(
+        section = paste0(ctrl@component[1], " stdevs"), section.order = 250, item = item, item.order = as.integer(item),
+        item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@component[1]), "_stdevs_", as.integer(item)), paste0(ctrl@component[1], " stdevs for ", item))
+      )
+    }
 
+    # components of this group
+    comps <- components(fit.sigma, as.data.table = T)[Group == item & C.qM > 0, Component]
 
-  # # plot
-  # if (!is.null(colour) && colour %in% colnames(DT.design)) {
-  #   if(all(is.na(DT.design[, get(colour)]))) {
-  #     colour <- NULL
-  #   } else if (!is.numeric(DT.design[, get(colour)])) {
-  #     DT.design[, (colour) := factor(get(colour), exclude = NULL)]
-  #     levels(DT.design[[colour]]) <- ifelse(is.na(levels(DT.design[[colour]])), "<none>", levels(DT.design[[colour]]))
-  #   }
-  # }
-  #
-  # if (!is.null(fill) && fill %in% colnames(DT.design)) {
-  #   if(all(is.na(DT.design[, get(fill)]))) {
-  #     fill <- NULL
-  #   } else if (!is.numeric(DT.design[, get(fill)])) {
-  #     DT.design[, (fill) := factor(get(fill), exclude = NULL)]
-  #     levels(DT.design[[fill]]) <- ifelse(is.na(levels(DT.design[[fill]])), "<none>", levels(DT.design[[fill]]))
-  #   }
-  # }
-  #
-  # if (!is.null(shape) && shape %in% colnames(DT.design)) {
-  #   if(all(is.na(DT.design[, get(shape)]))) {
-  #     shape <- NULL
-  #   } else if (!is.numeric(DT.design[, get(shape)])) {
-  #     DT.design[, (shape) := factor(get(shape), exclude = NULL)]
-  #     levels(DT.design[[shape]]) <- ifelse(is.na(levels(DT.design[[shape]])), "<none>", levels(DT.design[[shape]]))
-  #   }
-  # }
-  #
-  # g <- ggplot2::ggplot(DT.design, ggplot2::aes(x = x, y = y))
-  # if (!is.null(colour)) {
-  #   if (is.numeric(DT.design[, get(colour)])) {
-  #     g <- g + ggplot2::scale_colour_viridis_c(option = "plasma", end = 0.75)
-  #   } else {
-  #     g <- g + ggplot2::scale_colour_viridis_d(option = "plasma", end = 0.75)
-  #   }
-  # }
-  # if (!is.null(fill)) {
-  #   if (is.numeric(DT.design[, get(fill)])) {
-  #     g <- g + ggplot2::scale_fill_viridis_c(option = "plasma", alpha = 0.25)
-  #   } else {
-  #     g <- g + ggplot2::scale_fill_viridis_d(option = "plasma", alpha = 0.25)
-  #   }
-  # }
-  # if (!is.null(shape)) g <- g + ggplot2::scale_shape_manual(values = c(1:25, 33:127)[1:uniqueN(DT.design[, get(shape)])])
-  # g <- g + ggplot2::geom_vline(xintercept = 0, colour = "grey")
-  # g <- g + ggplot2::geom_hline(yintercept = 0, colour = "grey")
-  #
-  # if (!(is.null(contours) || length(contours) == 0)) {
-  #   if (is.null(colour) || uniqueN(DT.design[, get(colour)]) <= 1) {
-  #     g <- g + ggplot2::geom_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z"), colour = "black", breaks = 1, alpha = 0.4)
-  #   } else {
-  #     g <- g + ggplot2::geom_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z"), breaks = 1, alpha = 0.4)
-  #   }
-  # }
-  #
-  # if (labels) {
-  #   g <- g + ggrepel::geom_label_repel(ggplot2::aes_string(label = "label"), size = 2.5, fill = "white", colour = "white", seed = 0)
-  #   g <- g + ggrepel::geom_label_repel(ggplot2::aes_string(label = "label", fill = fill), size = 2.5, seed = 0)
-  #   g <- g + ggplot2::guides(fill = ggplot2::guide_legend(override.aes = ggplot2::aes(label = "")))
-  # }
-  # g <- g + ggplot2::geom_point(ggplot2::aes_string(colour = colour, shape = shape, fill = fill), size = 1.5, stroke = 1)
-  # g <- g + ggplot2::xlab(paste0("PC1 (", format(round(pc1, 2), nsmall = 2), "%)"))
-  # g <- g + ggplot2::ylab(paste0("PC2 (", format(round(pc2, 2), nsmall = 2), "%)"))
-  # g <- g + ggplot2::coord_cartesian(xlim = mid[1] + c(-span[1], span[1]), ylim = mid[2] + c(-span[2], span[2]))
-  # g <- g + ggplot2::theme(aspect.ratio = aspect.ratio)
-  # g <- g + ggplot2::ggtitle(paste0(gsub("\\.", " ", type), " PCA using ", nvariable.complete, " complete variables out of ", nvariable, " used"))
-  # g
-#}
+    if ("component.deviations" %in% ctrl@plot) {
+      fig <- merge_figs(lapply(comps, function(comp) plot_component_deviations(fit.sigma, item, comp, facets = "Component", value.limits = lims$component.deviations, summary = T, min.width = 0, min.height = 0)))
+      report.index1$component.deviations <- data.table(
+        section = paste0(ctrl@component[1], " quants"), section.order = 300, item = item, item.order = as.integer(item),
+        item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@component[1]), "_quants_", as.integer(item)), paste0(ctrl@component[1], " quants for ", item))
+      )
+    }
 
+    if ("measurement.stats" %in% ctrl@plot) {
+      fig <- merge_figs(lapply(comps, function(comp) plot_measurement_means(fit.sigma, item, comp, facets = "Component", value.limits = lims$measurement_means, summary = T, min.width = 0, min.height = 0)))
+      report.index1$component.means <- data.table(
+        section = paste0(ctrl@measurement[1], " means"), section.order = 400, item = item, item.order = as.integer(item),
+        item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@measurement[1]), "_means_", as.integer(item)), paste0(ctrl@measurement[1], " means for ", item))
+      )
 
+      fig <- merge_figs(lapply(comps, function(comp) plot_measurement_stdevs(fit.sigma, item, comp, facets = "Component", value.limits = lims$measurement_stdevs, summary = T, min.width = 0, min.height = 0)))
+      report.index1$component.stdevs <- data.table(
+        section = paste0(ctrl@measurement[1], " stdevs"), section.order = 400, item = item, item.order = as.integer(item),
+        item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@measurement[1]), "_stdevs_", as.integer(item)), paste0(ctrl@measurement[1], " stdevs for ", item))
+      )
+    }
 
+    return(report.index1)
+  }, nthread = ctrl@nthread))
 
+  if (length(report.index) > 0) fst::write.fst(rbindlist(report.index), file.path(filepath(object), paste0("report.index.plots", chain, ".fst")))
+  increment_completed(file.path(filepath(parent(object)), "sigma"), "plots", job.id)
+  return(invisible(NULL))
+})
 
-#' setMethod("plot_pca_contours", "seaMass_sigma", function(
-#'   object,
-#'   data.design = assay_design(object),
-#'   variables = NULL,
-#'   input = "model1",
-#'   type = "group.quants",
-#'   scale = FALSE,
-#'   robust = TRUE,
-#'   contours = 1:2,
-#'   aspect.ratio = 3/4,
-#'   labels = 50,
-#'   colour = "Condition",
-#'   fill = "Condition",
-#'   shape = "Condition"
-#' ) {
-#'   # ensure Assay/Block combinations in our processed design, sorted by Block, Assay
-#'   DT.design <- as.data.table(data.design)
-#'   if (!is.factor(DT.design$Assay)) DT.design[, Assay := factor(Assay, levels = levels(assay_design(object, as.data.table = T)$Assay))]
-#'   if (!("Block" %in% colnames(DT.design))) DT.design <- merge(DT.design, assay_design(object, as.data.table = T), by = "Assay", suffixes = c("", ".old"))
-#'   setorder(DT.design, Assay, Block)
-#'
-#'   # determine which individuals and variables to use
-#'   DT.summary <- read(object, input, type, variables, summary = T, summary.func = "robust_normal", as.data.table = T)
-#'   summary.cols <- setdiff(colnames(DT.summary)[1:(which(colnames(DT.summary) == "m") - 1)], c("Assay", "Block"))
-#'   DT.individuals <- merge(DT.summary[, .(use = var(m, na.rm = T) >= 1e-5), keyby = .(Assay, Block)][use == T, .(Assay, Block)], DT.design[, .(Assay, Block)], by = c("Assay", "Block"))
-#'   DT.variables <- dcast(DT.summary, paste(paste(summary.cols, collapse = " + "), "~ Assay + Block"), value.var = "m")
-#'   nvariable <- nrow(DT.variables)
-#'   DT.variables <- DT.variables[complete.cases(DT.variables), summary.cols, with = F]
-#'   nvariable.complete <- nrow(DT.variables)
-#'
-#'   # row and column weights
-#'   DT.use <- merge(DT.individuals[,c(k = 1, .SD)], DT.variables[,c(k = 1, .SD)], by = "k", all = T, allow.cartesian = T)[, k := NULL]
-#'   if (robust) {
-#'     # can row.w and col.w calculation be improved?
-#'     DT.summary.se <- merge(DT.summary, DT.use, by = colnames(DT.use))
-#'     DT.summary.se <- dcast(DT.summary.se, paste("Assay + Block ~", paste(summary.cols, collapse = " + ")), value.var = "s")
-#'     DT.summary.se[, c("Assay", "Block") := NULL]
-#'     row.weights <- as.numeric(1.0 / apply(DT.summary.se, 1, function(x) median(x, na.rm = T))^2)
-#'     col.weights <- as.numeric(1.0 / apply(DT.summary.se, 2, function(x) median(x, na.rm = T))^2)
-#'     rm(DT.summary.se)
-#'   }
-#'   # prepare PCA input
-#'   DT.summary <- merge(DT.summary, DT.use, by = colnames(DT.use))
-#'   DT.summary <- dcast(DT.summary, paste("Assay + Block ~", paste(summary.cols, collapse = " + ")), value.var = "m")
-#'   DT.summary[, c("Assay", "Block") := NULL]
-#'   rm(DT.use)
-#'
-#'   # run PCA
-#'   if (robust && !any(is.na(row.weights)) && !any(is.na(col.weights))) {
-#'     fit <- FactoMineR::PCA(DT.summary, scale.unit = scale, row.w = row.weights, col.w = col.weights, graph = F)
-#'   } else {
-#'     fit <- FactoMineR::PCA(DT.summary, scale.unit = scale, graph = F)
-#'   }
-#'   pc1 <- fit$eig[1, "percentage of variance"]
-#'   pc2 <- fit$eig[2, "percentage of variance"]
-#'   rm(DT.summary)
-#'
-#'   # extract results
-#'   DT.design <- merge(DT.design, cbind(DT.individuals, data.table(x = fit$ind$coord[,1], y = fit$ind$coord[,2])), by = c("Assay", "Block"))
-#'   if (is.numeric(labels)) labels <- ifelse(nrow(DT.design) <= labels, T, F)
-#'   if (labels) DT.design[, label := factor(paste0(Sample, " [", Assay, "]"))]
-#'
-#'   # calculate limits for the aspect ratio
-#'   min.x <- min(DT.design$x)
-#'   min.y <- min(DT.design$y)
-#'   max.x <- max(DT.design$x)
-#'   max.y <- max(DT.design$y)
-#'   mid <- 0.5 * c(max.x + min.x, max.y + min.y)
-#'   if (aspect.ratio * (max.x - min.x) > max.y - min.y) {
-#'     span <- 0.55 * (max.x - min.x) * c(1, aspect.ratio)
-#'   } else {
-#'     span <- 0.55 * (max.y - min.y) * c(1/aspect.ratio, 1)
-#'   }
-#'
-#'   # contours
-#'   if (!(is.null(contours) || length(contours) == 0)) {
-#'     # predict from PCA fit
-#'     DT <- rbindlist(parallel_lapply(batch_split(DT.individuals, c("Block", "Assay"), nrow(DT.individuals), drop = T, keep.by = F), function(item, DT.variables, object, input, type, summary.cols, fit) {
-#'       DT1 <- merge(item[,c(k = 1, .SD)], DT.variables[,c(k = 1, .SD)], by = "k", all = T, allow.cartesian = T)[, k := NULL]
-#'       DT1 <- read(object, input, type, DT1, as.data.table = T)
-#'       DT1 <- dcast(DT1, paste("chain + sample ~", paste(summary.cols, collapse = " + ")), value.var = "value")
-#'       DT1[, c("chain", "sample") := NULL]
-#'       pred <- predict(fit, DT1)
-#'       DT1 <- data.table(Block = item[1, Block], Assay = item[1, Assay], x = pred$coord[,1], y = pred$coord[,2])
-#'       rm(pred)
-#'       return(DT1)
-#'     }, nthread = control(object)@nthread, .packages = c("seaMass", "FactoMineR")))
-#'
-#'     # replace centre point
-#'     DT.design <- merge(DT.design[, !c("x", "y")], DT[, .(x = median(x), y = median(y)), by = .(Block, Assay)], by = c("Assay", "Block"))
-#'
-#'     # kde bandwidth across all assays
-#'     H <- ks::Hpi(cbind(DT$x, DT$y))
-#'
-#'     # generate density contours
-#'     DT <- DT[x > mid[1] - 1.5 * span[1] & x < mid[1] + 1.5 * span[1] & y > mid[2] - 1.5 * span[2] & y < mid[2] + 1.5 * span[2]]
-#'     DT <- rbindlist(lapply(batch_split(DT, c("Block", "Assay"), nrow(DT.individuals), drop = T, keep.by = F), function(DT1.in) {
-#'       DT1 <- NULL
-#'       dens <- NULL
-#'       try({
-#'         dens <- ks::kde(cbind(DT1.in$x, DT1.in$y), H, xmin = mid - 1.5 * span, xmax = mid + 1.5 * span, binned = T, bgridsize = c(401, 401))
-#'         DT1 <- data.table(
-#'           Block = DT1.in[1, Block],
-#'           Assay = DT1.in[1, Assay],
-#'           expand.grid(x = dens$eval.points[[1]], y = dens$eval.points[[2]]),
-#'           z1 = as.vector(dens$estimate) / dens$cont["32%"],
-#'           z2 = as.vector(dens$estimate) / dens$cont["5%"],
-#'           z3 = as.vector(dens$estimate) / dens$cont["1%"]
-#'         )
-#'       })
-#'       rm(dens)
-#'       return(DT1)
-#'     }))
-#'     DT <- merge(DT, DT.design[, !c("x", "y")], by = c("Block", "Assay"))
-#'     DT[, individual := interaction(Block, Assay, drop = T)]
-#'   }
-#'   rm(fit)
-#'
-#'   # plot
-#'   if (!is.null(colour) && colour %in% colnames(DT.design)) {
-#'     if(all(is.na(DT.design[, get(colour)]))) {
-#'       colour <- NULL
-#'     } else if (!is.numeric(DT.design[, get(colour)])) {
-#'       DT.design[, (colour) := factor(get(colour), exclude = NULL)]
-#'       levels(DT.design[[colour]]) <- ifelse(is.na(levels(DT.design[[colour]])), "<none>", levels(DT.design[[colour]]))
-#'     }
-#'   }
-#'
-#'   if (!is.null(fill) && fill %in% colnames(DT.design)) {
-#'     if(all(is.na(DT.design[, get(fill)]))) {
-#'       fill <- NULL
-#'     } else if (!is.numeric(DT.design[, get(fill)])) {
-#'       DT.design[, (fill) := factor(get(fill), exclude = NULL)]
-#'       levels(DT.design[[fill]]) <- ifelse(is.na(levels(DT.design[[fill]])), "<none>", levels(DT.design[[fill]]))
-#'     }
-#'   }
-#'
-#'   if (!is.null(shape) && shape %in% colnames(DT.design)) {
-#'     if(all(is.na(DT.design[, get(shape)]))) {
-#'       shape <- NULL
-#'     } else if (!is.numeric(DT.design[, get(shape)])) {
-#'       DT.design[, (shape) := factor(get(shape), exclude = NULL)]
-#'       levels(DT.design[[shape]]) <- ifelse(is.na(levels(DT.design[[shape]])), "<none>", levels(DT.design[[shape]]))
-#'     }
-#'   }
-#'
-#'   g <- ggplot2::ggplot(DT.design, ggplot2::aes(x = x, y = y))
-#'   if (!is.null(colour)) {
-#'     if (is.numeric(DT.design[, get(colour)])) {
-#'       g <- g + ggplot2::scale_colour_viridis_c(option = "plasma", end = 0.75)
-#'     } else {
-#'       g <- g + ggplot2::scale_colour_viridis_d(option = "plasma", end = 0.75)
-#'     }
-#'   }
-#'   if (!is.null(fill)) {
-#'     if (is.numeric(DT.design[, get(fill)])) {
-#'       g <- g + ggplot2::scale_fill_viridis_c(option = "plasma", alpha = 0.25)
-#'     } else {
-#'       g <- g + ggplot2::scale_fill_viridis_d(option = "plasma", alpha = 0.25)
-#'     }
-#'   }
-#'   if (!is.null(shape)) g <- g + ggplot2::scale_shape_manual(values = c(1:25, 33:127)[1:uniqueN(DT.design[, get(shape)])])
-#'   g <- g + ggplot2::geom_vline(xintercept = 0, colour = "grey")
-#'   g <- g + ggplot2::geom_hline(yintercept = 0, colour = "grey")
-#'
-#'   if (!(is.null(contours) || length(contours) == 0)) {
-#'     if (is.null(colour) || uniqueN(DT.design[, get(colour)]) <= 1) {
-#'       if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z1"), colour = "black", breaks = 1, alpha = 0.4)
-#'       if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z2"), colour = "black", breaks = 1, alpha = 0.3)
-#'       if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", x = "x", y = "y", z = "z3"), colour = "black", breaks = 1, alpha = 0.2)
-#'     } else {
-#'       if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z1"), breaks = 1, alpha = 0.4)
-#'       if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z2"), breaks = 1, alpha = 0.3)
-#'       if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT, ggplot2::aes_string(group = "individual", colour = colour, x = "x", y = "y", z = "z3"), breaks = 1, alpha = 0.2)
-#'     }
-#'   }
-#'
-#'   if (labels) {
-#'     g <- g + ggrepel::geom_label_repel(ggplot2::aes_string(label = "label"), size = 2.5, fill = "white", colour = "white", seed = 0)
-#'     g <- g + ggrepel::geom_label_repel(ggplot2::aes_string(label = "label", fill = fill), size = 2.5, seed = 0)
-#'     g <- g + ggplot2::guides(fill = ggplot2::guide_legend(override.aes = ggplot2::aes(label = "")))
-#'   }
-#'   g <- g + ggplot2::geom_point(ggplot2::aes_string(colour = colour, shape = shape, fill = fill), size = 1.5, stroke = 1)
-#'   g <- g + ggplot2::xlab(paste0("PC1 (", format(round(pc1, 2), nsmall = 2), "%)"))
-#'   g <- g + ggplot2::ylab(paste0("PC2 (", format(round(pc2, 2), nsmall = 2), "%)"))
-#'   g <- g + ggplot2::coord_cartesian(xlim = mid[1] + c(-span[1], span[1]), ylim = mid[2] + c(-span[2], span[2]))
-#'   g <- g + ggplot2::theme(aspect.ratio = aspect.ratio)
-#'   g <- g + ggplot2::ggtitle(paste0(gsub("\\.", " ", type), " PCA using ", nvariable.complete, " complete variables out of ", nvariable, " used"))
-#'   g
-#' })
-
-
-# setMethod("plot_pca", "seaMass", function(
-#   object,
-#   data.design = assay_design(object),
-#   variables = NULL,
-#   input = "model1",
-#   type = "standardised.group.deviations",
-#   scale = FALSE,
-#   robust = TRUE,
-#   aspect.ratio = 3/4,
-#   labels = 50,
-#   colour = "Condition",
-#   fill = "Condition",
-#   shape = "Condition",
-#   ...
-# ) {
-#   return(plot_pca_contours(object, data.design, variables, input, type, scale, robust, NULL, aspect.ratio, labels, colour, fill, shape, ...))
-# })

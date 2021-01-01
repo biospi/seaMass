@@ -9,8 +9,9 @@
 sigma_control(
   keep = "summaries",
   summarise = c("groups", "components", "measurements"),
-  plot = c("assays", "groups", "components", "measurements", "group.quants.pca",
-    "component.deviations.pca"),
+  plot = c("assay.stats", "group.stats", "group.quants", "group.quants.pca",
+    "component.stats", "component.deviations", "component.deviations.pca",
+    "measurement.stats"),
   eb.model = "deconvolve",
   eb.max = 1024,
   measurement.model = "independent",
@@ -34,14 +35,14 @@ sigma_control(
 }
 \arguments{
 \item{keep}{Outputs to keep MCMC samples for, \code{NULL} or a subset of
-\code{c("summaries", "model0", "assay.means", "group.quants", "group.means", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}}
+\code{c("summaries", "model0", "markdown", "assay.means", "group.quants", "group.means", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}}
 
 \item{summarise}{Outputs to write csv summaries for, \code{NULL} or a subset of
 \code{c("groups", "components", "measurements")}
 Note, you must summarise or keep \code{"standardised.group.deviations"} if you want to run seaMass-Δ!}
 
 \item{plot}{Outputs to plot, \code{NULL} or a subset of
-\code{c("assays", "groups", "components", "measurements", "group.quants.pca", "component.deviations.pca")}}
+\code{c("assay.stats", "group.stats", "group.quants", "group.quants.pca", "component.stats",  "component.deviations", "component.deviations.pca", "measurement.stats")}}
 
 \item{measurement.model}{Either \code{"single"} (single residual) or \code{"independent"} (per-measurement independent residuals)}
 

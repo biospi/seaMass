@@ -26,8 +26,6 @@
 \alias{component_stdevs,sigma_block-method}
 \alias{component_deviations,sigma_block-method}
 \alias{group_quants,sigma_block-method}
-\alias{normalised_group_means,sigma_block-method}
-\alias{normalised_group_stdevs,sigma_block-method}
 \title{seaMass-Σ block}
 \usage{
 \S4method{filepath}{sigma_block}(object)
@@ -129,24 +127,6 @@
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
-
-\S4method{normalised_group_means}{sigma_block}(
-  object,
-  groups = NULL,
-  summary = TRUE,
-  input = "model1",
-  chains = 1:control(object)@nchain,
-  as.data.table = FALSE
-)
-
-\S4method{normalised_group_stdevs}{sigma_block}(
-  object,
-  groups = NULL,
-  summary = TRUE,
-  input = "model1",
-  chains = 1:control(object)@nchain,
-  as.data.table = FALSE
-)
 }
 \description{
 The results of a seaMass-Σ block to a single block, returned by /link{seaMass_sigma} /code{blocks()} function
@@ -196,9 +176,5 @@ The results of a seaMass-Σ block to a single block, returned by /link{seaMass_s
 \item \code{component_deviations}: Gets the model component deviations as a \link{data.frame}.
 
 \item \code{group_quants}: Get the model group quantifications as a \link{data.frame}.
-
-\item \code{normalised_group_means}: Get the model normalised group stdevs as a \link{data.frame}.
-
-\item \code{normalised_group_stdevs}: Get the model normalised group stdevs as a \link{data.frame}.
 }}
 

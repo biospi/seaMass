@@ -37,16 +37,22 @@ setMethod("run", "schedule_local", function(object, fit.sigma) {
   for (block in blocks(fit.sigma)) {
     for (chain in 1:ctrl@nchain) process1(block, chain, job.id)
   }
-  # run plots if you want
-  if (ctrl@plots == T) plots(fit.sigma)
-  # finish
-  finish(fit.sigma)
 
   # DELTA
   # run delta if they exist
   for (fit.delta in open_deltas(fit.sigma, force = T)) {
     for (chain in 1:control(fit.delta)@nchain) process(fit.delta, chain, job.id)
   }
+
+  # run plots if you want
+  if (ctrl@plots == T) {
+    for (block in blocks(fit.sigma)) {
+      for (chain in 1:ctrl@nchain) plots(block, chain, job.id)
+    }
+  }
+
+  # finish
+  finish(fit.sigma)
   for (fit.delta in open_deltas(fit.sigma, force = T)) finish(fit.delta)
 
   cat(paste0("[", Sys.time(), "] finished!\n"))

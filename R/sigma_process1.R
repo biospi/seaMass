@@ -22,13 +22,13 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       group_quants(object, summary = T, as.data.table = T)
     }
     if ("group.quants.pca" %in% ctrl@plot) {
-      cat(paste0("[", Sys.time(), "]   plotting robust PCA for group quants...\n"))
-      add_to_report(
-        object,
-        plot_robust_pca(object),
-        paste0("pca_", tolower(ctrl@group[1]), "_quants_block", name(object)),
-        paste0("PCA - ", ctrl@group[1], " Quants - Block ", name(object))
+      cat(paste0("[", Sys.time(), "]   generating robust PCA plots for group quants...\n"))
+      text <- paste0("PCA - ", ctrl@group[1], " quants - Block ", name(object))
+      report.index <- data.table(
+        section = "Study-level", section.order = 0, item = text, item.order = 1000000 + as.integer(assay_design(object)$Block[1]),
+        item.href = add_to_report(object, plot_robust_pca(object, summary = F), paste0("pca_", tolower(ctrl@group[1]), "_quants_block", name(object)), text)
       )
+      fst::write.fst(report.index, file.path(filepath(object), "report.index.fst"))
     }
 
     # component summary
@@ -54,6 +54,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
     if (increment_completed(file.path(filepath(parent(object)), "sigma"), "process", job.id) == length(blocks(object))) {
       cat(paste0("[", Sys.time(), "]  SIGMA-OUTPUT\n"))
       fit.sigma <- parent(object)
+      report.index <- list()
 
       # write design
       DT <- assay_design(fit.sigma, as.data.table = T)
@@ -194,19 +195,19 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
 
       # component deviations pca
       if ("component.deviations.pca" %in% ctrl@plot) {
-        cat(paste0("[", Sys.time(), "]   plotting robust PCA for component deviations...\n"))
-        DT <- robust_pca(fit.sigma, type = "component.deviations")
-        add_to_report(
-          fit.sigma,
-          plot_robust_pca(fit.sigma, data = DT, shape = "Block"),
-          paste0("pca_", tolower(ctrl@component[1]), "_deviations_blocks"),
-          paste0("PCA - ", ctrl@component[1], " Deviations by Block")
+        cat(paste0("[", Sys.time(), "]   generating robust PCA plot for component deviations...\n"))
+        DT <- robust_pca(fit.sigma, type = "component.deviations", summary = F)
+
+        text <- paste0("PCA - ", ctrl@component[1], " deviations by Block")
+        report.index$component.deviations.blocks <- data.table(
+          section = "Study-level", section.order = 0, item = text, item.order = 2000000,
+          item.href = add_to_report(fit.sigma, plot_robust_pca(fit.sigma, data = DT, shape = "Block"), paste0("pca_", tolower(ctrl@component[1]), "_deviations_blocks"), text)
         )
-        add_to_report(
-          fit.sigma,
-          plot_robust_pca(fit.sigma, data = DT),
-          paste0("pca_", tolower(ctrl@component[1]), "_deviations_conditions"),
-          paste0("PCA - ", ctrl@component[1], " Deviations by Condition")
+
+        text <- paste0("PCA - ", ctrl@component[1], " deviations by Condition")
+        report.index$component.deviations.conditions <- data.table(
+          section = "Study-level", section.order = 0, item = text, item.order = 2100000,
+          item.href = add_to_report(fit.sigma, plot_robust_pca(fit.sigma, data = DT, shape = "Condition"), paste0("pca_", tolower(ctrl@component[1]), "_deviations_conditions"), text)
         )
       }
 
@@ -251,36 +252,42 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       # calculate plot limits
       if (ctrl@plots == T) {
         cat(paste0("[", Sys.time(), "]   calculating plot limits...\n"))
-        lims <- list(group.means = NULL, group.quants = NULL, component.deviations = NULL, component.means = NULL, component.stdevs = NULL, measurement.means = NULL, measurement.stdevs = NULL)
-        if ("groups" %in% ctrl@plot) {
-          lims$group.means <- limits_dists(group_means(fit.sigma, summary = T, as.data.table = T))
-          lims$group.quants <- limits_dists(group_quants(fit.sigma, summary = T, as.data.table = T))
-        }
-        if ("components" %in% ctrl@plot) {
-          lims$component.deviations <- limits_dists(component_deviations(fit.sigma, summary = T, as.data.table = T), include.zero = T)
+        lims <- list()
+        if ("group.quants" %in% ctrl@plot) lims$group.quants <- limits_dists(group_quants(fit.sigma, summary = T, as.data.table = T))
+        if ("group.stats" %in% ctrl@plot) lims$group.means <- limits_dists(group_means(fit.sigma, summary = T, as.data.table = T))
+        if ("component.deviations" %in% ctrl@plot) lims$component.deviations <- limits_dists(component_deviations(fit.sigma, summary = T, as.data.table = T), include.zero = T)
+        if ("component.stats" %in% ctrl@plot) {
           lims$component.means <- limits_dists(component_means(fit.sigma, summary = T, as.data.table = T))
-          lims$component.stdevs <- limits_dists(component_stdevs(fit.sigma, summary = T, as.data.table = T), include.zero = T)
+          lims$component.stdevs <- limits_dists(component_stdevs(fit.sigma, summary = T, as.data.table = T), include.zero = T, non.negative = T)
         }
-        if ("measurements" %in% ctrl@plot) {
+        if ("measurement.stats" %in% ctrl@plot) {
           lims$measurement.means <- limits_dists(measurement_means(fit.sigma, summary = T, as.data.table = T))
-          lims$measurement.stdevs <- limits_dists(measurement_stdevs(fit.sigma, summary = T, as.data.table = T), include.zero = T)
+          lims$measurement.stdevs <- limits_dists(measurement_stdevs(fit.sigma, summary = T, as.data.table = T), include.zero = T, non.negative = T)
         }
         saveRDS(lims, file.path(filepath(fit.sigma), "sigma", "limits.rds"))
       }
 
-      # save assay stdevs plot
-      if (ctrl@assay.model != "" & "assays" %in% ctrl@plot) {
-        cat(paste0("[", Sys.time(), "]    plotting assay stdevs...\n"))
-
-        # contruct fig for each block
-        lim <- limits_dists(assay_stdevs(fit.sigma), include.zero = T, non.negative = T)
-        parallel_lapply(blocks(fit.sigma), function(item) saveRDS(plot_assay_stdevs(item), file.path(filepath(item), "assay.stdevs.plot.rds")))
-
-        # merge and add to report
-        figs <- lapply(blocks(fit.sigma), function(block) readRDS(file.path(filepath(block), "assay.stdevs.plot.rds")))
-        add_to_report(fit.sigma, merge_figs(figs), "assay_stats", "Assay stdevs QC plot")
+      # save assay stats plot
+      if (ctrl@assay.model != "" && "assay.stats" %in% ctrl@plot) {
+        cat(paste0("[", Sys.time(), "]   generating assay stdevs plot...\n"))
+        fig <- merge_figs(parallel_lapply(blocks(fit.sigma), function(item) plot_assay_stdevs(item, facets = "Block", min.width = 0, min.height = 0)))
+        report.index$assay.stats <- data.table(
+          section = "Study-level", section.order = 0, item = "Assay stats QC plot", item.order = 0,
+          item.href = add_to_report(fit.sigma, fig, "assay_stats", "Assay stats QC plot")
+        )
       }
 
+      # save group stats plot
+      if ("group.stats" %in% ctrl@plot) {
+        cat(paste0("[", Sys.time(), "]   generating group stats plot...\n"))
+        fig <- plot_group_means(fit.sigma, summary = F)
+        report.index$group.stats <- data.table(
+          section = "Study-level", section.order = 0, item = paste0(ctrl@group[1], " stats plot"), item.order = 100000,
+          item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@group[1]), "_stats"), paste0(ctrl@group[1], " stats plot"))
+        )
+      }
+
+      if (length(report.index) > 0) fst::write.fst(rbindlist(report.index), file.path(filepath(fit.sigma), "sigma", "report.index.fst"))
       increment_completed(file.path(filepath(fit.sigma), "sigma"))
     }
   }

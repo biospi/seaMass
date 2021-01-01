@@ -24,8 +24,6 @@
 \alias{add_seaMass_spikein_truth}
 \alias{add_Navarro_spikein_truth}
 \alias{group_means,sigma_block-method}
-\alias{normalised_group_quants,sigma_block-method}
-\alias{standardised_group_deviations,sigma_block-method}
 \title{seaMass-Δ}
 \usage{
 seaMass_delta(
@@ -107,24 +105,6 @@ add_Navarro_spikein_truth(data.fdr)
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
-
-\S4method{normalised_group_quants}{sigma_block}(
-  object,
-  groups = NULL,
-  summary = TRUE,
-  input = "model1",
-  chains = 1:control(object)@nchain,
-  as.data.table = FALSE
-)
-
-\S4method{standardised_group_deviations}{sigma_block}(
-  object,
-  groups = NULL,
-  summary = TRUE,
-  input = "model1",
-  chains = 1:control(object)@nchain,
-  as.data.table = FALSE
-)
 }
 \arguments{
 \item{fit}{A \link{seaMass_sigma} object as returned by seaMass-Σ.}
@@ -186,9 +166,5 @@ quants output by seaMass-Σ
 \item \code{add_Navarro_spikein_truth}: Add Navarro spikein ground truth to the object of \code{group_fdr} pr \code{component_deviations_fdr}.
 
 \item \code{group_means,sigma_block-method}: Get the model group means as a \link{data.frame}.
-
-\item \code{normalised_group_quants,sigma_block-method}: Get the model normalised group quantifications as a \link{data.frame}.
-
-\item \code{standardised_group_deviations,sigma_block-method}: Get the model standardised group deviations as a \link{data.frame}.
 }}
 
