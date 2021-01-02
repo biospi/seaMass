@@ -47,7 +47,9 @@ setMethod("plot_priors", "sigma_block", function(
   alpha = list(0.75, 0.2, 0.2),
   value.label = "stdev",
   value.limits = limits_dists(data, trim, include.zero = T, non.negative = T),
-  variable.label.cols = c("Sample", "Assay"),
+  variable.summary.cols = c("Block", "Run", "Channel", "Assay", "RefWeight", "Sample",
+    "Condition", "A.qG", "A.qC", "A.qM", "A.qD"),
+  variable.label.cols = c("Sample", "Assay", "Block"),
   ...
 )
 }

@@ -295,24 +295,26 @@ setMethod("plot_dists", "seaMass", function(
   # elements are summary.cols with text.cols labels
   data.table::setorderv(DT1, summary.cols, order = ifelse(horizontal, -1, 1), na.last = T)
 
-  DT1[, Summary := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(summary.cols)]))]
+  #DT1[, Summary := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(summary.cols)]))]
   for (col in label.cols) {
-    if (any(nchar(as.character(DT1[[col]])) > 32)) {
+    if (any(nchar(as.character(DT1[[col]])) > 24)) {
       if (horizontal) {
         DT1[, (paste0("_", col)) := paste0(
-          "(", as.integer(factor(get(col), levels = rev(unique(get(col))))), ") ", ifelse(nchar(as.character(get(col))) > 29, paste0(strtrim(as.character(get(col)), 32), "..."), as.character(get(col)))
+          "(", as.integer(factor(get(col), levels = rev(unique(get(col))))), ") ", ifelse(nchar(as.character(get(col))) > 21, paste0(strtrim(as.character(get(col)), 24), "..."), as.character(get(col)))
         )]
       } else {
         DT1[, (paste0("_", col)) := paste0(
-          "(", as.integer(factor(get(col), levels = unique(get(col)))), ") ", ifelse(nchar(as.character(get(col))) > 29, paste0(strtrim(as.character(get(col)), 32), "..."), as.character(get(col)))
+          "(", as.integer(factor(get(col), levels = unique(get(col)))), ") ", ifelse(nchar(as.character(get(col))) > 21, paste0(strtrim(as.character(get(col)), 24), "..."), as.character(get(col)))
         )]      }
     } else {
       DT1[, (paste0("_", col)) := get(col)]
     }
   }
-  DT1[, labels := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(paste0("_", label.cols))]))]
-  DT1[, Summary := factor(Summary, levels = unique(Summary), labels = unique(labels))]
-  DT1[, labels := NULL]
+  #DT1[, labels := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(paste0("_", label.cols))]))]
+  #DT1[, Summary := factor(Summary, levels = unique(Summary), labels = unique(labels))]
+  DT1[, Summary := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(paste0("_", label.cols))]))]
+  DT1[, Summary := factor(Summary, levels = unique(Summary))]
+  #DT1[, labels := NULL]
   DT1[, (paste0("_", label.cols)) := NULL]
 
   # set up plot

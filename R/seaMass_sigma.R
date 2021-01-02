@@ -786,7 +786,8 @@ setMethod("plot_group_means", "seaMass_sigma", function(
   summary = TRUE,
   colour = "Block",
   value.label = "mean",
-  variable.summary.cols = "Group",
+  variable.summary.cols = c("Group", "Block", "G.qC", "G.qM", "G.qD"),
+  variable.label.cols = "Group",
   ...
 ) {
   return(plot_dists(
@@ -795,6 +796,7 @@ setMethod("plot_group_means", "seaMass_sigma", function(
     colour = colour,
     value.label = value.label,
     variable.summary.cols = variable.summary.cols,
+    variable.label.cols = variable.label.cols,
     ...
   ))
 })
@@ -834,7 +836,8 @@ setMethod("plot_component_means", "seaMass_sigma", function(
   summary = TRUE,
   colour = "Block",
   value.label = "mean",
-  variable.summary.cols = "Component",
+  variable.summary.cols = c("Group", "Component", "Block", "C.qM", "C.qD"),
+  variable.label.cols = "Component",
   ...
 ) {
   return(plot_dists(
@@ -843,6 +846,7 @@ setMethod("plot_component_means", "seaMass_sigma", function(
     colour = colour,
     value.label = value.label,
     variable.summary.cols = variable.summary.cols,
+    variable.label.cols = variable.label.cols,
     ...
   ))
 })
@@ -857,7 +861,8 @@ setMethod("plot_component_stdevs", "seaMass_sigma", function(
   summary = TRUE,
   colour = "Block",
   value.label = "stdev",
-  variable.summary.cols = "Component",
+  variable.summary.cols = c("Group", "Component", "Block", "C.qM", "C.qD"),
+  variable.label.cols = "Component",
   ...
 ) {
   return(plot_dists(
@@ -866,6 +871,7 @@ setMethod("plot_component_stdevs", "seaMass_sigma", function(
     colour = colour,
     value.label = value.label,
     variable.summary.cols = variable.summary.cols,
+    variable.label.cols = variable.label.cols,
     ...
   ))
 })
@@ -879,16 +885,18 @@ setMethod("plot_component_deviations", "seaMass_sigma", function(
   group,
   summary = TRUE,
   colour = "Condition",
-  variable.summary.cols = c("Component", "Sample", "Assay", "Block"),
   value.label = "deviation",
+  variable.summary.cols = c("Group", "Component", "Block", "Run", "Channel", "Assay", "RefWeight", "Sample", "Condition", "AC.qM", "AC.qD"),
+  variable.label.cols = c("Component", "Sample", "Assay", "Block"),
   ...
 ) {
   return(plot_dists(
     object,
     data = component_deviations(object, group, summary = summary, as.data.table = T),
     colour = colour,
-    variable.summary.cols = variable.summary.cols,
     value.label = value.label,
+    variable.summary.cols = variable.summary.cols,
+    variable.label.cols = variable.label.cols,
     ...
   ))
 })
@@ -903,7 +911,8 @@ setMethod("plot_measurement_means", "seaMass_sigma", function(
   summary = TRUE,
   colour = "Block",
   value.label = "mean",
-  variable.summary.cols = c("Component", "Measurement"),
+  variable.summary.cols = c("Group", "Component", "Measurement", "Block", "M.qD"),
+  variable.label.cols = c("Component", "Measurement"),
   ...
 ) {
   return(plot_dists(
@@ -912,6 +921,7 @@ setMethod("plot_measurement_means", "seaMass_sigma", function(
     colour = colour,
     value.label = value.label,
     variable.summary.cols = variable.summary.cols,
+    variable.label.cols = variable.label.cols,
     ...
   ))
 })
@@ -926,7 +936,8 @@ setMethod("plot_measurement_stdevs", "seaMass_sigma", function(
   summary = TRUE,
   colour = "Block",
   value.label = "stdev",
-  variable.summary.cols = c("Component", "Measurement"),
+  variable.summary.cols = c("Group", "Component", "Measurement", "Block", "M.qD"),
+  variable.label.cols = c("Component", "Measurement"),
   ...
 ) {
   return(plot_dists(
@@ -935,6 +946,7 @@ setMethod("plot_measurement_stdevs", "seaMass_sigma", function(
     colour = colour,
     value.label = value.label,
     variable.summary.cols = variable.summary.cols,
+    variable.label.cols = variable.label.cols,
     ...
   ))
 })

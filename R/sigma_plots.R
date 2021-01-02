@@ -27,7 +27,7 @@ setMethod("plots", "sigma_block", function(object, chain, job.id) {
     if ("group.quants" %in% ctrl@plot) {
       fig <- plot_group_quants(fit.sigma, item, value.limits = lims$group.quants, summary = F)
       report.index1$group.quant <- data.table(
-        section = paste0("raw ", ctrl@group[1], " quants"), section.order = 150, item = item, item.order = as.integer(item),
+        section = paste0(ctrl@group[1], " raw quants"), section.order = 150, item = item, item.order = as.integer(item),
         item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@group[1]), "_quants_", as.integer(item)), paste0(ctrl@group[1], " quants for ", item), dir = batch)
       )
     }
