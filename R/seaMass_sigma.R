@@ -311,7 +311,7 @@ seaMass_sigma <- function(
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("report", "seaMass_sigma", function(object) {
+setMethod("report", "seaMass_sigma", function(object, job.id) {
   cat(paste0("[", Sys.time(), "]  REPORT\n"))
   ctrl <- control(object)
 
