@@ -100,7 +100,7 @@ StatYlfdr <- ggplot2::ggproto(
   compute_panel = function(self, data, scales, width = NULL, trim = TRUE, na.rm = FALSE, scale = NULL, flipped_aes = FALSE) {
     data <- ggplot2::flip_data(data, flipped_aes)
     data <- ggplot2::ggproto_parent(ggplot2::Stat, self)$compute_panel(data, scales, width = width, trim = trim, na.rm = na.rm)
-    data$violinwidth <- 1.8 * data$lfdr
+    data$violinwidth <- 1.6 * data$lfdr
     data$flipped_aes <- flipped_aes
     return(ggplot2::flip_data(data, flipped_aes))
   }

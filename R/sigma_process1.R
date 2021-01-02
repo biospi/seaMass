@@ -270,7 +270,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       # save assay stats plot
       if (ctrl@assay.model != "" && "assay.stats" %in% ctrl@plot) {
         cat(paste0("[", Sys.time(), "]   generating assay stdevs plot...\n"))
-        fig <- merge_figs(parallel_lapply(blocks(fit.sigma), function(item) plot_assay_stdevs(item, facets = "Block", min.width = 0, min.height = 0)))
+        fig <- plot_assay_stdevs(fit.sigma)
         report.index$assay.stats <- data.table(
           section = "Study-level", section.order = 0, item = "Assay stats QC plot", item.order = 0,
           item.href = add_to_report(fit.sigma, fig, "assay_stats", "Assay stats QC plot")

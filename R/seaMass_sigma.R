@@ -331,9 +331,7 @@ setMethod("finish", "seaMass_sigma", function(object) {
   if (!("group.means" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "group.means*"), recursive = T)
   if (!("group.quants" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "group.quants*"), recursive = T)
 
-  # render report and delete markdown
-  cat(paste0("[", Sys.time(), "]   generating html report...\n"))
-  render_report(object)
+  # delete markdown
   if (!("markdown" %in% ctrl@keep)) unlink(file.path(filepath(object), "markdown"), recursive = T)
 
   return(invisible(NULL))
@@ -755,11 +753,11 @@ setMethod("plot_assay_stdevs", "seaMass_sigma", function(
   trim = c(0.05, 0.95),
   colour = list("A.qM", NULL, NULL),
   fill = list(NULL, "darkgreen", "black"),
-  alpha = list(1, 0.2, 0.2),
-  facets = NULL,
+  alpha = list(0.75, 0.2, 0.2),
   value.label = "stdev",
   value.limits = limits_dists(data, trim, include.zero = T, non.negative = T),
-  variable.label.cols = c("Assay", "Sample", "Block"),
+  variable.summary.cols = c("Block", "Run", "Channel", "Assay", "RefWeight", "Sample", "Condition", "A.qG", "A.qC", "A.qM", "A.qD"),
+  variable.label.cols = c("Sample", "Assay", "Block"),
   ...
 ) {
   return(plot_dists(
@@ -770,9 +768,9 @@ setMethod("plot_assay_stdevs", "seaMass_sigma", function(
     colour = colour,
     fill = fill,
     alpha = alpha,
-    facets = facets,
     value.label = value.label,
     value.limits = value.limits,
+    variable.summary.cols = variable.summary.cols,
     variable.label.cols = variable.label.cols,
     ...
   ))
@@ -810,7 +808,8 @@ setMethod("plot_group_quants", "seaMass_sigma", function(
   group,
   summary = TRUE,
   colour = "Condition",
-  variable.label.cols = c("Assay", "Sample", "Block"),
+  variable.summary.cols = c("Group", "Block", "Run", "Channel", "Assay", "RefWeight", "Sample", "Condition", "AG.qC", "AG.qM", "AG.qD"),
+  variable.label.cols = c("Sample", "Assay", "Block"),
   value.label = "quant",
   ...
 ) {
@@ -818,6 +817,7 @@ setMethod("plot_group_quants", "seaMass_sigma", function(
     object,
     data = group_quants(object, group, summary = summary, as.data.table = T),
     colour = colour,
+    variable.summary.cols = variable.summary.cols,
     variable.label.cols = variable.label.cols,
     value.label = value.label,
     ...
@@ -877,18 +877,17 @@ setMethod("plot_component_stdevs", "seaMass_sigma", function(
 setMethod("plot_component_deviations", "seaMass_sigma", function(
   object,
   group,
-  component,
   summary = TRUE,
   colour = "Condition",
-  variable.label.cols = c("Assay", "Sample", "Block"),
-  value.label = "quant",
+  variable.summary.cols = c("Component", "Sample", "Assay", "Block"),
+  value.label = "deviation",
   ...
 ) {
   return(plot_dists(
     object,
-    data = component_deviations(object, data.table(Group = group, Component = component), summary = summary, as.data.table = T),
+    data = component_deviations(object, group, summary = summary, as.data.table = T),
     colour = colour,
-    variable.label.cols = variable.label.cols,
+    variable.summary.cols = variable.summary.cols,
     value.label = value.label,
     ...
   ))
@@ -901,16 +900,15 @@ setMethod("plot_component_deviations", "seaMass_sigma", function(
 setMethod("plot_measurement_means", "seaMass_sigma", function(
   object,
   group,
-  component,
   summary = TRUE,
   colour = "Block",
   value.label = "mean",
-  variable.summary.cols = "Measurement",
+  variable.summary.cols = c("Component", "Measurement"),
   ...
 ) {
   return(plot_dists(
     object,
-    data = measurement_means(object, data.table(Group = group, Component = component), summary = summary, as.data.table = T),
+    data = measurement_means(object, group, summary = summary, as.data.table = T),
     colour = colour,
     value.label = value.label,
     variable.summary.cols = variable.summary.cols,
@@ -925,16 +923,15 @@ setMethod("plot_measurement_means", "seaMass_sigma", function(
 setMethod("plot_measurement_stdevs", "seaMass_sigma", function(
   object,
   group,
-  component,
   summary = TRUE,
   colour = "Block",
   value.label = "stdev",
-  variable.summary.cols = "Measurement",
+  variable.summary.cols = c("Component", "Measurement"),
   ...
 ) {
   return(plot_dists(
     object,
-    data = measurement_stdevs(object, data.table(Group = group, Component = component), summary = summary, as.data.table = T),
+    data = measurement_stdevs(object, group, summary = summary, as.data.table = T),
     colour = colour,
     value.label = value.label,
     variable.summary.cols = variable.summary.cols,

@@ -355,10 +355,10 @@ setMethod("plot_assay_stdevs", "sigma_block", function(
   trim = c(0.05, 0.95),
   colour = list("A.qM", NULL, NULL),
   fill = list(NULL, "darkgreen", "black"),
-  alpha = list(1, 0.2, 0.2),
+  alpha = list(0.75, 0.2, 0.2),
   value.label = "stdev",
   value.limits = limits_dists(data, trim, include.zero = T, non.negative = T),
-  variable.label.cols = c("Assay", "Sample"),
+  variable.label.cols = c("Sample", "Assay"),
   ...
 ) {
   return(plot_dists(
@@ -406,7 +406,7 @@ setMethod("plot_group_quants", "sigma_block", function(
   group,
   summary = TRUE,
   colour = "Condition",
-  variable.label.cols = c("Assay", "Sample"),
+  variable.summary.cols = c("Sample", "Assay"),
   value.label = "quant",
   ...
 ) {
@@ -414,7 +414,7 @@ setMethod("plot_group_quants", "sigma_block", function(
     object,
     data = group_quants(object, group, summary = summary, as.data.table = T),
     colour = colour,
-    variable.label.cols = variable.label.cols,
+    variable.summary.cols = variable.summary.cols,
     value.label = value.label,
     ...
   ))
@@ -469,18 +469,17 @@ setMethod("plot_component_stdevs", "sigma_block", function(
 setMethod("plot_component_deviations", "sigma_block", function(
   object,
   group,
-  component,
   summary = TRUE,
   colour = "Condition",
-  variable.label.cols = c("Assay", "Sample"),
+  variable.summary.cols = c("Component", "Sample", "Assay"),
   value.label = "deviation",
   ...
 ) {
   return(plot_dists(
     object,
-    data = component_deviations(object, data.table(Group = group, Component = component), summary = summary, as.data.table = T),
+    data = component_deviations(object, group, summary = summary, as.data.table = T),
     colour = colour,
-    variable.label.cols = variable.label.cols,
+    variable.summary.cols = variable.summary.cols,
     value.label = value.label,
     ...
   ))
@@ -493,7 +492,6 @@ setMethod("plot_component_deviations", "sigma_block", function(
 setMethod("plot_measurement_means", "sigma_block", function(
   object,
   group,
-  component,
   summary = TRUE,
   colour = "M.qD",
   value.label = "mean",
@@ -501,7 +499,7 @@ setMethod("plot_measurement_means", "sigma_block", function(
 ) {
   return(plot_dists(
     object,
-    data = measurement_means(object, data.table(Group = group, Component = component), summary = summary, as.data.table = T),
+    data = measurement_means(object, group, summary = summary, as.data.table = T),
     colour = colour,
     value.label = value.label,
     ...
@@ -515,7 +513,6 @@ setMethod("plot_measurement_means", "sigma_block", function(
 setMethod("plot_measurement_stdevs", "sigma_block", function(
   object,
   group,
-  component,
   summary = TRUE,
   colour = "M.qD",
   value.label = "stdev",
@@ -523,7 +520,7 @@ setMethod("plot_measurement_stdevs", "sigma_block", function(
 ) {
   return(plot_dists(
     object,
-    data = measurement_stdevs(object, data.table(Group = group, Component = component), summary = summary, as.data.table = T),
+    data = measurement_stdevs(object, group, summary = summary, as.data.table = T),
     colour = colour,
     value.label = value.label,
     ...

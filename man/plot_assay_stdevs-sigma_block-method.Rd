@@ -44,10 +44,10 @@ setMethod("plot_priors", "sigma_block", function(
   trim = c(0.05, 0.95),
   colour = list("A.qM", NULL, NULL),
   fill = list(NULL, "darkgreen", "black"),
-  alpha = list(1, 0.2, 0.2),
+  alpha = list(0.75, 0.2, 0.2),
   value.label = "stdev",
   value.limits = limits_dists(data, trim, include.zero = T, non.negative = T),
-  variable.label.cols = c("Assay", "Sample"),
+  variable.label.cols = c("Sample", "Assay"),
   ...
 )
 }

@@ -6,6 +6,7 @@
 \usage{
 \S4method{init_report}{seaMass}(
   object,
+  dir = ".",
   name = seaMass::name(parent(object)),
   title = paste("seaMass report for project", name)
 )

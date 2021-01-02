@@ -134,7 +134,7 @@ setMethod("read", "seaMass", function(
 #' @import data.table
 #' @export
 #' @include generics.R
-limits_dists <- function(data, quantiles.dist = c(0.05, 0.95), quantiles.dists = c(0.01, 0.99), include.zero = FALSE, non.negative = FALSE) {
+limits_dists <- function(data, quantiles.dist = c(0.05, 0.95), quantiles.dists = c(0.005, 0.995), include.zero = FALSE, non.negative = FALSE) {
   if (is.data.frame(data)) data <- list(data)
 
   lims <- sapply(data, function(dd) {
@@ -206,17 +206,15 @@ setMethod("plot_dists", "seaMass", function(
   trim = c(0.05, 0.95),
   colour = "black",
   fill = NULL,
-  alpha = 0.8,
-  facets = NULL,
+  alpha = 0.75,
   value.label = "value",
   value.limits = limits_dists(data),
-  value.length = 160,
   variable.labels = TRUE,
   variable.summary.cols = NULL,
   variable.label.cols = NULL,
   variable.interval = 5,
   show.legend = TRUE,
-  min.width = 300,
+  min.width = 900,
   min.height = 300
 ) {
   if (is.data.frame(data)) {
@@ -270,7 +268,7 @@ setMethod("plot_dists", "seaMass", function(
       summary.cols <- colnames(DTs[[1]])[1:(which(colnames(DTs[[1]]) == "s") - 1)]
     }
   } else {
-    summary.cols <- unique(c(facets, variable.summary.cols))
+    summary.cols <- variable.summary.cols
   }
 
   # merge metadata
@@ -286,10 +284,6 @@ setMethod("plot_dists", "seaMass", function(
   if ("Group" %in% cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_groups(object, as.data.table = T), sort = F, by = c(block, "Group", "Assay"))
   if ("Group" %in% cols && "Component" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_components(object, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Assay"))
 
-  # remove summary cols that contain inhomogenous data
-  imho <- sapply(summary.cols, function(col) uniqueN(DTs[[1]][, col, with = F]) > 1)
-  if (!all(!imho)) summary.cols <- summary.cols[imho]
-
   ## SET UP PLOT
 
   if (is.null(variable.label.cols)) {
@@ -299,26 +293,36 @@ setMethod("plot_dists", "seaMass", function(
   }
 
   # elements are summary.cols with text.cols labels
-  if (is.null(variable.summary.cols)) {
-    data.table::setorderv(DT1, summary.cols, order = ifelse(horizontal, -1, 1), na.last = T)
-  } else {
-    data.table::setorderv(DT1, variable.summary.cols, order = ifelse(horizontal, -1, 1), na.last = T)
-  }
+  data.table::setorderv(DT1, summary.cols, order = ifelse(horizontal, -1, 1), na.last = T)
+
   DT1[, Summary := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(summary.cols)]))]
-  DT1[, labels := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(label.cols)]))]
+  for (col in label.cols) {
+    if (any(nchar(as.character(DT1[[col]])) > 32)) {
+      if (horizontal) {
+        DT1[, (paste0("_", col)) := paste0(
+          "(", as.integer(factor(get(col), levels = rev(unique(get(col))))), ") ", ifelse(nchar(as.character(get(col))) > 29, paste0(strtrim(as.character(get(col)), 32), "..."), as.character(get(col)))
+        )]
+      } else {
+        DT1[, (paste0("_", col)) := paste0(
+          "(", as.integer(factor(get(col), levels = unique(get(col)))), ") ", ifelse(nchar(as.character(get(col))) > 29, paste0(strtrim(as.character(get(col)), 32), "..."), as.character(get(col)))
+        )]      }
+    } else {
+      DT1[, (paste0("_", col)) := get(col)]
+    }
+  }
+  DT1[, labels := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(paste0("_", label.cols))]))]
   DT1[, Summary := factor(Summary, levels = unique(Summary), labels = unique(labels))]
   DT1[, labels := NULL]
+  DT1[, (paste0("_", label.cols)) := NULL]
 
   # set up plot
   g <- ggplot2::ggplot(DT1, ggplot2::aes(x = Summary))
   if (horizontal) {
-    if (!is.null(facets)) g <- g + ggplot2::facet_wrap(facets, shrink = F, dir = "v", ncol = 1)
     g <- g + ggplot2::coord_flip(ylim = value.limits, expand = F)
     g <- g + ggplot2::theme(axis.title.y = ggplot2::element_blank())
     g <- g + ggplot2::scale_x_discrete(drop = F) # workaround for ggplot2 levels bug
     if (!variable.labels) g <- g + ggplot2::theme(axis.text.y = ggplot2::element_blank())
   } else {
-    if (!is.null(facets)) g <- g + ggplot2::facet_wrap(facets, shrink = F, dir = "h", nrow = 1)
     g <- g + ggplot2::coord_cartesian(ylim = value.limits, expand = F)
     g <- g + ggplot2::theme(axis.title.x = ggplot2::element_blank(), axis.text.x = ggplot2::element_text(angle = 90))
     g <- g + ggplot2::scale_y_discrete(drop = F) # workaround for ggplot2 levels bug
@@ -388,21 +392,48 @@ setMethod("plot_dists", "seaMass", function(
     }
 
     # merge metadata
-    x.cols <- intersect(colnames(DT1), c("Summary", summary.cols, ggcolour.aes, ggfill.aes))
+    #x.cols <- intersect(colnames(DT1), c("Summary", summary.cols, ggcolour.aes, ggfill.aes))
     y.cols <- intersect(colnames(DTs[[i]]), c(summary.cols, y, "dist", arg2, arg3, ggcolour.aes, ggfill.aes))
     by.cols <- intersect(intersect(colnames(DT1), c(summary.cols, ggcolour.aes, ggfill.aes)), colnames(DTs[[i]]))
-    DTs[[i]] <- merge(DT1[, mget(x.cols)], DTs[[i]][, mget(y.cols)], by = by.cols, sort = T, suffixes = c("_", ""))
-    for (col in summary.cols) if (!col %in% c(ggcolour.aes, ggfill.aes)) DTs[[i]][, (col) := NULL]
+    DTs[[i]] <- merge(DT1, DTs[[i]][, mget(y.cols)], by = by.cols, sort = T, suffixes = c("_", ""))
+
+    # yet more hacks - add factor name to ggcolour and ggfill levels
+    if (!is.null(ggcolour.aes)) {
+      levels(DTs[[i]][[ggcolour.aes]]) <- paste(ggcolour.aes, levels(DTs[[i]][[ggcolour.aes]]))
+      if (!is.null(ggfill.aes) && ggcolour.aes != ggfill.aes) levels(DTs[[i]][[ggfill.aes]]) <- paste(ggfill.aes, levels(DTs[[i]][[ggfill.aes]]))
+    } else {
+      if (!is.null(ggfill.aes)) levels(DTs[[i]][[ggfill.aes]]) <- paste(ggfill.aes, levels(DTs[[i]][[ggfill.aes]]))
+    }
 
     # prettify names
     ctrl <- control(object)
-    tmp <- unique(c(ggcolour.aes, ggfill.aes))
+    tmp <- unique(c(summary.cols, ggcolour.aes, ggfill.aes))
     if (length(tmp) > 0) setnames(DTs[[i]], tmp, sapply(tmp, function(t) lingofy(object, t)), skip_absent = T)
     ggcolour.aes <- lingofy(object, ggcolour.aes)
     ggfill.aes <- lingofy(object, ggfill.aes)
+    summary.cols1 <- lingofy(object, summary.cols)
+
+    # text tooltip
+    DT.plot <- copy(DTs[[i]]) # workaround for data.table problem
+    text.old <- intersect(colnames(DTs[[i]]), setdiff(summary.cols1, c(ggcolour.aes, ggfill.aes)))
+    text.cols <- sapply(text.old, function(col) gsub("\n", " ", col))
+    setnames(DT.plot, text.old, text.cols, skip_absent = T)
+    for (col in text.cols) {
+      DT.plot[, (col) := sapply(
+        paste0(col, ": ", DT.plot[[col]]),
+        function(str1) paste(sapply(seq(1, nchar(str1), 32), function(i) paste0(substring(str1, i, min(i + 31, nchar(str1))), '\n')), collapse='')
+      )]
+    }
+    DT.plot[, text := do.call(paste0, mget(text.cols))]
+    DT.plot[, text := sub("\n$", "", text)]
+    for (col in text.cols) DT.plot[, (col) := NULL]
+
+    # remove unnecessary columns
+    DT.plot <- DT.plot[, intersect(colnames(DT.plot), c("Summary", "value", "m", "s", "df", "dist", ggcolour.aes, ggfill.aes, "text")), with = F]
 
     # plot violin!
     args.aes <- list(
+      text = ~text,
       y = formula(paste0("~`", y, "`")),
       dist = ~dist,
       arg2 = NULL,
@@ -415,7 +446,7 @@ setMethod("plot_dists", "seaMass", function(
 
     args <- list(
       mapping = do.call(eval(parse(text = "ggplot2::aes_")), args.aes),
-      data = DTs[[i]],
+      data = DT.plot,
       position = "identity",
       scale = NULL,
       stat = "ylfdr",
@@ -426,11 +457,12 @@ setMethod("plot_dists", "seaMass", function(
     if (!is.null(ggcolour)) args$colour <- ggcolour
     if (!is.null(ggfill)) args$fill <- ggfill
 
-    g <- g + do.call(eval(parse(text = "ggplot2::geom_violin")), args)
+    suppressWarnings(g <- g + do.call(eval(parse(text = "ggplot2::geom_violin")), args))
 
     # plot quantiles
     for (qt in draw_quantiless[[(i-1) %% length(draw_quantiless) + 1]]) {
       args.aes <- list(
+        text = ~text,
         y = formula(paste0("~`", y, "`")),
         dist = ~dist,
         arg2 = NULL,
@@ -443,7 +475,7 @@ setMethod("plot_dists", "seaMass", function(
 
       args <- list(
         mapping = do.call(eval(parse(text = "ggplot2::aes_")), args.aes),
-        data = DTs[[i]],
+        data = DT.plot,
         position = "identity",
         scale = NULL,
         stat = "ylfdr",
@@ -454,7 +486,7 @@ setMethod("plot_dists", "seaMass", function(
       if (!is.null(ggcolour)) args$colour <- ggcolour
       if (!is.null(ggfill)) args$fill <- ggfill
 
-      g <- g + do.call(eval(parse(text = "ggplot2::geom_violin")), args)
+      suppressWarnings(g <- g + do.call(eval(parse(text = "ggplot2::geom_violin")), args))
     }
   }
 
@@ -464,8 +496,8 @@ setMethod("plot_dists", "seaMass", function(
   ## CONVERT TO PLOTLY
 
   # set panel size and get resulting overall size
-  width <- ifelse(horizontal, value.length, variable.interval * nlevels(DT1$Summary))
-  height <- ifelse(horizontal, variable.interval * nlevels(DT1$Summary), value.length)
+  width <- ifelse(horizontal, 50, variable.interval * nlevels(DT1$Summary))
+  height <- ifelse(horizontal, variable.interval * nlevels(DT1$Summary), 50)
   print(g) # workaround
   gt <- egg::set_panel_size(g, width = grid::unit(width, "mm"), height = grid::unit(height, "mm"))
   width <- sum(as.numeric(grid::convertUnit(gt$widths, "mm")))
@@ -474,32 +506,14 @@ setMethod("plot_dists", "seaMass", function(
   # convert to plotly
   width <- 70 + 3*width # nasty fudge factor
   height <- 70 + 3*height # nasty fudge factor
-  fig <- suppressWarnings(plotly::ggplotly(g, max(min.width, width), max(min.height, height), "x"))
+  fig <- suppressWarnings(plotly::ggplotly(g, max(min.width, width), max(min.height, height), "text"))
   # horrible hack for ggplotly tooltip
   for (i in 1:length(fig$x$data)) fig$x$data[[i]]$text <- sapply(fig$x$data[[i]]$text, function(s) gsub("density", paste("log2", value.label), s), USE.NAMES = F)
+  # remove annotation as ggplotly label implementation is awful
+  if (!is.null(fig$x$layout$annotations)) for (i in 1:length(fig$x$layout$annotations)) fig$x$layout$annotations[[i]]$text = ""
 
   return(fig)
 })
-
-
-#' @import data.table
-#' @export
-#' @include generics.R
-merge_figs <- function(
-  figs,
-  margin = 50,
-  min.width = 300,
-  min.height = 300
-) {
-  # remove NULLs
-  figs[sapply(figs, is.null)] <- NULL
-
-  height <- sum(sapply(figs, function(f) f$height) + margin) - margin
-  fig <- plotly::subplot(figs, nrows = length(figs), shareX = T, margin = margin / height / length(figs))
-  fig <- suppressWarnings(plotly::layout(fig, width = max(fig$width, min.width), height = max(height, min.height))) # stupid deprecation
-  fig <- plotly::layout(fig, xaxis = list(title = figs[[1]]$x$layout$annotations[[1]]$text)) # to fix disappearing axes labels
-  return(fig)
-}
 
 
 #' Robust PCA fit
@@ -649,7 +663,7 @@ setMethod("plot_robust_pca", "seaMass", function(
   # hack for plotly tooltips
   DT[, Summary := interaction(Block, Assay, drop = T, lex.order = T)]
   DT[, text := paste0(
-    "Block: ", Block, "\nAssay: ", Assay, "\nSample: ", Sample, "\nCondition: ", Condition, "\n",
+    "Block: ", Block, "\nRun: ", Run, "\nChannel ", Channel, "\nAssay: ", Assay, "\nSample: ", Sample, "\nCondition: ", Condition, "\n",
     ctrl@group[2], " q/u/n: ", A.qG, "/", A.uG, "/", A.nG, "\n",
     ctrl@component[2], " q/u/n: ", A.qC, "/", A.uC, "/", A.nC, "\n",
     ctrl@measurement[2], " q/u/n: ", A.qM, "/", A.uM, "/", A.nM, "\n",
@@ -791,20 +805,26 @@ setMethod("plot_robust_pca", "seaMass", function(
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("init_report", "seaMass", function(object, name = seaMass::name(parent(object)), title = paste("seaMass report for project", name)) {
+setMethod("init_report", "seaMass", function(object, dir = ".", name = seaMass::name(parent(object)), title = paste("seaMass report for project", name)) {
   ctrl <- control(object)
+  if (dir == ".") {
+    path <- file.path(filepath(parent(object)), "markdown")
+  } else {
+    path <- file.path(filepath(parent(object)), "markdown", paste0("_", dir))
+  }
+  dir.create(path, showWarnings = F)
 
   cat(paste0(
     'name: ', title, '\n',
-    'output_dir: ../output\n',
+    ifelse(dir == ".", 'output_dir: ../output\n', paste0('output_dir: ../../output/', dir, '\n')),
     'navbar:\n',
     '  title: ', name, '\n',
     '  left:\n',
     '    - text: "Index"\n',
-    '      href: index.html\n',
+    ifelse(dir == ".", '      href: index.html\n', '      href: ../index.html\n'),
     'output:\n',
     '  html_document:\n'
-  ), file = file.path(filepath(parent(object)), "markdown", "_site.yml"))
+  ), file = file.path(path, "_site.yml"))
 
   cat(paste0(
     '---\n',
@@ -816,8 +836,8 @@ setMethod("init_report", "seaMass", function(object, name = seaMass::name(parent
     "    toc: true\n",
     "    toc_float: true\n",
     '---\n',
-    '* [CSV output](csv)\n'
-  ), file = file.path(filepath(parent(object)), "markdown", "index.Rmd"))
+    ifelse(dir == ".", '* [CSV output](csv)\n', '* [Root](../index.html)\n')
+  ), file = file.path(path, "index.Rmd"))
 
   return(invisible(NULL))
 })
@@ -828,10 +848,15 @@ setMethod("init_report", "seaMass", function(object, name = seaMass::name(parent
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("add_to_report", "seaMass", function(object, fig, name, title = name) {
+setMethod("add_to_report", "seaMass", function(object, fig, name, title = name, dir = ".") {
   ctrl <- control(object)
-  path <- file.path(filepath(parent(object)), "markdown", name)
-  saveRDS(suppressWarnings(plotly::toWebGL(fig)), paste0(path, ".rds"))
+  if (dir == ".") {
+    path <- file.path(filepath(parent(object)), "markdown", name)
+  } else {
+    path <- file.path(filepath(parent(object)), "markdown", paste0("_", dir), name)
+  }
+  #saveRDS(suppressWarnings(plotly::toWebGL(fig)), paste0(path, ".rds")) # turned off due to graphical bugs groan
+  saveRDS(suppressWarnings(fig), paste0(path, ".rds"))
 
   cat(paste0(
     "---\n",
@@ -844,7 +869,7 @@ setMethod("add_to_report", "seaMass", function(object, fig, name, title = name) 
     "```\n"
   ), file = paste0(path, ".Rmd"))
 
-  return(paste0(basename(path), ".html"))
+  return(file.path(dir, paste0(basename(path), ".html")))
 })
 
 
@@ -853,23 +878,27 @@ setMethod("add_to_report", "seaMass", function(object, fig, name, title = name) 
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("render_report", "seaMass", function(object) {
-  # gather index and sort
-  DT <- rbindlist(lapply(list.files(filepath(object), pattern = "^report\\.index.*\\.fst$", full.names = T, recursive = T), function(file) {
-    fst::read.fst(file, as.data.table = T)
-  }))
-  setkey(DT, section.order, section, item.order, item)
-  DT[, section.dup := duplicated(section)]
+setMethod("render_report", "seaMass", function(object, dir = ".") {
+  if (dir == ".") {
+    # gather index and sort
+    DT <- rbindlist(lapply(list.files(filepath(object), pattern = "^report\\.index.*\\.fst$", full.names = T, recursive = T), function(file) {
+      fst::read.fst(file, as.data.table = T)
+    }))
+    setkey(DT, section.order, section, item.order, item)
+    DT[, section.dup := duplicated(section)]
 
-  # populate index.Rmd
-  file <- file.path(filepath(parent(object)), "markdown", "index.Rmd")
-  for (i in 1:nrow(DT)) {
-    if (!DT[i, section.dup]) cat(paste0("\n### ", DT[i, section], "\n"), file = file, append = T)
-    cat(paste0("* [", DT[i, item], "](", DT[i, item.href] ,")\n"), file = file, append = T)
+    # populate index.Rmd
+    file <- file.path(filepath(parent(object)), "markdown", "index.Rmd")
+    for (i in 1:nrow(DT)) {
+      if (!DT[i, section.dup]) cat(paste0("\n### ", DT[i, section], "\n"), file = file, append = T)
+      cat(paste0("* [", DT[i, item], "](", DT[i, item.href] ,")\n"), file = file, append = T)
+    }
+  } else {
+    dir <- paste0("_", dir)
   }
 
   # render
-  suppressWarnings(rmarkdown::render_site(file.path(filepath(parent(object)), "markdown"), quiet = T))
+  suppressWarnings(rmarkdown::render_site(file.path(filepath(parent(object)), "markdown", dir), quiet = T))
 
   return(invisible(NULL))
 })

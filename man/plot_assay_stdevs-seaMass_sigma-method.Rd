@@ -44,11 +44,12 @@ setMethod("plot_priors", "seaMass_sigma", function(
   trim = c(0.05, 0.95),
   colour = list("A.qM", NULL, NULL),
   fill = list(NULL, "darkgreen", "black"),
-  alpha = list(1, 0.2, 0.2),
-  facets = NULL,
+  alpha = list(0.75, 0.2, 0.2),
   value.label = "stdev",
   value.limits = limits_dists(data, trim, include.zero = T, non.negative = T),
-  variable.label.cols = c("Assay", "Sample", "Block"),
+  variable.summary.cols = c("Block", "Run", "Channel", "Assay", "RefWeight", "Sample",
+    "Condition", "A.qG", "A.qC", "A.qM", "A.qD"),
+  variable.label.cols = c("Sample", "Assay", "Block"),
   ...
 )
 }

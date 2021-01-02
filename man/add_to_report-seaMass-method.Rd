@@ -4,7 +4,7 @@
 \alias{add_to_report,seaMass-method}
 \title{Add figure to Rmarkdown report}
 \usage{
-\S4method{add_to_report}{seaMass}(object, fig, name, title = name)
+\S4method{add_to_report}{seaMass}(object, fig, name, title = name, dir = ".")
 }
 \description{
 Add figure to Rmarkdown report

@@ -4,7 +4,7 @@
 \alias{render_report,seaMass-method}
 \title{Render Rmarkdown report}
 \usage{
-\S4method{render_report}{seaMass}(object)
+\S4method{render_report}{seaMass}(object, dir = ".")
 }
 \description{
 Render Rmarkdown report
