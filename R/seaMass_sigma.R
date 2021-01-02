@@ -331,9 +331,6 @@ setMethod("report", "seaMass_sigma", function(object, job.id) {
   if (!("group.means" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "group.means*"), recursive = T)
   if (!("group.quants" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "group.quants*"), recursive = T)
 
-  # delete markdown
-  if (!("markdown" %in% ctrl@keep)) unlink(file.path(filepath(object), "markdown"), recursive = T)
-
   # render report
   cat(paste0("[", Sys.time(), "]   generating html index...\n"))
   render_report(object)
@@ -341,6 +338,9 @@ setMethod("report", "seaMass_sigma", function(object, job.id) {
   parallel_lapply(1:nbatch, function(item, object) {
     render_report(object, item)
   }, nthread = ctrl@nthread)
+
+  # delete markdown
+  if (!("markdown" %in% ctrl@keep)) unlink(file.path(filepath(object), "markdown"), recursive = T)
 
   return(invisible(NULL))
 })
