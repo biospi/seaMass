@@ -72,7 +72,7 @@ setClass("sigma_control", slots = c(
 #' @export sigma_control
 sigma_control <- function(
   keep = "summaries",
-  summarise = c("report", "groups", "components", "measurements"),
+  summarise = c("groups", "components", "measurements"),
   plot = c("assay.stats", "group.stats", "group.quants", "group.quants.pca", "component.stats",  "component.deviations", "component.deviations.pca", "measurement.stats"),
   eb.model = "deconvolve",
   eb.max = 1024,
