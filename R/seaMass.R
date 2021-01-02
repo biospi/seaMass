@@ -295,7 +295,6 @@ setMethod("plot_dists", "seaMass", function(
   # elements are summary.cols with text.cols labels
   data.table::setorderv(DT1, summary.cols, order = ifelse(horizontal, -1, 1), na.last = T)
 
-  #DT1[, Summary := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(summary.cols)]))]
   for (col in label.cols) {
     if (any(nchar(as.character(DT1[[col]])) > 24)) {
       if (horizontal) {
@@ -310,11 +309,8 @@ setMethod("plot_dists", "seaMass", function(
       DT1[, (paste0("_", col)) := get(col)]
     }
   }
-  #DT1[, labels := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(paste0("_", label.cols))]))]
-  #DT1[, Summary := factor(Summary, levels = unique(Summary), labels = unique(labels))]
   DT1[, Summary := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(paste0("_", label.cols))]))]
   DT1[, Summary := factor(Summary, levels = unique(Summary))]
-  #DT1[, labels := NULL]
   DT1[, (paste0("_", label.cols)) := NULL]
 
   # set up plot
@@ -451,7 +447,7 @@ setMethod("plot_dists", "seaMass", function(
       data = DT.plot,
       position = "identity",
       scale = NULL,
-      stat = "ylfdr",
+      stat = seaMass::StatYlfdr,
       alpha = alphas[[(i-1) %% length(alpha) + 1]],
       trim = trims[[(i-1) %% length(trims) + 1]],
       show.legend = show.legend
@@ -480,7 +476,7 @@ setMethod("plot_dists", "seaMass", function(
         data = DT.plot,
         position = "identity",
         scale = NULL,
-        stat = "ylfdr",
+        stat = seaMass::StatYlfdr,
         alpha = alphas[[(i-1) %% length(alpha) + 1]],
         trim = c(qt, 1 - qt),
         show.legend = show.legend

@@ -291,7 +291,7 @@ seaMass_theta <- function(
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("finish", "seaMass_theta", function(object, job.id) {
+setMethod("report", "seaMass_theta", function(object, job.id) {
   ctrl <- control(object)
 
   # delete model0

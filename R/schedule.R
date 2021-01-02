@@ -51,9 +51,9 @@ setMethod("run", "schedule_local", function(object, fit.sigma) {
     }
   }
 
-  # finish
-  finish(fit.sigma)
-  for (fit.delta in open_deltas(fit.sigma, force = T)) finish(fit.delta)
+  # report
+  report(fit.sigma)
+  for (fit.delta in open_deltas(fit.sigma, force = T)) report(fit.delta)
 
   cat(paste0("[", Sys.time(), "] finished!\n"))
 
@@ -155,7 +155,7 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, fit.sigma) {
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(filepath(fit.sigma), "slurm", "submit.process0"))
   cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(filepath(fit.sigma), "slurm", "submit.process1"))
   if (ctrl@plots == T) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(filepath(fit.sigma), "slurm", "submit.plots"))
-  cat(config(object, "F", name, 1, T, "hpc_finish"), file = file.path(filepath(fit.sigma), "slurm", "submit.finish"))
+  cat(config(object, "R", name, 1, T, "hpc_report"), file = file.path(filepath(fit.sigma), "slurm", "submit.report"))
 
   # submit script
   cat(paste0(
@@ -184,18 +184,18 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, fit.sigma) {
     "  DELTA=$JOBID\n",
     "fi\n",
     "\n",
-    "JOBID=$(sbatch --parsable --dependency=afterok:$JOBID submit.finish)\n",
+    "JOBID=$(sbatch --parsable --dependency=afterok:$JOBID submit.report)\n",
     "EXITCODE=$?\n",
-    "finish=$JOBID\n",
+    "report=$JOBID\n",
     "\n",
     "# clean up\n",
     "if [[ $EXITCODE != 0 ]]; then\n",
-    "  scancel $PROCESS0 $PROCESS1 $PLOTS $DELTA $finish \n",
+    "  scancel $PROCESS0 $PROCESS1 $PLOTS $DELTA $report \n",
     "  echo Failed to submit jobs!\n",
     "else\n",
     "  echo Submitted jobs! To cancel execute $DIR/cancel.sh\n",
     "  echo '#!/bin/bash' > $DIR/cancel.sh\n",
-    "  echo scancel $PROCESS0 $PROCESS1 $PLOTS $DELTA $finish >> $DIR/cancel.sh\n",
+    "  echo scancel $PROCESS0 $PROCESS1 $PLOTS $DELTA $report >> $DIR/cancel.sh\n",
     "  chmod u+x $DIR/cancel.sh\n",
     "fi\n",
     "\n",
@@ -316,7 +316,7 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, fit.sigma) {
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(filepath(fit.sigma), "pbs", "submit.process0"))
   cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(filepath(fit.sigma), "pbs", "submit.process1"))
   if (ctrl@plots == T) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(filepath(fit.sigma), "pbs", "submit.plots"))
-  cat(config(object, "F", name, 1, T, "hpc_finish"), file = file.path(filepath(fit.sigma), "pbs", "submit.finish"))
+  cat(config(object, "R", name, 1, T, "hpc_report"), file = file.path(filepath(fit.sigma), "pbs", "submit.report"))
 
   # submit script
   cat(paste0(
@@ -345,18 +345,18 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, fit.sigma) {
     "  DELTA=$JOBID\n",
     "fi\n",
     "\n",
-    "JOBID=$(qsub -W depend=afterokarray:$JOBID submit.finish)\n",
+    "JOBID=$(qsub -W depend=afterokarray:$JOBID submit.report)\n",
     "EXITCODE=$?\n",
-    "finish=$JOBID\n",
+    "report=$JOBID\n",
     "\n",
     "# clean up\n",
     "if [[ $EXITCODE != 0 ]]; then\n",
-    "  qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $finish \n",
+    "  qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $report \n",
     "  echo Failed to submit jobs!\n",
     "else\n",
     "  echo Submitted jobs! To cancel execute $DIR/cancel.sh\n",
     "  echo '#!/bin/bash' > $DIR/cancel.sh\n",
-    "  echo qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $finish >> $DIR/cancel.sh\n",
+    "  echo qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $report >> $DIR/cancel.sh\n",
     "  chmod u+x $DIR/cancel.sh\n",
     "fi\n",
     "\n",
@@ -477,7 +477,7 @@ setMethod("prepare_sigma", "schedule_sge", function(object, fit.sigma) {
   cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(filepath(fit.sigma), "sge", "submit.process0"))
   cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(filepath(fit.sigma), "sge", "submit.process1"))
   if (ctrl@plots == T) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(filepath(fit.sigma), "sge", "submit.plots"))
-  cat(config(object, "F", name, 1, T, "hpc_finish"), file = file.path(filepath(fit.sigma), "sge", "submit.finish"))
+  cat(config(object, "R", name, 1, T, "hpc_report"), file = file.path(filepath(fit.sigma), "sge", "submit.report"))
 
   # submit script
   cat(paste0(
@@ -506,17 +506,17 @@ setMethod("prepare_sigma", "schedule_sge", function(object, fit.sigma) {
     "  JOBNAME=submit.delta\n",
     "fi\n",
     "\n",
-    "finish=$(qsub -hold_jid $JOBNAME submit.finish)\n",
+    "report=$(qsub -hold_jid $JOBNAME submit.report)\n",
     "EXITCODE=$?\n",
     "\n",
     "# clean up\n",
     "if [[ $EXITCODE != 0 ]]; then\n",
-    "  qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $finish \n",
+    "  qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $report \n",
     "  echo Failed to submit jobs!\n",
     "else\n",
     "  echo Submitted jobs! To cancel execute $DIR/cancel.sh\n",
     "  echo '#!/bin/bash' > $DIR/cancel.sh\n",
-    "  echo qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $finish >> $DIR/cancel.sh\n",
+    "  echo qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $report >> $DIR/cancel.sh\n",
     "  chmod u+x $DIR/cancel.sh\n",
     "fi\n",
     "\n",
@@ -599,12 +599,12 @@ hpc_delta <- function(job.id, task) {
 }
 
 
-hpc_finish <- function(job.id, task) {
+hpc_report <- function(job.id, task) {
   fit.sigma <- open_sigma("..", force = T)
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
-  cat(paste0("[", Sys.time(), "]  finishing...\n"))
-  for (fit.delta in open_deltas(fit.sigma, force = T)) finish(fit.delta, job.id)
-  finish(fit.sigma, job.id)
+  cat(paste0("[", Sys.time(), "]  reporting...\n"))
+  for (fit.delta in open_deltas(fit.sigma, force = T)) report(fit.delta, job.id)
+  report(fit.sigma, job.id)
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
 

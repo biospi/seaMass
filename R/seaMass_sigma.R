@@ -311,8 +311,8 @@ seaMass_sigma <- function(
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("finish", "seaMass_sigma", function(object) {
-  cat(paste0("[", Sys.time(), "]  FINISH\n"))
+setMethod("report", "seaMass_sigma", function(object) {
+  cat(paste0("[", Sys.time(), "]  REPORT\n"))
   ctrl <- control(object)
 
   # delete model0
@@ -333,6 +333,14 @@ setMethod("finish", "seaMass_sigma", function(object) {
 
   # delete markdown
   if (!("markdown" %in% ctrl@keep)) unlink(file.path(filepath(object), "markdown"), recursive = T)
+
+  # render report
+  cat(paste0("[", Sys.time(), "]   generating html index...\n"))
+  render_report(object)
+  cat(paste0("[", Sys.time(), "]   generating html report...\n"))
+  parallel_lapply(1:nbatch, function(item, object) {
+    render_report(object, item)
+  }, nthread = ctrl@nthread)
 
   return(invisible(NULL))
 })

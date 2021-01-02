@@ -118,7 +118,7 @@ setMethod("run", "seaMass_delta", function(object) {
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("finish", "seaMass_delta", function(object, job.id) {
+setMethod("report", "seaMass_delta", function(object, job.id) {
   ctrl <- control(object)
   if (!("de.standardised.group.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "standardised.group.deviations*"), recursive = T)
   if (!("de.component.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "component.deviations*"), recursive = T)

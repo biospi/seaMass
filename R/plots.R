@@ -72,17 +72,6 @@ setMethod("plots", "sigma_block", function(object, chain, job.id) {
   }, nthread = ctrl@nthread))
 
   if (length(report.index) > 0) fst::write.fst(rbindlist(report.index), file.path(filepath(object), paste0("report.index.plots", chain, ".fst")))
-
-  if (increment_completed(file.path(filepath(fit.sigma), "sigma"), "plots", job.id) == ctrl@nchain * length(blocks(fit.sigma))) {
-    # render report
-    cat(paste0("[", Sys.time(), "]   generating html index...\n"))
-    render_report(fit.sigma)
-    cat(paste0("[", Sys.time(), "]   generating html report...\n"))
-    parallel_lapply(1:nbatch, function(item, fit.sigma) {
-      render_report(fit.sigma, item)
-    }, nthread = ctrl@nthread)
-  }
-
   return(invisible(NULL))
 })
 
