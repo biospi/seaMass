@@ -312,8 +312,11 @@ seaMass_sigma <- function(
 #' @export
 #' @include generics.R
 setMethod("report", "seaMass_sigma", function(object, job.id) {
-  cat(paste0("[", Sys.time(), "]  REPORT\n"))
   ctrl <- control(object)
+  if (ctrl@version != as.character(packageVersion("seaMass")))
+    stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
+
+  cat(paste0("[", Sys.time(), "]  REPORT\n"))
 
   # delete model0
   if (!("model0" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model0", "component.stdevs*"), recursive = T)
@@ -335,6 +338,7 @@ setMethod("report", "seaMass_sigma", function(object, job.id) {
   cat(paste0("[", Sys.time(), "]   generating html index...\n"))
   render_report(object)
   cat(paste0("[", Sys.time(), "]   generating html report...\n"))
+  nbatch <- length(blocks(object)) * ctrl@nchain
   parallel_lapply(1:nbatch, function(item, object) {
     render_report(object, item)
   }, nthread = ctrl@nthread)

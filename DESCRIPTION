@@ -29,6 +29,7 @@ Imports:
     igraph (>= 1.2.5),
     MCMCglmm (>= 2.29),
     plotly (>= 4.9.2.1),
+    rmarkdown (>= 2.5),
     R.utils (>= 2.9.0),
     utf8 (>= 1.1.4),
     uuid (>= 0.1-4)
