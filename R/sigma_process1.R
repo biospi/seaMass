@@ -272,7 +272,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
         cat(paste0("[", Sys.time(), "]   generating assay stdevs plot...\n"))
         fig <- plot_assay_stdevs(fit.sigma)
         report.index$assay.stats <- data.table(
-          section = "Study-level", section.order = 0, item = "Assay stats QC plot", item.order = 0,
+          section = "Study-level", section.order = 0, item = "Assay stdevs QC", item.order = 0,
           item.href = add_to_report(fit.sigma, fig, "assay_stats", "Assay stats QC plot")
         )
       }
@@ -282,7 +282,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
         cat(paste0("[", Sys.time(), "]   generating group stats plot...\n"))
         fig <- plot_group_means(fit.sigma, summary = T)
         report.index$group.stats <- data.table(
-          section = "Study-level", section.order = 0, item = paste0(ctrl@group[1], " stats plot"), item.order = 100000,
+          section = "Study-level", section.order = 0, item = paste0(ctrl@group[1], " means"), item.order = 100000,
           item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@group[1]), "_stats"), paste0(ctrl@group[1], " stats plot"))
         )
       }

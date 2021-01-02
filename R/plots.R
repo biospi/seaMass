@@ -55,15 +55,15 @@ setMethod("plots", "sigma_block", function(object, chain, job.id) {
     }
 
     if ("measurement.stats" %in% ctrl@plot) {
-      fig <- plot_measurement_means(fit.sigma, item, value.limits = lims$measurement_means, summary = T)
+      fig <- plot_measurement_means(fit.sigma, item, value.limits = lims$measurement.means, summary = T)
       report.index1$measurement.means <- data.table(
         section = paste0(ctrl@measurement[1], " means"), section.order = 400, item = item, item.order = as.integer(item),
         item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@measurement[1]), "_means_", as.integer(item)), paste0(ctrl@measurement[1], " means for ", item), dir = batch)
       )
 
-      fig <- plot_measurement_stdevs(fit.sigma, item, value.limits = lims$measurement_stdevs, summary = T)
+      fig <- plot_measurement_stdevs(fit.sigma, item, value.limits = lims$measurement.stdevs, summary = T)
       report.index1$measurement.stdevs <- data.table(
-        section = paste0(ctrl@measurement[1], " stdevs"), section.order = 400, item = item, item.order = as.integer(item),
+        section = paste0(ctrl@measurement[1], " stdevs"), section.order = 450, item = item, item.order = as.integer(item),
         item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@measurement[1]), "_stdevs_", as.integer(item)), paste0(ctrl@measurement[1], " stdevs for ", item), dir = batch)
       )
     }
