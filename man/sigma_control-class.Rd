@@ -8,7 +8,7 @@
 \usage{
 sigma_control(
   keep = "summaries",
-  summarise = c("report", "groups", "components", "measurements"),
+  summarise = c("groups", "components", "measurements"),
   plot = c("assay.stats", "group.stats", "group.quants", "group.quants.pca",
     "component.stats", "component.deviations", "component.deviations.pca",
     "measurement.stats"),

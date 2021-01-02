@@ -280,7 +280,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       # save group stats plot
       if ("group.stats" %in% ctrl@plot) {
         cat(paste0("[", Sys.time(), "]   generating group stats plot...\n"))
-        fig <- plot_group_means(fit.sigma, summary = F)
+        fig <- plot_group_means(fit.sigma, summary = T)
         report.index$group.stats <- data.table(
           section = "Study-level", section.order = 0, item = paste0(ctrl@group[1], " stats plot"), item.order = 100000,
           item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@group[1]), "_stats"), paste0(ctrl@group[1], " stats plot"))

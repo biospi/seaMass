@@ -25,7 +25,7 @@ setMethod("plots", "sigma_block", function(object, chain, job.id) {
     report.index1 <- list()
 
     if ("group.quants" %in% ctrl@plot) {
-      fig <- plot_group_quants(fit.sigma, item, value.limits = lims$group.quants, summary = F)
+      fig <- plot_group_quants(fit.sigma, item, value.limits = lims$group.quants, summary = T)
       report.index1$group.quant <- data.table(
         section = paste0(ctrl@group[1], " raw quants"), section.order = 150, item = item, item.order = as.integer(item),
         item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@group[1]), "_quants_", as.integer(item)), paste0(ctrl@group[1], " quants for ", item), dir = batch)
@@ -33,13 +33,13 @@ setMethod("plots", "sigma_block", function(object, chain, job.id) {
     }
 
     if (ctrl@component.model != "" && "component.stats" %in% ctrl@plot) {
-      fig <- plot_component_means(fit.sigma, item, value.limits = lims$component.means, summary = F)
+      fig <- plot_component_means(fit.sigma, item, value.limits = lims$component.means, summary = T)
       report.index1$component.means <- data.table(
         section = paste0(ctrl@component[1], " means"), section.order = 200, item = item, item.order = as.integer(item),
         item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@component[1]), "_means_", as.integer(item)), paste0(ctrl@component[1], " means for ", item), dir = batch)
       )
 
-      fig <- plot_component_stdevs(fit.sigma, item, value.limits = lims$component.stdevs, summary = F)
+      fig <- plot_component_stdevs(fit.sigma, item, value.limits = lims$component.stdevs, summary = T)
       report.index1$component.stdevs <- data.table(
         section = paste0(ctrl@component[1], " stdevs"), section.order = 250, item = item, item.order = as.integer(item),
         item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@component[1]), "_stdevs_", as.integer(item)), paste0(ctrl@component[1], " stdevs for ", item), dir = batch)
@@ -47,7 +47,7 @@ setMethod("plots", "sigma_block", function(object, chain, job.id) {
     }
 
     if (ctrl@component.model != "" && "component.deviations" %in% ctrl@plot) {
-      fig <- plot_component_deviations(fit.sigma, item, value.limits = lims$component.deviations, summary = F)
+      fig <- plot_component_deviations(fit.sigma, item, value.limits = lims$component.deviations, summary = T)
       report.index1$component.deviations <- data.table(
         section = paste0(ctrl@component[1], " deviations"), section.order = 300, item = item, item.order = as.integer(item),
         item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@component[1]), "_deviations_", as.integer(item)), paste0(ctrl@component[1], " deviations for ", item), dir = batch)
@@ -55,13 +55,13 @@ setMethod("plots", "sigma_block", function(object, chain, job.id) {
     }
 
     if ("measurement.stats" %in% ctrl@plot) {
-      fig <- plot_measurement_means(fit.sigma, item, value.limits = lims$measurement_means, summary = F)
+      fig <- plot_measurement_means(fit.sigma, item, value.limits = lims$measurement_means, summary = T)
       report.index1$measurement.means <- data.table(
         section = paste0(ctrl@measurement[1], " means"), section.order = 400, item = item, item.order = as.integer(item),
         item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@measurement[1]), "_means_", as.integer(item)), paste0(ctrl@measurement[1], " means for ", item), dir = batch)
       )
 
-      fig <- plot_measurement_stdevs(fit.sigma, item, value.limits = lims$measurement_stdevs, summary = F)
+      fig <- plot_measurement_stdevs(fit.sigma, item, value.limits = lims$measurement_stdevs, summary = T)
       report.index1$measurement.stdevs <- data.table(
         section = paste0(ctrl@measurement[1], " stdevs"), section.order = 400, item = item, item.order = as.integer(item),
         item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@measurement[1]), "_stdevs_", as.integer(item)), paste0(ctrl@measurement[1], " stdevs for ", item), dir = batch)
