@@ -346,6 +346,12 @@ setMethod("report", "seaMass_sigma", function(object, job.id) {
   # delete markdown
   if (!("markdown" %in% ctrl@keep)) unlink(file.path(filepath(object), "markdown"), recursive = T)
 
+  # zip report if not kept
+  if (!("report" %in% ctrl@keep)) {
+    zip::zipr(file.path(filepath(object), "report.zip"), file.path(filepath(object), "report"))
+    unlink(file.path(filepath(object), "report"), recursive = T)
+  }
+
   return(invisible(NULL))
 })
 

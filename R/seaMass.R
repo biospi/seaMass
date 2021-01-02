@@ -814,7 +814,7 @@ setMethod("init_report", "seaMass", function(object, dir = ".", name = seaMass::
 
   cat(paste0(
     'name: ', title, '\n',
-    ifelse(dir == ".", 'output_dir: ../output\n', paste0('output_dir: ../../output/', dir, '\n')),
+    ifelse(dir == ".", 'output_dir: ../report\n', paste0('output_dir: ../../report/', dir, '\n')),
     'navbar:\n',
     '  title: ', name, '\n',
     '  left:\n',

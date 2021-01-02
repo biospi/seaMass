@@ -8,7 +8,7 @@
 \usage{
 sigma_control(
   keep = "summaries",
-  summarise = c("groups", "components", "measurements"),
+  summarise = c("report", "groups", "components", "measurements"),
   plot = c("assay.stats", "group.stats", "group.quants", "group.quants.pca",
     "component.stats", "component.deviations", "component.deviations.pca",
     "measurement.stats"),
@@ -34,8 +34,8 @@ sigma_control(
 )
 }
 \arguments{
-\item{keep}{Outputs to keep MCMC samples for, \code{NULL} or a subset of
-\code{c("summaries", "model0", "markdown", "assay.means", "group.quants", "group.means", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}}
+\item{keep}{Outputs to keep, \code{NULL} or a subset of
+\code{c("report", "summaries", "model0", "markdown", "assay.means", "group.quants", "group.means", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}}
 
 \item{summarise}{Outputs to write csv summaries for, \code{NULL} or a subset of
 \code{c("groups", "components", "measurements")}

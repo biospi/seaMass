@@ -41,8 +41,8 @@ setClass("sigma_control", slots = c(
 
 
 #' @describeIn sigma_control-class Generator function
-#' @param keep Outputs to keep MCMC samples for, \code{NULL} or a subset of
-#'   \code{c("summaries", "model0", "markdown", "assay.means", "group.quants", "group.means", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}
+#' @param keep Outputs to keep, \code{NULL} or a subset of
+#'   \code{c("report", "summaries", "model0", "markdown", "assay.means", "group.quants", "group.means", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}
 #' @param summarise Outputs to write csv summaries for, \code{NULL} or a subset of
 #'   \code{c("groups", "components", "measurements")}
 #'   Note, you must summarise or keep \code{"standardised.group.deviations"} if you want to run seaMass-Δ!
@@ -72,7 +72,7 @@ setClass("sigma_control", slots = c(
 #' @export sigma_control
 sigma_control <- function(
   keep = "summaries",
-  summarise = c("groups", "components", "measurements"),
+  summarise = c("report", "groups", "components", "measurements"),
   plot = c("assay.stats", "group.stats", "group.quants", "group.quants.pca", "component.stats",  "component.deviations", "component.deviations.pca", "measurement.stats"),
   eb.model = "deconvolve",
   eb.max = 1024,
@@ -127,7 +127,7 @@ sigma_control <- function(
 
 
 setValidity("sigma_control", function(object) {
-  if (!(all(object@keep %in% c("summaries", "model0", "markdown", "assay.means", "group.quants", "group.means", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")))) return("'keep' is not valid!")
+  if (!(all(object@keep %in% c("report", "summaries", "model0", "markdown", "assay.means", "group.quants", "group.means", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")))) return("'keep' is not valid!")
   if (!(all(object@summarise %in% c("groups", "components", "measurements")))) return("'summarise' is not valid!")
   if (!(all(object@plot %in% c("assay.stats", "group.stats", "group.quants", "group.quants.pca", "component.stats",  "component.deviations", "component.deviations.pca", "measurement.stats")))) return("'plot' is not valid!")
   if (length(object@eb.model) != 1 || !(object@eb.model %in% c("", "fit", "deconvolve"))) return("'eb.model' is not valid!")

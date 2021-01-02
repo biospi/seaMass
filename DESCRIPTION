@@ -32,7 +32,8 @@ Imports:
     rmarkdown (>= 2.5),
     R.utils (>= 2.9.0),
     utf8 (>= 1.1.4),
-    uuid (>= 0.1-4)
+    uuid (>= 0.1-4),
+    zip (>= 2.1.1)
 RoxygenNote: 7.1.1
 Collate: 
     'delta_control.R'
