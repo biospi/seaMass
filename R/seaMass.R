@@ -212,10 +212,10 @@ setMethod("plot_dists", "seaMass", function(
   variable.labels = TRUE,
   variable.summary.cols = NULL,
   variable.label.cols = NULL,
-  variable.interval = 5,
+  variable.interval = 16,
   show.legend = TRUE,
-  min.width = 900,
-  min.height = 300
+  min.width = 1024,
+  min.height = 256
 ) {
   if (is.data.frame(data)) {
     DTs <- list(as.data.table(data))
@@ -278,11 +278,11 @@ setMethod("plot_dists", "seaMass", function(
   block <- NULL
   if ("Block" %in% cols) block <- "Block"
   if ("Group" %in% cols) DT1 <- merge(DT1, groups(object, as.data.table = T), sort = F, by = c(block, "Group"))
-  if ("Group" %in% cols && "Component" %in% summary.cols) DT1 <- merge(DT1, components(object, as.data.table = T), sort = F, by = c(block, "Group", "Component"))
-  if ("Group" %in% cols && "Component" %in% summary.cols && "Measurement" %in% summary.cols) DT1 <- merge(DT1, measurements(object, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Measurement"))
+  if ("Group" %in% cols && "Component" %in% cols) DT1 <- merge(DT1, components(object, as.data.table = T), sort = F, by = c(block, "Group", "Component"))
+  if ("Group" %in% cols && "Component" %in% cols && "Measurement" %in% cols) DT1 <- merge(DT1, measurements(object, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Measurement"))
   if ("Assay" %in% cols) DT1 <- merge(DT1, assay_design(object, as.data.table = T), sort = F, by = c(block, "Assay"), suffixes = c("", ".AD"))
-  if ("Group" %in% cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_groups(object, as.data.table = T), sort = F, by = c(block, "Group", "Assay"))
-  if ("Group" %in% cols && "Component" %in% summary.cols && "Assay" %in% summary.cols) DT1 <- merge(DT1, assay_components(object, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Assay"))
+  if ("Group" %in% cols && "Assay" %in% cols) DT1 <- merge(DT1, assay_groups(object, as.data.table = T), sort = F, by = c(block, "Group", "Assay"))
+  if ("Group" %in% cols && "Component" %in% cols && "Assay" %in% cols) DT1 <- merge(DT1, assay_components(object, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Assay"))
 
   ## SET UP PLOT
 
@@ -493,18 +493,14 @@ setMethod("plot_dists", "seaMass", function(
 
   ## CONVERT TO PLOTLY
 
-  # set panel size and get resulting overall size
-  width <- ifelse(horizontal, 50, variable.interval * nlevels(DT1$Summary))
-  height <- ifelse(horizontal, variable.interval * nlevels(DT1$Summary), 50)
-  print(g) # workaround
-  gt <- egg::set_panel_size(g, width = grid::unit(width, "mm"), height = grid::unit(height, "mm"))
-  width <- sum(as.numeric(grid::convertUnit(gt$widths, "mm")))
-  height <- sum(as.numeric(grid::convertUnit(gt$heights, "mm")))
-
-  # convert to plotly
-  width <- 70 + 3*width # nasty fudge factor
-  height <- 70 + 3*height # nasty fudge factor
-  fig <- suppressWarnings(plotly::ggplotly(g, max(min.width, width), max(min.height, height), "text"))
+  if (horizontal) {
+    width = min.width
+    height = max(min.height, variable.interval * nlevels(DT1$Summary))
+  } else {
+    width = max(min.width, variable.interval * nlevels(DT1$Summary))
+    height = min.height
+  }
+  fig <- suppressWarnings(plotly::ggplotly(g, min(width, 32767), min(height, 32767), "text"))
   # horrible hack for ggplotly tooltip
   for (i in 1:length(fig$x$data)) fig$x$data[[i]]$text <- sapply(fig$x$data[[i]]$text, function(s) gsub("density", paste("log2", value.label), s), USE.NAMES = F)
   # remove annotation as ggplotly label implementation is awful
