@@ -676,15 +676,15 @@ setMethod("plot_robust_pca", "seaMass", function(
   fill0 <- lingofy(object, fill)
   shape0 <- lingofy(object, shape)
 
-  # convert NAs to real levels
-  for (col in colnames(DT)) if (any(is.na(DT[[col]]))) {
+  # convert NAs to real level
+  for (col in colnames(DT)) if (any(is.na(DT[[col]])) && (is.factor(DT[[col]]) || is.character(DT[[col]]))) {
     if (is.factor(DT[[col]])) {
-      levels(DT[[col]]) <- c(levels(DT[[col]]), "<none>")
-      DT[, (col) := ifelse(is.na(get(col)), "<none>", get(col))]
+      levels <- c(levels(DT[[col]]), "<none>")
+    } else {
+      levels <- c(unique(DT[[col]]), "<none>")
     }
-    if (is.character(DT[[col]])) {
-      DT[, (col) := factor(ifelse(is.na(get(col)), "<none>", get(col)), levels = c(unique(get(col)), "<none>"))]
-    }
+    DT[, (col) := factor(DT[[col]], levels = levels)]
+    DT[is.na(get(col)), (col) := "<none>"]
   }
 
   # summary
