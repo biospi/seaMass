@@ -45,8 +45,9 @@ seaMass_sigma <- function(
   if (!grepl("\\.seaMass$", path)) path <- paste0(path, ".seaMass")
   if (file.exists(path)) unlink(path, recursive = T)
   if (!dir.create(path)) stop()
-  if (!dir.create(file.path(path, "markdown", "csv"), recursive = T)) stop()
   if (!dir.create(file.path(path, "sigma"))) stop()
+  if (!dir.create(file.path(path, "markdown", "csv"), recursive = T)) stop()
+  if (!dir.create(file.path(path, "report"))) stop()
   path <- normalizePath(path)
 
   # init DT
@@ -348,7 +349,7 @@ setMethod("report", "seaMass_sigma", function(object, job.id) {
 
   # zip report if not kept
   if (!("report" %in% ctrl@keep)) {
-    zip::zipr(file.path(filepath(object), "report.zip"), file.path(filepath(object), "report"))
+    zip::zipr(file.path(filepath(object), "..", paste0(name(object), ".zip")), file.path(filepath(object), "report", name(object)))
     unlink(file.path(filepath(object), "report"), recursive = T)
   }
 
