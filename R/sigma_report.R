@@ -53,8 +53,8 @@ setMethod("add_to_report", "seaMass_sigma", function(object, fig, name, title = 
   } else {
     path <- file.path(filepath(parent(object)), "markdown", paste0("_", dir), name)
   }
-  saveRDS(suppressWarnings(plotly::toWebGL(fig)), paste0(path, ".rds")) # turned off due to graphical bugs groan
-  #saveRDS(suppressWarnings(fig), paste0(path, ".rds"))
+  #saveRDS(suppressWarnings(plotly::toWebGL(fig)), paste0(path, ".rds")) # turned off due to graphical bugs groan
+  saveRDS(suppressWarnings(fig), paste0(path, ".rds"))
 
   cat(paste0(
     "---\n",

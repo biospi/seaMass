@@ -30,13 +30,13 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       text <- paste0("PCA - ", ctrl@group[1], " quants with assay stdevs QC - Block ", name(object))
       report.index$group.quants.pca1 <- data.table(
         section = "Study-level", section.order = 0, item = text, item.order = 1000000 + as.integer(assay_design(object)$Block[1]),
-        item.href = add_to_report(fit.sigma, plot_robust_pca(object, data = DT), paste0("pca_", tolower(ctrl@group[1]), "_quants_block", name(object)), text)
+        item.href = add_to_report(fit.sigma, plot_robust_pca(object, data = DT), paste0("pca_", tolower(ctrl@group[1]), "_quants__assay_stdevs__block", name(object)), text)
       )
 
       text <- paste0("PCA - ", ctrl@group[1], " quants by Condition - Block ", name(object))
       report.index$group.quants.pca2 <- data.table(
-        section = "Study-level", section.order = 0, item = text, item.order = 1000000 + as.integer(assay_design(object)$Block[1]),
-        item.href = add_to_report(fit.sigma, plot_robust_pca(object, colour = "Condition", fill = "Condition", shape = NULL, data = DT), paste0("pca_", tolower(ctrl@group[1]), "_quants_block", name(object)), text)
+        section = "Study-level", section.order = 0, item = text, item.order = 1100000 + as.integer(assay_design(object)$Block[1]),
+        item.href = add_to_report(fit.sigma, plot_robust_pca(object, colour = "Condition", fill = "Condition", shape = NULL, data = DT), paste0("pca_", tolower(ctrl@group[1]), "_quants__conditions__block", name(object)), text)
       )
     }
 
@@ -210,13 +210,13 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
         text <- paste0("PCA - ", ctrl@component[1], " deviations with assay stdevs QC by Block")
         report.index$component.deviations.pca1 <- data.table(
           section = "Study-level", section.order = 0, item = text, item.order = 2000000,
-          item.href = add_to_report(fit.sigma, plot_robust_pca(fit.sigma, shape = "Block", data = DT), paste0("pca_", tolower(ctrl@component[1]), "_deviations_blocks"), text)
+          item.href = add_to_report(fit.sigma, plot_robust_pca(fit.sigma, shape = "Block", data = DT), paste0("pca_", tolower(ctrl@component[1]), "_deviations__assay_stdevs"), text)
         )
 
         text <- paste0("PCA - ", ctrl@component[1], " deviations by Condition")
         report.index$component.deviations.pca2 <- data.table(
           section = "Study-level", section.order = 0, item = text, item.order = 2100000,
-          item.href = add_to_report(fit.sigma, plot_robust_pca(fit.sigma, colour = "Condition", fill = "Condition", data = DT), paste0("pca_", tolower(ctrl@component[1]), "_deviations_conditions"), text)
+          item.href = add_to_report(fit.sigma, plot_robust_pca(fit.sigma, colour = "Condition", fill = "Condition", data = DT), paste0("pca_", tolower(ctrl@component[1]), "_deviations__conditions"), text)
         )
       }
 
