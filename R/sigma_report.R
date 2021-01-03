@@ -14,7 +14,7 @@ setMethod("init_report", "seaMass_sigma", function(object, dir = ".", name = sea
 
   cat(paste0(
     'name: ', title, '\n',
-    ifelse(dir == ".", 'output_dir: ../report/', name(object), '\n', paste0('output_dir: ../../report/', name(object), '/', dir, '\n')),
+    ifelse(dir == ".", paste0('output_dir: ../report/', name(object), '\n'), paste0('output_dir: ../../report/', name(object), '/', dir, '\n')),
     'navbar:\n',
     '  title: ', name, '\n',
     '  left:\n',
