@@ -14,7 +14,7 @@ setMethod("plots", "sigma_block", function(object, chain, job.id) {
 
   # create site
   fit.sigma <- parent(object)
-  init_report(object, batch)
+  init_report(fit.sigma, batch)
 
   # grab out batch of groups
   groups <- unique(groups(fit.sigma, as.data.table = T)[G.qC > 0, Group])
