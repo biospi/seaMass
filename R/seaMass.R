@@ -212,7 +212,7 @@ setMethod("plot_dists", "seaMass", function(
   variable.labels = TRUE,
   variable.summary.cols = NULL,
   variable.label.cols = NULL,
-  variable.interval = 16,
+  variable.interval = 12,
   show.legend = TRUE,
   min.width = 1024,
   min.height = 256
@@ -495,9 +495,9 @@ setMethod("plot_dists", "seaMass", function(
 
   if (horizontal) {
     width = min.width
-    height = max(min.height, variable.interval * nlevels(DT1$Summary))
+    height = min.height + variable.interval * nlevels(DT1$Summary)
   } else {
-    width = max(min.width, variable.interval * nlevels(DT1$Summary))
+    width = min.width + variable.interval * nlevels(DT1$Summary)
     height = min.height
   }
   fig <- suppressWarnings(plotly::ggplotly(g, min(width, 32767), min(height, 32767), "text"))
@@ -536,7 +536,7 @@ setMethod("robust_pca", "seaMass", function(
   as.data.table = FALSE
 ) {
   # ensure Assay/Block combinations in our processed design, sorted by Block, Assay
-  DT <- as.data.table(data.design)
+  DT <- data.table::as.data.table(data.design)
   if (!is.factor(DT$Assay)) DT[, Assay := factor(Assay, levels = levels(assay_design(object, as.data.table = T)$Assay))]
   if (!("Block" %in% colnames(DT))) DT <- merge(DT, assay_design(object, as.data.table = T), by = "Assay", suffixes = c("", ".old"))
   setkey(DT, Block, Assay)
@@ -596,6 +596,7 @@ setMethod("robust_pca", "seaMass", function(
     DT <- merge(DT, rbindlist(parallel_lapply(batch_split(DT.individuals, c("Block", "Assay"), nrow(DT.individuals), drop = T, keep.by = F), function(item, DT.variables, object, input, type, summary.cols, fit) {
       DT.items <- merge(item[,c(k = 1, .SD)], DT.variables[,c(k = 1, .SD)], by = "k", all = T, allow.cartesian = T)[, k := NULL]
       DT1 <- read(object, input, type, DT.items, summary = summary, as.data.table = T)
+      if (is.null(DT1)) stop("MCMC samples not kept")
       if (summary == T) {
         ctrl <- control(object)
         DT1 <- DT1[, .(chain = rep(1:ctrl@nchain, each = ctrl@nsample/ctrl@nchain), sample = rep(1:(ctrl@nsample/ctrl@nchain), times = ctrl@nchain), value = rlst(ctrl@nsample, m, s, df)), by = summary.cols]
@@ -609,7 +610,7 @@ setMethod("robust_pca", "seaMass", function(
       DT1 <- data.table(Block = item[1, Block], Assay = item[1, Assay], cbind(DT1[, .(chain, sample)], pred$coord))
       rm(pred)
       return(DT1)
-    }, nthread = control(object)@nthread, .packages = c("seaMass", "FactoMineR"))))
+    }, nthread = 0)))#control(object)@nthread, .packages = c("seaMass", "FactoMineR"))))
   } else {
     colnames(fit$ind$coord) <- paste0(sub("^.*\\.", "PC", colnames(fit$ind$coord)), " (", format(round(fit$eig[1:ncol(fit$ind$coord), "percentage of variance"], 2), T, nsmall = 2), "%)")
     DT <- merge(DT, cbind(DT.individuals, fit$ind$coord), by = c("Assay", "Block"))
@@ -643,9 +644,9 @@ setMethod("plot_robust_pca", "seaMass", function(
   ellipse.probs = c(0.5, 0.95),
   ellipse.alpha = 0.2,
   ellipse.size = 0.2,
-  point.size = 2,
-  width = 900,
-  height = 700,
+  point.size = 1,
+  width = 1024,
+  height = 768,
   data = NULL,
   ...
 ) {
@@ -674,6 +675,17 @@ setMethod("plot_robust_pca", "seaMass", function(
   colour0 <- lingofy(object, colour)
   fill0 <- lingofy(object, fill)
   shape0 <- lingofy(object, shape)
+
+  # convert NAs to real levels
+  for (col in colnames(DT)) if (any(is.na(DT[[col]]))) {
+    if (is.factor(DT[[col]])) {
+      levels(DT[[col]]) <- c(levels(DT[[col]]), "<none>")
+      DT[, (col) := ifelse(is.na(get(col)), "<none>", get(col))]
+    }
+    if (is.character(DT[[col]])) {
+      DT[, (col) := factor(ifelse(is.na(get(col)), "<none>", get(col)), levels = c(unique(get(col)), "<none>"))]
+    }
+  }
 
   # summary
   DT.summary <- merge(DT[, !c("PC1", "PC2")], DT[, as.list(MASS::cov.trob(data.table(PC1, PC2))$center), by = Summary], by = "Summary")
@@ -849,8 +861,8 @@ setMethod("add_to_report", "seaMass", function(object, fig, name, title = name, 
   } else {
     path <- file.path(filepath(parent(object)), "markdown", paste0("_", dir), name)
   }
-  #saveRDS(suppressWarnings(plotly::toWebGL(fig)), paste0(path, ".rds")) # turned off due to graphical bugs groan
-  saveRDS(suppressWarnings(fig), paste0(path, ".rds"))
+  saveRDS(suppressWarnings(plotly::toWebGL(fig)), paste0(path, ".rds")) # turned off due to graphical bugs groan
+  #saveRDS(suppressWarnings(fig), paste0(path, ".rds"))
 
   cat(paste0(
     "---\n",

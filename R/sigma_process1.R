@@ -11,6 +11,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
 
   if (increment_completed(file.path(filepath(object), "model1"), job.id = job.id) == ctrl@nchain) {
     cat(paste0("[", Sys.time(), "]  SIGMA-PROCESS1 block=", sub("^.*sigma\\.(.*)$", "\\1", filepath(object)), "\n"))
+    report.index <- list()
 
     # group summary
     if ("groups" %in% ctrl@summarise) {
@@ -23,12 +24,19 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
     }
     if ("group.quants.pca" %in% ctrl@plot) {
       cat(paste0("[", Sys.time(), "]   generating robust PCA plots for group quants...\n"))
-      text <- paste0("PCA - ", ctrl@group[1], " quants - Block ", name(object))
-      report.index <- data.table(
+      DT <- robust_pca(object, summary = F, as.data.table = T)
+
+      text <- paste0("PCA - ", ctrl@group[1], " quants with assay stdevs QC - Block ", name(object))
+      report.index$group.quants.pca1 <- data.table(
         section = "Study-level", section.order = 0, item = text, item.order = 1000000 + as.integer(assay_design(object)$Block[1]),
-        item.href = add_to_report(object, plot_robust_pca(object, summary = F), paste0("pca_", tolower(ctrl@group[1]), "_quants_block", name(object)), text)
+        item.href = add_to_report(object, plot_robust_pca(object, data = DT), paste0("pca_", tolower(ctrl@group[1]), "_quants_block", name(object)), text)
       )
-      fst::write.fst(report.index, file.path(filepath(object), "report.index.fst"))
+
+      text <- paste0("PCA - ", ctrl@group[1], " quants by Condition - Block ", name(object))
+      report.index$group.quants.pca2 <- data.table(
+        section = "Study-level", section.order = 0, item = text, item.order = 1000000 + as.integer(assay_design(object)$Block[1]),
+        item.href = add_to_report(object, plot_robust_pca(object, colour = "Condition", fill = "Condition", shape = NULL, data = DT), paste0("pca_", tolower(ctrl@group[1]), "_quants_block", name(object)), text)
+      )
     }
 
     # component summary
@@ -51,6 +59,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       measurement_stdevs(object, summary = T, as.data.table = T)
     }
 
+    if (length(report.index) > 0) fst::write.fst(rbindlist(report.index), file.path(filepath(object), "report.index.fst"))
     if (increment_completed(file.path(filepath(parent(object)), "sigma"), "process", job.id) == length(blocks(object))) {
       cat(paste0("[", Sys.time(), "]  SIGMA-OUTPUT\n"))
       fit.sigma <- parent(object)
@@ -198,16 +207,16 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
         cat(paste0("[", Sys.time(), "]   generating robust PCA plot for component deviations...\n"))
         DT <- robust_pca(fit.sigma, type = "component.deviations", summary = F)
 
-        text <- paste0("PCA - ", ctrl@component[1], " deviations by Block")
-        report.index$component.deviations.blocks <- data.table(
+        text <- paste0("PCA - ", ctrl@component[1], " deviations with assay stdevs QC by Block")
+        report.index$component.deviations.pca1 <- data.table(
           section = "Study-level", section.order = 0, item = text, item.order = 2000000,
-          item.href = add_to_report(fit.sigma, plot_robust_pca(fit.sigma, data = DT, shape = "Block"), paste0("pca_", tolower(ctrl@component[1]), "_deviations_blocks"), text)
+          item.href = add_to_report(fit.sigma, plot_robust_pca(fit.sigma, shape = "Block", data = DT), paste0("pca_", tolower(ctrl@component[1]), "_deviations_blocks"), text)
         )
 
         text <- paste0("PCA - ", ctrl@component[1], " deviations by Condition")
-        report.index$component.deviations.conditions <- data.table(
+        report.index$component.deviations.pca2 <- data.table(
           section = "Study-level", section.order = 0, item = text, item.order = 2100000,
-          item.href = add_to_report(fit.sigma, plot_robust_pca(fit.sigma, data = DT, shape = "Condition"), paste0("pca_", tolower(ctrl@component[1]), "_deviations_conditions"), text)
+          item.href = add_to_report(fit.sigma, plot_robust_pca(fit.sigma, colour = "Condition", fill = "Condition", data = DT), paste0("pca_", tolower(ctrl@component[1]), "_deviations_conditions"), text)
         )
       }
 

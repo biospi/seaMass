@@ -13,9 +13,9 @@
   ellipse.probs = c(0.5, 0.95),
   ellipse.alpha = 0.2,
   ellipse.size = 0.2,
-  point.size = 2,
-  width = 900,
-  height = 700,
+  point.size = 1,
+  width = 1024,
+  height = 768,
   data = NULL,
   ...
 )
