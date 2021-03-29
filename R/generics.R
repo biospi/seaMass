@@ -36,6 +36,7 @@ if (!exists("normalised_group_means")) setGeneric("normalised_group_means", func
 if (!exists("normalised_group_quants")) setGeneric("normalised_group_quants", function(object, ...) standardGeneric("normalised_group_quants"))
 if (!exists("normalised_group_stdevs")) setGeneric("normalised_group_stdevs", function(object, ...) standardGeneric("normalised_group_stdevs"))
 if (!exists("open_deltas")) setGeneric("open_deltas", function(object, ...) standardGeneric("open_deltas"))
+if (!exists("open_thetas")) setGeneric("open_thetas", function(object, ...) standardGeneric("open_thetas"))
 if (!exists("parent")) setGeneric("parent", function(object, ...) standardGeneric("parent"))
 if (!exists("plot_assay_means")) setGeneric("plot_assay_means", function(object, ...) standardGeneric("plot_assay_means"))
 if (!exists("plot_assay_stdevs")) setGeneric("plot_assay_stdevs", function(object, ...) standardGeneric("plot_assay_stdevs"))

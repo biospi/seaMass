@@ -263,36 +263,32 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
         cat(paste0("[", Sys.time(), "]   calculating plot limits...\n"))
         lims <- list()
         if ("group.quants" %in% ctrl@plot) lims$group.quants <- limits_dists(group_quants(fit.sigma, summary = T, as.data.table = T))
-        if ("group.stats" %in% ctrl@plot) lims$group.means <- limits_dists(group_means(fit.sigma, summary = T, as.data.table = T))
+        if ("group.means" %in% ctrl@plot) lims$group.means <- limits_dists(group_means(fit.sigma, summary = T, as.data.table = T))
         if ("component.deviations" %in% ctrl@plot) lims$component.deviations <- limits_dists(component_deviations(fit.sigma, summary = T, as.data.table = T), include.zero = T)
-        if ("component.stats" %in% ctrl@plot) {
-          lims$component.means <- limits_dists(component_means(fit.sigma, summary = T, as.data.table = T))
-          lims$component.stdevs <- limits_dists(component_stdevs(fit.sigma, summary = T, as.data.table = T), include.zero = T, non.negative = T)
-        }
-        if ("measurement.stats" %in% ctrl@plot) {
-          lims$measurement.means <- limits_dists(measurement_means(fit.sigma, summary = T, as.data.table = T))
-          lims$measurement.stdevs <- limits_dists(measurement_stdevs(fit.sigma, summary = T, as.data.table = T), include.zero = T, non.negative = T)
-        }
+        if ("component.means" %in% ctrl@plot) lims$component.means <- limits_dists(component_means(fit.sigma, summary = T, as.data.table = T))
+        if ("component.stdevs" %in% ctrl@plot) lims$component.stdevs <- limits_dists(component_stdevs(fit.sigma, summary = T, as.data.table = T), include.zero = T, non.negative = T)
+        if ("measurement.means" %in% ctrl@plot) lims$measurement.means <- limits_dists(measurement_means(fit.sigma, summary = T, as.data.table = T))
+        if ("measurement.stdevs" %in% ctrl@plot) lims$measurement.stdevs <- limits_dists(measurement_stdevs(fit.sigma, summary = T, as.data.table = T), include.zero = T, non.negative = T)
         saveRDS(lims, file.path(filepath(fit.sigma), "sigma", "limits.rds"))
       }
 
-      # save assay stats plot
-      if (ctrl@assay.model != "" && "assay.stats" %in% ctrl@plot) {
+      # save assay stdevs plot
+      if (ctrl@assay.model != "" && "assay.stdevs" %in% ctrl@plot) {
         cat(paste0("[", Sys.time(), "]   generating assay stdevs plot...\n"))
         fig <- plot_assay_stdevs(fit.sigma)
-        report.index$assay.stats <- data.table(
+        report.index$assay.stdevs <- data.table(
           section = "Study-level", section.order = 0, item = "Assay stdevs QC", item.order = 0,
-          item.href = add_to_report(fit.sigma, fig, "assay_stats", "Assay stats QC plot")
+          item.href = add_to_report(fit.sigma, fig, "assay_stdevs", "Assay stdevs QC plot")
         )
       }
 
-      # save group stats plot
-      if ("group.stats" %in% ctrl@plot) {
-        cat(paste0("[", Sys.time(), "]   generating group stats plot...\n"))
+      # save group means plot
+      if ("group.means" %in% ctrl@plot) {
+        cat(paste0("[", Sys.time(), "]   generating group means plot...\n"))
         fig <- plot_group_means(fit.sigma, summary = T)
-        report.index$group.stats <- data.table(
+        report.index$group.means <- data.table(
           section = "Study-level", section.order = 0, item = paste0(ctrl@group[1], " means"), item.order = 100000,
-          item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@group[1]), "_stats"), paste0(ctrl@group[1], " stats plot"))
+          item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@group[1]), "_means"), paste0(ctrl@group[1], " means plot"))
         )
       }
 

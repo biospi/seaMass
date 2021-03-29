@@ -4,76 +4,29 @@
 \name{theta_control-class}
 \alias{theta_control-class}
 \alias{theta_control}
-\title{Control parameters for seaMass-Σ}
+\title{Control parameters for seaMass-theta}
 \usage{
 theta_control(
-  summarise = c("assay.means", "assay.stdevs", "group.quants",
-    "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations",
-    "component.deviations", "component.means", "component.stdevs", "measurement.means",
-    "measurement.stdevs"),
+  summarise = c("normalised.assay.means", "normalised.group.quants"),
   keep = NULL,
-  plot = c("assay.means", "assay.stdevs", "group.quants", "group.quants.pca",
-    "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations",
-    "component.deviations", "component.means", "component.stdevs", "measurement.means",
-    "measurement.stdevs"),
-  measurement.model = "independent",
-  measurement.eb.min = 2,
-  component.model = "independent",
-  component.eb.min = 3,
-  assay.model = "component",
-  assay.eb.min = 3,
-  assay.eb.nsample = 16,
-  error.model = "lognormal",
-  missingness.model = "censored",
-  missingness.threshold = 0,
-  nchain = 4,
-  nwarmup = 256,
-  thin = 4,
-  nsample = 1024,
-  eb.model = "deconvolve",
-  eb.max = 1024,
-  norm.model = "theta",
-  norm.nchain = 8,
-  norm.nwarmup = 128,
-  norm.thin = 1,
-  random.seed = 0,
-  nthread = parallel::detectCores()\%/\%2,
-  schedule = schedule_local()
+  plot = c("normalised.assay.means", "normalised.group.quants"),
+  model = "theta",
+  nchain = 8,
+  nwarmup = 128,
+  thin = 1,
+  random.seed = 0
 )
 }
 \arguments{
 \item{summarise}{Outputs to write csv summaries for, \code{NULL} or a subset of
-\code{c("group.quants", "group.means", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}
-Note, you must summarise or keep \code{"standardised.group.deviations"} if you want to run seaMass-Δ!}
+\code{c("normalised.assay.means", "normalised.group.quants")}
+Note, you must summarise or keep \code{"standardised.group.quants"} if you want to run seaMass-Δ!}
 
 \item{keep}{Outputs to keep MCMC samples for, \code{NULL} or a subset of
-\code{c("summaries", "model0", "assay.means", "group.quants", "group.means", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}}
+\code{c("normalised.assay.means", "normalised.group.quants")}}
 
 \item{plot}{Outputs to plot, \code{NULL} or a subset of
-\code{c("assay.means", "group.quants", "group.quants.pca", "group.means", "normalised.group.quants", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}}
-
-\item{measurement.model}{Either \code{"single"} (single residual) or \code{"independent"} (per-measurement independent residuals)}
-
-\item{measurement.eb.min}{Minimum number of measurements per component to use for computing Empirical Bayes priors}
-
-\item{component.model}{Either \code{NULL} (no component model), \code{"single"} (single random effect) or \code{"independent"}
-(per-component independent random effects; default)}
-
-\item{component.eb.min}{Minimum number of components per group to use for computing Empirical Bayes priors}
-
-\item{assay.model}{Either \code{NULL} (no assay model), \code{"measurement"} (per-assay independent random effects across measurements)
-or \code{"componenet"} (per-assay independent random effects across components; default)}
-
-\item{assay.eb.min}{Minimum number of assays per group group to use for computing Empirical Bayes priors}
-
-\item{assay.eb.nsample}{Number of MCMC samples to use for assay model input}
-
-\item{error.model}{Likelihood model, either \code{"poisson"} or \code{"lognormal"} (default)}
-
-\item{missingness.model}{Either \code{NULL} (do nothing), \code{"rm"} (NAs removed), \code{"one"} (NAs set to 1), \code{"minimum"} (NAs set to lowest quant of that measurement) or
-\code{"censored"} (NAs modelled as censored below lowest quant of that measurement; default)}
-
-\item{missingness.threshold}{All datapoints equal to or below this count are treated as missing}
+\code{c("normalised.assay.means", "normalised.group.quants")}}
 
 \item{nchain}{Number of MCMC chains to run}
 
@@ -81,14 +34,12 @@ or \code{"componenet"} (per-assay independent random effects across components; 
 
 \item{thin}{MCMC thinning factor}
 
-\item{nsample}{Total number of MCMC samples to deliver downstream}
-
 \item{random.seed}{Random number seed}
 
 \item{schedule}{Either \link{schedule_local} (execute locally), \link{schedule_pbs} or \link{schedule_slurm} (prepare for submission to HPC cluster)}
 }
 \description{
-Define control parameters for the seaMass-Σ Bayesian model.
+Define control parameters for the seaMass-theta Bayesian model.
 }
 \section{Functions}{
 \itemize{

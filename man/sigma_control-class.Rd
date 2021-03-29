@@ -9,9 +9,9 @@
 sigma_control(
   keep = "summaries",
   summarise = c("groups", "components", "measurements"),
-  plot = c("assay.stats", "group.stats", "group.quants", "group.quants.pca",
-    "component.stats", "component.deviations", "component.deviations.pca",
-    "measurement.stats"),
+  plot = c("assay.stdevs", "group.means", "group.quants", "group.quants.pca",
+    "component.means", "component.stdevs", "component.deviations",
+    "component.deviations.pca", "measurement.means", "measurement.stdevs"),
   eb.model = "deconvolve",
   eb.max = 1024,
   measurement.model = "independent",
@@ -42,7 +42,7 @@ sigma_control(
 Note, you must summarise or keep \code{"standardised.group.deviations"} if you want to run seaMass-Δ!}
 
 \item{plot}{Outputs to plot, \code{NULL} or a subset of
-\code{c("assay.stats", "group.stats", "group.quants", "group.quants.pca", "component.stats",  "component.deviations", "component.deviations.pca", "measurement.stats")}}
+\code{c("assay.stdevs", "group.means", "group.quants", "group.quants.pca", "component.means", "component.stdevs", "component.deviations", "component.deviations.pca", "measurement.means", "measurement.stdevs")}}
 
 \item{measurement.model}{Either \code{"single"} (single residual) or \code{"independent"} (per-measurement independent residuals)}
 

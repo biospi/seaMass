@@ -641,7 +641,7 @@ setMethod("plot_robust_pca", "seaMass", function(
   colour = "A.sC",
   fill = "A.sC",
   shape = "Condition",
-  ellipse.probs = c(0.5, 0.95),
+  ellipse.probs = c(0.68, 0.95),
   ellipse.alpha = 0.2,
   ellipse.size = 0.2,
   point.size = 1,
