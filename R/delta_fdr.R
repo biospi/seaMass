@@ -3,7 +3,7 @@
 #' @export
 setMethod("fdr_ash", "seaMass_delta", function(
   object,
-  type = "standardised.group.deviations",
+  type = "group.quants",
   by.effect = TRUE,
   by.contrast = TRUE,
   sort.col = "qvalue",
@@ -127,7 +127,7 @@ setMethod("fdr_ash", "seaMass_delta", function(
 
   setcolorder(DT, c("Batch", "Effect", "Contrast", "Baseline"))
   setorderv(DT, c("Batch", sort.col), na.last = T)
-  fst::write.fst(DT, file.path(filepath(object), paste0("fdr.", type, ".fst")))
+  fst::write.fst(DT, file.path(filepath(object), paste0(type, ".fdr.fst")))
 
   options(warn = warn)
 

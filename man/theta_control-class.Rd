@@ -7,36 +7,30 @@
 \title{Control parameters for seaMass-theta}
 \usage{
 theta_control(
-  summarise = c("normalised.assay.means", "normalised.group.quants"),
-  keep = NULL,
-  plot = c("normalised.assay.means", "normalised.group.quants"),
+  keep = "group.quants",
+  summarise = c("assays", "groups"),
+  plot = c("assay.means", "group.standards", "group.quants", "group.quants.pca"),
   model = "theta",
-  nchain = 8,
-  nwarmup = 128,
-  thin = 1,
+  nwarmup = 256,
+  thin = 4,
   random.seed = 0
 )
 }
 \arguments{
-\item{summarise}{Outputs to write csv summaries for, \code{NULL} or a subset of
-\code{c("normalised.assay.means", "normalised.group.quants")}
-Note, you must summarise or keep \code{"standardised.group.quants"} if you want to run seaMass-Δ!}
+\item{keep}{Outputs to keep MCMC samples for, \code{NULL}}
 
-\item{keep}{Outputs to keep MCMC samples for, \code{NULL} or a subset of
-\code{c("normalised.assay.means", "normalised.group.quants")}}
+\item{summarise}{Outputs to write csv summaries for, \code{NULL} or a subset of
+\code{c("assays", "groups")}
+Note, you must summarise or keep \code{"group.quants"} if you want to run seaMass-delta!}
 
 \item{plot}{Outputs to plot, \code{NULL} or a subset of
-\code{c("normalised.assay.means", "normalised.group.quants")}}
-
-\item{nchain}{Number of MCMC chains to run}
+\code{c("assay.means", "group.quants")}}
 
 \item{nwarmup}{Number of MCMC warmup iterations to run for each chain}
 
 \item{thin}{MCMC thinning factor}
 
 \item{random.seed}{Random number seed}
-
-\item{schedule}{Either \link{schedule_local} (execute locally), \link{schedule_pbs} or \link{schedule_slurm} (prepare for submission to HPC cluster)}
 }
 \description{
 Define control parameters for the seaMass-theta Bayesian model.

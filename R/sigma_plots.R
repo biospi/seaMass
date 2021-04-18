@@ -1,77 +1,116 @@
 #' @import data.table
 #' @include generics.R
-#' @include sigma_block.R
-setMethod("plots", "sigma_block", function(object, chain, job.id) {
+#' @include seaMass_sigma.R
+setMethod("plots", "seaMass_sigma", function(object, batch, job.id) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))
     stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
 
-  # PROCESS OUTPUT
-  nbatch <- length(blocks(object)) * ctrl@nchain
-  batch <- (as.integer(assay_design(object, as.data.table = T)[1, Block]) - 1) * ctrl@nchain + chain
+  nbatch <- length(control(root(object))@blocks) * control(root(object))@nchain
   cat(paste0("[", Sys.time(), "]  PLOTS batch=", batch, "/", nbatch, "\n"))
   cat(paste0("[", Sys.time(), "]   generating...\n"))
 
-  # create site
-  fit.sigma <- parent(object)
-  init_report(fit.sigma, batch)
-
   # grab out batch of groups
-  groups <- unique(groups(fit.sigma, as.data.table = T)[G.qC > 0, Group])
+  groups <- unique(groups(object, as.data.table = T)[G.qC > 0, Group])
   groups <- groups[rep_len(1:nbatch, length(groups)) == batch]
   # plots!
-  lims <- readRDS(file.path(filepath(fit.sigma), "sigma", "limits.rds"))
-  report.index <- rbindlists(parallel_lapply(groups, function(item, fit.sigma, ctrl, lims, batch) {
+  lims <- readRDS(file.path(filepath(object), "limits.rds"))
+  report.index <- rbindlists(parallel_lapply(groups, function(item, object, ctrl, lims, batch) {
+    # markdown folder
     report.index1 <- list()
+    root1 <- file.path(filepath(object), "markdown", paste0("group.", as.integer(item)))
+    dir.create(root1, showWarnings = F)
 
     if ("group.quants" %in% ctrl@plot) {
-      fig <- plot_group_quants(fit.sigma, item, value.limits = lims$group.quants, summary = T)
+      fig <- plot_group_quants(object, item, value.limits = lims$group.quants, summary = T)
       report.index1$group.quant <- data.table(
         section = paste0(ctrl@group[1], " raw quants"), section.order = 150, item = item, item.order = as.integer(item),
-        item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@group[1]), "_quants_", as.integer(item)), paste0(ctrl@group[1], " raw quants for ", item), dir = batch)
+        item.href = generate_markdown(
+          object,
+          fig,
+          root1, paste0("seamass_sigma__", tolower(ctrl@group[1]), "_quants_", as.integer(item)),
+          paste0(ctrl@group[1], " raw quants for ", item))
       )
     }
 
-    if (ctrl@component.model != "" && "component.stats" %in% ctrl@plot) {
-      fig <- plot_component_means(fit.sigma, item, value.limits = lims$component.means, summary = T)
-      report.index1$component.means <- data.table(
-        section = paste0(ctrl@component[1], " means"), section.order = 200, item = item, item.order = as.integer(item),
-        item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@component[1]), "_means_", as.integer(item)), paste0(ctrl@component[1], " means for ", item), dir = batch)
-      )
-
-      fig <- plot_component_stdevs(fit.sigma, item, value.limits = lims$component.stdevs, summary = T)
-      report.index1$component.stdevs <- data.table(
-        section = paste0(ctrl@component[1], " stdevs"), section.order = 250, item = item, item.order = as.integer(item),
-        item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@component[1]), "_stdevs_", as.integer(item)), paste0(ctrl@component[1], " stdevs for ", item), dir = batch)
-      )
+    if (ctrl@component.model != "") {
+      if ("component.means" %in% ctrl@plot) {
+        fig <- plot_component_means(object, item, value.limits = lims$component.means, summary = T)
+        report.index1$component.means <- data.table(
+          section = paste0(ctrl@component[1], " means"), section.order = 250, item = item, item.order = as.integer(item),
+          item.href = generate_markdown(
+            object,
+            fig,
+            root1, paste0("seamass_sigma__", tolower(ctrl@component[1]), "_means_", as.integer(item)),
+            paste0(ctrl@component[1], " means for ", item)
+          )
+        )
+      }
+      if ("component.stdevs" %in% ctrl@plot) {
+        fig <- plot_component_stdevs(object, item, value.limits = lims$component.stdevs, summary = T)
+        report.index1$component.stdevs <- data.table(
+          section = paste0(ctrl@component[1], " stdevs"), section.order = 300, item = item, item.order = as.integer(item),
+          item.href = generate_markdown(
+            object,
+            fig,
+            root1, paste0("seamass_sigma__", tolower(ctrl@component[1]), "_stdevs_", as.integer(item)),
+            paste0(ctrl@component[1], " stdevs for ", item)
+          )
+        )
+      }
+      if ("component.deviations" %in% ctrl@plot) {
+        fig <- plot_component_deviations(object, item, value.limits = lims$component.deviations, summary = T)
+        report.index1$component.deviations <- data.table(
+          section = paste0(ctrl@component[1], " deviations"), section.order = 200, item = item, item.order = as.integer(item),
+          item.href = generate_markdown(
+            object,
+            fig,
+            root1, paste0("seamass_sigma__", tolower(ctrl@component[1]), "_deviations_", as.integer(item)),
+            paste0(ctrl@component[1], " deviations for ", item)
+          )
+        )
+      }
     }
 
-    if (ctrl@component.model != "" && "component.deviations" %in% ctrl@plot) {
-      fig <- plot_component_deviations(fit.sigma, item, value.limits = lims$component.deviations, summary = T)
-      report.index1$component.deviations <- data.table(
-        section = paste0(ctrl@component[1], " deviations"), section.order = 300, item = item, item.order = as.integer(item),
-        item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@component[1]), "_deviations_", as.integer(item)), paste0(ctrl@component[1], " deviations for ", item), dir = batch)
-      )
-    }
-
-    if ("measurement.stats" %in% ctrl@plot) {
-      fig <- plot_measurement_means(fit.sigma, item, value.limits = lims$measurement.means, summary = T)
+    if ("measurement.means" %in% ctrl@plot) {
+      fig <- plot_measurement_means(object, item, value.limits = lims$measurement.means, summary = T)
       report.index1$measurement.means <- data.table(
         section = paste0(ctrl@measurement[1], " means"), section.order = 400, item = item, item.order = as.integer(item),
-        item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@measurement[1]), "_means_", as.integer(item)), paste0(ctrl@measurement[1], " means for ", item), dir = batch)
+        item.href = generate_markdown(
+          object,
+          fig,
+          root1, paste0("seamass_sigma__", tolower(ctrl@measurement[1]), "_means_", as.integer(item)),
+          paste0(ctrl@measurement[1], " means for ", item)
+        )
       )
-
-      fig <- plot_measurement_stdevs(fit.sigma, item, value.limits = lims$measurement.stdevs, summary = T)
+    }
+    if ("measurement.stdevs" %in% ctrl@plot) {
+      fig <- plot_measurement_stdevs(object, item, value.limits = lims$measurement.stdevs, summary = T)
       report.index1$measurement.stdevs <- data.table(
         section = paste0(ctrl@measurement[1], " stdevs"), section.order = 450, item = item, item.order = as.integer(item),
-        item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@measurement[1]), "_stdevs_", as.integer(item)), paste0(ctrl@measurement[1], " stdevs for ", item), dir = batch)
+        item.href = generate_markdown(
+          object,
+          fig,
+          root1, paste0("seamass_sigma__", tolower(ctrl@measurement[1]), "_stdevs_", as.integer(item)),
+          paste0(ctrl@measurement[1], " stdevs for ", item)
+        )
       )
+    }
+
+    if (length(report.index1) > 0) {
+      # zip
+      render_markdown(object, root1)
+      if (!("markdown" %in% ctrl@keep)) unlink(root1, recursive = T)
     }
 
     return(report.index1)
   }, nthread = ctrl@nthread))
 
-  if (length(report.index) > 0) fst::write.fst(rbindlist(report.index), file.path(filepath(object), paste0("report.index.plots", chain, ".fst")))
+  # save index
+  if (length(report.index) > 0) {
+    fst::write.fst(rbindlist(report.index), file.path(filepath(object), "report", paste0("groups.", batch, ".report.fst")))
+  }
+
   return(invisible(NULL))
 })
 

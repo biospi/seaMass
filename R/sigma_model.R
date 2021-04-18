@@ -2,7 +2,7 @@
 #' @include generics.R
 setMethod("model", "sigma_block", function(object, input, chain = 1) {
   ctrl <- control(object)
-  cat(paste0("[", Sys.time(), "]  SIGMA-", toupper(input), " block=", sub("^.*sigma\\.(.*)$", "\\1", filepath(object)), " chain=", chain, "/", ctrl@nchain, "\n"))
+  cat(paste0("[", Sys.time(), "]  SIGMA-", toupper(input), " block=", name(object), " chain=", chain, "/", ctrl@nchain, "\n"))
 
   # load metadata
   DT.index <- fst::read.fst(file.path(filepath(object), input, "input.index.fst"), as.data.table = T)

@@ -10,9 +10,13 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
   model(object, "model1", chain)
 
   if (increment_completed(file.path(filepath(object), "model1"), job.id = job.id) == ctrl@nchain) {
-    cat(paste0("[", Sys.time(), "]  SIGMA-PROCESS1 block=", sub("^.*sigma\\.(.*)$", "\\1", filepath(object)), "\n"))
+    cat(paste0("[", Sys.time(), "]  SIGMA-PROCESS1 block=", name(object), "\n"))
+
+    # markdown folder
+    fit.sigma <- container(object)
     report.index <- list()
-    fit.sigma <- parent(object)
+    root <- file.path(filepath(fit.sigma), "markdown", paste0("block.", name(object)))
+    dir.create(root, showWarnings = F)
 
     # group summary
     if ("groups" %in% ctrl@summarise) {
@@ -27,16 +31,26 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       cat(paste0("[", Sys.time(), "]   generating robust PCA plots for group quants...\n"))
       DT <- robust_pca(object, summary = F, as.data.table = T)
 
-      text <- paste0("PCA - ", ctrl@group[1], " quants with assay stdevs QC - Block ", name(object))
+      text <- paste0("PCA - ", ctrl@group[1], " raw quants with assay stdevs QC - Block ", name(object))
       report.index$group.quants.pca1 <- data.table(
-        section = "Study-level", section.order = 0, item = text, item.order = 1000000 + as.integer(assay_design(object)$Block[1]),
-        item.href = add_to_report(fit.sigma, plot_robust_pca(object, data = DT), paste0("pca_", tolower(ctrl@group[1]), "_quants__assay_stdevs__block", name(object)), text)
+        section = "Block-level", section.order = 50, item = text, item.order = 1000000 + as.integer(assay_design(object)$Block[1]),
+        item.href = generate_markdown(
+          fit.sigma,
+          plot_robust_pca(object, data = DT),
+          root, paste0("seamass_sigma__pca_", tolower(ctrl@group[1]), "_quants__assay_stdevs__block", name(object)),
+          text
+        )
       )
 
-      text <- paste0("PCA - ", ctrl@group[1], " quants by Condition - Block ", name(object))
+      text <- paste0("PCA - ", ctrl@group[1], " raw quants by Condition - Block ", name(object))
       report.index$group.quants.pca2 <- data.table(
-        section = "Study-level", section.order = 0, item = text, item.order = 1100000 + as.integer(assay_design(object)$Block[1]),
-        item.href = add_to_report(fit.sigma, plot_robust_pca(object, colour = "Condition", fill = "Condition", shape = NULL, data = DT), paste0("pca_", tolower(ctrl@group[1]), "_quants__conditions__block", name(object)), text)
+        section = "Block-level", section.order = 50, item = text, item.order = 1100000 + as.integer(assay_design(object)$Block[1]),
+        item.href = generate_markdown(
+          fit.sigma,
+          plot_robust_pca(object, colour = "Condition", fill = "Condition", shape = NULL, data = DT),
+          root, paste0("seamass_sigma__pca_", tolower(ctrl@group[1]), "_quants__conditions__block", name(object)),
+          text
+        )
       )
     }
 
@@ -60,10 +74,8 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       measurement_stdevs(object, summary = T, as.data.table = T)
     }
 
-    if (length(report.index) > 0) fst::write.fst(rbindlist(report.index), file.path(filepath(object), "report.index.fst"))
-    if (increment_completed(file.path(filepath(parent(object)), "sigma"), "process", job.id) == length(blocks(object))) {
+    if (increment_completed(filepath(container(object)), "process", job.id) == length(blocks(object))) {
       cat(paste0("[", Sys.time(), "]  SIGMA-OUTPUT\n"))
-      report.index <- list()
 
       # write design
       DT <- assay_design(fit.sigma, as.data.table = T)
@@ -85,7 +97,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
         DT <- merge(DT, DT2, by = c("Block", "Assay"), all = T)
       }
 
-      fwrite(DT, file.path(filepath(fit.sigma), "markdown", "csv", "design.csv"))
+      fwrite(DT, file.path(dirname(filepath(fit.sigma)), "csv", "design.csv"))
 
       # write group output
       cat(paste0("[", Sys.time(), "]   writing group output...\n"))
@@ -137,7 +149,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
           DT <- merge(DT, DT2, by = "Group", all = T)
         }
 
-        fwrite(DT, file.path(filepath(fit.sigma), "markdown", "csv", paste0(tolower(ctrl@group[1]), ".csv")))
+        fwrite(DT, file.path(dirname(filepath(fit.sigma)), "csv", paste0(tolower(ctrl@group[1]), "_raw.csv")))
       }
 
       # write component output
@@ -199,7 +211,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
           DT <- merge(DT, DT2, by = c("Group", "Component"), all = T)
         }
 
-        fwrite(DT, file.path(filepath(fit.sigma), "markdown", "csv", paste0(tolower(ctrl@component[1]), ".csv")))
+        fwrite(DT, file.path(dirname(filepath(fit.sigma)), "csv", paste0(tolower(ctrl@component[1]), ".csv")))
       }
 
       # component deviations pca
@@ -210,13 +222,23 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
         text <- paste0("PCA - ", ctrl@component[1], " deviations with assay stdevs QC by Block")
         report.index$component.deviations.pca1 <- data.table(
           section = "Study-level", section.order = 0, item = text, item.order = 2000000,
-          item.href = add_to_report(fit.sigma, plot_robust_pca(fit.sigma, shape = "Block", data = DT), paste0("pca_", tolower(ctrl@component[1]), "_deviations__assay_stdevs"), text)
+          item.href = generate_markdown(
+            fit.sigma,
+            plot_robust_pca(fit.sigma, shape = "Block", data = DT),
+            root, paste0("seamass_sigma__pca_", tolower(ctrl@component[1]), "_deviations__assay_stdevs"),
+            text
+          )
         )
 
         text <- paste0("PCA - ", ctrl@component[1], " deviations by Condition")
         report.index$component.deviations.pca2 <- data.table(
           section = "Study-level", section.order = 0, item = text, item.order = 2100000,
-          item.href = add_to_report(fit.sigma, plot_robust_pca(fit.sigma, colour = "Condition", fill = "Condition", data = DT), paste0("pca_", tolower(ctrl@component[1]), "_deviations__conditions"), text)
+          item.href = generate_markdown(
+            fit.sigma,
+            plot_robust_pca(fit.sigma, colour = "Condition", fill = "Condition", data = DT),
+            root, paste0("seamass_sigma__pca_", tolower(ctrl@component[1]), "_deviations__conditions"),
+            text
+          )
         )
       }
 
@@ -255,7 +277,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
           DT <- merge(DT, DT2, by = c("Group", "Component", "Measurement"), all = T)
         }
 
-        fwrite(DT, file.path(filepath(fit.sigma), "markdown", "csv", paste0(tolower(ctrl@measurement[1]), ".csv")))
+        fwrite(DT, file.path(dirname(filepath(fit.sigma)), "csv", paste0(tolower(ctrl@measurement[1]), ".csv")))
       }
 
       # calculate plot limits
@@ -269,7 +291,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
         if ("component.stdevs" %in% ctrl@plot) lims$component.stdevs <- limits_dists(component_stdevs(fit.sigma, summary = T, as.data.table = T), include.zero = T, non.negative = T)
         if ("measurement.means" %in% ctrl@plot) lims$measurement.means <- limits_dists(measurement_means(fit.sigma, summary = T, as.data.table = T))
         if ("measurement.stdevs" %in% ctrl@plot) lims$measurement.stdevs <- limits_dists(measurement_stdevs(fit.sigma, summary = T, as.data.table = T), include.zero = T, non.negative = T)
-        saveRDS(lims, file.path(filepath(fit.sigma), "sigma", "limits.rds"))
+        saveRDS(lims, file.path(filepath(fit.sigma), "limits.rds"))
       }
 
       # save assay stdevs plot
@@ -278,7 +300,12 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
         fig <- plot_assay_stdevs(fit.sigma)
         report.index$assay.stdevs <- data.table(
           section = "Study-level", section.order = 0, item = "Assay stdevs QC", item.order = 0,
-          item.href = add_to_report(fit.sigma, fig, "assay_stdevs", "Assay stdevs QC plot")
+          item.href = generate_markdown(
+            fit.sigma,
+            fig,
+            root, "seamass_sigma__assay_stdevs",
+            "Assay stdevs QC plot"
+          )
         )
       }
 
@@ -286,14 +313,28 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       if ("group.means" %in% ctrl@plot) {
         cat(paste0("[", Sys.time(), "]   generating group means plot...\n"))
         fig <- plot_group_means(fit.sigma, summary = T)
+        text <- paste0(ctrl@group[1], " raw means")
         report.index$group.means <- data.table(
-          section = "Study-level", section.order = 0, item = paste0(ctrl@group[1], " means"), item.order = 100000,
-          item.href = add_to_report(fit.sigma, fig, paste0(tolower(ctrl@group[1]), "_means"), paste0(ctrl@group[1], " means plot"))
+          section = "Study-level", section.order = 0, item = text, item.order = 100000,
+          item.href = generate_markdown(
+            fit.sigma,
+            fig,
+            root, paste0("seamass_sigma__", tolower(ctrl@group[1]), "_means"),
+            text
+          )
         )
       }
 
-      if (length(report.index) > 0) fst::write.fst(rbindlist(report.index), file.path(filepath(fit.sigma), "sigma", "report.index.fst"))
-      increment_completed(file.path(filepath(fit.sigma), "sigma"))
+      increment_completed(filepath(fit.sigma))
+    }
+
+    if (length(report.index) > 0) {
+      # zip
+      render_markdown(fit.sigma, root)
+      if (!("markdown" %in% ctrl@keep)) unlink(root, recursive = T)
+
+      # save index
+      fst::write.fst(rbindlist(report.index), file.path(filepath(fit.sigma), "report", paste0("block.", name(object), ".report.fst")))
     }
   }
 

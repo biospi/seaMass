@@ -16,6 +16,12 @@ setMethod("prepare_sigma", "schedule_local", function(object, fit.sigma) {
 
 
 #' @include generics.R
+setMethod("prepare_theta", "schedule_local", function(object, fit.theta) {
+  return(invisible(object))
+})
+
+
+#' @include generics.R
 setMethod("prepare_delta", "schedule_local", function(object, fit.delta) {
   return(invisible(object))
 })
@@ -38,22 +44,29 @@ setMethod("run", "schedule_local", function(object, fit.sigma) {
     for (chain in 1:ctrl@nchain) process1(block, chain, job.id)
   }
 
+  # THETA
+  for (fit.theta in open_thetas(fit.sigma, force = T)) {
+    for (block in blocks(fit.theta)) {
+      for (chain in 1:ctrl@nchain) process(block, chain, job.id)
+    }
+  }
+
   # DELTA
-  # run delta if they exist
   for (fit.delta in open_deltas(fit.sigma, force = T)) {
     for (chain in 1:control(fit.delta)@nchain) process(fit.delta, chain, job.id)
   }
 
-  # run plots if you want
+  # PLOTS
   if (ctrl@plots == T) {
-    for (block in blocks(fit.sigma)) {
-      for (chain in 1:ctrl@nchain) plots(block, chain, job.id)
+    for (batch in 1:(length(blocks(fit.sigma)) * control(fit.sigma)@nchain)) {
+      plots(fit.sigma, batch, job.id)
+      for (fit.theta in open_thetas(fit.sigma)) plots(fit.theta, batch, job.id)
+      for (fit.delta in open_deltas(fit.sigma)) plots(fit.delta, batch, job.id)
     }
   }
 
-  # report
+  # generate report
   report(fit.sigma)
-  for (fit.delta in open_deltas(fit.sigma, force = T)) report(fit.delta)
 
   cat(paste0("[", Sys.time(), "] finished!\n"))
 

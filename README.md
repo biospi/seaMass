@@ -3,7 +3,9 @@ The seaMass suite of tools for quantification and differential expression analys
 
 - **seaMass-Σ**: A Bayesian protein group-level quantification technique univerally supporting label-free, SILAC, iTraq/TMT and DIA data. Currently we support proteomics input from Waters Progenesis (label-free), SCIEX ProteinPilot (iTraQ), Thermo ProteomeDiscoverer (SILAC/TMT) and OpenSWATH (SWATH). Other packages supported on request (MaxQuant coming soon). The model provides automatic quality control by downweighting problematic samples and peptides/features, can scale to massive study sizes, and propagates quantification uncertainty downstream to the differential expression analysis stage. 
 
-- **seaMass-Δ**: Bayesian normalisation and differential expression analysis on the output of seaMass-Σ. By harnessing the generic [MCMCglmm](https://cran.r-project.org/web/packages/MCMCglmm) package for Bayesian mixed-effect modelling, the tool allows the user to perform many kinds of univariate analysis on the data, from simple Welch's t-tests and two-way ANOVA to timecourse and multi-level models. Studies analysed with earlier versions of seaMass-Σ and seaMass-Δ are published in [[Freeman et al, Diabetes, 2016]](	
+- **seaMass-Θ**: Bayesian protein group normalisation on the output of seaMass-Σ.
+
+- **seaMass-Δ**: Bayesian differential expression analysis on the output of seaMass-Σ or seaMass-Θ. By harnessing the generic [MCMCglmm](https://cran.r-project.org/web/packages/MCMCglmm) package for Bayesian mixed-effect modelling, the tool allows the user to perform many kinds of univariate analysis on the data, from simple Welch's t-tests and two-way ANOVA to timecourse and multi-level models. Studies analysed with earlier versions of seaMass-Σ and seaMass-Δ are published in [[Freeman et al, Diabetes, 2016]](	
 https://doi.org/10.2337/db15-0835), [[Xu et al, Nature Comms Biology, 2019]](https://doi.org/10.1038/s42003-018-0254-9) and [[Kassab et al, Molecular Metabolism, 2019]](	
 https://doi.org/10.1016/j.molmet.2019.08.003).
 
@@ -23,19 +25,13 @@ Please install the R package directly from our Github repository. To do this you
 install.packages("devtools")
 ```
 
-It is currently (14th September 2020) recommended to use R 3.6.3 rather than new version 4.0.2 as the later can crash randomly. However, one dependency will stop installation of seaMass as the latest version now requires R 4. As a workaround, please first install an old version of this package compatible with R 3:
-
-```
-devtools::install_version("foreign", version = "0.8-76")
-```
-
 Then to install seaMass or upgrade to the latest version, simply run:
 
 ```
 devtools::install_github("biospi/seaMass", dependencies = TRUE)
 ```
 
-## seaMass-Σ and seaMass-Δ
+## seaMass-Σ, seaMass-Θ and seaMass-Δ
 
 Firstly, you need to use an *import* function to convert from an upstream tool format to seaMass' standardised *data.frame* format. Then you can assign injections to runs if you've used fractionation, and specify a block structure to your assays if this is a large study (TMT/iTraq studies are blocked automatically). Finally, you use the *seaMass-sigma* function to fit the model and generate raw group-level quants.
 

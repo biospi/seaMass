@@ -6,7 +6,7 @@
 setMethod("dea_MCMCglmm", "seaMass_delta", function(
   object,
   input = "model1",
-  type = "standardised.group.deviations",
+  type = "group.quants",
   specs = ~ Condition,
   contrasts = list(method = "revpairwise"),
   fixed = ~ Condition,
@@ -27,7 +27,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
   slice = FALSE,
   ginverse = NULL,
   trunc = FALSE,
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   data = NULL,
   ...
 ) {
@@ -60,7 +60,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
       batch <- item[1, Batch]
 
       if ("Component" %in% colnames(item)) {
-        DT.components <- assay_components(object@fit, as.data.table = T)
+        DT.components <- assay_components(root(object@fit), as.data.table = T)
         DT.components[, Block := as.integer(Block)]
         DT.components[, Group := as.integer(Group)]
         DT.components[, Component := as.integer(Component)]
@@ -68,7 +68,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
         item <- merge(item, DT.components, by = c("Block", "Group", "Component", "Assay"), sort = F)
         item <- split(item, by = c("Group", "Component"), drop = T)
       } else if ("Group" %in% colnames(item)) {
-        DT.groups <- assay_groups(object@fit, as.data.table = T)
+        DT.groups <- assay_groups(root(object@fit), as.data.table = T)
         DT.groups[, Block := as.integer(Block)]
         DT.groups[, Group := as.integer(Group)]
         DT.groups[, Assay := as.integer(Assay)]
@@ -107,7 +107,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
             if (attempt > 1) print(attempt)
             tryCatch({
               # run MCMCglmm
-              set.seed(ctrl@random.seed + (DT[1, Group] - 1) * ctrl@model.nchain + (chain - 1))
+              set.seed(ctrl@random.seed + (DT[1, Group] - 1) * ctrl@nchain + (chain - 1))
               model <- MCMCglmm::MCMCglmm(
                 fixed = fixed1,
                 random = random,
@@ -121,9 +121,9 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
                 pedigree = pedigree,
                 nodes = nodes,
                 scale = scale,
-                nitt = ctrl@dea.nwarmup + (ctrl@model.nsample * ctrl@dea.thin) / ctrl@model.nchain,
-                thin = ctrl@dea.thin,
-                burnin = ctrl@dea.nwarmup,
+                nitt = ctrl@nwarmup + (ctrl@nsample * ctrl@thin) / ctrl@nchain,
+                thin = ctrl@thin,
+                burnin = ctrl@nwarmup,
                 pr = pr,
                 pl = pl,
                 verbose = F,
@@ -265,11 +265,11 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
     # save index
     if (chain == 1) {
       DT.index <- rbindlist(DT.index)
-      groups <- groups(object@fit, as.data.table = T)[, Group]
+      groups <- groups(root(object@fit), as.data.table = T)[, Group]
       DT.index[, Group := factor(Group, levels = 1:nlevels(groups), labels = levels(groups))]
       rm(groups)
       if ("Component" %in% colnames(DT.index)) {
-        components <- components(object@fit, as.data.table = T)[, Component]
+        components <- components(root(object@fit), as.data.table = T)[, Component]
         DT.index[, Component := factor(Component, levels = 1:nlevels(components), labels = levels(components))]
         rm(components)
       }

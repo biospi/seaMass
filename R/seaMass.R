@@ -1,14 +1,20 @@
 .onAttach <- function(libname, pkgname) {
-  packageStartupMessage(paste0("seaMass v", packageVersion("seaMass"), "  |  © 2019-2020  BIOSP", utf8::utf8_encode("\U0001f441"), "  Laboratory"))
+  packageStartupMessage(paste0("seaMass v", packageVersion("seaMass"), "  |  © 2019-2021  BIOSP", utf8::utf8_encode("\U0001f441"), "  Laboratory"))
   packageStartupMessage("This program comes with ABSOLUTELY NO WARRANTY.")
   packageStartupMessage("This is free software, and you are welcome to redistribute it under certain conditions.")
 }
 
 
-#' seaMass object
+#' seaMass class
 #'
-#' Methods shared between \link{seaMass_sigma}, \link{sigma_block} and \link{seaMass_delta}
+#' Methods shared between all \code{seaMass} objects
 setClass("seaMass", contains = "VIRTUAL")
+
+
+#' seaMass group quants class
+#'
+#'  \link{seaMass_sigma} and \link{seaMass_theta} both expose group_quants method
+setClass("seaMass_group_quants", contains = "seaMass")
 
 
 #' @import data.table
@@ -189,7 +195,7 @@ limits_dists <- function(data, quantiles.dist = c(0.05, 0.95), quantiles.dists =
     return(lim)
   })
 
-  lims <- c(min(lims[1,]), max(lims[2,]))
+  lims <- c(min(lims[1,], na.rm = T), max(lims[2,], na.rm = T))
 
   return(lims)
 }
@@ -217,13 +223,15 @@ setMethod("plot_dists", "seaMass", function(
   min.width = 1024,
   min.height = 256
 ) {
+  fit.sigma <- root(object)
+
   if (is.data.frame(data)) {
     DTs <- list(as.data.table(data))
   } else {
     DTs <- lapply(data, function(dd) as.data.table(dd))
   }
 
-  if (is.null(data) || is.null(DTs[[1]])) return(NULL)
+  if (is.null(data) || nrow(DTs[[1]]) == 0) return(NULL)
 
   if (!is.list(draw_quantiles)) {
     draw_quantiless <- list(draw_quantiles)
@@ -277,12 +285,12 @@ setMethod("plot_dists", "seaMass", function(
   DT1 <- DTs[[1]][, .N, by = cols]
   block <- NULL
   if ("Block" %in% cols) block <- "Block"
-  if ("Group" %in% cols) DT1 <- merge(DT1, groups(object, as.data.table = T), sort = F, by = c(block, "Group"))
-  if ("Group" %in% cols && "Component" %in% cols) DT1 <- merge(DT1, components(object, as.data.table = T), sort = F, by = c(block, "Group", "Component"))
-  if ("Group" %in% cols && "Component" %in% cols && "Measurement" %in% cols) DT1 <- merge(DT1, measurements(object, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Measurement"))
-  if ("Assay" %in% cols) DT1 <- merge(DT1, assay_design(object, as.data.table = T), sort = F, by = c(block, "Assay"), suffixes = c("", ".AD"))
-  if ("Group" %in% cols && "Assay" %in% cols) DT1 <- merge(DT1, assay_groups(object, as.data.table = T), sort = F, by = c(block, "Group", "Assay"))
-  if ("Group" %in% cols && "Component" %in% cols && "Assay" %in% cols) DT1 <- merge(DT1, assay_components(object, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Assay"))
+  if ("Group" %in% cols) DT1 <- merge(DT1, groups(fit.sigma, as.data.table = T), sort = F, by = c(block, "Group"))
+  if ("Group" %in% cols && "Component" %in% cols) DT1 <- merge(DT1, components(fit.sigma, as.data.table = T), sort = F, by = c(block, "Group", "Component"))
+  if ("Group" %in% cols && "Component" %in% cols && "Measurement" %in% cols) DT1 <- merge(DT1, measurements(fit.sigma, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Measurement"))
+  if ("Assay" %in% cols) DT1 <- merge(DT1, assay_design(fit.sigma, as.data.table = T), sort = F, by = c(block, "Assay"), suffixes = c("", ".AD"))
+  if ("Group" %in% cols && "Assay" %in% cols) DT1 <- merge(DT1, assay_groups(fit.sigma, as.data.table = T), sort = F, by = c(block, "Group", "Assay"))
+  if ("Group" %in% cols && "Component" %in% cols && "Assay" %in% cols) DT1 <- merge(DT1, assay_components(fit.sigma, as.data.table = T), sort = F, by = c(block, "Group", "Component", "Assay"))
 
   ## SET UP PLOT
 
@@ -344,121 +352,103 @@ setMethod("plot_dists", "seaMass", function(
 
   ## PLOT EACH DATASET
   for (i in 1:length(DTs)) {
-    # cope with different inputs
-    if ("PosteriorMean" %in% colnames(DTs[[i]]) || "m" %in% colnames(DTs[[i]])) {
-      DTs[[i]][, dist := "lst"]
-      y <- ifelse("PosteriorMean" %in% colnames(DTs[[i]]), "PosteriorMean", "m")
-      arg2 <- ifelse("PosteriorMean" %in% colnames(DTs[[i]]), "PosteriorSD", "s")
-      arg3 <- "df"
-    } else if ("value" %in% colnames(DTs[[i]])) {
-      DTs[[i]][, dist := NA]
-      y <- "value"
-      arg2 <- NULL
-      arg3 <- NULL
-    } else {
-      DTs[[i]][, dist := "inaka"]
-      y <- "s"
-      arg2 <- "df"
-      arg3 <- NULL
-    }
+    if (nrow(DTs[[i]]) > 0) {
+      # cope with different inputs
+      if ("PosteriorMean" %in% colnames(DTs[[i]]) || "m" %in% colnames(DTs[[i]])) {
+        DTs[[i]][, dist := "lst"]
+        y <- ifelse("PosteriorMean" %in% colnames(DTs[[i]]), "PosteriorMean", "m")
+        arg2 <- ifelse("PosteriorMean" %in% colnames(DTs[[i]]), "PosteriorSD", "s")
+        arg3 <- "df"
+      } else if ("value" %in% colnames(DTs[[i]])) {
+        DTs[[i]][, dist := NA]
+        y <- "value"
+        arg2 <- NULL
+        arg3 <- NULL
+      } else {
+        DTs[[i]][, dist := "inaka"]
+        y <- "s"
+        arg2 <- "df"
+        arg3 <- NULL
+      }
 
-    # colour
-    j <- (i-1) %% length(colours) + 1
-    ggcolour <- NULL
-    if (is.null(colours[[j]])) {
-      ggcolour.aes <- NULL
-      ggcolour <- NA
-    } else if (colours[[j]] %in% colnames(DT1)) {
-      ggcolour.aes <- colours[[j]]
+      # colour
+      j <- (i-1) %% length(colours) + 1
       ggcolour <- NULL
-    } else {
-      ggcolour.aes <- NULL
-      ggcolour <- colours[[j]]
-    }
+      if (is.null(colours[[j]])) {
+        ggcolour.aes <- NULL
+        ggcolour <- NA
+      } else if (colours[[j]] %in% colnames(DT1)) {
+        if (all(is.na(DT1[, get(colours[[j]])]))) {
+          ggcolour.aes <- NULL
+          ggcolour <- "black"
+        } else {
+          ggcolour.aes <- colours[[j]]
+          ggcolour <- NULL
+        }
+      } else {
+        ggcolour.aes <- NULL
+        ggcolour <- colours[[j]]
+      }
 
-    # fill
-    j <- (i-1) %% length(fills) + 1
-    if (is.null(fills[[j]])) {
-      ggfill.aes <- NULL
-      ggfill <- NA
-    } else if (fills[[j]] %in% colnames(DT1)) {
-      ggfill.aes <- fills[[j]]
-      ggfill <- NULL
-    } else {
-      ggfill.aes <- NULL
-      ggfill <- fills[[j]]
-    }
+      # fill
+      j <- (i-1) %% length(fills) + 1
+      if (is.null(fills[[j]])) {
+        ggfill.aes <- NULL
+        ggfill <- NA
+      } else if (fills[[j]] %in% colnames(DT1)) {
+        if(all(is.na(DT1[, get(fills[[j]])]))) {
+          ggfill.aes <- NULL
+          ggfill <- NA
+        } else {
+          ggfill.aes <- fills[[j]]
+          ggfill <- NULL
+        }
+      } else {
+        ggfill.aes <- NULL
+        ggfill <- fills[[j]]
+      }
 
-    # merge metadata
-    #x.cols <- intersect(colnames(DT1), c("Summary", summary.cols, ggcolour.aes, ggfill.aes))
-    y.cols <- intersect(colnames(DTs[[i]]), c(summary.cols, y, "dist", arg2, arg3, ggcolour.aes, ggfill.aes))
-    by.cols <- intersect(intersect(colnames(DT1), c(summary.cols, ggcolour.aes, ggfill.aes)), colnames(DTs[[i]]))
-    DTs[[i]] <- merge(DT1, DTs[[i]][, mget(y.cols)], by = by.cols, sort = T, suffixes = c("_", ""))
+      # merge metadata
+      #x.cols <- intersect(colnames(DT1), c("Summary", summary.cols, ggcolour.aes, ggfill.aes))
+      y.cols <- intersect(colnames(DTs[[i]]), c(summary.cols, y, "dist", arg2, arg3, ggcolour.aes, ggfill.aes))
+      by.cols <- intersect(intersect(colnames(DT1), c(summary.cols, ggcolour.aes, ggfill.aes)), colnames(DTs[[i]]))
+      DTs[[i]] <- merge(DT1, DTs[[i]][, mget(y.cols)], by = by.cols, sort = T, suffixes = c("_", ""))
 
-    # yet more hacks - add factor name to ggcolour and ggfill levels
-    if (!is.null(ggcolour.aes)) {
-      levels(DTs[[i]][[ggcolour.aes]]) <- paste(ggcolour.aes, levels(DTs[[i]][[ggcolour.aes]]))
-      if (!is.null(ggfill.aes) && ggcolour.aes != ggfill.aes) levels(DTs[[i]][[ggfill.aes]]) <- paste(ggfill.aes, levels(DTs[[i]][[ggfill.aes]]))
-    } else {
-      if (!is.null(ggfill.aes)) levels(DTs[[i]][[ggfill.aes]]) <- paste(ggfill.aes, levels(DTs[[i]][[ggfill.aes]]))
-    }
+      # yet more hacks - add factor name to ggcolour and ggfill levels
+      if (!is.null(ggcolour.aes)) {
+        levels(DTs[[i]][[ggcolour.aes]]) <- paste(ggcolour.aes, levels(DTs[[i]][[ggcolour.aes]]))
+        if (!is.null(ggfill.aes) && ggcolour.aes != ggfill.aes) levels(DTs[[i]][[ggfill.aes]]) <- paste(ggfill.aes, levels(DTs[[i]][[ggfill.aes]]))
+      } else {
+        if (!is.null(ggfill.aes)) levels(DTs[[i]][[ggfill.aes]]) <- paste(ggfill.aes, levels(DTs[[i]][[ggfill.aes]]))
+      }
 
-    # prettify names
-    ctrl <- control(object)
-    tmp <- unique(c(summary.cols, ggcolour.aes, ggfill.aes))
-    if (length(tmp) > 0) setnames(DTs[[i]], tmp, sapply(tmp, function(t) lingofy(object, t)), skip_absent = T)
-    ggcolour.aes <- lingofy(object, ggcolour.aes)
-    ggfill.aes <- lingofy(object, ggfill.aes)
-    summary.cols1 <- lingofy(object, summary.cols)
+      # prettify names
+      ctrl <- control(fit.sigma)
+      tmp <- unique(c(summary.cols, ggcolour.aes, ggfill.aes))
+      if (length(tmp) > 0) setnames(DTs[[i]], tmp, sapply(tmp, function(t) lingofy(fit.sigma, t)), skip_absent = T)
+      ggcolour.aes <- lingofy(fit.sigma, ggcolour.aes)
+      ggfill.aes <- lingofy(fit.sigma, ggfill.aes)
+      summary.cols1 <- lingofy(fit.sigma, summary.cols)
 
-    # text tooltip
-    DT.plot <- copy(DTs[[i]]) # workaround for data.table problem
-    text.old <- intersect(colnames(DTs[[i]]), setdiff(summary.cols1, c(ggcolour.aes, ggfill.aes)))
-    text.cols <- sapply(text.old, function(col) gsub("\n", " ", col))
-    setnames(DT.plot, text.old, text.cols, skip_absent = T)
-    for (col in text.cols) {
-      DT.plot[, (col) := sapply(
-        paste0(col, ": ", DT.plot[[col]]),
-        function(str1) paste(sapply(seq(1, nchar(str1), 32), function(i) paste0(substring(str1, i, min(i + 31, nchar(str1))), '\n')), collapse='')
-      )]
-    }
-    DT.plot[, text := do.call(paste0, mget(text.cols))]
-    DT.plot[, text := sub("\n$", "", text)]
-    for (col in text.cols) DT.plot[, (col) := NULL]
+      # text tooltip
+      DT.plot <- copy(DTs[[i]]) # workaround for data.table problem
+      text.old <- intersect(colnames(DTs[[i]]), setdiff(summary.cols1, c(ggcolour.aes, ggfill.aes)))
+      text.cols <- sapply(text.old, function(col) gsub("\n", " ", col))
+      setnames(DT.plot, text.old, text.cols, skip_absent = T)
+      for (col in text.cols) {
+        DT.plot[, (col) := sapply(
+          paste0(col, ": ", DT.plot[[col]]),
+          function(str1) paste(sapply(seq(1, nchar(str1), 32), function(i) paste0(substring(str1, i, min(i + 31, nchar(str1))), '\n')), collapse='')
+        )]
+      }
+      DT.plot[, text := do.call(paste0, mget(text.cols))]
+      DT.plot[, text := sub("\n$", "", text)]
+      for (col in text.cols) DT.plot[, (col) := NULL]
 
-    # remove unnecessary columns
-    DT.plot <- DT.plot[, intersect(colnames(DT.plot), c("Summary", "value", "m", "s", "df", "dist", ggcolour.aes, ggfill.aes, "text")), with = F]
+      # remove unnecessary columns
+      DT.plot <- DT.plot[, intersect(colnames(DT.plot), c("Summary", "value", "m", "s", "df", "dist", ggcolour.aes, ggfill.aes, "text")), with = F]
 
-    # plot violin!
-    args.aes <- list(
-      text = ~text,
-      y = formula(paste0("~`", y, "`")),
-      dist = ~dist,
-      arg2 = NULL,
-      arg3 = NULL
-    )
-    if (!is.null(arg2)) args.aes$arg2 <- formula(paste0("~`", arg2, "`"))
-    if (!is.null(arg3)) args.aes$arg3 <- formula(paste0("~`", arg3, "`"))
-    if (!is.null(ggcolour.aes)) args.aes$colour <- formula(paste0("~`", ggcolour.aes, "`"))
-    if (!is.null(ggfill.aes)) args.aes$fill <- formula(paste0("~`", ggfill.aes, "`"))
-
-    args <- list(
-      mapping = do.call(eval(parse(text = "ggplot2::aes_")), args.aes),
-      data = DT.plot,
-      position = "identity",
-      scale = NULL,
-      stat = seaMass::StatYlfdr,
-      alpha = alphas[[(i-1) %% length(alpha) + 1]],
-      trim = trims[[(i-1) %% length(trims) + 1]],
-      show.legend = show.legend
-    )
-    if (!is.null(ggcolour)) args$colour <- ggcolour
-    if (!is.null(ggfill)) args$fill <- ggfill
-
-    suppressWarnings(g <- g + do.call(eval(parse(text = "ggplot2::geom_violin")), args))
-
-    # plot quantiles
-    for (qt in draw_quantiless[[(i-1) %% length(draw_quantiless) + 1]]) {
+      # plot violin!
       args.aes <- list(
         text = ~text,
         y = formula(paste0("~`", y, "`")),
@@ -478,13 +468,43 @@ setMethod("plot_dists", "seaMass", function(
         scale = NULL,
         stat = seaMass::StatYlfdr,
         alpha = alphas[[(i-1) %% length(alpha) + 1]],
-        trim = c(qt, 1 - qt),
+        trim = trims[[(i-1) %% length(trims) + 1]],
         show.legend = show.legend
       )
       if (!is.null(ggcolour)) args$colour <- ggcolour
       if (!is.null(ggfill)) args$fill <- ggfill
 
       suppressWarnings(g <- g + do.call(eval(parse(text = "ggplot2::geom_violin")), args))
+
+      # plot quantiles
+      for (qt in draw_quantiless[[(i-1) %% length(draw_quantiless) + 1]]) {
+        args.aes <- list(
+          text = ~text,
+          y = formula(paste0("~`", y, "`")),
+          dist = ~dist,
+          arg2 = NULL,
+          arg3 = NULL
+        )
+        if (!is.null(arg2)) args.aes$arg2 <- formula(paste0("~`", arg2, "`"))
+        if (!is.null(arg3)) args.aes$arg3 <- formula(paste0("~`", arg3, "`"))
+        if (!is.null(ggcolour.aes)) args.aes$colour <- formula(paste0("~`", ggcolour.aes, "`"))
+        if (!is.null(ggfill.aes)) args.aes$fill <- formula(paste0("~`", ggfill.aes, "`"))
+
+        args <- list(
+          mapping = do.call(eval(parse(text = "ggplot2::aes_")), args.aes),
+          data = DT.plot,
+          position = "identity",
+          scale = NULL,
+          stat = seaMass::StatYlfdr,
+          alpha = alphas[[(i-1) %% length(alpha) + 1]],
+          trim = c(qt, 1 - qt),
+          show.legend = show.legend
+        )
+        if (!is.null(ggcolour)) args$colour <- ggcolour
+        if (!is.null(ggfill)) args$fill <- ggfill
+
+        suppressWarnings(g <- g + do.call(eval(parse(text = "ggplot2::geom_violin")), args))
+      }
     }
   }
 
@@ -542,18 +562,23 @@ setMethod("robust_pca", "seaMass", function(
   setkey(DT, Block, Assay)
 
   # merge in Assay stdevs and means if available
-  DT.a <- assay_stdevs(object, as.data.table = T)
+  if (class(object) == "seaMass_theta") {
+    DT.a <- assay_means(object, as.data.table = T)
+    fit.sigma <- parent(object)
+    if (!is.null(DT.a)) {
+      am <- substr(toupper(control(fit.sigma)@assay.model), 1, 1)
+      DT.a <- DT.a[, .(Block, Assay, m)]
+      setnames(DT.a, "m", paste0("A.m", am))
+      DT <- merge(DT, DT.a, by = c("Block", "Assay"))
+    }
+  } else {
+    fit.sigma <- object
+  }
+  DT.a <- assay_stdevs(fit.sigma, as.data.table = T)
   if (!is.null(DT.a)) {
-    am <- substr(toupper(control(object)@assay.model), 1, 1)
+    am <- substr(toupper(control(fit.sigma )@assay.model), 1, 1)
     DT.a <- DT.a[, .(Block, Assay, s)]
     setnames(DT.a, "s", paste0("A.s", am))
-    DT <- merge(DT, DT.a, by = c("Block", "Assay"))
-  }
-  DT.a <- assay_means(object, as.data.table = T)
-  if (!is.null(DT.a)) {
-    am <- substr(toupper(control(object)@assay.model), 1, 1)
-    DT.a <- DT.a[, .(Block, Assay, m)]
-    setnames(DT.a, "s", paste0("A.m", am))
     DT <- merge(DT, DT.a, by = c("Block", "Assay"))
   }
 
@@ -652,7 +677,7 @@ setMethod("plot_robust_pca", "seaMass", function(
 ) {
   if (is.null(data)) data <- robust_pca(object, ...)
 
-  ctrl <- control(object)
+  ctrl <- control(root(object))
   DT <- as.data.table(data)
 
   # hack for plotly tooltips
@@ -813,7 +838,7 @@ setMethod("plot_robust_pca", "seaMass", function(
 #' @include generics.R
 setMethod("lingofy", "seaMass", function(object, x) {
   if (is.null(x)) return(NULL)
-  ctrl <- control(object)
+  ctrl <- control(root(object))
   col <- sub("^.*\\.(.*)G$", paste0("\\1\n", ctrl@group[2]), x)
   col <- sub("^.*\\.(.*)C$", paste0("\\1\n", ctrl@component[2]), col)
   col <- sub("^.*\\.(.*)M$", paste0("\\1\n", ctrl@measurement[2]), col)

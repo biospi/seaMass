@@ -1,81 +1,75 @@
 #' seaMass-theta
 #'
-#' Perform seaMass-Δ normalisation, differential expression analysis and/or false discovery rate correction on raw group-level
-#' quants output by seaMass-Σ
+#' Perform seaMass-theta normalisation on raw group-level quants output by seaMass-sigma
 #' @include seaMass.R
 #' @include seaMass_sigma.R
-setClass("seaMass_theta", contains = "seaMass", slots = c(
-  fit = "seaMass_sigma",
-  name = "character"
+setClass("seaMass_theta", contains = "seaMass_group_quants", slots = c(
+  filepath = "character"
 ))
 
 
-#' @describeIn seaMass_theta-class Runs seaMass-Σ.
-#' @param fit A \link{seaMass_sigma} object as returned by seaMass-Σ.
-#' @param data.design Optionally, a \link{data.frame} created by \link{new_design} and then customised, which specifies
-#'   sample names, RefWeight channels, and any covariates specified by the experimental design.
-#' @param name Name of folder on disk where all intermediate and output data will be stored; default is \code{"output"}.
-#' @param control A control object created with \link{new_theta_control} specifying control parameters for the differential analysis.
+#' @describeIn seaMass_theta-class Runs seaMass-theta.
+#' @param fit A \link{seaMass_sigma} object as returned by seaMass-sigma.
+#' @param data.design Optionally, a \link{data.frame} created by \link{new_design} and then customised, which specifies RefWeight channels.
+#' @param groups Groups to normalise on, default is the top 10 that are in every block (instead of all, just for computational considerations).
+#' @param name Name of subfolder on disk where all intermediate and output data will be stored; default is \code{"default"}.
+#' @param control A control object created with \link{new_theta_control} specifying control parameters for the normalisation.
 #' @return A \code{seaMass_theta} object that can be interrogated for various metadata and results.
 #' @import data.table
 #' @export seaMass_theta
 seaMass_theta <- function(
   fit,
   data.design = assay_design(fit),
-  name = "fit",
+  norm.groups = top_groups(fit, 512),
+  name = "default",
   control = theta_control(),
   ...
 ) {
-  # check for finished output and return that
+  # create theta object, checking for finished output
   object <- open_theta(fit, name, quiet = T)
   if (!is.null(object)) {
-    message(paste0("returning completed seaMass-theta object - if this wasn't your intention, supply a different 'name' or delete the folder for the returned object with 'del(object)'"))
-    return(object)
+    stop(paste0("ERROR: completed seaMass-theta found at ", name))
   }
+  object <- open_theta(fit, name, force = T)
 
   ### INIT
+  control@version <- as.character(packageVersion("seaMass"))
   cat(paste0("[", Sys.time(), "] seaMass-theta v", control@version, "\n"))
   control@nchain <- control(fit)@nchain
   control@nsample <- control(fit)@nsample
   control@nthread <- control(fit)@nthread
+  control@norm.groups <- norm.groups
   control@ellipsis <- list(...)
   validObject(control)
 
-  data.table::setDTthreads(control@nthread)
-  fst::threads_fst(control@nthread)
+  data.table::setDTthreads(control(fit)@nthread)
+  fst::threads_fst(control(fit)@nthread)
 
   # create fit and output directories
-  object <- new("seaMass_theta", fit = fit, name = paste0("theta.", name))
-  path <- filepath(object)
-  if (file.exists(path)) unlink(path, recursive = T)
-  dir.create(path)
-  if (file.exists(file.path(dirname(path), "output", basename(path)))) unlink(file.path(dirname(path), "output", basename(path)), recursive = T)
-  dir.create(file.path(dirname(path), "output", basename(path)))
+  if (file.exists(filepath(object))) unlink(filepath(object), recursive = T)
+  if (!dir.create(filepath(object)))
+    stop("ERROR: problem creating folder")
 
   # check and save control
-  saveRDS(control, file.path(path, "control.rds"))
+  saveRDS(control, file.path(filepath(object), "control.rds"))
 
-  # get design into the format we need
-  DT.design <- as.data.table(data.design)[!is.na(Assay)]
-  DT.sigma.design <- assay_design(fit, as.data.table = T)[, .(Assay, Block)]
-  if ("Block" %in% colnames(DT.design)) {
-    DT.design <- merge(DT.design, DT.sigma.design, by = c("Assay", "Block"), sort = F)
-  } else {
-    DT.design <- merge(DT.design, DT.sigma.design, by = "Assay", sort = F, allow.cartesian = T)
-    setcolorder(DT.design, c("Assay", "Block"))
+  # create blocks
+  for (i in 1:length(blocks(object))) {
+    # create output directory
+    blockpath <- filepath(blocks(object)[[i]])
+    dir.create(blockpath)
+
+    # design for this block, update RefWeight
+    DT.design.block <- assay_design(blocks(fit)[[i]], as.data.table = T)[, !"RefWeight"]
+    DT.design.block <- merge(DT.design.block, as.data.table(data.design), by = intersect(colnames(DT.design.block), colnames(data.design)), all.x = T)
+    if (all(DT.design.block$RefWeight == 0)) DT.design$RefWeight <- 1
+    fst::write.fst(DT.design.block, file.path(blockpath, "design.fst"))
   }
-  if (!is.factor(DT.design$Assay)) DT.design[, Assay := factor(Assay, levels = levels(DT.sigma.design$Assay))]
-  if (!is.factor(DT.design$Block)) DT.design[, Block := factor(Block, levels = levels(DT.sigma.design$Block))]
-  blocks <- grep("^Block\\.", colnames(DT.design))
-  if (length(blocks) > 0) set(DT.design, j = blocks, value = NULL)
-  cols <- which(colnames(DT.design) %in% c("qG", "uG", "nG", "qC", "uC", "nC", "qM", "uM", "nM", "qD", "uD", "nD"))
-  if (length(cols) > 0) set(DT.design, j = cols, value = NULL)
-  fst::write.fst(DT.design, file.path(path, "design.fst"))
 
   # run
   prepare_theta(control(fit)@schedule, object)
 
-  if (file.exists(file.path(filepath(fit), "sigma", "complete.rds"))) {
+  if (file.exists(file.path(filepath(fit), "complete.rds"))) {
     run(object)
     cat(paste0("[", Sys.time(), "] finished!\n"))
   } else {
@@ -86,12 +80,12 @@ seaMass_theta <- function(
 }
 
 
-#' @describeIn seaMass_theta-class Open a complete \code{seaMass_theta} run from the supplied \link{seaMass_sigma} fit object and \code{name}.
+#' @describeIn seaMass_theta-class Open a complete \code{seaMass_theta} run from the supplied \link{seaMass_sigma} fir object and \code{name}.
 #' @export
-open_theta <- function(fit, name = "fit", quiet = FALSE, force = FALSE) {
+open_theta <- function(fit, name = "default", quiet = FALSE, force = FALSE) {
   path <- file.path(filepath(fit), paste0("theta.", name))
 
-  object <- new("seaMass_theta", fit = fit, name = paste0("theta.", name))
+  object <- new("seaMass_theta", filepath = file.path(dirname(filepath(fit)), paste0("theta.", name)))
   if (!force && read_completed(file.path(filepath(object))) == 0) {
     if (quiet) {
       return(NULL)
@@ -109,7 +103,9 @@ open_theta <- function(fit, name = "fit", quiet = FALSE, force = FALSE) {
 #' @include generics.R
 setMethod("run", "seaMass_theta", function(object) {
   job.id <- uuid::UUIDgenerate()
-  for (chain in 1:control(object)@model.nchain) process(object, chain, job.id)
+  for (block in blocks(object)) process(block, job.id)
+  for (batch in 1:(length(blocks(root(object))) * control(object)@nchain)) plots(object, batch, job.id)
+  report(object)
 
   return(invisible(object))
 })
@@ -120,8 +116,19 @@ setMethod("run", "seaMass_theta", function(object) {
 #' @include generics.R
 setMethod("report", "seaMass_theta", function(object, job.id) {
   ctrl <- control(object)
-  if (!("de.standardised.group.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "standardised.group.deviations*"), recursive = T)
-  if (!("de.component.deviations" %in% ctrl@keep)) unlink(file.path(filepath(object), "component.deviations*"), recursive = T)
+  if (ctrl@version != as.character(packageVersion("seaMass")))
+    stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
+
+  cat(paste0("[", Sys.time(), "]  REPORT\n"))
+
+  if (!("model0" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model0", "group.quants*"), recursive = T)
+  if (!("assay.means" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "assay.means*"), recursive = T)
+  if (!("group.quants" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "group.quants*"), recursive = T)
+
+  # assemble report
+  cat(paste0("[", Sys.time(), "]   assembling html report...\n"))
+  assemble_report(root(object))
+  if (!("markdown" %in% ctrl@keep)) unlink(file.path(dirname(filepath(object)), "markdown"), recursive = T)
 
   return(invisible(NULL))
 })
@@ -131,7 +138,15 @@ setMethod("report", "seaMass_theta", function(object, job.id) {
 #' @export
 #' @include generics.R
 setMethod("name", "seaMass_theta", function(object) {
-  return(sub("^theta\\.", "", object@name))
+  return(sub("^theta\\.", "", basename(object@filepath)))
+})
+
+
+#' @describeIn seaMass_theta-class Get the \code{seaMass_sigma} object.
+#' @export
+#' @include generics.R
+setMethod("root", "seaMass_theta", function(object) {
+  return(parent(object))
 })
 
 
@@ -139,7 +154,7 @@ setMethod("name", "seaMass_theta", function(object) {
 #' @include generics.R
 #' @export
 setMethod("filepath", "seaMass_theta", function(object) {
-  return(file.path(filepath(object@fit), object@name))
+  return(object@filepath)
 })
 
 
@@ -147,13 +162,25 @@ setMethod("filepath", "seaMass_theta", function(object) {
 #' @export
 #' @include generics.R
 setMethod("parent", "seaMass_theta", function(object) {
-  return(object@fit)
+  return(new("seaMass_sigma", filepath = file.path(dirname(filepath(object)), "sigma")))
 })
 
 
 #' @include generics.R
 setMethod("blocks", "seaMass_theta", function(object) {
-  return(NULL)
+  blocks <- control(parent(object))@blocks
+  names(blocks) <- blocks
+  blocks <- lapply(blocks, function(block) new("theta_block", filepath = file.path(filepath(object), block)))
+  return(blocks)
+})
+
+
+#' @describeIn seaMass_theta-class Delete the \code{seaMass_theta} run from disk.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("del", "seaMass_theta", function(object) {
+  return(unlink(filepath(object), recursive = T))
 })
 
 
@@ -172,124 +199,8 @@ setMethod("control", "seaMass_theta", function(object) {
 #' @export
 #' @include generics.R
 setMethod("assay_design", "seaMass_theta", function(object, as.data.table = FALSE) {
-  DT <- fst::read.fst(file.path(filepath(object), "design.fst"), as.data.table = T)
-
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
-})
-
-
-
-
-
-
-
-
-
-
-
-
-#' @describeIn seaMass_theta-class Get the groups as a \code{data.frame}.
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("groups", "seaMass_theta", function(object, summary = TRUE, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) groups(block, as.data.table = T)))
-  if (summary) DT <- DT[, .(GroupInfo = GroupInfo[1], G.qC = max(G.qC), G.uC = max(G.uC), G.nC = max(G.nC), G.qM = max(G.qM), G.uM = max(G.uM), G.nM = max(G.nM), G.qD = max(G.qD), G.uD = max(G.uD), G.nD = max(G.nD)), by = Group]
-
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
-})
-
-
-#' @describeIn seaMass_theta-class Get the groups as a \code{data.frame}.
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("components", "seaMass_theta", function(object, summary = TRUE, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) components(block, as.data.table = T)))
-  if (summary) DT <- DT[, .(C.qM = max(C.qM), C.uM = max(C.uM), C.nM = max(C.nM), C.qD = max(C.qD), C.uD = max(C.uD), C.nD = max(C.nD)), by = .(Group, Component)]
-
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
-})
-
-
-#' @describeIn seaMass_theta-class Get the assay groups as a \code{data.frame}.
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("assay_groups", "seaMass_theta", function(object, summary = TRUE, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) assay_groups(block, as.data.table = T)))
-  if (summary) DT <- DT[, .(AG.qC = max(AG.qC), AG.uC = max(AG.uC), AG.nC = max(AG.nC), AG.qM = max(AG.qM), AG.uM = max(AG.uM), AG.nM = max(AG.nM), AG.qD = max(AG.qD), AG.uD = max(AG.uD), AG.nD = max(AG.nD)), by = .(Group, Assay)]
-
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
-})
-
-
-#' @describeIn seaMass_theta-class Get the assay groups as a \code{data.frame}.
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("assay_components", "seaMass_theta", function(object, summary = TRUE, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) assay_components(block, as.data.table = T)))
-  if (summary) DT <- DT[, .(AC.qM = max(AC.qM), AC.uM = max(AC.uM), AC.nM = max(AC.nM), AC.qD = max(AC.qD), AC.uD = max(AC.uD), AC.nD = max(AC.nD)), by = .(Group, Component, Assay)]
-
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
-})
-
-
-#' @describeIn seaMass_theta-class Get the groups as a \code{data.frame}.
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("measurements", "seaMass_theta", function(object, summary = TRUE, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) measurements(block, as.data.table = T)))
-  if (summary) DT <- DT[, .(M.qD = max(M.qD), M.uD = max(M.uD), M.nD = max(M.nD)), by = .(Group, Component, Measurement)]
-
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
-})
-
-
-#' @describeIn seaMass_theta-class Get the list of \link{sigma_block} obejcts for the blocks.
-#' @export
-#' @include generics.R
-setMethod("blocks", "seaMass_theta", function(object) {
-  blocks <- control(object)@blocks
-  if (length(blocks) == 0)
-    stop(paste0("seaMass-sigma output '", sub("\\.seaMass$", "", basename(filepath(object))), "' is missing"))
-
-  names(blocks) <- blocks
-  blocks <- lapply(blocks, function(block) new("sigma_block", filepath = normalizePath(file.path(filepath(object), paste0("sigma.", block)))))
-  return(blocks)
-})
-
-
-#' @describeIn seaMass_theta-class Open the list of \link{seaMass_theta} objects.
-#' @export
-#' @include generics.R
-setMethod("open_thetas", "seaMass_theta", function(object, quiet = FALSE, force = FALSE) {
-  thetas <- lapply(sub("^theta\\.", "", list.files(filepath(object), "^theta\\.*")), function(name) open_theta(object, name, quiet, force))
-  names(thetas) <- lapply(thetas, function(theta) name(theta))
-  return(thetas)
-})
-
-
-#' @describeIn seaMass_theta-class Get the study design as a \code{data.frame}.
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("assay_design", "seaMass_theta", function(object, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) assay_design(block, as.data.table = T)))
+  if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -300,9 +211,9 @@ setMethod("assay_design", "seaMass_theta", function(object, as.data.table = FALS
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("read", "seaMass_theta", function(object, input, type, items = NULL, chains = 1:control(object)@model.nchain, summary = NULL, summary.func = "robust_normal", as.data.table = FALSE) {
+setMethod("read", "seaMass_theta", function(object, input, type, items = NULL, chains = 1:control(object)@nchain, summary = NULL, summary.func = "robust_normal", as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) read(block, input, type, items, chains, summary, summary.func, as.data.table = T)))
-  if (nrow(DT) == 0) return(NULL)
+  if (is.null(DT)) return(NULL)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -314,7 +225,7 @@ setMethod("read", "seaMass_theta", function(object, input, type, items = NULL, c
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("assay_means", "seaMass_theta", function(object, assays = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
+setMethod("assay_means", "seaMass_theta", function(object, assays = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) assay_means(block, assays, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
@@ -324,15 +235,110 @@ setMethod("assay_means", "seaMass_theta", function(object, assays = NULL, summar
 })
 
 
-#' @describeIn seaMass_theta-class Get the model standardised group deviations as a \link{data.frame}.
+#' @describeIn seaMass_theta-class Get the model group standards as a \link{data.frame}.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("normalised_group_quants", "seaMass_theta", function(object, groups = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@model.nchain, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) normalised_group_quants(block, groups, summary, input, chains, as.data.table = T)))
+setMethod("group_standards", "seaMass_theta", function(object, groups = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) group_standards(block, groups, summary, input, chains, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
   else DT[]
   return(DT)
+})
+
+
+#' @describeIn seaMass_theta-class Get the model group quantifications as a \link{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("group_quants", "seaMass_theta", function(object, groups = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) group_quants(block, groups, summary, input, chains, as.data.table = T)))
+  if (nrow(DT) == 0) return(NULL)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_assay_means", "seaMass_theta", function(
+  object,
+  assays = NULL,
+  summary = TRUE,
+  colour = "A.qM",
+  value.label = "mean",
+  variable.summary.cols = c("Block", "Run", "Channel", "Assay", "RefWeight", "Sample", "Condition", "A.qG", "A.qC", "A.qM", "A.qD"),
+  variable.label.cols = c("Sample", "Assay", "Block"),
+  ...
+) {
+  return(plot_dists(
+    object,
+    data = assay_means(object, assays, summary = summary, as.data.table = T),
+    colour = colour,
+    value.label = value.label,
+    variable.summary.cols = variable.summary.cols,
+    variable.label.cols = variable.label.cols,
+    ...
+  ))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_group_standards", "seaMass_theta", function(
+  object,
+  groups = NULL,
+  summary = TRUE,
+  colour = "Block",
+  value.label = "mean",
+  variable.summary.cols = c("Group", "Block", "G.qC", "G.qM", "G.qD"),
+  variable.label.cols = "Group",
+  ...
+) {
+  return(plot_dists(
+    object,
+    data = group_standards(object, groups, summary = summary, as.data.table = T),
+    colour = colour,
+    value.label = value.label,
+    variable.summary.cols = variable.summary.cols,
+    variable.label.cols = variable.label.cols,
+    ...
+  ))
+})
+
+
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("plot_group_quants", "seaMass_theta", function(
+  object,
+  group,
+  summary = TRUE,
+  colour = list("Condition", "black"),
+  alpha = list(1, 0.2),
+  variable.summary.cols = c("Group", "Block", "Run", "Channel", "Assay", "RefWeight", "Sample", "Condition", "AG.qC", "AG.qM", "AG.qD"),
+  variable.label.cols = c("Sample", "Assay", "Block"),
+  value.label = "quant",
+  ...
+) {
+  return(plot_dists(
+    object,
+    data = list(
+      group_quants(object, group, summary = summary, as.data.table = T),
+      #group_quants(object, group, input = "model0", summary = summary, as.data.table = T),
+      group_quants(parent(object), group, summary = summary, as.data.table = T)
+    ),
+    colour = colour,
+    alpha = alpha,
+    variable.summary.cols = variable.summary.cols,
+    variable.label.cols = variable.label.cols,
+    value.label = value.label,
+    ...
+  ))
 })

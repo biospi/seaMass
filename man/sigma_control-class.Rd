@@ -7,7 +7,7 @@
 \title{Control parameters for seaMass-Σ}
 \usage{
 sigma_control(
-  keep = "summaries",
+  keep = c("summaries", "group.quants"),
   summarise = c("groups", "components", "measurements"),
   plot = c("assay.stdevs", "group.means", "group.quants", "group.quants.pca",
     "component.means", "component.stdevs", "component.deviations",
@@ -35,16 +35,20 @@ sigma_control(
 }
 \arguments{
 \item{keep}{Outputs to keep, \code{NULL} or a subset of
-\code{c("report", "summaries", "model0", "markdown", "assay.means", "group.quants", "group.means", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}}
+\code{c("summaries", "model0", "markdown", "assay.means", "group.quants", "group.means", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}}
 
 \item{summarise}{Outputs to write csv summaries for, \code{NULL} or a subset of
 \code{c("groups", "components", "measurements")}
 Note, you must summarise or keep \code{"standardised.group.deviations"} if you want to run seaMass-Δ!}
 
 \item{plot}{Outputs to plot, \code{NULL} or a subset of
-\code{c("assay.stdevs", "group.means", "group.quants", "group.quants.pca", "component.means", "component.stdevs", "component.deviations", "component.deviations.pca", "measurement.means", "measurement.stdevs")}}
+\code{c("assay.stdevs", "group.means", "group.quants", "group.quants.pca", "component.means", "component.stdevs",  "component.deviations", "component.deviations.pca", "measurement.means", "measurement.stdevs")}}
 
-\item{measurement.model}{Either \code{"single"} (single residual) or \code{"independent"} (per-measurement independent residuals)}
+\item{eb.model}{Empirical Bayes model, either \code{NULL} (none), \code{"fit"} (inverse Nakagami distribution fit) or \code{"deconvolve"} (LIMMA style deconvolution; default)}
+
+\item{eb.max}{Maximum number of components and measurements to use in empirical Bayes models.}
+
+\item{measurement.model}{Either \code{"single"} (single residual) or \code{"independent"} (per-measurement independent residuals; default)}
 
 \item{measurement.eb.min}{Minimum number of measurements per component to use for computing Empirical Bayes priors}
 
@@ -56,11 +60,11 @@ Note, you must summarise or keep \code{"standardised.group.deviations"} if you w
 \item{assay.model}{Either \code{NULL} (no assay model), \code{"measurement"} (per-assay independent random effects across measurements)
 or \code{"componenet"} (per-assay independent random effects across components; default)}
 
-\item{assay.eb.min}{Minimum number of assays per group group to use for computing Empirical Bayes priors}
+\item{assay.eb.min}{Minimum number of assays per group group to use for computing empirical Bayes priors}
 
 \item{assay.eb.nsample}{Number of MCMC samples to use for assay model input}
 
-\item{error.model}{Likelihood model, either \code{"poisson"} or \code{"lognormal"} (default)}
+\item{error.model}{Likelihood model, either \code{"lognormal"} (default) or \code{"poisson"}}
 
 \item{missingness.model}{Either \code{NULL} (do nothing), \code{"rm"} (NAs removed), \code{"one"} (NAs set to 1), \code{"minimum"} (NAs set to lowest quant of that measurement) or
 \code{"censored"} (NAs modelled as censored below lowest quant of that measurement; default)}

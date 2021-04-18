@@ -4,6 +4,7 @@
 #'
 #' @export sigma_control
 setClass("sigma_control", slots = c(
+  # user configurable
   keep = "character",
   summarise = "character",
   plot = "character",
@@ -26,52 +27,51 @@ setClass("sigma_control", slots = c(
   random.seed = "numeric",
   nthread = "integer",
   schedule = "schedule",
-
+  # derived
   plots = "logical",
+  # set on execution
   version = "character",
-
   user = "character",
   blocks = "character",
   group = "character",
   component = "character",
   measurement = "character",
-
   ellipsis = "list"
 ))
 
 
 #' @describeIn sigma_control-class Generator function
 #' @param keep Outputs to keep, \code{NULL} or a subset of
-#'   \code{c("report", "summaries", "model0", "markdown", "assay.means", "group.quants", "group.means", "normalised.group.means", "normalised.group.stdevs", "standardised.group.deviations", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}
+#'   \code{c("summaries", "model0", "markdown", "assay.means", "group.quants", "group.means", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}
 #' @param summarise Outputs to write csv summaries for, \code{NULL} or a subset of
 #'   \code{c("groups", "components", "measurements")}
 #'   Note, you must summarise or keep \code{"standardised.group.deviations"} if you want to run seaMass-Δ!
 #' @param plot Outputs to plot, \code{NULL} or a subset of
-#'   \code{c("assay.stdevs", "group.means", "group.quants", "group.quants.pca", "component.means", "component.stdevs", "component.deviations", "component.deviations.pca", "measurement.means", "measurement.stdevs")}
-#' @param measurement.model Either \code{"single"} (single residual) or \code{"independent"} (per-measurement independent residuals)
+#'   \code{c("assay.stdevs", "group.means", "group.quants", "group.quants.pca", "component.means", "component.stdevs",  "component.deviations", "component.deviations.pca", "measurement.means", "measurement.stdevs")}
+#' @param eb.model Empirical Bayes model, either \code{NULL} (none), \code{"fit"} (inverse Nakagami distribution fit) or \code{"deconvolve"} (LIMMA style deconvolution; default)
+#' @param eb.max Maximum number of components and measurements to use in empirical Bayes models.
+#' @param measurement.model Either \code{"single"} (single residual) or \code{"independent"} (per-measurement independent residuals; default)
 #' @param measurement.eb.min Minimum number of measurements per component to use for computing Empirical Bayes priors
 #' @param component.model Either \code{NULL} (no component model), \code{"single"} (single random effect) or \code{"independent"}
 #'   (per-component independent random effects; default)
 #' @param component.eb.min Minimum number of components per group to use for computing Empirical Bayes priors
 #' @param assay.model Either \code{NULL} (no assay model), \code{"measurement"} (per-assay independent random effects across measurements)
 #'   or \code{"componenet"} (per-assay independent random effects across components; default)
-#' @param assay.eb.min Minimum number of assays per group group to use for computing Empirical Bayes priors
+#' @param assay.eb.min Minimum number of assays per group group to use for computing empirical Bayes priors
 #' @param assay.eb.nsample Number of MCMC samples to use for assay model input
-#' @param error.model Likelihood model, either \code{"poisson"} or \code{"lognormal"} (default)
+#' @param error.model Likelihood model, either \code{"lognormal"} (default) or \code{"poisson"}
 #' @param missingness.model Either \code{NULL} (do nothing), \code{"rm"} (NAs removed), \code{"one"} (NAs set to 1), \code{"minimum"} (NAs set to lowest quant of that measurement) or
 #'   \code{"censored"} (NAs modelled as censored below lowest quant of that measurement; default)
 #' @param missingness.threshold All datapoints equal to or below this count are treated as missing
-#' @param assay.eb.min Minimum number of assays per group group to use for computing Empirical Bayes priors
-#' @param assay.eb.nsample Number of MCMC samples to use for assay model input
-#' @param random.seed Random number seed
 #' @param nchain Number of MCMC chains to run
 #' @param nwarmup Number of MCMC warmup iterations to run for each chain
 #' @param thin MCMC thinning factor
 #' @param nsample Total number of MCMC samples to deliver downstream
+#' @param random.seed Random number seed
 #' @param schedule Either \link{schedule_local} (execute locally), \link{schedule_pbs} or \link{schedule_slurm} (prepare for submission to HPC cluster)
 #' @export sigma_control
 sigma_control <- function(
-  keep = "summaries",
+  keep = c("summaries", "group.quants"),
   summarise = c("groups", "components", "measurements"),
   plot = c("assay.stdevs", "group.means", "group.quants", "group.quants.pca", "component.means", "component.stdevs", "component.deviations", "component.deviations.pca", "measurement.means", "measurement.stdevs"),
   eb.model = "deconvolve",
@@ -120,16 +120,15 @@ sigma_control <- function(
   params$schedule <- schedule
 
   params$plots <- any(c("group.means", "group.quants", "components.means", "components.stdevs", "component.deviations", "measurements.means", "measurements.stdevs") %in% params$plot)
-  params$version <- as.character(packageVersion("seaMass"))
 
   return(do.call(new, params))
 }
 
 
 setValidity("sigma_control", function(object) {
-  if (!(all(object@keep %in% c("report", "summaries", "model0", "markdown", "assay.means", "group.quants", "group.means", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")))) return("'keep' is not valid!")
+  if (!(all(object@keep %in% c("summaries", "model0", "markdown", "assay.means", "group.quants", "group.means", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")))) return("'keep' is not valid!")
   if (!(all(object@summarise %in% c("groups", "components", "measurements")))) return("'summarise' is not valid!")
-  if (!(all(object@plot %in% c("assay.stdevs", "group.means", "group.quants", "group.quants.pca", "components.means", "components.stdevs",  "component.deviations", "component.deviations.pca", "measurements.means", "measurements.stdevs")))) return("'plot' is not valid!")
+  if (!(all(object@plot %in% c("assay.stdevs", "group.means", "group.quants", "group.quants.pca", "component.means", "component.stdevs",  "component.deviations", "component.deviations.pca", "measurement.means", "measurement.stdevs")))) return("'plot' is not valid!")
   if (length(object@eb.model) != 1 || !(object@eb.model %in% c("", "fit", "deconvolve"))) return("'eb.model' is not valid!")
   if (length(object@eb.max) != 1 || object@eb.max <= 0) return("'eb.max' must be positive!")
   if (length(object@measurement.model) != 1 || !(object@measurement.model %in% c("single", "independent"))) return("'measurement.model' is not valid!")

@@ -15,7 +15,7 @@ setMethod("filepath", "sigma_block", function(object) {
 })
 
 
-#' @describeIn seaMass_sigma-class Get the block name.
+#' @describeIn sigma_block Get the block name.
 #' @export
 #' @include generics.R
 setMethod("name", "sigma_block", function(object) {
@@ -23,11 +23,19 @@ setMethod("name", "sigma_block", function(object) {
 })
 
 
+#' @describeIn sigma_block Get the \code{seaMass_sigma} object.
+#' @export
+#' @include generics.R
+setMethod("root", "sigma_block", function(object) {
+  return(container(object))
+})
+
+
 #' @describeIn sigma_block Get the \link{seaMass_sigma} object for this block.
 #' @export
 #' @include generics.R
-setMethod("parent", "sigma_block", function(object) {
-  return(open_sigma(dirname(filepath(object)), force = T))
+setMethod("container", "sigma_block", function(object) {
+  return(new("seaMass_sigma", filepath = dirname(filepath(object))))
 })
 
 
@@ -48,7 +56,7 @@ setMethod("imported_data", "sigma_block", function(object, as.data.table = FALSE
 #' @export
 #' @include generics.R
 setMethod("control", "sigma_block", function(object) {
-  return(control(parent(object)))
+  return(control(container(object)))
 })
 
 
@@ -56,7 +64,7 @@ setMethod("control", "sigma_block", function(object) {
 #' @export
 #' @include generics.R
 setMethod("blocks", "sigma_block", function(object) {
-  return(blocks(parent(object)))
+  return(blocks(container(object)))
 })
 
 
@@ -199,15 +207,6 @@ setMethod("timings", "sigma_block", function(object, input = "model1", as.data.t
   if (!as.data.table) setDF(DT)
   else DT[]
   return(DT)
-})
-
-
-#' @describeIn sigma_block Get the model assay means as a \link{data.frame}.
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("assay_means", "sigma_block", function(object, assays = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
-  return(read(object, input, "assay.means", assays, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table))
 })
 
 

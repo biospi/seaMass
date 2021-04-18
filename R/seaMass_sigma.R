@@ -3,7 +3,7 @@
 #' Fits the seaMass-Σ Bayesian group-level quantification model to imported data.
 #'
 #' @include seaMass.R
-setClass("seaMass_sigma", contains = "seaMass", slots = c(
+setClass("seaMass_sigma", contains = "seaMass_group_quants", slots = c(
   filepath = "character"
 ))
 
@@ -33,22 +33,24 @@ seaMass_sigma <- function(
   # check for finished output
   object <- open_sigma(path, quiet = T)
   if (!is.null(object)) {
-    stop(paste0("ERROR: completed seaMass-sigma also found at ", path, ", supply a different 'path' or delete the folder for the returned object with 'del(object)'"))
+    stop(paste0("ERROR: completed seaMass-sigma already found at ", path))
   }
 
   ### INIT
+  control@version <- as.character(packageVersion("seaMass"))
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control@version, "\n"))
   data.table::setDTthreads(control@nthread)
   fst::threads_fst(control@nthread)
 
-  # check if exists
+  # setup seaMass folder structure
   if (!grepl("\\.seaMass$", path)) path <- paste0(path, ".seaMass")
   if (file.exists(path)) unlink(path, recursive = T)
-  if (!dir.create(path)) stop()
-  if (!dir.create(file.path(path, "sigma"))) stop()
-  if (!dir.create(file.path(path, "markdown", "csv"), recursive = T)) stop()
-  if (!dir.create(file.path(path, "report"))) stop()
-  path <- normalizePath(path)
+  if (!dir.create(file.path(path, "sigma", "markdown"), recursive = T))
+    stop("ERROR: problem creating folder")
+
+  # setup seaMass-sigma folder structure
+  dir.create(file.path(path, "csv"))
+  path <- file.path(normalizePath(path), "sigma")
 
   # init DT
   data.is.data.table <- is.data.table(data)
@@ -91,7 +93,7 @@ seaMass_sigma <- function(
   control@blocks <- sub("^Block\\.(.*)$", "\\1", block.cols)
   control@ellipsis <- list(...)
   validObject(control)
-  saveRDS(control, file.path(path, "sigma", "control.rds"))
+  saveRDS(control, file.path(path, "control.rds"))
 
   # check ref weights
   if ("RefWeight" %in% names(DT.design)) {
@@ -107,8 +109,8 @@ seaMass_sigma <- function(
     cat(paste0("[", Sys.time(), "]  preparing block=", control@blocks[i], "...\n"))
 
     # create output directory
-    blockpath <- file.path(path, paste0("sigma.", control@blocks[i]))
-    if (!dir.create(blockpath)) stop()
+    blockpath <- file.path(path, control@blocks[i])
+    dir.create(blockpath)
 
     # design for this block
     DT.design.block <- DT.design[as.logical(get(block.cols[i]))]
@@ -295,7 +297,6 @@ seaMass_sigma <- function(
 
   ### RUN
   object <- new("seaMass_sigma", filepath = path)
-  init_report(object)
   prepare_sigma(control@schedule, object)
 
   if (run) {
@@ -329,29 +330,15 @@ setMethod("report", "seaMass_sigma", function(object, job.id) {
   if (!("measurement.stdevs" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "measurement.stdevs*"), recursive = T)
   if (!("component.means" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "component.means*"), recursive = T)
   if (!("component.stdevs" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "component.stdevs*"), recursive = T)
-  if (!("assay.means" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "assay.means*"), recursive = T)
   if (!("assay.deviations" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "assay.deviations*"), recursive = T)
   if (!("component.deviations" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "component.deviations*"), recursive = T)
   if (!("group.means" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "group.means*"), recursive = T)
   if (!("group.quants" %in% ctrl@keep)) for (block in blocks(object)) unlink(file.path(filepath(block), "model1", "group.quants*"), recursive = T)
 
-  # render report
-  cat(paste0("[", Sys.time(), "]   generating html index...\n"))
-  render_report(object)
-  cat(paste0("[", Sys.time(), "]   generating html report...\n"))
-  nbatch <- length(blocks(object)) * ctrl@nchain
-  parallel_lapply(1:nbatch, function(item, object) {
-    render_report(object, item)
-  }, nthread = ctrl@nthread)
-
-  # delete markdown
-  if (!("markdown" %in% ctrl@keep)) unlink(file.path(filepath(object), "markdown"), recursive = T)
-
-  # zip report if not kept
-  if (!("report" %in% ctrl@keep)) {
-    zip::zipr(file.path(filepath(object), "..", paste0(name(object), ".zip")), file.path(filepath(object), "report", name(object)))
-    unlink(file.path(filepath(object), "report"), recursive = T)
-  }
+  # assemble report
+  cat(paste0("[", Sys.time(), "]   assembling html report...\n"))
+  assemble_report(object)
+  if (!("markdown" %in% ctrl@keep)) unlink(file.path(dirname(filepath(object)), "markdown"), recursive = T)
 
   return(invisible(NULL))
 })
@@ -364,7 +351,7 @@ open_sigma <- function(
   quiet = FALSE,
   force = FALSE
 ) {
-  path2 <- ifelse(dir.exists(path), path, paste0(path, ".seaMass"))
+  path2 <- file.path(ifelse(dir.exists(path), path, paste0(path, ".seaMass")), "sigma")
   if (!dir.exists(path2)) {
     if (quiet) {
       return(NULL)
@@ -374,7 +361,7 @@ open_sigma <- function(
   }
 
   object <- new("seaMass_sigma", filepath = normalizePath(path2))
-  if (!force && read_completed(file.path(filepath(object), "sigma")) == 0) {
+  if (!force && read_completed(filepath(object)) == 0) {
     if (quiet) {
       return(NULL)
     } else {
@@ -390,7 +377,15 @@ open_sigma <- function(
 #' @export
 #' @include generics.R
 setMethod("del", "seaMass_sigma", function(object) {
-  return(unlink(filepath(object), recursive = T))
+  return(unlink(dirname(filepath(object)), recursive = T))
+})
+
+
+#' @describeIn seaMass_sigma-class Get the \code{seaMass_sigma} object.
+#' @export
+#' @include generics.R
+setMethod("root", "seaMass_sigma", function(object) {
+  return(object)
 })
 
 
@@ -398,14 +393,7 @@ setMethod("del", "seaMass_sigma", function(object) {
 #' @export
 #' @include generics.R
 setMethod("name", "seaMass_sigma", function(object) {
-  return(sub("\\.seaMass$", "", basename(filepath(object))))
-})
-
-
-#' @export
-#' @include generics.R
-setMethod("parent", "seaMass_sigma", function(object) {
-  return(object)
+  return(sub("\\.seaMass$", "", basename(dirname(filepath(object)))))
 })
 
 
@@ -430,7 +418,7 @@ setMethod("run", "seaMass_sigma", function(object) {
 #' @export
 #' @include generics.R
 setMethod("control", "seaMass_sigma", function(object) {
-  return(readRDS(file.path(filepath(object), "sigma", "control.rds")))
+  return(readRDS(file.path(filepath(object), "control.rds")))
 })
 
 
@@ -445,6 +433,18 @@ setMethod("groups", "seaMass_sigma", function(object, summary = FALSE, as.data.t
   if (!as.data.table) setDF(DT)
   else DT[]
   return(DT)
+})
+
+
+#' @describeIn seaMass_sigma-class Get the n groups with the most quantified components that are present in all blocks \code{data.frame}.
+#' @import data.table
+#' @export
+#' @include generics.R
+setMethod("top_groups", "seaMass_sigma", function(object, n) {
+  DT <- groups(object, as.data.table = T)
+  DT <- DT[, .(.N, qC = min(G.qC)), by = Group][N == nlevels(DT$Block)]
+  setorder(DT, -qC)
+  return(as.character(DT[1:min(n, nrow(DT)), Group]))
 })
 
 
@@ -504,7 +504,7 @@ setMethod("measurements", "seaMass_sigma", function(object, summary = FALSE, as.
 })
 
 
-#' @describeIn seaMass_sigma-class Get the list of \link{sigma_block} obejcts for the blocks.
+#' @describeIn seaMass_sigma-class Get the list of \link{sigma_block} objects for the blocks.
 #' @export
 #' @include generics.R
 setMethod("blocks", "seaMass_sigma", function(object) {
@@ -513,8 +513,18 @@ setMethod("blocks", "seaMass_sigma", function(object) {
     stop(paste0("seaMass-sigma output '", sub("\\.seaMass$", "", basename(filepath(object))), "' is missing"))
 
   names(blocks) <- blocks
-  blocks <- lapply(blocks, function(block) new("sigma_block", filepath = normalizePath(file.path(filepath(object), paste0("sigma.", block)))))
+  blocks <- lapply(blocks, function(block) new("sigma_block", filepath = file.path(filepath(object), block)))
   return(blocks)
+})
+
+
+#' @describeIn seaMass_sigma-class Open the list of \link{seaMass_delta} objects.
+#' @export
+#' @include generics.R
+setMethod("open_thetas", "seaMass_sigma", function(object, quiet = FALSE, force = FALSE) {
+  deltas <- lapply(sub("^delta\\.", "", list.files(filepath(object), "^delta\\.*")), function(name) open_delta(object, name, quiet, force))
+  names(deltas) <- lapply(deltas, function(delta) name(delta))
+  return(deltas)
 })
 
 
@@ -562,20 +572,6 @@ setMethod("timings", "seaMass_sigma", function(object, input = "model1", as.data
 setMethod("read", "seaMass_sigma", function(object, input, type, items = NULL, chains = 1:control(object)@nchain, summary = NULL, summary.func = "robust_normal", as.data.table = FALSE) {
   DT <- rbindlist(lapply(blocks(object), function(block) read(block, input, type, items, chains, summary, summary.func, as.data.table = T)))
   if (is.null(DT)) return(NULL)
-
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
-})
-
-
-#' @describeIn seaMass_sigma-class Get the model assay means as a \link{data.frame}.
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("assay_means", "seaMass_sigma", function(object, assays = NULL, summary = TRUE, input = "model1", chains = 1:control(object)@nchain, as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) assay_means(block, assays, summary, input, chains, as.data.table = T)))
-  if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
   else DT[]

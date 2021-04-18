@@ -11,7 +11,7 @@ setMethod("process0", "sigma_block", function(object, chain, job.id) {
 
   if (increment_completed(file.path(filepath(object), "model0"), job.id = job.id) == ctrl@nchain) {
     # PROCESS OUTPUT
-    cat(paste0("[", Sys.time(), "]  SIGMA-PROCESS0 block=", sub("^.*sigma\\.(.*)$", "\\1", filepath(object)), "\n"))
+    cat(paste0("[", Sys.time(), "]  SIGMA-PROCESS0 block=", name(object), "\n"))
 
     ## WRITE ASSAY STATS
     DT <- imported_data(object, as.data.table = T)[!is.na(Assay)]

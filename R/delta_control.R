@@ -5,24 +5,31 @@
 setClass("delta_control", slots = c(
   component.deviations = "logical",
   keep = "character",
+  summarise = "character",
   plot = "character",
   model = "character",
   nwarmup = "integer",
   thin = "integer",
   fdr.model = "character",
   random.seed = "integer",
+  # derived
+  plots = "logical",
+  # set on execution
+  nchain = "integer",
+  nsample = "integer",
+  nthread = "integer",
   version = "character",
-  ellipsis = "list",
-  nthread = "integer"
+  ellipsis = "list"
 ))
 
 
 #' @describeIn delta_control Generator function
-#' @param component.deviations Set this to \code{TRUE} to do differential expression analysis on the component deviations as well as the group quants.
-#' @param keep Outputs to keep MCMC samples for, \code{NULL} or a subset of c("group.de", "component.deviations.de")
-#' @param dea.model Either \code{NULL} (no differential expression analysis) or \code{"MCMCglmm"} (MCMCglmm differential expression analysis)
-#' @param dea.nwarmup Number of MCMC warmup iterations to run for each chain with MCMCglmm differential expression analysis.
-#' @param dea.thin MCMC thinning factor with MCMCglmm differential expression analysis.
+#' @param component.deviations Set this to \code{TRUE} to do differential expression analysis on the component deviations as weldeltl as the group quants.
+#' @param keep Outputs to keep MCMC samples for, \code{NULL} or a subset of c("markdown", "group.quants.de", "component.deviations.de")
+#' @param summarise Outputs to write csv summaries for, \code{NULL} or a subset of \code{c("groups")}
+#' @param model Either \code{NULL} (no differential expression analysis) or \code{"MCMCglmm"} (MCMCglmm differential expression analysis)
+#' @param nwarmup Number of MCMC warmup iterations to run for each chain with MCMCglmm differential expression analysis.
+#' @param thin MCMC thinning factor with MCMCglmm differential expression analysis.
 #' @param fdr.model Either \code{NULL} (no false discovery rate correction) or \code{"ash"} (ash false discovery rate correction)
 #' @param random.seed Random number seed
 #' @param nthread Number of CPU threads to employ
@@ -30,10 +37,11 @@ setClass("delta_control", slots = c(
 delta_control <- function(
   component.deviations = FALSE,
   keep = NULL,
-  plot = c("de.standardised.group.deviations", "fdr.standardised.group.deviations", "de.component.deviations", "fdr.component.deviations"),
-  dea.model = "MCMCglmm",
-  dea.nwarmup = 4096,
-  dea.thin = 256,
+  summarise = "groups",
+  plot = c("group.quants.de", "component.deviations.de"),
+  model = "MCMCglmm",
+  nwarmup = 4096,
+  thin = 256,
   fdr.model = "ash",
   random.seed = 0
 ) {
@@ -41,13 +49,16 @@ delta_control <- function(
 
   params$component.deviations <- as.logical(component.deviations)
   if (!is.null(keep)) params$keep <- as.character(keep)
+  if (!is.null(summarise)) params$summarise <- as.character(summarise)
   if (!is.null(plot)) params$plot <- as.character(plot)
-  if (!is.null(dea.model)) params$dea.model <- dea.model else params$dea.model <- ""
-  params$dea.nwarmup <- as.integer(dea.nwarmup)
-  params$dea.thin <- as.integer(dea.thin)
+  if (!is.null(model)) params$model <- model else params$model <- ""
+  params$nwarmup <- as.integer(nwarmup)
+  params$thin <- as.integer(thin)
   if (!is.null(fdr.model)) params$fdr.model <- fdr.model else params$fdr.model <- ""
   params$random.seed <- as.integer(random.seed)
   params$version <- as.character(packageVersion("seaMass"))
+
+  params$plots <- any(c("group.quants.de", "component.deviations.de") %in% params$plot)
 
   return(do.call(new, params))
 }
@@ -55,11 +66,12 @@ delta_control <- function(
 
 setValidity("delta_control", function(object) {
   if (length(object@component.deviations) != 1) return("'component.deviations' is not valid!")
-  if (!(all(object@keep %in% c("de.standardised.group.deviations", "de.component.deviations")))) return("'keep' is not valid!")
-  if (!(all(object@plot %in% c("de.standardised.group.deviations", "fdr.standardised.group.deviations", "de.component.deviations", "fdr.component.deviations")))) return("'plot' is not valid!")
-  if (length(object@dea.model) != 1 || !(object@dea.model %in% c("", "MCMCglmm"))) return("'dea.model' is not valid!")
-  if (length(object@dea.nwarmup) != 1 || object@dea.nwarmup < 0) return("'dea.nwarmup' must be non-negative!")
-  if (length(object@dea.thin) != 1 || object@dea.thin <= 0) return("'dea.thin' must be positive!")
+  if (!(all(object@keep %in% c("markdown", "group.quants.de", "component.deviations.de")))) return("'keep' is not valid!")
+  if (!(all(object@keep %in% c("groups")))) return("'summarise' is not valid!")
+  if (!(all(object@plot %in% c("group.quants.de", "component.deviations.de")))) return("'plot' is not valid!")
+  if (length(object@model) != 1 || !(object@model %in% c("", "MCMCglmm"))) return("'model' is not valid!")
+  if (length(object@nwarmup) != 1 || object@nwarmup < 0) return("'nwarmup' must be non-negative!")
+  if (length(object@thin) != 1 || object@thin <= 0) return("'thin' must be positive!")
   if (length(object@fdr.model) != 1 || !(object@fdr.model %in% c("", "ash"))) return("'fdr.model' is not valid!")
 
   return(T)
