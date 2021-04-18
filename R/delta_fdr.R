@@ -45,7 +45,7 @@ setMethod("fdr_ash", "seaMass_delta", function(
   cat(paste0("[", Sys.time(), "]   running ash ", gsub("\\.", " ", type), " fdr...\n"))
 
   if (is.null(data)) {
-    DT <- read(object, ".", type, summary = T, summary.func = summary.func, as.data.table = T)
+    DT <- read(object, ".", paste0(type, ".de"), summary = T, summary.func = summary.func, as.data.table = T)
   } else {
     DT <- as.data.table(data)
   }

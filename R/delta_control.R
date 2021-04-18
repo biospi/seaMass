@@ -38,7 +38,7 @@ delta_control <- function(
   component.deviations = FALSE,
   keep = NULL,
   summarise = "groups",
-  plot = c("group.quants.de", "component.deviations.de"),
+  plot = c("group.quants.de", "component.deviations.de", "group.quants.de.batch", "component.deviations.de.batch"),
   model = "MCMCglmm",
   nwarmup = 4096,
   thin = 256,
@@ -68,7 +68,7 @@ setValidity("delta_control", function(object) {
   if (length(object@component.deviations) != 1) return("'component.deviations' is not valid!")
   if (!(all(object@keep %in% c("markdown", "group.quants.de", "component.deviations.de")))) return("'keep' is not valid!")
   if (!(all(object@keep %in% c("groups")))) return("'summarise' is not valid!")
-  if (!(all(object@plot %in% c("group.quants.de", "component.deviations.de")))) return("'plot' is not valid!")
+  if (!(all(object@plot %in% c("group.quants.de", "component.deviations.de", "group.quants.de.batch", "component.deviations.de.batch")))) return("'plot' is not valid!")
   if (length(object@model) != 1 || !(object@model %in% c("", "MCMCglmm"))) return("'model' is not valid!")
   if (length(object@nwarmup) != 1 || object@nwarmup < 0) return("'nwarmup' must be non-negative!")
   if (length(object@thin) != 1 || object@thin <= 0) return("'thin' must be positive!")

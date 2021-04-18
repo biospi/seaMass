@@ -12,8 +12,8 @@
 \alias{control,seaMass_delta-method}
 \alias{assay_design,seaMass_delta-method}
 \alias{del,seaMass_delta-method}
-\alias{group_quants,seaMass_delta-method}
-\alias{component_deviations,seaMass_delta-method}
+\alias{group_quants_de,seaMass_delta-method}
+\alias{component_deviations_de,seaMass_delta-method}
 \alias{group_quants_fdr,seaMass_delta-method}
 \alias{component_deviations_fdr,seaMass_delta-method}
 \alias{add_seaMass_spikein_truth}
@@ -45,20 +45,20 @@ open_delta(fit, name = "default", quiet = FALSE, force = FALSE)
 
 \S4method{del}{seaMass_delta}(object)
 
-\S4method{group_quants}{seaMass_delta}(
+\S4method{group_quants_de}{seaMass_delta}(
   object,
   groups = NULL,
   summary = FALSE,
-  type = "group.quants",
+  type = "group.quants.de",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
-\S4method{component_deviations}{seaMass_delta}(
+\S4method{component_deviations_de}{seaMass_delta}(
   object,
   components = NULL,
   summary = FALSE,
-  type = "component.deviations",
+  type = "component.deviations.de",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
@@ -67,7 +67,7 @@ open_delta(fit, name = "default", quiet = FALSE, force = FALSE)
   object,
   groups = NULL,
   summary = TRUE,
-  type = "group.quants",
+  type = "group.quants.fdr",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
@@ -76,7 +76,7 @@ open_delta(fit, name = "default", quiet = FALSE, force = FALSE)
   object,
   groups = NULL,
   summary = TRUE,
-  type = "component.deviations",
+  type = "component.deviations.fdr",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
@@ -131,9 +131,9 @@ quants output by seaMass-theta
 
 \item \code{del,seaMass_delta-method}: Delete the \code{seaMass_delta} run from disk.
 
-\item \code{group_quants,seaMass_delta-method}: Get the model differential expression as a \link{data.frame}.
+\item \code{group_quants_de,seaMass_delta-method}: Get the model differential expression as a \link{data.frame}.
 
-\item \code{component_deviations,seaMass_delta-method}: Get the component deviations differential expression as a \link{data.frame}.
+\item \code{component_deviations_de,seaMass_delta-method}: Get the component deviations differential expression as a \link{data.frame}.
 
 \item \code{group_quants_fdr,seaMass_delta-method}: Get the model differential expression as a \link{data.frame}.
 

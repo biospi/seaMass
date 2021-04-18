@@ -21,7 +21,7 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
     cat(paste0("[", Sys.time(), "]  DELTA-OUTPUT name=", name(object), "\n"))
 
     # summarise group de and perform fdr correction
-    if (file.exists(file.path(filepath(object), "group.quants.index.fst"))) {
+    if (file.exists(file.path(filepath(object), "group.quants.de.index.fst"))) {
       if(ctrl@fdr.model != "") {
         ellipsis <- ctrl@ellipsis
         ellipsis$object <- object
@@ -32,15 +32,21 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
       }
     }
 
+    # markdown folder
+    report.index <- list()
+    root <- file.path(filepath(fit.theta), "markdown", "study")
+    dir.create(root, recursive = T, showWarnings = F)
+    group <- control(root(object))@group[1]
+
     # calculate plot limits
     if (ctrl@plots == T) {
       cat(paste0("[", Sys.time(), "]   calculating plot limits...\n"))
       lims <- list()
-      if ("group.quants.de" %in% ctrl@plot) lims$group.quants.de <- limits_dists(group_quants(object, summary = T, as.data.table = T))
+      if ("group.quants.de" %in% ctrl@plot) lims$group.quants.de <- limits_dists(group_quants_de(object, summary = T, as.data.table = T))
       saveRDS(lims, file.path(filepath(object), "limits.rds"))
     }
 
-    # write out group fdr
+    # write out and plot group fdr
     if (file.exists(file.path(filepath(object), "group.quants.fdr.fst"))) {
       cat(paste0("[", Sys.time(), "]   writing group quants differential expression output...\n"))
 
@@ -50,10 +56,36 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
         cat(paste0("[", Sys.time(), "]    batch=", batch, "...\n"))
 
         name <- ifelse(name(object) == "default", "", paste0("__", name(object)))
-        group <- control(root(object))@group[1]
+
+        # write
         fwrite(DTs.fdr[[batch]], file.path(dirname(filepath(object)), "csv", paste0(tolower(group), "_fdr__", gsub("\\.", "_", batch), name, ".csv")))
+
+        # plot
+        if ("group.quants.de.batch" %in% ctrl@plot) {
+          cat(paste0("[", Sys.time(), "]     generating group quants differential expression plot...\n"))
+          group_quants_de(object, summary = T, as.data.table = T)
+
+          cat(paste0("[", Sys.time(), "]     generating group quants differential expression plot...\n"))
+          text <- paste0(group, "differential expression for '", gsub("\\.", "' effect, comparison '", batch), "'", name)
+          report.index$assay.stdevs <- data.table(
+            section = "Study-level", section.order = 0, item = text, item.order = 75000,
+            item.href = generate_markdown(
+              object,
+              plot_group_quants_fdr(object),
+              root, paste0("seamass_delta__", name(object), "__group_fdr__", gsub("\\.", "_", batch)),
+              text
+            )
+          )
+        }
       }
     }
+
+    # zip
+    render_markdown(object, root)
+    if (!("markdown" %in% ctrl@keep)) unlink(root, recursive = T)
+
+    # save index
+    fst::write.fst(rbindlist(report.index), file.path(filepath(fit.theta), "report", "study.report.fst"))
 
     increment_completed(filepath(object))
   }

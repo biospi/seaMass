@@ -47,7 +47,7 @@ setMethod("read", "seaMass", function(
       DT <- merge(DT, items, by = colnames(items), sort = F)
     }
     else if (!is.null(items)) {
-      DT <- DT[get(colnames(DT)[2]) %in% items]
+      DT <- DT[get(colnames(DT)[ifelse(colnames(DT)[1] == "Blocks", 2, 1)]) %in% items]
     }
     if (nrow(DT) == 0) return(NULL)
   } else {
@@ -304,7 +304,9 @@ setMethod("plot_dists", "seaMass", function(
   data.table::setorderv(DT1, summary.cols, order = ifelse(horizontal, -1, 1), na.last = T)
 
   for (col in label.cols) {
-    if (any(nchar(as.character(DT1[[col]])) > 24)) {
+    if (all(is.numeric(DT1[[col]])) && !all(DT1[[col]] == round(DT1[[col]]))) {
+      DT1[, (paste0("_", col)) := formatC(signif(get(col), digits = 3), digits = 3, format = "fg", flag = "#")]
+    } else if (any(nchar(as.character(DT1[[col]])) > 24)) {
       if (horizontal) {
         DT1[, (paste0("_", col)) := paste0(
           "(", as.integer(factor(get(col), levels = rev(unique(get(col))))), ") ", ifelse(nchar(as.character(get(col))) > 21, paste0(strtrim(as.character(get(col)), 24), "..."), as.character(get(col)))
@@ -433,9 +435,12 @@ setMethod("plot_dists", "seaMass", function(
       # text tooltip
       DT.plot <- copy(DTs[[i]]) # workaround for data.table problem
       text.old <- intersect(colnames(DTs[[i]]), setdiff(summary.cols1, c(ggcolour.aes, ggfill.aes)))
-      text.cols <- sapply(text.old, function(col) gsub("\n", " ", col))
+      text.cols <- as.vector(sapply(text.old, function(col) gsub("\n", " ", col)))
       setnames(DT.plot, text.old, text.cols, skip_absent = T)
       for (col in text.cols) {
+        if (all(is.numeric(DT.plot[[col]])) && !all(DT.plot[[col]] == round(DT.plot[[col]]))) {
+          DT.plot[, (col) := formatC(signif(get(col), digits = 3), digits = 3, format = "fg", flag = "#")]
+        }
         DT.plot[, (col) := sapply(
           paste0(col, ": ", DT.plot[[col]]),
           function(str1) paste(sapply(seq(1, nchar(str1), 32), function(i) paste0(substring(str1, i, min(i + 31, nchar(str1))), '\n')), collapse='')
@@ -446,7 +451,7 @@ setMethod("plot_dists", "seaMass", function(
       for (col in text.cols) DT.plot[, (col) := NULL]
 
       # remove unnecessary columns
-      DT.plot <- DT.plot[, intersect(colnames(DT.plot), c("Summary", "value", "m", "s", "df", "dist", ggcolour.aes, ggfill.aes, "text")), with = F]
+      DT.plot <- DT.plot[, intersect(colnames(DT.plot), c("Summary", y, arg2, arg3, "dist", ggcolour.aes, ggfill.aes, "text")), with = F]
 
       # plot violin!
       args.aes <- list(
@@ -839,15 +844,21 @@ setMethod("plot_robust_pca", "seaMass", function(
 setMethod("lingofy", "seaMass", function(object, x) {
   if (is.null(x)) return(NULL)
   ctrl <- control(root(object))
-  col <- sub("^.*\\.(.*)G$", paste0("\\1\n", ctrl@group[2]), x)
-  col <- sub("^.*\\.(.*)C$", paste0("\\1\n", ctrl@component[2]), col)
-  col <- sub("^.*\\.(.*)M$", paste0("\\1\n", ctrl@measurement[2]), col)
-  col <- sub("^.*\\.(.*)D$", paste0("\\1\nDatapoints"), col)
-  col <- sub("^q\n", "quantified\n", col)
-  col <- sub("^u\n", "used\n", col)
-  col <- sub("^n\n", "total\n", col)
-  col <- sub("^s\n", "stdev of\n", col)
-  col <- sub("^m\n$", "mean of\n", col)
+  col <- sub("^(.*\\..*)G$", paste0("\\1\n", ctrl@group[2]), x)
+  col <- sub("^(.*\\..*)C$", paste0("\\1\n", ctrl@component[2]), col)
+  col <- sub("^(.*\\..*)M$", paste0("\\1\n", ctrl@measurement[2]), col)
+  col <- sub("^(.*\\..*)D$", paste0("\\1\nDatapoints"), col)
+  col <- sub("^(.*\\..*)S$", paste0("\\1\nSamples"), col)
+  col <- sub("^(.*)\\.q\n", "\\1\nquantified\n", col)
+  col <- sub("^(.*)\\.u\n", "\\1\nused\n", col)
+  col <- sub("^(.*)\\.n\n", "\\1\ntotal\n", col)
+  col <- sub("^(.*)\\.s\n", "\\1\nstdev of\n", col)
+  col <- sub("^(.*)\\.m\n$", "\\1\nmean of\n", col)
+  col <- sub("^G\n", paste0("[", ctrl@group[1], "]\n"), col)
+  col <- sub("^C\n", paste0("[", ctrl@component[1], "]\n"), col)
+  col <- sub("^M\n", paste0("[", ctrl@measurement[1], "]\n"), col)
+  col <- sub("^Cont\n", "[Contrast]\n", col)
+  col <- sub("^Base\n", "[Baseline]\n", col)
   return(col)
 })
 

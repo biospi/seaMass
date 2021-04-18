@@ -211,7 +211,7 @@ setMethod("del", "seaMass_delta", function(object) {
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("group_quants", "seaMass_delta", function(object, groups = NULL, summary = FALSE, type = "group.quants", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+setMethod("group_quants_de", "seaMass_delta", function(object, groups = NULL, summary = FALSE, type = "group.quants.de", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- read(object, ".", type, groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
@@ -224,7 +224,7 @@ setMethod("group_quants", "seaMass_delta", function(object, groups = NULL, summa
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_deviations", "seaMass_delta", function(object, components = NULL, summary = FALSE, type = "component.deviations", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+setMethod("component_deviations_de", "seaMass_delta", function(object, components = NULL, summary = FALSE, type = "component.deviations.de", chains = 1:control(object)@nchain, as.data.table = FALSE) {
   DT <- read(object, ".", type, components, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
@@ -237,10 +237,16 @@ setMethod("component_deviations", "seaMass_delta", function(object, components =
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("group_quants_fdr", "seaMass_delta", function(object, groups = NULL, summary = TRUE, type = "group.quants", chains = 1:control(object)@nchain, as.data.table = FALSE) {
-  if (file.exists(file.path(filepath(object), paste0(type, ".fdr.fst")))) {
-    DT <- fst::read.fst(file.path(filepath(object), paste0(type, ".fdr.fst")), as.data.table = as.data.table)
-    if (!is.null(groups)) DT <- DT[DT$Group %in% groups,]
+setMethod("group_quants_fdr", "seaMass_delta", function(object, groups = NULL, summary = TRUE, type = "group.quants.fdr", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+  if (file.exists(file.path(filepath(object), paste0(type, ".fst")))) {
+    DT <- fst::read.fst(file.path(filepath(object), paste0(type, ".fst")), as.data.table = as.data.table)
+    if (!is.null(groups)) {
+      if (is.data.frame(groups)) {
+        DT <- merge(DT, groups, by = colnames(groups), sort = F)
+      } else {
+        DT <- DT[DT$Group %in% groups,]
+      }
+    }
     return(DT)
   } else {
     return(NULL)
@@ -252,9 +258,9 @@ setMethod("group_quants_fdr", "seaMass_delta", function(object, groups = NULL, s
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_deviations_fdr", "seaMass_delta", function(object, groups = NULL, summary = TRUE, type = "component.deviations", chains = 1:control(object)@nchain, as.data.table = FALSE) {
-  if (file.exists(file.path(filepath(object), paste0(type, ".fdr.fst")))) {
-    DT <- fst::read.fst(file.path(filepath(object), paste0(type, ".fdr.fst")), as.data.table = as.data.table)
+setMethod("component_deviations_fdr", "seaMass_delta", function(object, groups = NULL, summary = TRUE, type = "component.deviations.fdr", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+  if (file.exists(file.path(filepath(object), paste0(type, ".fst")))) {
+    DT <- fst::read.fst(file.path(filepath(object), paste0(type, ".fst")), as.data.table = as.data.table)
     if (!is.null(groups)) DT <- DT[DT$Group %in% groups,]
     return(DT)
   } else {
@@ -267,21 +273,24 @@ setMethod("component_deviations_fdr", "seaMass_delta", function(object, groups =
 #' @export
 #' @include generics.R
 setMethod("plot_group_quants_de", "seaMass_delta", function(
-  object, data, limits = NULL, alpha = 1,
-  facets = ~ interaction(Effect, interaction(Contrast, Baseline, drop = T, sep = " - ", lex.order = T), drop = T, sep = " : ", lex.order = T),
-  sort.cols = "Group", label.cols = "Group", title = NULL, horizontal = TRUE, colour = "G.qC", fill = "G.qC", file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "deviation", horizontal, colour, fill, file, value.length, level.length))
-})
-
-
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("plot_component_deviations_de", "seaMass_delta", function(
-  object, data, limits = NULL, alpha = 1,
-  facets = ~ interaction(Effect, interaction(Contrast, Baseline, drop = T, sep = " - ", lex.order = T), drop = T, sep = " : ", lex.order = T),
-  sort.cols = "Group", label.cols = "Group", title = NULL, horizontal = TRUE, colour = "G.qC", fill = "G.qC", file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "deviation", horizontal, colour, fill, file, value.length, level.length))
+  object,
+  groups = NULL,
+  summary = TRUE,
+  colour = "black",
+  variable.summary.cols = c("Group", "Effect", "Contrast", "Baseline", "Cont.uS", "Base.uS", "Cont.qS", "Base.qS", "Cont.qC", "Base.qC", "Cont.qM", "Base.qM"),
+  variable.label.cols = c("Group", "Contrast", "Baseline"),
+  value.label = "deviation",
+  ...
+) {
+  return(plot_dists(
+    object,
+    data = group_quants_de(object, groups, summary = summary, as.data.table = T),
+    colour = colour,
+    variable.summary.cols = variable.summary.cols,
+    variable.label.cols = variable.label.cols,
+    value.label = value.label,
+    ...
+  ))
 })
 
 
@@ -289,21 +298,30 @@ setMethod("plot_component_deviations_de", "seaMass_delta", function(
 #' @export
 #' @include generics.R
 setMethod("plot_group_quants_fdr", "seaMass_delta", function(
-  object, data, limits = NULL, alpha = 1,
-  facets = ~ interaction(Effect, interaction(Contrast, Baseline, drop = T, sep = " - ", lex.order = T), drop = T, sep = " : ", lex.order = T),
-  sort.cols = NULL, label.cols = c("Group", "qvalue"), title = NULL, horizontal = TRUE, colour = "G.qC", fill = "G.qC", file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "deviation", horizontal, colour, fill, file, value.length, level.length))
-})
-
-
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("plot_component_deviations_fdr", "seaMass_delta", function(
-  object, data, limits = NULL, alpha = 1,
-  facets = ~ interaction(Effect, interaction(Contrast, Baseline, drop = T, sep = " - ", lex.order = T), drop = T, sep = " : ", lex.order = T),
-  sort.cols = NULL, label.cols = "Group", title = NULL, horizontal = TRUE, colour = "G.qC", fill = "G.qC", file = NULL, value.length = 150, level.length = 5) {
-  return(plot_dists(object, data, limits, alpha, facets, sort.cols, label.cols, title, value.label = "deviation", horizontal, colour, fill, file, value.length, level.length))
+  object,
+  groups = NULL,
+  summary = TRUE,
+  colour = list("lfdr", "black"),
+  alpha = list(1, 0.2),
+  variable.summary.cols = c("qvalue", "Batch", "Effect", "Contrast", "Baseline", "Group", "Cont.uS", "Base.uS", "Cont.qS", "Base.qS",
+                            "Cont.qC", "Base.qC", "Cont.qM", "Base.qM", "lfdr", "lfsr", "svalue", "NegativeProb", "PositiveProb"),
+  variable.label.cols = c("Group", "qvalue"),
+  value.label = "deviation",
+  ...
+) {
+  return(plot_dists(
+    object,
+    data = list(
+      group_quants_fdr(object, groups, summary = summary, as.data.table = T),
+      group_quants_de(object, groups, summary = summary, as.data.table = T)
+    ),
+    colour = colour,
+    alpha = alpha,
+    variable.summary.cols = variable.summary.cols,
+    variable.label.cols = variable.label.cols,
+    value.label = value.label,
+    ...
+  ))
 })
 
 

@@ -11,11 +11,10 @@ setMethod("plots", "seaMass_delta", function(object, batch, job.id) {
   cat(paste0("[", Sys.time(), "]   generating...\n"))
 
   # grab out batch of groups
-  fit.sigma <- root(object)
-  groups <- unique(groups(fit.sigma, as.data.table = T)[G.qC > 0, Group])
+  groups <- unique(groups(root(object), as.data.table = T)[G.qC > 0, Group])
   groups <- groups[rep_len(1:nbatch, length(groups)) == batch]
+
   # plots!
-  #lims <- readRDS(file.path(filepath(object), "limits.rds"))
   report.index <- rbindlists(parallel_lapply(groups, function(item, object) {
     ctrl <- control(object)
     lims <- readRDS(file.path(filepath(object), "limits.rds"))
@@ -25,22 +24,22 @@ setMethod("plots", "seaMass_delta", function(object, batch, job.id) {
     root1 <- file.path(filepath(object), "markdown", paste0("group.", as.integer(item)))
     dir.create(root1, showWarnings = F)
 
-    # if ("group.quants" %in% ctrl@plot) {
-    #   group <- control(fit.sigma)@group[1]
-    #
-    #   fig <- plot_group_quants(object, item, value.limits = lims$group.quants, summary = T)
-    #   text1 <- paste0(group, " quants", ifelse(name(object) == "default", "", paste0(" (", name(object), ")")))
-    #   text2 <- paste0(group, " quants", ifelse(name(object) == "default", " ", paste0(" (", name(object), ") ")), " for ", item)
-    #   report.index1$group.quant <- data.table(
-    #     section = text1, section.order = 100, item = item, item.order = as.integer(item),
-    #     item.href = generate_markdown(
-    #       object,
-    #       fig,
-    #       root1, paste0("seamass_delta__", name(object), "__", tolower(group), "_quants_", as.integer(item)),
-    #       text2
-    #     )
-    #   )
-    # }
+    if ("group.quants.de" %in% ctrl@plot) {
+      group <- control(root(object))@group[1]
+
+      fig <- plot_group_quants_fdr(object, item, value.limits = lims$group.quants, summary = T)
+      text1 <- paste0(group, " differential expression", ifelse(name(object) == "default", "", paste0(" (", name(object), ")")))
+      text2 <- paste0(group, " differential expression", ifelse(name(object) == "default", "", paste0(" (", name(object), ") ")), " for ", item)
+      report.index1$group.quant.de <- data.table(
+        section = text1, section.order = 75, item = item, item.order = as.integer(item),
+        item.href = generate_markdown(
+          object,
+          fig,
+          root1, paste0("seamass_delta__", name(object), "__", tolower(group), "_fdr_", as.integer(item)),
+          text2
+        )
+      )
+    }
 
     if (length(report.index1) > 0) {
       # zip

@@ -53,7 +53,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
   DTs <- batch_split(DTs, cols, 4 * ctrl@nthread)
 
   # loop over all chains and all groups/components
-  dir.create(file.path(filepath(object), type), showWarnings = F)
+  dir.create(file.path(filepath(object), paste0(type, ".de")), showWarnings = F)
   for (chain in chains) {
     DT.index <- parallel_lapply(DTs, function(item, object, type, cols, chain, specs, contrasts, fixed1, random, rcov, start, prior, tune, pedigree, nodes, scale, pr, pl, DIC, saveX, saveZ, saveXL, slice, ginverse, trunc) {
       ctrl <- control(object)
@@ -229,7 +229,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
           )]
           DT0.index <- cbind(
             DT0.de[DT0.index$from, c(cols, "Effect", "Contrast", "Baseline"), with = F],
-            data.table(file = factor(file.path(type, paste(chain, batch, "fst", sep = ".")))),
+            data.table(file = factor(file.path(paste0(type, ".de"), paste(chain, batch, "fst", sep = ".")))),
             DT0.index
           )
 
@@ -254,7 +254,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
         DT0.de[, Effect := as.integer(Effect)]
         DT0.de[, Contrast := as.integer(Contrast)]
         DT0.de[, Baseline := as.integer(Baseline)]
-        fst::write.fst(DT0.de, file.path(filepath(object), type, paste(chain, batch, "fst", sep = ".")))
+        fst::write.fst(DT0.de, file.path(filepath(object), paste0(type, ".de"), paste(chain, batch, "fst", sep = ".")))
 
         if (chain == 1) return(DT0.index)
       }
@@ -273,7 +273,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
         DT.index[, Component := factor(Component, levels = 1:nlevels(components), labels = levels(components))]
         rm(components)
       }
-      fst::write.fst(DT.index, file.path(filepath(object), paste(type, "index.fst", sep = ".")))
+      fst::write.fst(DT.index, file.path(filepath(object), paste0(type, ".de.index.fst")))
     }
 
     rm(DT.index)
