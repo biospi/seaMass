@@ -47,7 +47,7 @@ setMethod("read", "seaMass", function(
       DT <- merge(DT, items, by = colnames(items), sort = F)
     }
     else if (!is.null(items)) {
-      DT <- DT[get(colnames(DT)[ifelse(colnames(DT)[1] == "Blocks", 2, 1)]) %in% items]
+      DT <- DT[get(setdiff(colnames(DT), "Block")[1]) %in% items]
     }
     if (nrow(DT) == 0) return(NULL)
   } else {
@@ -221,7 +221,8 @@ setMethod("plot_dists", "seaMass", function(
   variable.interval = 12,
   show.legend = TRUE,
   min.width = 1024,
-  min.height = 256
+  min.height = 256,
+  output = "plotly"
 ) {
   fit.sigma <- root(object)
 
@@ -304,9 +305,9 @@ setMethod("plot_dists", "seaMass", function(
   data.table::setorderv(DT1, summary.cols, order = ifelse(horizontal, -1, 1), na.last = T)
 
   for (col in label.cols) {
-    if (all(is.numeric(DT1[[col]])) && !all(DT1[[col]] == round(DT1[[col]]))) {
+    if (all(is.numeric(DT1[[col]])) && !all(DT1[[col]] == round(DT1[[col]]), na.rm = T)) {
       DT1[, (paste0("_", col)) := formatC(signif(get(col), digits = 3), digits = 3, format = "fg", flag = "#")]
-    } else if (any(nchar(as.character(DT1[[col]])) > 24)) {
+    } else if (any(nchar(as.character(DT1[[col]])) > 24, na.rm = T)) {
       if (horizontal) {
         DT1[, (paste0("_", col)) := paste0(
           "(", as.integer(factor(get(col), levels = rev(unique(get(col))))), ") ", ifelse(nchar(as.character(get(col))) > 21, paste0(strtrim(as.character(get(col)), 24), "..."), as.character(get(col)))
@@ -474,7 +475,7 @@ setMethod("plot_dists", "seaMass", function(
         stat = seaMass::StatYlfdr,
         alpha = alphas[[(i-1) %% length(alpha) + 1]],
         trim = trims[[(i-1) %% length(trims) + 1]],
-        show.legend = show.legend
+        show.legend = ifelse(i == 1, show.legend, F)
       )
       if (!is.null(ggcolour)) args$colour <- ggcolour
       if (!is.null(ggfill)) args$fill <- ggfill
@@ -503,7 +504,7 @@ setMethod("plot_dists", "seaMass", function(
           stat = seaMass::StatYlfdr,
           alpha = alphas[[(i-1) %% length(alpha) + 1]],
           trim = c(qt, 1 - qt),
-          show.legend = show.legend
+          show.legend = ifelse(i == 1, show.legend, F)
         )
         if (!is.null(ggcolour)) args$colour <- ggcolour
         if (!is.null(ggfill)) args$fill <- ggfill
@@ -515,6 +516,7 @@ setMethod("plot_dists", "seaMass", function(
 
   # origin
   g <- g + ggplot2::geom_hline(yintercept = 0, show.legend = F)
+  if (output == "ggplot") return(g)
 
   ## CONVERT TO PLOTLY
 
@@ -678,12 +680,16 @@ setMethod("plot_robust_pca", "seaMass", function(
   width = 1024,
   height = 768,
   data = NULL,
+  output = "plotly",
+  ggplot.labels = TRUE,
   ...
 ) {
   if (is.null(data)) data <- robust_pca(object, ...)
 
   ctrl <- control(root(object))
   DT <- as.data.table(data)
+
+  if (output == "ggplot" && ggplot.labels) DT[, label := paste(Sample, Assay, Block, sep = " : ")]
 
   # hack for plotly tooltips
   DT[, Summary := interaction(Block, Assay, drop = T, lex.order = T)]
@@ -696,7 +702,7 @@ setMethod("plot_robust_pca", "seaMass", function(
   )]
   DT[, text := factor(text, levels = unique(text))]
   cols <- colnames(DT)[sapply(pcs, function(pc) grep(paste0("^PC", pc, " "), colnames(DT)))]
-  DT <- DT[, mget(intersect(c("Summary", "text", cols, colour, fill, shape), colnames(DT)))]
+  DT <- DT[, mget(intersect(c("Summary", "text", cols, colour, fill, shape, "label"), colnames(DT)))]
   colnames(DT) <- sub("^(PC[0-9]+) .*$", "\\1", colnames(DT))
 
   # pretty name mapping
@@ -718,7 +724,7 @@ setMethod("plot_robust_pca", "seaMass", function(
   }
 
   # summary
-  DT.summary <- merge(DT[, !c("PC1", "PC2")], DT[, as.list(MASS::cov.trob(data.table(PC1, PC2))$center), by = Summary], by = "Summary")
+  DT.summary <- merge(unique(DT[, !c("PC1", "PC2")]), DT[, as.list(MASS::cov.trob(data.table(PC1, PC2))$center), by = Summary], by = "Summary")
 
   # setup plot
   g <- ggplot2::ggplot(DT.summary, ggplot2::aes(x = PC1, y = PC2))
@@ -829,6 +835,27 @@ setMethod("plot_robust_pca", "seaMass", function(
 
   suppressWarnings(g <- g + do.call(eval(parse(text = "ggplot2::stat_ellipse")), args))
 
+  if (output == "ggplot") {
+    if (ggplot.labels) {
+      # plot label
+      args.aes <- list(label = ~label)
+      if (!is.null(ggcolour.aes)) args.aes$colour <- formula(paste0("~ `", ggcolour.aes, "`"))
+
+      args <- list(mapping = do.call(
+        eval(parse(text = "ggplot2::aes_")), args.aes),
+        DT.summary,
+        size = 2.5,
+        seed = 0,
+        max.overlaps = Inf,
+        show.legend = F
+      )
+      if (!is.null(ggcolour)) args$colour <- ggcolour
+
+      g <- g + do.call(eval(parse(text = "ggrepel::geom_label_repel")), args)
+    }
+    return(g)
+  }
+
   suppressWarnings(fig <- plotly::ggplotly(g, tooltip = c("text", "x", "y"), dynamicTicks = T, width = width, height = height))
   for (i in 1:length(fig$x$layout$annotations)) fig$x$layout$annotations[[i]]$y <- fig$x$layout$annotations[[i]]$y - 0.05 # another grim plotly hack
 
@@ -857,6 +884,7 @@ setMethod("lingofy", "seaMass", function(object, x) {
   col <- sub("^G\n", paste0("[", ctrl@group[1], "]\n"), col)
   col <- sub("^C\n", paste0("[", ctrl@component[1], "]\n"), col)
   col <- sub("^M\n", paste0("[", ctrl@measurement[1], "]\n"), col)
+  col <- sub("^A\n", "[Assay]\n", col)
   col <- sub("^Cont\n", "[Contrast]\n", col)
   col <- sub("^Base\n", "[Baseline]\n", col)
   return(col)

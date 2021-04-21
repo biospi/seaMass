@@ -24,7 +24,7 @@
 seaMass_theta(
   fit,
   data.design = assay_design(fit),
-  norm.groups = top_groups(fit, 512),
+  norm.groups = top_groups(fit),
   name = "default",
   control = theta_control(),
   ...

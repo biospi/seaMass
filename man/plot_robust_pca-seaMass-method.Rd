@@ -17,6 +17,8 @@
   width = 1024,
   height = 768,
   data = NULL,
+  output = "plotly",
+  ggplot.labels = TRUE,
   ...
 )
 }

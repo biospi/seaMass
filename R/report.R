@@ -34,7 +34,7 @@ setMethod("render_markdown", "seaMass", function(object, root) {
   # generate _site.yml
   cat(paste0(
     'navbar:\n',
-    '  title: ', name(seaMass::root(object)), '\n',
+    '  title: ', name(root(object)), '\n',
     '  left:\n',
     '    - text: "Index"\n',
     '      href: index.html\n',
@@ -65,7 +65,11 @@ setMethod("render_markdown", "seaMass", function(object, root) {
   zip::zip(file.path(path, paste0(basename(root), ".report.zip")), files, compression_level = 6, include_directories = F, mode = "cherry-pick")
 
   # tidy up
-  unlink(file.path(root, "_site"), recursive = T)
+  if (!("markdown" %in% ctrl@keep)) {
+    unlink(root, recursive = T)
+  } else {
+    unlink(file.path(root, "_site"), recursive = T)
+  }
 
   return(invisible(NULL))
 })
@@ -76,17 +80,17 @@ setMethod("render_markdown", "seaMass", function(object, root) {
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("assemble_report", "seaMass_sigma", function(object, filepath = "report", title = seaMass::name(object)) {
+setMethod("assemble_report", "seaMass_sigma", function(object, filename = paste0(name(object), "_seaMass_report.zip"), title = seaMass::name(object)) {
   ctrl <- control(object)
 
   # create markdown directory for index
   root <- file.path(dirname(filepath(object)), "markdown")
   if (file.exists(root)) unlink(root, recursive = T)
-  dir.create(root)
+  dir.create(file.path(root, "_site", name(object)), recursive = T)
 
   # generate _site.yml
   cat(paste0(
-    #'name: ', name, '\n',
+    'output_dir: ', file.path("_site", name(object)), '\n',
     'navbar:\n',
     '  title: ', title, '\n',
     '  left:\n',
@@ -139,11 +143,24 @@ setMethod("assemble_report", "seaMass_sigma", function(object, filepath = "repor
 
   # render site
   rmarkdown::render_site(root, quiet = T)
+  unlink(file.path(root, "_site", name(object), "fig.html"))
+
+  # root html index
+  cat(paste0(
+    '<!DOCTYPE HTML>\n',
+    '<meta charset="UTF-8">\n',
+    '<meta http-equiv="refresh" content="1; url=', name(object), '/index.html">\n',
+    '<script>\n',
+    '  window.location.href = "', name(object), '/index.html"\n',
+    '</script>\n',
+    '<title>Page Redirection</title>\n',
+    'If you are not redirected automatically, follow the <a href="', name(object), '/index.html">link to ', filename, '</a>\n'
+  ), file = file.path(root, "_site", "index.html"))
 
   # zip
-  zipfile <- file.path(dirname(filepath(object)), paste0(filepath, ".zip"))
-  files <- file.path(root, "_site", setdiff(list.files(file.path(root, "_site")), c("fig.html")))
-  zip::zip(zipfile, files, compression_level = 6, include_directories = F, mode = "cherry-pick")
+  zipfile <- file.path(dirname(filepath(object)), filename)
+  files <- c(file.path(root, "_site", "index.html"), file.path(root, "_site", name(object)))
+  zip::zip(zipfile, files, compression_level = 6, mode = "cherry-pick")
 
   # tidy up
   unlink(file.path(root, "_site"), recursive = T)
@@ -151,12 +168,13 @@ setMethod("assemble_report", "seaMass_sigma", function(object, filepath = "repor
   # append zips
   files <- list.files(dirname(filepath(object)), pattern = "^.*\\.report\\.zip$", recursive = T, full.names = T)
   for (zipfile1 in files) {
-    root1 <- file.path(dirname(filepath(object)), "markdown", basename(tools::file_path_sans_ext(zipfile1)))
+    root1 <- file.path(dirname(filepath(object)), "markdown", "_site", name(object))
     zip::unzip(zipfile1, exdir = root1)
-    files1 <- list.files(root1, full.names = T)
-    zip::zip_append(zipfile, files1, compression_level = 6, include_directories = F, mode = "cherry-pick")
+    zip::zip_append(zipfile, root1, compression_level = 6, include_directories = F, mode = "cherry-pick")
     unlink(root1, recursive = T)
   }
+
+  if (!("markdown" %in% ctrl@keep)) unlink(root, recursive = T)
 
   return(invisible(NULL))
 })

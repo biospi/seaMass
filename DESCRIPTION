@@ -26,6 +26,8 @@ Imports:
     fitdistrplus (>= 1.0-14),
     fst (>= 0.9.0),
     ggplot2 (>= 3.3.2),
+    ggrepel (>= 0.9.1),
+    gridExtra (>= 2.3),
     igraph (>= 1.2.5),
     MCMCglmm (>= 2.29),
     plotly (>= 4.9.2.1),

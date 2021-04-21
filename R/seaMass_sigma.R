@@ -45,7 +45,7 @@ seaMass_sigma <- function(
   # setup seaMass folder structure
   if (!grepl("\\.seaMass$", path)) path <- paste0(path, ".seaMass")
   if (file.exists(path)) unlink(path, recursive = T)
-  if (!dir.create(file.path(path, "sigma", "markdown"), recursive = T))
+  if (!dir.create(file.path(path, "sigma"), recursive = T))
     stop("ERROR: problem creating folder")
 
   # setup seaMass-sigma folder structure
@@ -338,7 +338,6 @@ setMethod("report", "seaMass_sigma", function(object, job.id) {
   # assemble report
   cat(paste0("[", Sys.time(), "]   assembling html report...\n"))
   assemble_report(object)
-  if (!("markdown" %in% ctrl@keep)) unlink(file.path(dirname(filepath(object)), "markdown"), recursive = T)
 
   return(invisible(NULL))
 })
@@ -440,7 +439,7 @@ setMethod("groups", "seaMass_sigma", function(object, summary = FALSE, as.data.t
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("top_groups", "seaMass_sigma", function(object, n) {
+setMethod("top_groups", "seaMass_sigma", function(object, n = 512) {
   DT <- groups(object, as.data.table = T)
   DT <- DT[, .(.N, qC = min(G.qC)), by = Group][N == nlevels(DT$Block)]
   setorder(DT, -qC)

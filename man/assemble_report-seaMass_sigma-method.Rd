@@ -4,7 +4,11 @@
 \alias{assemble_report,seaMass_sigma-method}
 \title{Generate html report}
 \usage{
-\S4method{assemble_report}{seaMass_sigma}(object, filepath = "report", title = seaMass::name(object))
+\S4method{assemble_report}{seaMass_sigma}(
+  object,
+  filename = paste0(name(object), "_seaMass_report.zip"),
+  title = seaMass::name(object)
+)
 }
 \description{
 Generate html report

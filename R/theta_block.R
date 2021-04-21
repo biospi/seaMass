@@ -163,8 +163,7 @@ setMethod("plot_group_quants", "theta_block", function(
   object,
   group,
   summary = TRUE,
-  colour = list("Condition", "black"),
-  alpha = list(1, 0.2),
+  colour = list("Condition", "grey"),
   value.label = "quant",
   variable.summary.cols = c("Group", "Block", "Run", "Channel", "Assay", "RefWeight", "Sample", "Condition", "AG.qC", "AG.qM", "AG.qD"),
   variable.label.cols = c("Sample", "Assay", "Block"),
@@ -178,8 +177,7 @@ setMethod("plot_group_quants", "theta_block", function(
       group_quants(parent(object), group, summary = summary, as.data.table = T)
     ),
     colour = colour,
-    alpha = alpha,
-    value.label = value.label,
+     value.label = value.label,
     variable.summary.cols = variable.summary.cols,
     variable.label.cols = variable.label.cols,
     ...

@@ -108,7 +108,7 @@ setMethod("process", "theta_block", function(object, job.id) {
     # markdown folder
     report.index <- list()
     root <- file.path(filepath(fit.theta), "markdown", paste0("block.", name(object)))
-    dir.create(root, recursive = T, showWarnings = F)
+    dir.create(root, recursive = T)
     group <- control(parent(object))@group[1]
 
     # calculate plot limits
@@ -139,7 +139,7 @@ setMethod("process", "theta_block", function(object, job.id) {
     # save group means plot
     if ("group.standards" %in% ctrl@plot) {
       cat(paste0("[", Sys.time(), "]   generating group standards plot...\n"))
-      fig <- plot_group_means(fit.sigma, summary = T)
+      fig <- plot_group_standards(fit.theta, summary = T)
       report.index$group.means <- data.table(
         section = "Study-level", section.order = 0, item = paste0(group, " reference standards", ifelse(name(fit.theta) == "default", "", paste0(" (", name(fit.theta), ")"))), item.order = 150000,
         item.href = generate_markdown(
@@ -178,12 +178,13 @@ setMethod("process", "theta_block", function(object, job.id) {
       )
     }
 
-    # zip
-    render_markdown(fit.theta, root)
-    if (!("markdown" %in% ctrl@keep)) unlink(root, recursive = T)
+    if (length(report.index) > 0) {
+      # zip
+      render_markdown(fit.theta, root)
 
-    # save index
-    fst::write.fst(rbindlist(report.index), file.path(filepath(fit.theta), "report", paste0("block.", name(object), ".report.fst")))
+      # save index
+      fst::write.fst(rbindlist(report.index), file.path(filepath(fit.theta), "report", paste0("block.", name(object), ".report.fst")))
+    }
 
     increment_completed(filepath(fit.theta))
   }

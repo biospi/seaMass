@@ -20,7 +20,7 @@ setClass("seaMass_theta", contains = "seaMass_group_quants", slots = c(
 seaMass_theta <- function(
   fit,
   data.design = assay_design(fit),
-  norm.groups = top_groups(fit, 512),
+  norm.groups = top_groups(fit),
   name = "default",
   control = theta_control(),
   ...
@@ -128,7 +128,6 @@ setMethod("report", "seaMass_theta", function(object, job.id) {
   # assemble report
   cat(paste0("[", Sys.time(), "]   assembling html report...\n"))
   assemble_report(root(object))
-  if (!("markdown" %in% ctrl@keep)) unlink(file.path(dirname(filepath(object)), "markdown"), recursive = T)
 
   return(invisible(NULL))
 })
@@ -320,8 +319,7 @@ setMethod("plot_group_quants", "seaMass_theta", function(
   object,
   group,
   summary = TRUE,
-  colour = list("Condition", "black"),
-  alpha = list(1, 0.2),
+  colour = list("Condition", "grey"),
   variable.summary.cols = c("Group", "Block", "Run", "Channel", "Assay", "RefWeight", "Sample", "Condition", "AG.qC", "AG.qM", "AG.qD"),
   variable.label.cols = c("Sample", "Assay", "Block"),
   value.label = "quant",
@@ -335,7 +333,6 @@ setMethod("plot_group_quants", "seaMass_theta", function(
       group_quants(parent(object), group, summary = summary, as.data.table = T)
     ),
     colour = colour,
-    alpha = alpha,
     variable.summary.cols = variable.summary.cols,
     variable.label.cols = variable.label.cols,
     value.label = value.label,

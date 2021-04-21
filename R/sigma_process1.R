@@ -16,7 +16,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
     fit.sigma <- container(object)
     report.index <- list()
     root <- file.path(filepath(fit.sigma), "markdown", paste0("block.", name(object)))
-    dir.create(root, showWarnings = F)
+    dir.create(root, recursive = T)
 
     # group summary
     if ("groups" %in% ctrl@summarise) {
@@ -331,7 +331,6 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
     if (length(report.index) > 0) {
       # zip
       render_markdown(fit.sigma, root)
-      if (!("markdown" %in% ctrl@keep)) unlink(root, recursive = T)
 
       # save index
       fst::write.fst(rbindlist(report.index), file.path(filepath(fit.sigma), "report", paste0("block.", name(object), ".report.fst")))

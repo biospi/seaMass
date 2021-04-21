@@ -58,7 +58,8 @@ StatYlfdr <- ggplot2::ggproto(
     }
     #print(1)
 
-    dd <- floor(100 * trim[1]):ceiling(100 * trim[2]) / 100
+    ndatapoints <- 20
+    dd <- floor(ndatapoints * trim[1]):ceiling(ndatapoints * trim[2]) / ndatapoints
     dd[1] <- trim[1]
     dd[length(dd)] <- trim[2]
     dd <- new_data_frame(list(ecdf = dd, x = mean(range(data$x))), length(dd))
@@ -90,8 +91,8 @@ StatYlfdr <- ggplot2::ggproto(
     # horrible hack for ggplotly tooltip
     dd$density <- paste0(
       format(round(dd$y, 3), nsmall = 3, justify = "none"), "<br \\>",
-      "lFDR (up): ", format(round(dd$ecdf, 3), nsmall = 3, justify = "none"), "%<br \\>",
-      "lFDR (down): ", format(round(1 - dd$ecdf, 3), nsmall = 3, justify = "none"), "%"
+      "lFDR (up): ", format(round(dd$ecdf, 2), nsmall = 2, justify = "none"), "<br \\>",
+      "lFDR (down): ", format(round(1 - dd$ecdf, 2), nsmall = 2, justify = "none")
     )
 
     return(dd)

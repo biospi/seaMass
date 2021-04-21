@@ -131,7 +131,6 @@ setMethod("report", "seaMass_delta", function(object, job.id) {
   # assemble report
   cat(paste0("[", Sys.time(), "]   assembling html report...\n"))
   assemble_report(root(object))
-  if (!("markdown" %in% ctrl@keep)) unlink(file.path(dirname(filepath(object)), "markdown"), recursive = T)
 
   return(invisible(NULL))
 })
@@ -211,8 +210,8 @@ setMethod("del", "seaMass_delta", function(object) {
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("group_quants_de", "seaMass_delta", function(object, groups = NULL, summary = FALSE, type = "group.quants.de", chains = 1:control(object)@nchain, as.data.table = FALSE) {
-  DT <- read(object, ".", type, groups, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
+setMethod("group_quants_de", "seaMass_delta", function(object, groups = NULL, summary = TRUE, type = "group.quants.de", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+  DT <- read(object, ".", type, groups, chains, summary, summary.func = "lst_ash", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -224,8 +223,8 @@ setMethod("group_quants_de", "seaMass_delta", function(object, groups = NULL, su
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_deviations_de", "seaMass_delta", function(object, components = NULL, summary = FALSE, type = "component.deviations.de", chains = 1:control(object)@nchain, as.data.table = FALSE) {
-  DT <- read(object, ".", type, components, chains, summary, summary.func = "robust_normal", as.data.table = as.data.table)
+setMethod("component_deviations_de", "seaMass_delta", function(object, components = NULL, summary = TRUE, type = "component.deviations.de", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+  DT <- read(object, ".", type, components, chains, summary, summary.func = "lst_ash", as.data.table = as.data.table)
 
   if (!as.data.table) setDF(DT)
   else DT[]
@@ -279,7 +278,7 @@ setMethod("plot_group_quants_de", "seaMass_delta", function(
   colour = "black",
   variable.summary.cols = c("Group", "Effect", "Contrast", "Baseline", "Cont.uS", "Base.uS", "Cont.qS", "Base.qS", "Cont.qC", "Base.qC", "Cont.qM", "Base.qM"),
   variable.label.cols = c("Group", "Contrast", "Baseline"),
-  value.label = "deviation",
+  value.label = "fold change",
   ...
 ) {
   return(plot_dists(
@@ -301,12 +300,11 @@ setMethod("plot_group_quants_fdr", "seaMass_delta", function(
   object,
   groups = NULL,
   summary = TRUE,
-  colour = list("lfdr", "black"),
-  alpha = list(1, 0.2),
+  colour = list("lfdr", "grey"),
   variable.summary.cols = c("qvalue", "Batch", "Effect", "Contrast", "Baseline", "Group", "Cont.uS", "Base.uS", "Cont.qS", "Base.qS",
                             "Cont.qC", "Base.qC", "Cont.qM", "Base.qM", "lfdr", "lfsr", "svalue", "NegativeProb", "PositiveProb"),
   variable.label.cols = c("Group", "qvalue"),
-  value.label = "deviation",
+  value.label = "fold change",
   ...
 ) {
   return(plot_dists(
@@ -316,7 +314,6 @@ setMethod("plot_group_quants_fdr", "seaMass_delta", function(
       group_quants_de(object, groups, summary = summary, as.data.table = T)
     ),
     colour = colour,
-    alpha = alpha,
     variable.summary.cols = variable.summary.cols,
     variable.label.cols = variable.label.cols,
     value.label = value.label,

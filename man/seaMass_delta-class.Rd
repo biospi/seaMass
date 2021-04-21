@@ -48,7 +48,7 @@ open_delta(fit, name = "default", quiet = FALSE, force = FALSE)
 \S4method{group_quants_de}{seaMass_delta}(
   object,
   groups = NULL,
-  summary = FALSE,
+  summary = TRUE,
   type = "group.quants.de",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE
@@ -57,7 +57,7 @@ open_delta(fit, name = "default", quiet = FALSE, force = FALSE)
 \S4method{component_deviations_de}{seaMass_delta}(
   object,
   components = NULL,
-  summary = FALSE,
+  summary = TRUE,
   type = "component.deviations.de",
   chains = 1:control(object)@nchain,
   as.data.table = FALSE

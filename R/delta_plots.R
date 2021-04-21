@@ -22,12 +22,17 @@ setMethod("plots", "seaMass_delta", function(object, batch, job.id) {
     # markdown folder
     report.index1 <- list()
     root1 <- file.path(filepath(object), "markdown", paste0("group.", as.integer(item)))
-    dir.create(root1, showWarnings = F)
+    dir.create(root1, recursive = T)
 
     if ("group.quants.de" %in% ctrl@plot) {
       group <- control(root(object))@group[1]
 
-      fig <- plot_group_quants_fdr(object, item, value.limits = lims$group.quants, summary = T)
+      fig <- plot_group_quants_fdr(
+        object, item, value.limits = lims$group.quants, summary = T,
+        variable.summary.cols = c("Batch", "Effect", "Contrast", "Baseline", "Group", "Cont.uS", "Base.uS", "Cont.qS", "Base.qS",
+                                  "Cont.qC", "Base.qC", "Cont.qM", "Base.qM", "lfdr", "lfsr", "qvalue", "svalue", "NegativeProb", "PositiveProb"),
+        variable.label.cols = c("Group", "Batch", "qvalue")
+      )
       text1 <- paste0(group, " differential expression", ifelse(name(object) == "default", "", paste0(" (", name(object), ")")))
       text2 <- paste0(group, " differential expression", ifelse(name(object) == "default", "", paste0(" (", name(object), ") ")), " for ", item)
       report.index1$group.quant.de <- data.table(
@@ -41,19 +46,14 @@ setMethod("plots", "seaMass_delta", function(object, batch, job.id) {
       )
     }
 
-    if (length(report.index1) > 0) {
-      # zip
-      render_markdown(object, root1)
-      if (!("markdown" %in% ctrl@keep)) unlink(root1, recursive = T)
-    }
+    # zip
+    if (length(report.index1) > 0) render_markdown(object, root1)
 
     return(report.index1)
   }, nthread = ctrl@nthread))
 
   # save index
-  if (length(report.index) > 0) {
-    fst::write.fst(rbindlist(report.index), file.path(filepath(object), "report", paste0("groups.", batch, ".report.fst")))
-  }
+  if (length(report.index) > 0) fst::write.fst(rbindlist(report.index), file.path(filepath(object), "report", paste0("groups.", batch, ".report.fst")))
 
   return(invisible(NULL))
 })
@@ -66,14 +66,17 @@ setMethod("plots", "seaMass_delta", function(object, batch, job.id) {
 #' @import data.table
 #' @export
 #' @include generics.R
-plot_volcano <- function(
-  data.fdr,
+#' @include seaMass_delta.R
+setMethod("plot_volcano", "seaMass_delta", function(
+  object,
   contours = NULL,
   error.bars = TRUE,
   labels = 25,
   stdev.col = "PosteriorSD",
   x.col = "PosteriorMean",
-  y.col = "qvalue"
+  y.col = "qvalue",
+  data.fdr = group_quants_fdr(object),
+  output = "plotly"
 ) {
   DT.fdr <- as.data.table(data.fdr)
   DT.fdr[, s := get(stdev.col)]
@@ -174,20 +177,20 @@ plot_volcano <- function(
   g <- g + ggplot2::geom_vline(xintercept = 0)
   g <- g + ggplot2::geom_hline(yintercept = ylim.plot[1])
   if (x.col == "m") {
-    g <- g + ggplot2::xlab("log2(Fold Change)")
+    g <- g + ggplot2::xlab("log2 fold change")
   } else if (x.col == "PosteriorMean") {
-    g <- g + ggplot2::xlab("log2(Shrunk Fold Change)")
+    g <- g + ggplot2::xlab("log2 moderated fold change")
   } else {
-    g <- g + ggplot2::xlab(paste0("log2(", x.col, ")"))
+    g <- g + ggplot2::xlab(paste0("log2 ", x.col))
   }
   if (y.col == "s") {
-    g <- g + ggplot2::ylab(paste0("-log2(Fold Change) Posterior Standard Deviation"))
+    g <- g + ggplot2::ylab(paste0("-log2 fold change Posterior Standard Deviation"))
   } else if (y.col == "PosteriorSD") {
-    g <- g + ggplot2::ylab(paste0("-log2(Shrunk Fold Change) Posterior Standard Deviation"))
+    g <- g + ggplot2::ylab(paste0("-log2 moderated fold change Posterior Standard Deviation"))
   } else {
-    g <- g + ggplot2::ylab(paste0(paste0("-log10(", y.col, ")")))
-    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = -log10(0.01)), linetype = "dashed")
-    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = -log10(0.05)), linetype = "dashed")
+    g <- g + ggplot2::ylab(paste0(paste0("-log10 ", y.col)))
+    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.table(yintercept = -log10(0.01)), linetype = "dashed")
+    g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.table(yintercept = -log10(0.05)), linetype = "dashed")
   }
   if ("truth" %in% colnames(data.fdr)) {
     g <- g + ggplot2::geom_vline(ggplot2::aes(color = Truth, xintercept = truth), DT.meta[N >= 5])
@@ -196,12 +199,12 @@ plot_volcano <- function(
   } else {
     g <- g + ggplot2::theme(legend.position = "none")
   }
-  g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = label), size = 2.5, na.rm = T)
+  g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = label), size = 2.5, na.rm = T, max.overlaps = Inf)
   g <- g + ggplot2::coord_cartesian(xlim = xlim.plot, ylim = ylim.plot, expand = F)
   g <- g + ggplot2::scale_colour_hue(l = 50)
   g <- g + ggplot2::scale_fill_discrete(guide = NULL)
   g
-}
+})
 
 
 #' Add together two numbers.
@@ -210,10 +213,14 @@ plot_volcano <- function(
 #' @return The sum of \code{x} and \code{y}.
 #' @import data.table
 #' @export
-plot_fdr <- function(
-  data.fdr,
+#' @include generics.R
+#' @include seaMass_delta.R
+setMethod("plot_fdr", "seaMass_delta", function(
+  object,
   y.max = NULL,
-  y.col = "qvalue"
+  y.col = "qvalue",
+  data.fdr = group_quants_fdr(object),
+  output = "plotly"
 ) {
   DT <- as.data.table(data.fdr)
   DT <- DT[!is.na(get(y.col))]
@@ -227,17 +234,17 @@ plot_fdr <- function(
   ylabels <- function() function(x) format(x, digits = 2)
 
   g <- ggplot2::ggplot(DT, ggplot2::aes_string(x = "Discoveries", y = y.col))
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype = "dotted")
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype = "dotted")
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype = "dotted")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.table(yintercept = 0.01), linetype = "dotted")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.table(yintercept = 0.05), linetype = "dotted")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.table(yintercept = 0.10), linetype = "dotted")
   g <- g + ggplot2::geom_step(direction = "vh")
   g <- g + ggplot2::scale_x_continuous(expand = c(0, 0))
   g <- g + ggplot2::scale_y_reverse(breaks = sort(c(pi, 0.0, 0.01, 0.05, 0.1, 0.2, 0.5, 1.0)), labels = ylabels(), expand = c(0.001, 0.001))
   g <- g + ggplot2::coord_cartesian(xlim = c(0, xmax), ylim = c(y.max, 0))
-  g <- g + ggplot2::xlab("Number of Discoveries")
-  g <- g + ggplot2::ylab("False Discovery Rate")
+  g <- g + ggplot2::xlab("number of discoveries")
+  g <- g + ggplot2::ylab("qvalue")
   g
-}
+})
 
 
 #' Precision-Recall plot
@@ -247,12 +254,16 @@ plot_fdr <- function(
 #' @return A ggplot2 object.
 #' @import data.table
 #' @export
-plot_pr <- function(
-  data.fdr,
+#' @include generics.R
+#' @include seaMass_delta.R
+setMethod("plot_pr", "seaMass_delta", function(
+  object,
   plot.fdr = TRUE,
   y.max = NULL,
   legend.nrow = 1,
-  y.col = "qvalue"
+  y.col = "qvalue",
+  data.fdr = group_quants_fdr(object),
+  output = "plotly"
 ) {
   if (is.data.frame(data.fdr)) {
     DTs.pr <- list(unknown = data.fdr)
@@ -285,9 +296,9 @@ plot_pr <- function(
   if (is.null(y.max)) y.max <- pi
 
   g <- ggplot2::ggplot(DTs.pr, ggplot2::aes(x = TrueDiscoveries, y = FDP, colour = Method, fill = Method, linetype = Method))
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.01), linetype = "dotted")
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.05), linetype = "dotted")
-  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.frame(yintercept = 0.10), linetype = "dotted")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.table(yintercept = 0.01), linetype = "dotted")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.table(yintercept = 0.05), linetype = "dotted")
+  g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.table(yintercept = 0.10), linetype = "dotted")
   g <- g + ggplot2::geom_ribbon(ggplot2::aes(ymin = lower, ymax = upper), colour = NA, alpha = 0.3)
   if (plot.fdr) g <- g + ggplot2::geom_line(ggplot2::aes(y = y), lty = "dashed")
   g <- g + ggplot2::geom_step(direction = "vh")
@@ -303,4 +314,4 @@ plot_pr <- function(
   } else {
     g + ggplot2::theme(legend.position = "top") + ggplot2::guides(lty = ggplot2::guide_legend(nrow = legend.nrow))
   }
-}
+})

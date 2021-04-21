@@ -34,8 +34,8 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
 
     # markdown folder
     report.index <- list()
-    root <- file.path(filepath(fit.theta), "markdown", "study")
-    dir.create(root, recursive = T, showWarnings = F)
+    root <- file.path(filepath(object), "markdown", "study")
+    dir.create(root, recursive = T)
     group <- control(root(object))@group[1]
 
     # calculate plot limits
@@ -62,11 +62,11 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
 
         # plot
         if ("group.quants.de.batch" %in% ctrl@plot) {
-          cat(paste0("[", Sys.time(), "]     generating group quants differential expression plot...\n"))
-          group_quants_de(object, summary = T, as.data.table = T)
+          #cat(paste0("[", Sys.time(), "]     generating group quants differential expression summary...\n"))
+          #group_quants_de(object, summary = T, as.data.table = T)
 
           cat(paste0("[", Sys.time(), "]     generating group quants differential expression plot...\n"))
-          text <- paste0(group, "differential expression for '", gsub("\\.", "' effect, comparison '", batch), "'", name)
+          text <- paste0(group, " differential expression for '", gsub("\\.", "' effect, comparison '", batch), "'", name)
           report.index$assay.stdevs <- data.table(
             section = "Study-level", section.order = 0, item = text, item.order = 75000,
             item.href = generate_markdown(
@@ -82,10 +82,9 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
 
     # zip
     render_markdown(object, root)
-    if (!("markdown" %in% ctrl@keep)) unlink(root, recursive = T)
 
     # save index
-    fst::write.fst(rbindlist(report.index), file.path(filepath(fit.theta), "report", "study.report.fst"))
+    fst::write.fst(rbindlist(report.index), file.path(filepath(object), "report", "study.report.fst"))
 
     increment_completed(filepath(object))
   }

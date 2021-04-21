@@ -20,7 +20,7 @@ setMethod("plots", "seaMass_theta", function(object, batch, job.id) {
     # markdown folder
     report.index1 <- list()
     root1 <- file.path(filepath(object), "markdown", paste0("group.", as.integer(item)))
-    dir.create(root1, showWarnings = F)
+    dir.create(root1, recursive = T)
 
     if ("group.quants" %in% ctrl@plot) {
       group <- control(root(object))@group[1]
@@ -39,19 +39,14 @@ setMethod("plots", "seaMass_theta", function(object, batch, job.id) {
       )
     }
 
-    if (length(report.index1) > 0) {
-      # zip
-      render_markdown(object, root1)
-      if (!("markdown" %in% ctrl@keep)) unlink(root1, recursive = T)
-    }
+    # zip
+    if (length(report.index1) > 0) render_markdown(object, root1)
 
     return(report.index1)
   }, nthread = ctrl@nthread))
 
   # save index
-  if (length(report.index) > 0) {
-    fst::write.fst(rbindlist(report.index), file.path(filepath(object), "report", paste0("groups.", batch, ".report.fst")))
-  }
+  if (length(report.index) > 0) fst::write.fst(rbindlist(report.index), file.path(filepath(object), "report", paste0("groups.", batch, ".report.fst")))
 
   return(invisible(NULL))
 })
