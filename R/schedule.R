@@ -61,9 +61,9 @@ setMethod("run", "schedule_local", function(object, fit.sigma) {
 
   if (ctrl@plots == T) {
     for (batch in 1:control(fit.sigma)@plot.nbatch) {
-      seaMass:::plots(fit.sigma, batch, job.id)
-      for (fit.theta in open_thetas(fit.sigma)) seaMass:::plots(fit.theta, batch, job.id)
-      for (fit.delta in open_deltas(fit.sigma)) seaMass:::plots(fit.delta, batch, job.id)
+      plots(fit.sigma, batch, job.id)
+      for (fit.theta in open_thetas(fit.sigma)) plots(fit.theta, batch, job.id)
+      for (fit.delta in open_deltas(fit.sigma)) plots(fit.delta, batch, job.id)
     }
   }
 
@@ -234,11 +234,15 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, fit.sigma) {
 setMethod("prepare_theta", "schedule_slurm", function(object, fit.theta) {
   fit.sigma <- root(fit.theta)
   fp <- dirname(filepath(fit.sigma))
-  n <- length(open_thetas(fit.sigma, force = T)) * control(fit.sigma)@nchain
-  cat(config(object, "D", name(fit.sigma), n, F, "hpc_theta"), file = file.path(fp, "slurm", "submit.theta"))
+  n <- length(open_thetas(fit.sigma, force = T)) * length(control(fit.sigma)@blocks)
+  cat(config(object, "T", name(fit.sigma), n, F, "hpc_theta"), file = file.path(fp, "slurm", "submit.theta"))
 
-  if (any(c(control(fit.sigma)@plots, sapply(open_thetas(fit.sigma), function(fit) control(fit)@plots), sapply(open_deltas(fit.sigma), function(fit) control(fit)@plots)))) {
-    cat(config(object, "P", name, control(fit.sigma)@plot.nbatch, F, "hpc_plots"), file = file.path(fp, "slurm", "submit.plots"))
+  if (any(c(
+    control(fit.sigma)@plots,
+    any(sapply(open_thetas(fit.sigma, force = T), function(fit) control(fit)@plots)),
+    any(sapply(open_deltas(fit.sigma, force = T), function(fit) control(fit)@plots))
+  ))) {
+    cat(config(object, "P", name(fit.sigma), control(fit.sigma)@plot.nbatch, F, "hpc_plots"), file = file.path(fp, "slurm", "submit.plots"))
   }
 
   return(invisible(object))
@@ -252,8 +256,12 @@ setMethod("prepare_delta", "schedule_slurm", function(object, fit.delta) {
   n <- length(open_deltas(fit.sigma, force = T)) * control(fit.sigma)@nchain
   cat(config(object, "D", name(fit.sigma), n, F, "hpc_delta"), file = file.path(fp, "slurm", "submit.delta"))
 
-  if (any(c(control(fit.sigma)@plots, sapply(open_thetas(fit.sigma), function(fit) control(fit)@plots), sapply(open_deltas(fit.sigma), function(fit) control(fit)@plots)))) {
-    cat(config(object, "P", name, control(fit.sigma)@plot.nbatch, F, "hpc_plots"), file = file.path(fp, "slurm", "submit.plots"))
+  if (any(c(
+    control(fit.sigma)@plots,
+    any(sapply(open_thetas(fit.sigma, force = T), function(fit) control(fit)@plots)),
+    any(sapply(open_deltas(fit.sigma, force = T), function(fit) control(fit)@plots))
+  ))) {
+    cat(config(object, "P", name(fit.sigma), control(fit.sigma)@plot.nbatch, F, "hpc_plots"), file = file.path(fp, "slurm", "submit.plots"))
   }
 
   return(invisible(object))
@@ -646,7 +654,7 @@ hpc_theta <- function(job.id, task) {
   cat(paste0("[", Sys.time(), "] seaMass-theta v", control(fit.theta)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running name=", name(fit.theta), "...\n"))
 
-  process(blocks(fit.theta)[[(task-1) %% length(blocks) + 1]], job.id)
+  process(blocks(fit.theta)[[(task-1) %% nblock + 1]], job.id)
 
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))

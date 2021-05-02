@@ -27,7 +27,7 @@ setMethod("process", "theta_block", function(object, job.id) {
     }
   }
 
-  if (increment_completed(filepath(container(object)), "process", job.id) == length(blocks(object))) {
+  if (increment_completed(filepath(container(object)), "process", job.id) >= length(blocks(object))) {
     fit.sigma <- root(object)
     fit.theta <- container(object)
 

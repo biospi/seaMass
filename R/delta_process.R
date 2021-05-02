@@ -17,7 +17,7 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
     do.call(paste("dea", ctrl@model, sep = "_"), ellipsis)
   }
 
-  if (increment_completed(filepath(object), "process", job.id) == ctrl@nchain) {
+  if (increment_completed(filepath(object), "process", job.id) >= ctrl@nchain) {
     cat(paste0("[", Sys.time(), "]  DELTA-OUTPUT name=", name(object), "\n"))
 
     # summarise group de and perform fdr correction

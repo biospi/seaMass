@@ -9,7 +9,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
   # EXECUTE MODEL
   model(object, "model1", chain)
 
-  if (increment_completed(file.path(filepath(object), "model1"), job.id = job.id) == ctrl@nchain) {
+  if (increment_completed(file.path(filepath(object), "model1"), job.id = job.id) >= ctrl@nchain) {
     cat(paste0("[", Sys.time(), "]  SIGMA-PROCESS1 block=", name(object), "\n"))
 
     # markdown folder
@@ -74,7 +74,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       measurement_stdevs(object, summary = T, as.data.table = T)
     }
 
-    if (increment_completed(filepath(container(object)), "process", job.id) == length(blocks(object))) {
+    if (increment_completed(filepath(container(object)), "process", job.id) >= length(blocks(object))) {
       cat(paste0("[", Sys.time(), "]  SIGMA-OUTPUT\n"))
 
       # write design
