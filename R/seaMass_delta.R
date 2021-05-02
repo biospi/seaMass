@@ -5,7 +5,6 @@
 #' @include seaMass.R
 #' @include seaMass_sigma.R
 setClass("seaMass_delta", contains = "seaMass", slots = c(
-  fit = "seaMass_group_quants",
   filepath = "character"
 ))
 
@@ -27,15 +26,13 @@ seaMass_delta <- function(
   ...
 ) {
   # create delta object, checking for finished output
-  object <- open_delta(fit, name, quiet = T)
-  if (!is.null(object)) {
-    stop(paste0("ERROR: completed seaMass-delta found at ", name))
-  }
-  object <- open_delta(fit, name, force = T)
+  if (!is.null(open_deltas(root(fit))[[name]])) stop(paste0("ERROR: completed seaMass-delta found at ", name))
+  object <- new("seaMass_delta", filepath = file.path(dirname(filepath(fit)), paste0("delta.", name)))
 
   ### INIT
   control@version <- as.character(packageVersion("seaMass"))
   cat(paste0("[", Sys.time(), "] seaMass-delta v", control@version, "\n"))
+  control@fit <- fit
   control@nchain <- control(fit)@nchain
   control@nsample <- control(fit)@nsample
   control@nthread <- control(fit)@nthread
@@ -47,8 +44,7 @@ seaMass_delta <- function(
 
   # create fit and output directories
   if (file.exists(filepath(object))) unlink(filepath(object), recursive = T)
-  if (!dir.create(filepath(object)))
-    stop("ERROR: problem creating folder")
+  if (!dir.create(filepath(object))) stop("ERROR: problem creating folder")
 
   # check and save control
   saveRDS(control, file.path(filepath(object), "control.rds"))
@@ -75,7 +71,6 @@ seaMass_delta <- function(
 
   if (file.exists(file.path(filepath(fit), "complete.rds"))) {
     run(object)
-    cat(paste0("[", Sys.time(), "] finished!\n"))
   } else {
     cat(paste0("[", Sys.time(), "] queued\n"))
   }
@@ -84,32 +79,20 @@ seaMass_delta <- function(
 }
 
 
-#' @describeIn seaMass_delta-class Open a complete \code{seaMass_delta} run from the supplied \link{seaMass_sigma} fir object and \code{name}.
-#' @export
-open_delta <- function(fit, name = "default", quiet = FALSE, force = FALSE) {
-  filepath <- file.path(dirname(filepath(fit)), paste0("delta.", name))
-
-  object <- new("seaMass_delta", fit = fit, filepath = filepath)
-  if (!force && read_completed(file.path(filepath(object))) == 0) {
-    if (quiet) {
-      return(NULL)
-    } else {
-      stop("'", filepath, "' is not complete")
-    }
-  }
-
-  return(object)
-}
-
-
 #' @describeIn seaMass_delta-class Run.
 #' @export
 #' @include generics.R
 setMethod("run", "seaMass_delta", function(object) {
   job.id <- uuid::UUIDgenerate()
+
+  cat(paste0("[", Sys.time(), "] processing...\n"))
   for (chain in 1:control(object)@nchain) process(object, chain, job.id)
-  for (batch in 1:(length(blocks(root(object))) * control(object)@nchain)) plots(object, batch, job.id)
+  cat(paste0("[", Sys.time(), "] finished processing!\n"))
+
+  cat(paste0("[", Sys.time(), "] reporting...\n"))
+  for (batch in 1:control(root(object))@plot.nbatch) plots(object, batch, job.id)
   report(object)
+  cat(paste0("[", Sys.time(), "] finished reporting!\n"))
 
   return(invisible(object))
 })
@@ -148,7 +131,7 @@ setMethod("name", "seaMass_delta", function(object) {
 #' @export
 #' @include generics.R
 setMethod("root", "seaMass_delta", function(object) {
-  return(root(object@fit))
+  return(root(control(object)@fit))
 })
 
 
@@ -164,7 +147,7 @@ setMethod("filepath", "seaMass_delta", function(object) {
 #' @export
 #' @include generics.R
 setMethod("parent", "seaMass_delta", function(object) {
-  return(object@fit)
+  return(control(object@fit))
 })
 
 
@@ -236,7 +219,7 @@ setMethod("component_deviations_de", "seaMass_delta", function(object, component
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("group_quants_fdr", "seaMass_delta", function(object, groups = NULL, summary = TRUE, type = "group.quants.fdr", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+setMethod("group_quants_fdr", "seaMass_delta", function(object, groups = NULL, type = "group.quants.fdr", as.data.table = FALSE) {
   if (file.exists(file.path(filepath(object), paste0(type, ".fst")))) {
     DT <- fst::read.fst(file.path(filepath(object), paste0(type, ".fst")), as.data.table = as.data.table)
     if (!is.null(groups)) {
@@ -257,7 +240,7 @@ setMethod("group_quants_fdr", "seaMass_delta", function(object, groups = NULL, s
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_deviations_fdr", "seaMass_delta", function(object, groups = NULL, summary = TRUE, type = "component.deviations.fdr", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+setMethod("component_deviations_fdr", "seaMass_delta", function(object, groups = NULL, type = "component.deviations.fdr", as.data.table = FALSE) {
   if (file.exists(file.path(filepath(object), paste0(type, ".fst")))) {
     DT <- fst::read.fst(file.path(filepath(object), paste0(type, ".fst")), as.data.table = as.data.table)
     if (!is.null(groups)) DT <- DT[DT$Group %in% groups,]
@@ -307,11 +290,18 @@ setMethod("plot_group_quants_fdr", "seaMass_delta", function(
   value.label = "fold change",
   ...
 ) {
+  de.groups <- groups
+  if (is.data.frame(de.groups) && "Batch" %in% colnames(de.groups)) {
+    de.groups$Batch <- NULL
+    de.groups <- unique(de.groups)
+    if (nrow(de.groups) == 0) de.groups <- NULL
+  }
+
   return(plot_dists(
     object,
     data = list(
-      group_quants_fdr(object, groups, summary = summary, as.data.table = T),
-      group_quants_de(object, groups, summary = summary, as.data.table = T)
+      group_quants_fdr(object, groups, as.data.table = T),
+      group_quants_de(object, de.groups, summary = summary, as.data.table = T)
     ),
     colour = colour,
     variable.summary.cols = variable.summary.cols,

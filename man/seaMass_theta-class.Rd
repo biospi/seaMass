@@ -5,7 +5,6 @@
 \alias{root,seaMass_delta-method}
 \alias{seaMass_theta-class}
 \alias{seaMass_theta}
-\alias{open_theta}
 \alias{run,seaMass_theta-method}
 \alias{name,seaMass_theta-method}
 \alias{root,seaMass_theta-method}
@@ -29,8 +28,6 @@ seaMass_theta(
   control = theta_control(),
   ...
 )
-
-open_theta(fit, name = "default", quiet = FALSE, force = FALSE)
 
 \S4method{run}{seaMass_theta}(object)
 
@@ -97,8 +94,6 @@ Perform seaMass-theta normalisation on raw group-level quants output by seaMass-
 \item \code{root,seaMass_delta-method}: Get the \code{seaMass_sigma} object.
 
 \item \code{seaMass_theta}: Runs seaMass-theta.
-
-\item \code{open_theta}: Open a complete \code{seaMass_theta} run from the supplied \link{seaMass_sigma} fir object and \code{name}.
 
 \item \code{run,seaMass_theta-method}: Run.
 

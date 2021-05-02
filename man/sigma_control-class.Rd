@@ -9,9 +9,10 @@
 sigma_control(
   keep = c("summaries", "group.quants"),
   summarise = c("groups", "components", "measurements"),
-  plot = c("assay.stdevs", "group.means", "group.quants", "group.quants.pca",
-    "component.means", "component.stdevs", "component.deviations",
-    "component.deviations.pca", "measurement.means", "measurement.stdevs"),
+  plot = c("assay.stdevs", "group.quants.pca", "group.means", "group.quants",
+    "component.means", "component.stdevs", "component.deviations", "measurement.means",
+    "measurement.stdevs"),
+  plot.nbatch = NULL,
   eb.model = "deconvolve",
   eb.max = 1024,
   measurement.model = "independent",

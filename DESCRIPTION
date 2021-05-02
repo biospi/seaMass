@@ -38,9 +38,9 @@ Imports:
     zip (>= 2.1.1)
 RoxygenNote: 7.1.1
 Collate: 
-    'delta_control.R'
     'generics.R'
     'seaMass.R'
+    'delta_control.R'
     'seaMass_sigma.R'
     'seaMass_delta.R'
     'delta_dea.R'

@@ -115,8 +115,6 @@ setMethod("process", "theta_block", function(object, job.id) {
     if (ctrl@plots == T) {
       cat(paste0("[", Sys.time(), "]   calculating plot limits...\n"))
       lims <- list()
-      # if ("assay.means" %in% ctrl@plot) lims$assay.means <- limits_dists(assay_means(fit.theta, summary = T, as.data.table = T))
-      #if ("group.standards" %in% ctrl@plot) lims$group.standards <- limits_dists(group_standards(fit.theta, summary = T, as.data.table = T))
       if ("group.quants" %in% ctrl@plot) lims$group.quants <- limits_dists(group_quants(fit.theta, summary = T, as.data.table = T))
       saveRDS(lims, file.path(filepath(fit.theta), "limits.rds"))
     }
@@ -136,8 +134,8 @@ setMethod("process", "theta_block", function(object, job.id) {
       )
     }
 
-    # save group means plot
-    if ("group.standards" %in% ctrl@plot) {
+    # save group standards plot
+    if ("group.standards" %in% ctrl@plot && length(unique(assay_design(fit.theta)$RefWeight)) != 1) {
       cat(paste0("[", Sys.time(), "]   generating group standards plot...\n"))
       fig <- plot_group_standards(fit.theta, summary = T)
       report.index$group.means <- data.table(

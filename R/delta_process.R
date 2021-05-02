@@ -47,10 +47,10 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
     }
 
     # write out and plot group fdr
-    if (file.exists(file.path(filepath(object), "group.quants.fdr.fst"))) {
+    DTs.fdr <- group_quants_fdr(object, as.data.table = T)
+    if (!is.null(DTs.fdr)) {
       cat(paste0("[", Sys.time(), "]   writing group quants differential expression output...\n"))
 
-      DTs.fdr <- fst::read.fst(file.path(filepath(object), "group.quants.fdr.fst"), as.data.table = T)
       DTs.fdr <- split(DTs.fdr, drop = T, by = "Batch")
       for (batch in names(DTs.fdr)) {
         cat(paste0("[", Sys.time(), "]    batch=", batch, "...\n"))
@@ -66,12 +66,12 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
           #group_quants_de(object, summary = T, as.data.table = T)
 
           cat(paste0("[", Sys.time(), "]     generating group quants differential expression plot...\n"))
-          text <- paste0(group, " differential expression for '", gsub("\\.", "' effect, comparison '", batch), "'", name)
+          text <- paste0(group, " differential expression for '", gsub("\\.", "' effect, batch '", batch), "'", name)
           report.index$assay.stdevs <- data.table(
             section = "Study-level", section.order = 0, item = text, item.order = 75000,
             item.href = generate_markdown(
               object,
-              plot_group_quants_fdr(object),
+              plot_group_quants_fdr(object, data.table(Batch = batch)),
               root, paste0("seamass_delta__", name(object), "__group_fdr__", gsub("\\.", "_", batch)),
               text
             )

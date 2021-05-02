@@ -2,6 +2,7 @@
 #'
 #' Define advanced control parameters for the seaMass-Σ Bayesian model.
 #'
+#' @include seaMass.R
 setClass("delta_control", slots = c(
   component.deviations = "logical",
   keep = "character",
@@ -15,6 +16,7 @@ setClass("delta_control", slots = c(
   # derived
   plots = "logical",
   # set on execution
+  fit = "seaMass_group_quants",
   nchain = "integer",
   nsample = "integer",
   nthread = "integer",
@@ -38,7 +40,7 @@ delta_control <- function(
   component.deviations = FALSE,
   keep = NULL,
   summarise = "groups",
-  plot = c("group.quants.de", "component.deviations.de", "group.quants.de.batch", "component.deviations.de.batch"),
+  plot = c("group.quants.de", "component.deviations.de", "group.quants.de.batch"),
   model = "MCMCglmm",
   nwarmup = 4096,
   thin = 256,
@@ -59,6 +61,7 @@ delta_control <- function(
   params$version <- as.character(packageVersion("seaMass"))
 
   params$plots <- any(c("group.quants.de", "component.deviations.de") %in% params$plot)
+  params$fit <- new("seaMass_group_quants")
 
   return(do.call(new, params))
 }

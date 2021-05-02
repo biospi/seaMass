@@ -4,7 +4,6 @@
 \name{seaMass_delta-class}
 \alias{seaMass_delta-class}
 \alias{seaMass_delta}
-\alias{open_delta}
 \alias{run,seaMass_delta-method}
 \alias{name,seaMass_delta-method}
 \alias{filepath,seaMass_delta-method}
@@ -28,8 +27,6 @@ seaMass_delta(
   control = delta_control(),
   ...
 )
-
-open_delta(fit, name = "default", quiet = FALSE, force = FALSE)
 
 \S4method{run}{seaMass_delta}(object)
 
@@ -66,18 +63,14 @@ open_delta(fit, name = "default", quiet = FALSE, force = FALSE)
 \S4method{group_quants_fdr}{seaMass_delta}(
   object,
   groups = NULL,
-  summary = TRUE,
   type = "group.quants.fdr",
-  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
 \S4method{component_deviations_fdr}{seaMass_delta}(
   object,
   groups = NULL,
-  summary = TRUE,
   type = "component.deviations.fdr",
-  chains = 1:control(object)@nchain,
   as.data.table = FALSE
 )
 
@@ -114,8 +107,6 @@ quants output by seaMass-theta
 \section{Functions}{
 \itemize{
 \item \code{seaMass_delta}: Runs seaMass-Σ.
-
-\item \code{open_delta}: Open a complete \code{seaMass_delta} run from the supplied \link{seaMass_sigma} fir object and \code{name}.
 
 \item \code{run,seaMass_delta-method}: Run.
 

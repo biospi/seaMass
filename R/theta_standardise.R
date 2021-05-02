@@ -30,24 +30,24 @@ setMethod("standardise_group_quants", "seaMass_theta", function(object, chain, i
     fst::write.fst(DT, file.path(filepath(item), "model1", "group.standards", paste0(chain, ".fst")))
   }, nthread = ctrl@nthread)
 
-  # calculate median of group standards
+  # calculate mean of group standards
   DT.group.standard <- group_standards(object, summary = F, chain = chain, as.data.table = T)
-  DT.group.standard <- DT.group.standard[, .(median = median(value)), by = .(Group, chain, sample)]
+  DT.group.standard <- DT.group.standard[, .(mean = mean(value)), by = .(Group, chain, sample)]
 
   cat(paste0("[", Sys.time(), "]   standardising group quants...\n"))
 
-  # standardise group quants, adding median of group standards
+  # standardise group quants, adding mean of group standards
   parallel_lapply(blocks(object), function(item, object, chain, input, type, DT.group.standard) {
     unlink(file.path(filepath(item), "model1", "*.group.quants.fst"))
     dir.create(file.path(filepath(item), "model1", "group.quants"), showWarnings = F)
 
     # standardise using RefWeighted mean of assays as denominator
     DT <- merge(group_standards(item, summary = F, chain = chain, as.data.table = T), DT.group.standard, by = c("Group", "chain", "sample"), sort = F)
-    DT[, median := value - median]
+    DT[, mean := value - mean]
     DT[, value := NULL]
     DT <- merge(read(item, input = input, type = type, chain = chain, as.data.table = T), DT, by = c("Block", "Group", "chain", "sample"), sort = F)
-    DT[, value := value - median]
-    DT[, median := NULL]
+    DT[, value := value - mean]
+    DT[, mean := NULL]
     DT[, Block := NULL]
     setcolorder(DT, c("Group", "Assay"))
 

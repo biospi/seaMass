@@ -8,12 +8,14 @@
   object,
   contours = NULL,
   error.bars = TRUE,
-  labels = 25,
   stdev.col = "PosteriorSD",
   x.col = "PosteriorMean",
   y.col = "qvalue",
+  width = 1024,
+  height = 768,
   data.fdr = group_quants_fdr(object),
-  output = "plotly"
+  output = "plotly",
+  ggplot.nlabel = 25
 )
 }
 \arguments{

@@ -6,8 +6,8 @@ setMethod("plots", "seaMass_delta", function(object, batch, job.id) {
   if (ctrl@version != as.character(packageVersion("seaMass")))
     stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
 
-  nbatch <- length(control(root(object))@blocks) * control(root(object))@nchain
-  cat(paste0("[", Sys.time(), "]  PLOTS batch=", batch, "/", nbatch, "\n"))
+  nbatch <- control(root(object))@plot.nbatch
+  cat(paste0("[", Sys.time(), "]  DELTA-PLOTS batch=", batch, "/", nbatch, "\n"))
   cat(paste0("[", Sys.time(), "]   generating...\n"))
 
   # grab out batch of groups
@@ -71,12 +71,14 @@ setMethod("plot_volcano", "seaMass_delta", function(
   object,
   contours = NULL,
   error.bars = TRUE,
-  labels = 25,
   stdev.col = "PosteriorSD",
   x.col = "PosteriorMean",
   y.col = "qvalue",
+  width = 1024,
+  height = 768,
   data.fdr = group_quants_fdr(object),
-  output = "plotly"
+  output = "plotly",
+  ggplot.nlabel = 25
 ) {
   DT.fdr <- as.data.table(data.fdr)
   DT.fdr[, s := get(stdev.col)]
@@ -109,13 +111,7 @@ setMethod("plot_volcano", "seaMass_delta", function(
   )]
   DT.fdr[, Truth := factor(truth)]
   DT.fdr[, label := NA_character_]
-  if (labels > 0) {
-    if (y.col == "s" || y.col == "PosteriorSD") {
-      DT.fdr[1:labels, label := as.character(variable)]
-    } else {
-      DT.fdr[1:labels, label := ifelse(get(y.col) < 0.1, as.character(variable), NA_character_)]
-    }
-  }
+  if (output == "ggplot" && as.integer(ggplot.nlabel) > 0) DT.fdr[1:ggplot.nlabel, label := as.character(variable)]
   DT.meta <- DT.fdr[, .(median = median(x, na.rm = T), .N), by = .(truth, Truth)]
 
   # transform y
@@ -166,29 +162,35 @@ setMethod("plot_volcano", "seaMass_delta", function(
   DT.fdr[y <= ylim.plot[1], y := -Inf]
   DT.fdr[y >= ylim.plot[2], y := Inf]
 
-  g <- ggplot2::ggplot(DT.fdr, ggplot2::aes(x = x, y = y), colour = Truth)
-  if (!is.null(DT.density)) {
-    if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z1, colour = Truth), breaks = 1)
-    if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z2, colour = Truth), breaks = 1)
-    if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = x, y = y, z = z3, colour = Truth), breaks = 1)
+  if (x.col == "m") {
+    x.label <- "log2 fold change"
+  } else if (x.col == "PosteriorMean") {
+    x.label <- "log2 moderated fold change"
+  } else {
+    x.label <- paste0("log2 ", x.col)
   }
-  if (error.bars) g <- g + ggplot2::geom_rect(ggplot2::aes(fill = Truth, xmin = lower, xmax = upper, ymin = y-ebh, ymax = y+ebh), size = 0, alpha = 0.2)
+
+  if (y.col == "s") {
+    y.label <- "-log2 fold change Posterior Standard Deviation"
+  } else if (y.col == "PosteriorSD") {
+    y.label <- "-log2 moderated fold change Posterior Standard Deviation"
+  } else {
+    y.label <- paste0("-log10 ", y.col)
+  }
+
+  setnames(DT.fdr, c("x", "y"), c(x.label, y.label))
+  g <- ggplot2::ggplot(DT.fdr, ggplot2::aes_(x = as.formula(paste0("~`", x.label, "`")), y = as.formula(paste0("~`", y.label, "`"))), colour = Truth)
+  if (!is.null(DT.density)) {
+    setnames(DT.density, c("x", "y"), c(x.label, y.label))
+    if (1 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = as.formula(paste0("~`", x.label, "`")), y = as.formula(paste0("~`", y.label, "`")), z = z1, colour = Truth), breaks = 1)
+    if (2 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = as.formula(paste0("~`", x.label, "`")), y = as.formula(paste0("~`", y.label, "`")), z = z2, colour = Truth), breaks = 1)
+    if (3 %in% contours) g <- g + ggplot2::stat_contour(data = DT.density, ggplot2::aes(x = as.formula(paste0("~`", x.label, "`")), y = as.formula(paste0("~`", y.label, "`")), z = z3, colour = Truth), breaks = 1)
+  }
+  if (error.bars) g <- g + ggplot2::geom_rect(ggplot2::aes_(fill = ~Truth, xmin = ~lower, xmax = ~upper, ymin = as.formula(paste0("~`", y.label, "`", "-ebh")), ymax = as.formula(paste0("~`", y.label, "`", "+ebh"))), size = 0, alpha = 0.2)
   g <- g + ggplot2::geom_point(ggplot2::aes(colour = Truth), size = 1)
   g <- g + ggplot2::geom_vline(xintercept = 0)
   g <- g + ggplot2::geom_hline(yintercept = ylim.plot[1])
-  if (x.col == "m") {
-    g <- g + ggplot2::xlab("log2 fold change")
-  } else if (x.col == "PosteriorMean") {
-    g <- g + ggplot2::xlab("log2 moderated fold change")
-  } else {
-    g <- g + ggplot2::xlab(paste0("log2 ", x.col))
-  }
-  if (y.col == "s") {
-    g <- g + ggplot2::ylab(paste0("-log2 fold change Posterior Standard Deviation"))
-  } else if (y.col == "PosteriorSD") {
-    g <- g + ggplot2::ylab(paste0("-log2 moderated fold change Posterior Standard Deviation"))
-  } else {
-    g <- g + ggplot2::ylab(paste0(paste0("-log10 ", y.col)))
+  if (y.col != "s" && y.col != "PosteriorSD") {
     g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.table(yintercept = -log10(0.01)), linetype = "dashed")
     g <- g + ggplot2::geom_hline(ggplot2::aes(yintercept=yintercept), data.table(yintercept = -log10(0.05)), linetype = "dashed")
   }
@@ -199,11 +201,22 @@ setMethod("plot_volcano", "seaMass_delta", function(
   } else {
     g <- g + ggplot2::theme(legend.position = "none")
   }
-  g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = label), size = 2.5, na.rm = T, max.overlaps = Inf)
   g <- g + ggplot2::coord_cartesian(xlim = xlim.plot, ylim = ylim.plot, expand = F)
   g <- g + ggplot2::scale_colour_hue(l = 50)
   g <- g + ggplot2::scale_fill_discrete(guide = NULL)
-  g
+
+  if (output == "ggplot") {
+    if (as.integer(ggplot.nlabel) > 0) {
+      g <- g + ggrepel::geom_label_repel(ggplot2::aes(label = label), size = 2.5, na.rm = T, max.overlaps = Inf)
+    }
+    return(g)
+  }
+
+  suppressWarnings(fig <- plotly::ggplotly(g, dynamicTicks = T, width = width, height = height))
+  #suppressWarnings(fig <- plotly::ggplotly(g, tooltip = c("text", "x", "y"), dynamicTicks = T, width = width, height = height))
+  #for (i in 1:length(fig$x$layout$annotations)) fig$x$layout$annotations[[i]]$y <- fig$x$layout$annotations[[i]]$y - 0.05 # another grim plotly hack
+
+  return(fig)
 })
 
 
