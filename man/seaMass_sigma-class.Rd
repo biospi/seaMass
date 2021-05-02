@@ -44,7 +44,7 @@ seaMass_sigma(
   ...
 )
 
-open_sigma(path = "fit", force = FALSE)
+open_sigma(path = "fit.seaMass", force = FALSE)
 
 \S4method{open_thetas}{seaMass_sigma}(object, force = FALSE)
 

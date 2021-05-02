@@ -32,6 +32,7 @@ seaMass_sigma <- function(
 ) {
   # check for finished output
   if (!is.null(open_sigma(path))) stop(paste0("ERROR: completed seaMass-sigma already found at ", path))
+  if (!dir.create(path)) stop(paste0("ERROR: could not create ", path))
   object <- open_sigma(path, force = T)
 
   ### INIT
@@ -344,10 +345,11 @@ setMethod("report", "seaMass_sigma", function(object, job.id) {
 #' @describeIn seaMass_sigma-class Open a complete \code{seaMass_sigma} run from the supplied \code{path}.
 #' @export
 open_sigma <- function(
-  path = "fit",
+  path = "fit.seaMass",
   force = FALSE
 ) {
-  fit <- new("seaMass_sigma", filepath = file.path(normalizePath(dirname(path)), paste0(sub("\\.seaMass", "", basename(path)), ".seaMass"), "sigma"))
+  if (!dir.exists(path)) return(NULL)
+  fit <- new("seaMass_sigma", filepath = file.path(normalizePath(path), "sigma"))
   if (!force && read_completed(fit@filepath) == 0) fit <- NULL
   return(fit)
 }
