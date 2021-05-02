@@ -35,13 +35,13 @@ setMethod("run", "schedule_local", function(object, fit.sigma) {
   cat(paste0("[", Sys.time(), "] processing...\n"))
 
   # SIGMA
-  # run empirical bayes sigma0
+  # run empirical bayes process0
   for (block in blocks(fit.sigma)) {
-    for (chain in 1:ctrl@nchain) sigma0(block, chain, job.id)
+    for (chain in 1:ctrl@nchain) process0(block, chain, job.id)
   }
-  # run full sigma1
+  # run full process1
   for (block in blocks(fit.sigma)) {
-    for (chain in 1:ctrl@nchain) sigma1(block, chain, job.id)
+    for (chain in 1:ctrl@nchain) process1(block, chain, job.id)
   }
 
   # THETA
@@ -168,8 +168,8 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, fit.sigma) {
 
   fp <- dirname(filepath(fit.sigma))
   dir.create(file.path(fp, "slurm"))
-  cat(config(object, "0", name, n, F, "hpc_sigma0"), file = file.path(fp, "slurm", "submit.sigma0"))
-  cat(config(object, "1", name, n, F, "hpc_sigma1"), file = file.path(fp, "slurm", "submit.sigma1"))
+  cat(config(object, "0", name, n, F, "hpc_sigma_process0"), file = file.path(fp, "slurm", "submit.sigma0"))
+  cat(config(object, "1", name, n, F, "hpc_sigma_process1"), file = file.path(fp, "slurm", "submit.sigma1"))
   if (ctrl@plots == T) cat(config(object, "P", name, ctrl@plot.nbatch, F, "hpc_plots"), file = file.path(fp, "slurm", "submit.plots"))
   cat(config(object, "R", name, 1, T, "hpc_report"), file = file.path(fp, "slurm", "submit.report"))
 
@@ -358,8 +358,8 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, fit.sigma) {
   n <- length(blocks(fit.sigma)) * ctrl@nchain
 
   dir.create(file.path(filepath(fit.sigma), "pbs"))
-  cat(config(object, "0", name, n, F, "hpc_sigma0"), file = file.path(filepath(fit.sigma), "pbs", "submit.sigma0"))
-  cat(config(object, "1", name, n, F, "hpc_sigma1"), file = file.path(filepath(fit.sigma), "pbs", "submit.sigma1"))
+  cat(config(object, "0", name, n, F, "hpc_sigma_process0"), file = file.path(filepath(fit.sigma), "pbs", "submit.sigma0"))
+  cat(config(object, "1", name, n, F, "hpc_sigma_process1"), file = file.path(filepath(fit.sigma), "pbs", "submit.sigma1"))
   if (ctrl@plots == T) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(filepath(fit.sigma), "pbs", "submit.plots"))
   cat(config(object, "R", name, 1, T, "hpc_report"), file = file.path(filepath(fit.sigma), "pbs", "submit.report"))
 
@@ -520,8 +520,8 @@ setMethod("prepare_sigma", "schedule_sge", function(object, fit.sigma) {
   n <- length(blocks(fit.sigma)) * ctrl@nchain
 
   dir.create(file.path(filepath(fit.sigma), "sge"))
-  cat(config(object, "0", name, n, F, "hpc_sigma0"), file = file.path(filepath(fit.sigma), "sge", "submit.sigma0"))
-  cat(config(object, "1", name, n, F, "hpc_sigma1"), file = file.path(filepath(fit.sigma), "sge", "submit.sigma1"))
+  cat(config(object, "0", name, n, F, "hpc_sigma_process0"), file = file.path(filepath(fit.sigma), "sge", "submit.sigma0"))
+  cat(config(object, "1", name, n, F, "hpc_sigma_process1"), file = file.path(filepath(fit.sigma), "sge", "submit.sigma1"))
   if (ctrl@plots == T) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(filepath(fit.sigma), "sge", "submit.plots"))
   cat(config(object, "R", name, 1, T, "hpc_report"), file = file.path(filepath(fit.sigma), "sge", "submit.report"))
 
@@ -591,13 +591,13 @@ setMethod("run", "schedule_sge", function(object, fit.sigma) {
 })
 
 
-hpc_sigma0 <- function(job.id, task) {
+hpc_sigma_process0 <- function(job.id, task) {
   fit.sigma <- open_sigma("..", force = T)
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
-  cat(paste0("[", Sys.time(), "]  running sigma0 for name=", name(fit.sigma), "...\n"))
+  cat(paste0("[", Sys.time(), "]  running process0 for name=", name(fit.sigma), "...\n"))
 
   nchain <- control(fit.sigma)@nchain
-  sigma0(blocks(fit.sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1, job.id)
+  process0(blocks(fit.sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1, job.id)
 
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
@@ -606,13 +606,13 @@ hpc_sigma0 <- function(job.id, task) {
 }
 
 
-hpc_sigma1 <- function(job.id, task) {
+hpc_sigma_process1 <- function(job.id, task) {
   fit.sigma <- open_sigma("..", force = T)
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
-  cat(paste0("[", Sys.time(), "]  running sigma1 for name=", name(fit.sigma), "...\n"))
+  cat(paste0("[", Sys.time(), "]  running process1 for name=", name(fit.sigma), "...\n"))
 
   nchain <- control(fit.sigma)@nchain
-  sigma1(blocks(fit.sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1, job.id)
+  process1(blocks(fit.sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1, job.id)
 
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
