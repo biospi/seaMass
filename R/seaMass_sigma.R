@@ -23,11 +23,11 @@ setClass("seaMass_sigma", contains = "seaMass_group_quants", slots = c(
 #' @export seaMass_sigma
 seaMass_sigma <- function(
   data,
-  data.design = new_assay_design(data),
-  path = "fit",
+  data.design = seaMass::new_assay_design(data),
+  path = "fit.seaMass",
   user = Sys.info()[["user"]],
   run = TRUE,
-  control = sigma_control(),
+  control = seaMass::sigma_control(),
   ...
 ) {
   # check for finished output

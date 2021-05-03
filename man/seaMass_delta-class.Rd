@@ -23,9 +23,9 @@
 \usage{
 seaMass_delta(
   fit,
-  data.design = assay_design(fit),
-  name = "default",
-  control = delta_control(),
+  data.design = seaMass::assay_design(fit),
+  name = seaMass::name(fit),
+  control = seaMass::delta_control(),
   ...
 )
 

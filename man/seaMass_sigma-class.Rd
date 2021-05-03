@@ -36,11 +36,11 @@
 \usage{
 seaMass_sigma(
   data,
-  data.design = new_assay_design(data),
-  path = "fit",
+  data.design = seaMass::new_assay_design(data),
+  path = "fit.seaMass",
   user = Sys.info()[["user"]],
   run = TRUE,
-  control = sigma_control(),
+  control = seaMass::sigma_control(),
   ...
 )
 

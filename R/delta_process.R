@@ -55,7 +55,7 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
       for (batch in names(DTs.fdr)) {
         cat(paste0("[", Sys.time(), "]    batch=", batch, "...\n"))
 
-        name <- ifelse(name(object) == "default", "", paste0("__", name(object)))
+        name <- ifelse(name(object) == name(parent(object)), "", paste0("__", name(object)))
 
         # write
         fwrite(DTs.fdr[[batch]], file.path(dirname(filepath(object)), "csv", paste0(tolower(group), "_fdr__", gsub("\\.", "_", batch), name, ".csv")))

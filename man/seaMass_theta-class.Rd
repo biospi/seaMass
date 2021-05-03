@@ -19,10 +19,10 @@
 \usage{
 seaMass_theta(
   fit,
-  data.design = assay_design(fit),
-  norm.groups = top_groups(fit),
-  name = "default",
-  control = theta_control(),
+  data.design = seaMass::assay_design(fit),
+  norm.groups = seaMass::top_groups(fit),
+  name = seaMass::name(fit),
+  control = seaMass::theta_control(),
   ...
 )
 
@@ -74,7 +74,7 @@ seaMass_theta(
 
 \item{data.design}{Optionally, a \link{data.frame} created by \link{new_design} and then customised, which specifies RefWeight channels.}
 
-\item{name}{Name of subfolder on disk where all intermediate and output data will be stored; default is \code{"default"}.}
+\item{name}{Name of subfolder on disk where all intermediate and output data will be stored; default is \code{"name(fit)"}.}
 
 \item{control}{A control object created with \link{new_theta_control} specifying control parameters for the normalisation.}
 

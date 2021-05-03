@@ -12,17 +12,17 @@ setClass("seaMass_theta", contains = "seaMass_group_quants", slots = c(
 #' @param fit A \link{seaMass_sigma} object as returned by seaMass-sigma.
 #' @param data.design Optionally, a \link{data.frame} created by \link{new_design} and then customised, which specifies RefWeight channels.
 #' @param groups Groups to normalise on, default is the top 10 that are in every block (instead of all, just for computational considerations).
-#' @param name Name of subfolder on disk where all intermediate and output data will be stored; default is \code{"default"}.
+#' @param name Name of subfolder on disk where all intermediate and output data will be stored; default is \code{"name(fit)"}.
 #' @param control A control object created with \link{new_theta_control} specifying control parameters for the normalisation.
 #' @return A \code{seaMass_theta} object that can be interrogated for various metadata and results.
 #' @import data.table
 #' @export seaMass_theta
 seaMass_theta <- function(
   fit,
-  data.design = assay_design(fit),
-  norm.groups = top_groups(fit),
-  name = "default",
-  control = theta_control(),
+  data.design = seaMass::assay_design(fit),
+  norm.groups = seaMass::top_groups(fit),
+  name = seaMass::name(fit),
+  control = seaMass::theta_control(),
   ...
 ) {
   # create theta object, checking for finished output

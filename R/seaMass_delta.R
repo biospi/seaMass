@@ -20,9 +20,9 @@ setClass("seaMass_delta", contains = "seaMass", slots = c(
 #' @export seaMass_delta
 seaMass_delta <- function(
   fit,
-  data.design = assay_design(fit),
-  name = "default",
-  control = delta_control(),
+  data.design = seaMass::assay_design(fit),
+  name = seaMass::name(fit),
+  control = seaMass::delta_control(),
   ...
 ) {
   # create delta object, checking for finished output
