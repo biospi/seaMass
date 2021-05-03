@@ -450,7 +450,7 @@ setMethod("groups", "seaMass_sigma", function(object, summary = FALSE, as.data.t
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("top_groups", "seaMass_sigma", function(object, n = 512) {
+setMethod("top_groups", "seaMass_sigma", function(object, n = 100000) {
   DT <- groups(object, as.data.table = T)
   DT <- DT[, .(.N, qC = min(G.qC)), by = Group][N == nlevels(DT$Block)]
   setorder(DT, -qC)

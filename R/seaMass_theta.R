@@ -35,7 +35,7 @@ seaMass_theta <- function(
   control@nchain <- control(fit)@nchain
   control@nsample <- control(fit)@nsample
   control@nthread <- control(fit)@nthread
-  control@norm.groups <- norm.groups
+  control@norm.groups <- as.character(norm.groups)
   control@ellipsis <- list(...)
   validObject(control)
 

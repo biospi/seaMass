@@ -64,7 +64,7 @@ open_sigma(path = "fit.seaMass", force = FALSE)
 
 \S4method{groups}{seaMass_sigma}(object, summary = FALSE, as.data.table = FALSE)
 
-\S4method{top_groups}{seaMass_sigma}(object, n = 512)
+\S4method{top_groups}{seaMass_sigma}(object, n = 1e+05)
 
 \S4method{components}{seaMass_sigma}(object, summary = FALSE, as.data.table = FALSE)
 
