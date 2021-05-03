@@ -6,6 +6,7 @@
 \alias{seaMass_delta}
 \alias{run,seaMass_delta-method}
 \alias{name,seaMass_delta-method}
+\alias{root,seaMass_delta-method}
 \alias{filepath,seaMass_delta-method}
 \alias{parent,seaMass_delta-method}
 \alias{control,seaMass_delta-method}
@@ -31,6 +32,8 @@ seaMass_delta(
 \S4method{run}{seaMass_delta}(object)
 
 \S4method{name}{seaMass_delta}(object)
+
+\S4method{root}{seaMass_delta}(object)
 
 \S4method{filepath}{seaMass_delta}(object)
 
@@ -111,6 +114,8 @@ quants output by seaMass-theta
 \item \code{run,seaMass_delta-method}: Run.
 
 \item \code{name,seaMass_delta-method}: Get name.
+
+\item \code{root,seaMass_delta-method}: Get the \code{seaMass_sigma} object.
 
 \item \code{filepath,seaMass_delta-method}: Get path.
 

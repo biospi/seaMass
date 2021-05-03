@@ -127,11 +127,11 @@ setMethod("name", "seaMass_delta", function(object) {
 })
 
 
-#' @describeIn seaMass_theta-class Get the \code{seaMass_sigma} object.
+#' @describeIn seaMass_delta-class Get the \code{seaMass_sigma} object.
 #' @export
 #' @include generics.R
 setMethod("root", "seaMass_delta", function(object) {
-  return(root(control(object)@fit))
+  return(root(parent(object)))
 })
 
 
@@ -147,7 +147,9 @@ setMethod("filepath", "seaMass_delta", function(object) {
 #' @export
 #' @include generics.R
 setMethod("parent", "seaMass_delta", function(object) {
-  return(control(object@fit))
+  fit <- control(object)@fit
+  fit@filepath <- file.path(dirname(filepath(object)), basename(fit@filepath))
+  return(fit)
 })
 
 
