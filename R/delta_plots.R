@@ -33,8 +33,8 @@ setMethod("plots", "seaMass_delta", function(object, batch, job.id) {
                                   "Cont.qC", "Base.qC", "Cont.qM", "Base.qM", "lfdr", "lfsr", "qvalue", "svalue", "NegativeProb", "PositiveProb"),
         variable.label.cols = c("Group", "Batch", "qvalue")
       )
-      text1 <- paste0(group, " differential expression", ifelse(name(object) == name(parent(object)), "", paste0(" (", name(object), ")")))
-      text2 <- paste0(group, " differential expression", ifelse(name(object) == name(parent(object)), "", paste0(" (", name(object), ") ")), " for ", item)
+      text1 <- paste0(group, " DE", ifelse(name(object) == name(root(object)), "", paste0(" (", name(object), ")")))
+      text2 <- paste0(group, " differential expression", ifelse(name(object) == name(root(object)), "", paste0(" (", name(object), ") ")), " for ", item)
       report.index1$group.quant.de <- data.table(
         section = text1, section.order = 75, item = item, item.order = as.integer(item),
         item.href = generate_markdown(

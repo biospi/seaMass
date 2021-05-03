@@ -66,7 +66,7 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
           #group_quants_de(object, summary = T, as.data.table = T)
 
           cat(paste0("[", Sys.time(), "]     generating group quants differential expression plot...\n"))
-          text <- paste0(group, " differential expression for '", gsub("\\.", "' effect, batch '", batch), "'", name)
+          text <- paste0(group, " differential expression for '", gsub("\\.", "' effect, batch '", batch), "'", ifelse(name(object) == name(root(object)), "", paste0(" (", name(object), ")")))
           report.index$assay.stdevs <- data.table(
             section = "Study-level", section.order = 0, item = text, item.order = 75000,
             item.href = generate_markdown(

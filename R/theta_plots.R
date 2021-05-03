@@ -26,8 +26,8 @@ setMethod("plots", "seaMass_theta", function(object, batch, job.id) {
       group <- control(root(object))@group[1]
 
       fig <- plot_group_quants(object, item, value.limits = lims$group.quants, summary = T)
-      text1 <- paste0(group, " quants", ifelse(name(object) == name(parent(object)), "", paste0(" (", name(object), ")")))
-      text2 <- paste0(group, " quants", ifelse(name(object) == name(parent(object)), " ", paste0(" (", name(object), ") ")), " for ", item)
+      text1 <- paste0(group, " quants", ifelse(name(object) == name(root(object)), "", paste0(" (", name(object), ")")))
+      text2 <- paste0(group, " quants", ifelse(name(object) == name(root(object)), " ", paste0(" (", name(object), ") ")), " for ", item)
       report.index1$group.quant <- data.table(
         section = text1, section.order = 100, item = item, item.order = as.integer(item),
         item.href = generate_markdown(
