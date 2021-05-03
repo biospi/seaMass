@@ -424,8 +424,19 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, fit.sigma) {
 
 #' @include generics.R
 setMethod("prepare_delta", "schedule_pbs", function(object, fit.delta) {
-  ctrl <- control(fit.delta)
-  cat(config(object, "D", name(ctrl@fit), length(open_deltas(ctrl@fit, force = T)) * control(fit.delta@fit)@nchain, F, "hpc_delta"), file = file.path(filepath(fit.delta@fit), "pbs", "submit.delta"))
+  fit.sigma <- root(fit.delta)
+  fp <- dirname(filepath(fit.sigma))
+  n <- length(open_deltas(fit.sigma, force = T)) * control(fit.sigma)@nchain
+  cat(config(object, "D", name(fit.sigma), n, F, "hpc_delta"), file = file.path(fp, "pbs", "submit.delta"))
+
+  if (any(c(
+    control(fit.sigma)@plots,
+    any(sapply(open_thetas(fit.sigma, force = T), function(fit) control(fit)@plots)),
+    any(sapply(open_deltas(fit.sigma, force = T), function(fit) control(fit)@plots))
+  ))) {
+    cat(config(object, "P", name(fit.sigma), control(fit.sigma)@plot.nbatch, F, "hpc_plots"), file = file.path(fp, "pbs", "submit.plots"))
+  }
+
   return(invisible(object))
 })
 
@@ -585,8 +596,19 @@ setMethod("prepare_sigma", "schedule_sge", function(object, fit.sigma) {
 
 #' @include generics.R
 setMethod("prepare_delta", "schedule_sge", function(object, fit.delta) {
-  ctrl <- control(fit.delta)
-  cat(config(object, "D", name(fit.delta@fit), length(open_deltas(ctrl@fit, force = T)) * control(ctrl@fit)@nchain, F, "hpc_delta"), file = file.path(filepath(fit.delta@fit), "sge", "submit.delta"))
+  fit.sigma <- root(fit.delta)
+  fp <- dirname(filepath(fit.sigma))
+  n <- length(open_deltas(fit.sigma, force = T)) * control(fit.sigma)@nchain
+  cat(config(object, "D", name(fit.sigma), n, F, "hpc_delta"), file = file.path(fp, "sge", "submit.delta"))
+
+  if (any(c(
+    control(fit.sigma)@plots,
+    any(sapply(open_thetas(fit.sigma, force = T), function(fit) control(fit)@plots)),
+    any(sapply(open_deltas(fit.sigma, force = T), function(fit) control(fit)@plots))
+  ))) {
+    cat(config(object, "P", name(fit.sigma), control(fit.sigma)@plot.nbatch, F, "hpc_plots"), file = file.path(fp, "sge", "submit.plots"))
+  }
+
   return(invisible(object))
 })
 

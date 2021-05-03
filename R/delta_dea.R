@@ -43,7 +43,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
   fixed1 <- as.formula(paste("m", deparse(fixed, width.cutoff = 500), collapse=""))
 
   if (is.null(data)) {
-    DTs <- read(ctrl@fit, input, type, summary = T, summary.func = "robust_normal", as.data.table = T)
+    DTs <- read(parent(object), input, type, summary = T, summary.func = "robust_normal", as.data.table = T)
   } else {
     DTs <- as.data.table(data)
   }
@@ -60,7 +60,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
       batch <- item[1, Batch]
 
       if ("Component" %in% colnames(item)) {
-        DT.components <- assay_components(root(ctrl@fit), as.data.table = T)
+        DT.components <- assay_components(root(object), as.data.table = T)
         DT.components[, Block := as.integer(Block)]
         DT.components[, Group := as.integer(Group)]
         DT.components[, Component := as.integer(Component)]
@@ -68,7 +68,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
         item <- merge(item, DT.components, by = c("Block", "Group", "Component", "Assay"), sort = F)
         item <- split(item, by = c("Group", "Component"), drop = T)
       } else if ("Group" %in% colnames(item)) {
-        DT.groups <- assay_groups(root(ctrl@fit), as.data.table = T)
+        DT.groups <- assay_groups(root(object), as.data.table = T)
         DT.groups[, Block := as.integer(Block)]
         DT.groups[, Group := as.integer(Group)]
         DT.groups[, Assay := as.integer(Assay)]
@@ -265,11 +265,11 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
     # save index
     if (chain == 1) {
       DT.index <- rbindlist(DT.index)
-      groups <- groups(root(ctrl@fit), as.data.table = T)[, Group]
+      groups <- groups(root(object), as.data.table = T)[, Group]
       DT.index[, Group := factor(Group, levels = 1:nlevels(groups), labels = levels(groups))]
       rm(groups)
       if ("Component" %in% colnames(DT.index)) {
-        components <- components(root(ctrl@fit), as.data.table = T)[, Component]
+        components <- components(root(object), as.data.table = T)[, Component]
         DT.index[, Component := factor(Component, levels = 1:nlevels(components), labels = levels(components))]
         rm(components)
       }
