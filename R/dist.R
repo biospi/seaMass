@@ -124,7 +124,7 @@ dist_samples_normal <- function(chain, sample, value, ...) {
 #' fit location-scale t distribution with fitdistrplus
 #'
 #' @export
-dist_lst <- function(value, min.df = 0, plots = FALSE, ...) {
+dist_lst <- function(value, min.df = 0, max.df = Inf, plots = FALSE, ...) {
   est <- dist_normal_robust(value)
   est$df <- Inf
 
@@ -154,7 +154,7 @@ dist_lst <- function(value, min.df = 0, plots = FALSE, ...) {
     }
 
     tryCatch({
-      ft <- fitdistrplus::fitdist(as.vector(value), "_seaMass_lst", start = list(log_df = log(min.df + 1), mu = est$m, log_sigma = log(est$s)), lower = c(log(min.df), -Inf, -Inf), ...)
+      ft <- fitdistrplus::fitdist(as.vector(value), "_seaMass_lst", start = list(log_df = log(min.df + 1), mu = est$m, log_sigma = log(est$s)), lower = c(log(min.df), -Inf, -Inf), upper = c(log(max.df), Inf, Inf), ...)
       if (plots == T) plot(ft)
       est <- list(m = ft$estimate[["mu"]], s = exp(ft$estimate[["log_sigma"]]), df = exp(ft$estimate[["log_df"]]))
     }, error = function(e) {
@@ -178,7 +178,7 @@ dist_samples_lst <- function(chain, sample, value, ...) {
 #'
 #' @export
 dist_samples_lst_ash <- function(chain, sample, value, ...) {
-  return(c(dist_lst(value, method = "mge", gof = "CvM", min.df = 2, ...), list(rhat = rhat(chain, sample, value, T))))
+  return(c(dist_lst(value, method = "mge", gof = "CvM", min.df = 2, max.df = 100, ...), list(rhat = rhat(chain, sample, value, T))))
 }
 
 

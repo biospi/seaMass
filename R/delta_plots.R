@@ -52,7 +52,7 @@ setMethod("plots", "seaMass_delta", function(object, batch, job.id) {
     if (length(report.index1) > 0) render_markdown(object, root1)
 
     return(report.index1)
-  }, nthread = 0))#ctrl@nthread))
+  }, nthread = ctrl@nthread))
 
   # save index
   if (length(report.index) > 0) fst::write.fst(rbindlist(report.index), file.path(filepath(object), "report", paste0("groups.", batch, ".report.fst")))
