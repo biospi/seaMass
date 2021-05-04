@@ -7,7 +7,7 @@ setMethod("plots", "seaMass_delta", function(object, batch, job.id) {
     stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
 
   nbatch <- control(root(object))@plot.nbatch
-  cat(paste0("[", Sys.time(), "]  DELTA-PLOTS batch=", batch, "/", nbatch, "\n"))
+  cat(paste0("[", Sys.time(), "]  DELTA-PLOTS name=", name(object), " batch=", batch, "/", nbatch, "\n"))
   cat(paste0("[", Sys.time(), "]   generating...\n"))
 
   # grab out batch of groups
@@ -16,6 +16,8 @@ setMethod("plots", "seaMass_delta", function(object, batch, job.id) {
 
   # plots!
   report.index <- rbindlists(parallel_lapply(groups, function(item, object) {
+    print(item)
+
     ctrl <- control(object)
     lims <- readRDS(file.path(filepath(object), "limits.rds"))
 
@@ -50,7 +52,7 @@ setMethod("plots", "seaMass_delta", function(object, batch, job.id) {
     if (length(report.index1) > 0) render_markdown(object, root1)
 
     return(report.index1)
-  }, nthread = ctrl@nthread))
+  }, nthread = 0))#ctrl@nthread))
 
   # save index
   if (length(report.index) > 0) fst::write.fst(rbindlist(report.index), file.path(filepath(object), "report", paste0("groups.", batch, ".report.fst")))

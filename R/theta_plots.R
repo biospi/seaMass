@@ -7,7 +7,7 @@ setMethod("plots", "seaMass_theta", function(object, batch, job.id) {
     stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
 
   nbatch <- control(root(object))@plot.nbatch
-  cat(paste0("[", Sys.time(), "]  THETA-PLOTS batch=", batch, "/", nbatch, "\n"))
+  cat(paste0("[", Sys.time(), "]  THETA-PLOTS name=", name(object), " batch=", batch, "/", nbatch, "\n"))
   cat(paste0("[", Sys.time(), "]   generating...\n"))
 
   # grab out batch of groups
