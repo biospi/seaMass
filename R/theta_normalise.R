@@ -160,6 +160,7 @@ setMethod("normalise_quantile", "theta_block", function(object, input = "model1"
 
     # mean means (for visualisation)
     DT.assay.means <- DT[, .(value = mean(mean)), by = .(Assay, chain, sample)]
+    DT[, mean := NULL]
 
     # write normalised group quants
     if (item == 1) fst::write.fst(DT[, .(file = file.path("group.quants", "1.fst"), from = min(.I), to = max(.I)), by = .(Group, Assay)], file.path(filepath(object), "model0", "group.quants.index.fst"))

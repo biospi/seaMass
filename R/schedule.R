@@ -676,7 +676,7 @@ hpc_theta <- function(job.id, task) {
   cat(paste0("[", Sys.time(), "] seaMass-theta v", control(fit.theta)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running name=", name(fit.theta), "...\n"))
 
-  process(blocks(fit.theta)[[(task-1) %% nblock + 1]], job.id)
+  seaMass:::process(blocks(fit.theta)[[(task-1) %% nblock + 1]], job.id)
 
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
