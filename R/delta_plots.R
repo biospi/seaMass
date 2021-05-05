@@ -16,8 +16,6 @@ setMethod("plots", "seaMass_delta", function(object, batch, job.id) {
 
   # plots!
   report.index <- rbindlists(parallel_lapply(groups, function(item, object) {
-    print(item)
-
     ctrl <- control(object)
     lims <- readRDS(file.path(filepath(object), "limits.rds"))
 

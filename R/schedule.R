@@ -705,10 +705,12 @@ hpc_delta <- function(job.id, task) {
 
 hpc_report <- function(job.id, task) {
   fit.sigma <- open_sigma("..", force = T)
+
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  reporting...\n"))
-  for (fit.delta in open_deltas(fit.sigma, force = T)) report(fit.delta, job.id)
+
   report(fit.sigma, job.id)
+
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
 
