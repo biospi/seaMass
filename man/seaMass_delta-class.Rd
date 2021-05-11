@@ -16,8 +16,8 @@
 \alias{component_deviations_de,seaMass_delta-method}
 \alias{group_quants_fdr,seaMass_delta-method}
 \alias{component_deviations_fdr,seaMass_delta-method}
-\alias{add_seaMass_spikein_truth}
-\alias{add_Navarro_spikein_truth}
+\alias{truth_seaMass_spikein}
+\alias{truth_Navarro_spikein}
 \alias{group_means,sigma_block-method}
 \title{seaMass-delta}
 \usage{
@@ -77,9 +77,9 @@ seaMass_delta(
   as.data.table = FALSE
 )
 
-add_seaMass_spikein_truth(data.fdr)
+truth_seaMass_spikein(data.fdr)
 
-add_Navarro_spikein_truth(data.fdr)
+truth_Navarro_spikein(data.fdr)
 
 \S4method{group_means}{sigma_block}(
   object,
@@ -135,9 +135,9 @@ quants output by seaMass-theta
 
 \item \code{component_deviations_fdr,seaMass_delta-method}: Get the component deviations differential expression as a \link{data.frame}.
 
-\item \code{add_seaMass_spikein_truth}: Add our spikein ground truth to the object of \code{group_fdr} pr \code{component_deviations_fdr}.
+\item \code{truth_seaMass_spikein}: Add our spikein ground truth to the object of \code{group_fdr} pr \code{component_deviations_fdr}.
 
-\item \code{add_Navarro_spikein_truth}: Add Navarro spikein ground truth to the object of \code{group_fdr} pr \code{component_deviations_fdr}.
+\item \code{truth_Navarro_spikein}: Add Navarro spikein ground truth to the object of \code{group_fdr} pr \code{component_deviations_fdr}.
 
 \item \code{group_means,sigma_block-method}: Get the model group means as a \link{data.frame}.
 }}

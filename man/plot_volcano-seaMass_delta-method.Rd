@@ -6,7 +6,6 @@
 \usage{
 \S4method{plot_volcano}{seaMass_delta}(
   object,
-  contours = NULL,
   error.bars = TRUE,
   stdev.col = "PosteriorSD",
   x.col = "PosteriorMean",

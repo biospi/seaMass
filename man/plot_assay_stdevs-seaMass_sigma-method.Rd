@@ -8,11 +8,11 @@
 setMethod("plot_priors", "seaMass_sigma", function(
   object,
   data = list(
-    priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Effect, s, df)],
-    priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Effect, s = s0, df = df0)],
+    priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Covariate, s, df)],
+    priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Covariate, s = s0, df = df0)],
     rbind(
-      measurement_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Effect = "Measurements", value = rinaka(length(s), s, df))],
-      component_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Effect = "Components", value = rinaka(length(s), s, df))]
+      measurement_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Covariate = "Measurements", value = rinaka(length(s), s, df))],
+      component_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Covariate = "Components", value = rinaka(length(s), s, df))]
     )
   ),
   horizontal = TRUE,
@@ -22,7 +22,7 @@ setMethod("plot_priors", "seaMass_sigma", function(
   colour = list("blue", "black", NULL),
   fill = list("lightblue", NULL, "grey"),
   alpha = list(0.5, 0.5, 0.5),
-  facets = "Effect",
+  facets = "Covariate",
   value.label = "stdev",
   value.limits = limits_dists(data, trim, c(0, 1), include.zero = T),
   value.length = 160,
@@ -60,11 +60,11 @@ setMethod("plot_priors", "seaMass_sigma", function(
 setMethod("plot_priors", "seaMass_sigma", function(
   object,
   data = list(
-    priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Effect, s, df)],
-    priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Effect, s = s0, df = df0)],
+    priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Covariate, s, df)],
+    priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Covariate, s = s0, df = df0)],
     rbind(
-      measurement_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Effect = "Measurements", value = rinaka(length(s), s, df))],
-      component_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Effect = "Components", value = rinaka(length(s), s, df))]
+      measurement_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Covariate = "Measurements", value = rinaka(length(s), s, df))],
+      component_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Covariate = "Components", value = rinaka(length(s), s, df))]
     )
   ),
   horizontal = TRUE,
@@ -74,7 +74,7 @@ setMethod("plot_priors", "seaMass_sigma", function(
   colour = list("blue", "black", NULL),
   fill = list("lightblue", NULL, "grey"),
   alpha = list(0.5, 0.5, 0.5),
-  facets = "Effect",
+  facets = "Covariate",
   value.label = "stdev",
   value.limits = limits_dists(data, trim, c(0, 1), include.zero = T),
   value.length = 160,

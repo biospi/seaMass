@@ -12,6 +12,7 @@ setClass("delta_control", slots = c(
   nwarmup = "integer",
   thin = "integer",
   fdr.model = "character",
+  truth.func = "character",
   random.seed = "integer",
   # derived
   plots = "logical",
@@ -40,11 +41,12 @@ delta_control <- function(
   component.deviations = FALSE,
   keep = NULL,
   summarise = "groups",
-  plot = c("group.quants.de", "component.deviations.de", "group.quants.de.batch"),
+  plot = c("group.quants.volcano", "group.quants.fdr", "group.quants.de"),
   model = "MCMCglmm",
   nwarmup = 4096,
   thin = 256,
   fdr.model = "ash",
+  truth.func = NULL,
   random.seed = 0
 ) {
   params <- list("delta_control")
@@ -57,6 +59,7 @@ delta_control <- function(
   params$nwarmup <- as.integer(nwarmup)
   params$thin <- as.integer(thin)
   if (!is.null(fdr.model)) params$fdr.model <- fdr.model else params$fdr.model <- ""
+  if (!is.null(truth.func)) params$truth.func <- truth.func else params$truth.func <- ""
   params$random.seed <- as.integer(random.seed)
   params$version <- as.character(packageVersion("seaMass"))
 
@@ -71,11 +74,12 @@ setValidity("delta_control", function(object) {
   if (length(object@component.deviations) != 1) return("'component.deviations' is not valid!")
   if (!(all(object@keep %in% c("markdown", "group.quants.de", "component.deviations.de")))) return("'keep' is not valid!")
   if (!(all(object@keep %in% c("groups")))) return("'summarise' is not valid!")
-  if (!(all(object@plot %in% c("group.quants.de", "component.deviations.de", "group.quants.de.batch", "component.deviations.de.batch")))) return("'plot' is not valid!")
+  if (!(all(object@plot %in% c("group.quants.volcano", "group.quants.fdr", "group.quants.de")))) return("'plot' is not valid!")
   if (length(object@model) != 1 || !(object@model %in% c("", "MCMCglmm"))) return("'model' is not valid!")
   if (length(object@nwarmup) != 1 || object@nwarmup < 0) return("'nwarmup' must be non-negative!")
   if (length(object@thin) != 1 || object@thin <= 0) return("'thin' must be positive!")
   if (length(object@fdr.model) != 1 || !(object@fdr.model %in% c("", "ash"))) return("'fdr.model' is not valid!")
+  if (length(object@truth.func) != 1) return("'truth.func' is not valid!")
 
   return(T)
 })

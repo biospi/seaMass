@@ -75,7 +75,7 @@ sigma_control <- function(
   keep = c("summaries", "group.quants"),
   summarise = c("groups", "components", "measurements"),
   plot = c("assay.stdevs", "group.quants.pca", "group.means", "group.quants", "component.means", "component.stdevs", "component.deviations", "measurement.means", "measurement.stdevs"),
-  plot.nbatch = NULL,
+  plot.nbatch = 40,
   eb.model = "deconvolve",
   eb.max = 1024,
   measurement.model = "independent",

@@ -6,10 +6,13 @@
 \usage{
 \S4method{plot_pr}{seaMass_delta}(
   object,
+  truth.func,
   plot.fdr = TRUE,
   y.max = NULL,
   legend.nrow = 1,
   y.col = "qvalue",
+  width = 1024,
+  height = 768,
   data.fdr = group_quants_fdr(object),
   output = "plotly"
 )
