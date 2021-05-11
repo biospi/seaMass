@@ -69,7 +69,7 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
           } else {
             fig <- plot_volcano(object, data.fdr = do.call(ctrl@truth.func, list(data.fdr = group_quants_fdr(object, data.table(Effect = effect)))))
           }
-          report.index[paste0("group.quants.volcano.", effect)] <- data.table(
+          report.index[[paste0("group.quants.volcano.", effect)]] <- data.table(
             section = "Covariate-level", section.order = 60, item = text, item.order = 25000,
             item.href = generate_markdown(
               object,
@@ -88,7 +88,7 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
           } else {
             fig <- plot_pr(object, ctrl@truth.func, data.fdr = group_quants_fdr(object, data.table(Effect = effect)))
           }
-          report.index[paste0("group.quants.fdr.", effect)] <- data.table(
+          report.index[[paste0("group.quants.fdr.", effect)]] <- data.table(
             section = "Covariate-level", section.order = 60, item = text, item.order = 50000,
             item.href = generate_markdown(
               object,
@@ -102,7 +102,7 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
         if ("group.quants.de" %in% ctrl@plot) {
           cat(paste0("[", Sys.time(), "]     generating group quants differential expression plot...\n"))
           text <- paste0(group, " differential expression for '", gsub("\\.", "' covariate, effect '", effect), "'", ifelse(name(object) == name(root(object)), "", paste0(" (", name(object), ")")))
-          report.index[paste0("group.quants.de.", effect)] <- data.table(
+          report.index[[paste0("group.quants.de.", effect)]] <- data.table(
             section = "Covariate-level", section.order = 60, item = text, item.order = 75000,
             item.href = generate_markdown(
               object,
