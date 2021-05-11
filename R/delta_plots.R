@@ -110,7 +110,11 @@ setMethod("plot_volcano", "seaMass_delta", function(
   )]
   DT.fdr[, Truth := factor(truth)]
   DT.fdr[, label := NA_character_]
-  if (output == "ggplot" && as.integer(ggplot.nlabel) > 0) DT.fdr[1:ggplot.nlabel, label := as.character(variable)]
+  if (output == "ggplot" && as.integer(ggplot.nlabel) > 0) {
+    DT.fdr[1:ggplot.nlabel, label := as.character(variable)]
+  } else {
+    DT.fdr[, label := as.character(variable)]
+  }
   DT.meta <- DT.fdr[, .(median = median(x, na.rm = T), .N), by = .(truth, Truth)]
 
   # transform y
@@ -152,14 +156,15 @@ setMethod("plot_volcano", "seaMass_delta", function(
   setnames(DT.fdr, c("x", "y"), c(x.label, y.label))
   ctrl.root <- control(root(object))
   DT.fdr[, text := paste0(
+    label, "\n",
     "quantified Samples: ", Cont.qS, " - ", Base.qS, "\n",
     "used Samples: ", Cont.uS, " - ", Base.uS, "\n",
     "quantified ", ctrl.root@component[2], ": ", Cont.qC, " - ", Base.qC, "\n",
     "quantified ", ctrl.root@measurement[2], ": ", Cont.qM, " - ", Base.qM, "\n",
-    "NegativeProb: ", formatC(NegativeProb, format = "g"), "\nPositiveProb: ", formatC(PositiveProb, format = "g"), "\n",
-    "lfsr: ", formatC(lfsr, format = "g"), "\nsvalue: ", formatC(svalue, format = "g"), "\n",
-    "lfdr: ", formatC(lfdr, format = "g"), "\nqvalue: ", formatC(qvalue, format = "g"), "\n",
-    x.label, ": ", formatC(get(x.label), format = "g")
+    "NegativeProb: ", formatC(NegativeProb, format = "g", digits = 3), "\nPositiveProb: ", formatC(PositiveProb, format = "g", digits = 3), "\n",
+    "lfsr: ", formatC(lfsr, format = "g", digits = 3), "\nsvalue: ", formatC(svalue, format = "g", digits = 3), "\n",
+    "lfdr: ", formatC(lfdr, format = "g", digits = 3), "\nqvalue: ", formatC(qvalue, format = "g", digits = 3), "\n",
+    x.label, ": ", formatC(get(x.label), format = "g", digits = 3)
   )]
 
   g <- ggplot2::ggplot(DT.fdr, ggplot2::aes_(x = as.formula(paste0("~`", x.label, "`")), y = as.formula(paste0("~`", y.label, "`"))), colour = Truth)

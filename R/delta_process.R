@@ -63,7 +63,7 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
         # plots
         if ("group.quants.volcano" %in% ctrl@plot) {
           cat(paste0("[", Sys.time(), "]     generating group quants volcano plot...\n"))
-          text <- paste0(group, " volcano for '", gsub("\\.", "' covariate, effect '", effect), "'", ifelse(name(object) == name(root(object)), "", paste0(" (", name(object), ")")))
+          text <- paste0(group, " volcano plot for '", gsub("\\.", "' covariate, effect '", effect), "'", ifelse(name(object) == name(root(object)), "", paste0(" (", name(object), ")")))
           if (ctrl@truth.func == "") {
             fig <- plot_volcano(object, data.fdr = group_quants_fdr(object, data.table(Effect = effect)))
           } else {
@@ -82,10 +82,11 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
 
          if ("group.quants.fdr" %in% ctrl@plot) {
           cat(paste0("[", Sys.time(), "]     generating group quants fdr plot...\n"))
-          text <- paste0(group, " fdr for '", gsub("\\.", "' covariate, effect '", effect), "'", ifelse(name(object) == name(root(object)), "", paste0(" (", name(object), ")")))
           if (ctrl@truth.func == "") {
+            text <- paste0(group, " FDR plot for '", gsub("\\.", "' covariate, effect '", effect), "'", ifelse(name(object) == name(root(object)), "", paste0(" (", name(object), ")")))
             fig <- plot_fdr(object, data.fdr = group_quants_fdr(object, data.table(Effect = effect)))
           } else {
+            text <- paste0(group, " Precision-Recall plot for '", gsub("\\.", "' covariate, effect '", effect), "'", ifelse(name(object) == name(root(object)), "", paste0(" (", name(object), ")")))
             fig <- plot_pr(object, ctrl@truth.func, data.fdr = group_quants_fdr(object, data.table(Effect = effect)))
           }
           report.index[[paste0("group.quants.fdr.", effect)]] <- data.table(
