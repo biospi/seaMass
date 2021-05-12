@@ -62,7 +62,7 @@ setMethod("render_markdown", "seaMass", function(object, root) {
   path <- file.path(filepath(object), "report")
   dir.create(path, showWarnings = F)
   files <- file.path(root, "_site", setdiff(list.files(file.path(root, "_site")), c("index.html", "site_libs")))
-  zip::zip(file.path(path, paste0(basename(root), ".report.zip")), files, compression_level = 6, include_directories = F, mode = "cherry-pick")
+  zip::zipr(file.path(path, paste0(basename(root), ".report.zip")), files, compression_level = 6, include_directories = F)
 
   # tidy up
   if (!("markdown" %in% ctrl@keep)) {
@@ -160,7 +160,7 @@ setMethod("assemble_report", "seaMass_sigma", function(object, filename = paste0
   # zip
   zipfile <- file.path(dirname(filepath(object)), filename)
   files <- c(file.path(root, "_site", "index.html"), file.path(root, "_site", name(object)))
-  zip::zip(zipfile, files, compression_level = 6, mode = "cherry-pick")
+  zip::zipr(zipfile, files, compression_level = 6)
 
   # tidy up
   unlink(file.path(root, "_site"), recursive = T)
@@ -170,7 +170,7 @@ setMethod("assemble_report", "seaMass_sigma", function(object, filename = paste0
   for (zipfile1 in files) {
     root1 <- file.path(dirname(filepath(object)), "markdown", "_site", name(object))
     zip::unzip(zipfile1, exdir = root1)
-    zip::zip_append(zipfile, root1, compression_level = 6, include_directories = F, mode = "cherry-pick")
+    zip::zipr_append(zipfile, root1, compression_level = 6, include_directories = F)
     unlink(root1, recursive = T)
   }
 
