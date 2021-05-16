@@ -61,9 +61,9 @@ setMethod("run", "schedule_local", function(object, fit.sigma) {
 
   if (ctrl@plots == T) {
     for (batch in 1:control(fit.sigma)@plot.nbatch) {
-      plots(fit.sigma, batch, job.id)
-      for (fit.theta in open_thetas(fit.sigma)) plots(fit.theta, batch, job.id)
-      for (fit.delta in open_deltas(fit.sigma)) plots(fit.delta, batch, job.id)
+      seaMass:::plots(fit.sigma, batch, job.id)
+      for (fit.theta in open_thetas(fit.sigma)) seaMass:::plots(fit.theta, batch, job.id)
+      for (fit.delta in open_deltas(fit.sigma)) seaMass:::plots(fit.delta, batch, job.id)
     }
   }
 

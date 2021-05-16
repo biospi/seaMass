@@ -42,7 +42,6 @@ seaMass_sigma <- function(
   fst::threads_fst(control@nthread)
 
   # setup seaMass folder structure
-  if (!grepl("\\.seaMass$", path)) path <- paste0(path, ".seaMass")
   if (file.exists(path)) unlink(path, recursive = T)
   if (!dir.create(file.path(path, "sigma"), recursive = T))
     stop("ERROR: problem creating folder")

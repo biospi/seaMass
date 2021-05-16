@@ -1,6 +1,6 @@
 #' @include generics.R
 #' @export
-setMethod("normalise_theta", "theta_block", function(object, data.design = assay_design(object), norm.groups = NULL, input = "model1", type = "group.quants", ...) {
+setMethod("normalise_theta", "theta_block", function(object, norm.groups = NULL, input = "model1", type = "group.quants", ...) {
   cat(paste0("[", Sys.time(), "]   seaMass-theta normalisation...\n"))
 
   unlink(file.path(filepath(object), "model0", "*.group.quants.fst"))
@@ -132,8 +132,9 @@ setMethod("normalise_median", "theta_block", function(object, norm.groups = NULL
 
 #' @include generics.R
 #' @export
-setMethod("normalise_quantile", "theta_block", function(object, input = "model1", type = "group.quants", ...) {
+setMethod("normalise_quantile", "theta_block", function(object, norm.groups = NULL, input = "model1", type = "group.quants", ...) {
   cat(paste0("[", Sys.time(), "]    quantile normalisation...\n"))
+  if (!is.null(norm.groups)) warning("WARNING: norm.groups is set but quantile normalisation does not support it, ignored")
 
   unlink(file.path(filepath(object), "model0", "*.group.quants.fst"))
   unlink(file.path(filepath(object), "model1", "*.assay.means.fst"))
