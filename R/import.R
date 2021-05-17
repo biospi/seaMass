@@ -72,7 +72,8 @@ import_ProteomeDiscoverer <- function(
   DT[, row := NULL]
 
   # we can get a spectrum assigned to multiple peptides in a protein - if this occurs, assign the spectrum as a 'new' ambiguous peptide
-  DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement, Use)]
+  setorder(DT, Component)
+  DT[, Component := paste(Component, collapse = " "), by = .(Group, Measurement, Use)]
   DT <- unique(DT)
 
   # melt label counts
@@ -87,6 +88,10 @@ import_ProteomeDiscoverer <- function(
 
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Channel", "Count"))
   setorder(DT, Group, Component, Measurement, Run, Channel)
+
+  setattr(DT, "group", c("ProteinGroup", "ProteinGroups"))
+  setattr(DT, "component", c("Peptidoform", "Peptidoforms"))
+  setattr(DT, "measurement", c("Spectrum", "Spectra"))
 
   setDF(DT)
   return(DT[])
@@ -156,7 +161,8 @@ import_ProteinPilot <- function(
   rm(DT.raw)
 
   # we can get a spectrum assigned to multiple peptides in a protein - if this occurs, assign the spectrum as a 'new' ambiguous peptide
-  DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement, Use)]
+  setorder(DT, Component)
+  DT[, Component := paste(Component, collapse = " "), by = .(Group, Measurement, Use)]
   DT <- unique(DT)
 
   # melt
@@ -171,6 +177,10 @@ import_ProteinPilot <- function(
 
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Injection", "Run", "Channel", "Count", "Use"))
   setorder(DT, Group, Component, Measurement, Injection, Run, Channel)
+
+  setattr(DT, "group", c("ProteinGroup", "ProteinGroups"))
+  setattr(DT, "component", c("Peptidoform", "Peptidoforms"))
+  setattr(DT, "measurement", c("Spectrum", "Spectra"))
 
   setDF(DT)
   return(DT[])
@@ -252,6 +262,10 @@ import_OpenSWATH <- function(
 
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Channel"))
   setorder(DT, Group, Component, Measurement, Run, Channel)
+
+  setattr(DT, "group", c("ProteinGroup", "ProteinGroups"))
+  setattr(DT, "component", c("Peptidoform", "Peptidoforms"))
+  setattr(DT, "measurement", c("Transition", "Transitions"))
 
   setDF(DT)
   return(DT[])
@@ -348,6 +362,10 @@ import_MaxQuant <- function(
 
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Channel", "Count"))
   setorder(DT, Group, Component, Measurement, Run, Channel)
+
+  setattr(DT, "group", c("ProteinGroup", "ProteinGroups"))
+  setattr(DT, "component", c("Peptidoform", "Peptidoforms"))
+  setattr(DT, "measurement", c("Feature", "Features"))
 
   setDF(DT)
   return(DT)
@@ -475,7 +493,8 @@ import_Progenesis <- function(
   )], DT.raw[, .SD, .SDcols = names(DT.raw) %like% "^Raw abundance "])
 
   # group ambiguous PSMs so seaMass-Delta treats them as a single component per group
-  DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement)]
+  setorder(DT, Component)
+  DT[, Component := paste(Component, collapse = " "), by = .(Group, Measurement)]
   DT <- unique(DT)
 
   # melt
@@ -688,9 +707,9 @@ import_MaxQuant_evidence0 <- function(
   DT <- dcast(DT, Group + Component + Measurement ~ Run, value.var = "Count")
 
   # group ambiguous transitions so seaMass-Delta treats them as a single component per group ## UNNECCESARY?
-  DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement)]
+  setorder(DT, Component)
+  DT[, Component := paste(Component, collapse = " "), by = .(Group, Measurement)]
   DT <- unique(DT)
-
 
   # melt
   DT[, GroupInfo := factor(Group)]

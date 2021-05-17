@@ -3,7 +3,9 @@ The seaMass suite of tools for quantification and differential expression analys
 
 - **seaMass-Σ**: A Bayesian protein group-level quantification technique univerally supporting label-free, SILAC, iTraq/TMT and DIA data. Currently we support proteomics input from Waters Progenesis (label-free), SCIEX ProteinPilot (iTraQ), Thermo ProteomeDiscoverer (SILAC/TMT) and OpenSWATH (SWATH). Other packages supported on request (MaxQuant coming soon). The model provides automatic quality control by downweighting problematic samples and peptides/features, can scale to massive study sizes, and propagates quantification uncertainty downstream to the differential expression analysis stage. 
 
-- **seaMass-Δ**: Bayesian normalisation and differential expression analysis on the output of seaMass-Σ. By harnessing the generic [MCMCglmm](https://cran.r-project.org/web/packages/MCMCglmm) package for Bayesian mixed-effect modelling, the tool allows the user to perform many kinds of univariate analysis on the data, from simple Welch's t-tests and two-way ANOVA to timecourse and multi-level models. Studies analysed with earlier versions of seaMass-Σ and seaMass-Δ are published in [[Freeman et al, Diabetes, 2016]](	
+- **seaMass-Θ**: Bayesian protein group normalisation on the output of seaMass-Σ.
+
+- **seaMass-Δ**: Bayesian differential expression analysis on the output of seaMass-Σ or seaMass-Θ. By harnessing the generic [MCMCglmm](https://cran.r-project.org/web/packages/MCMCglmm) package for Bayesian mixed-effect modelling, the tool allows the user to perform many kinds of univariate analysis on the data, from simple Welch's t-tests and two-way ANOVA to timecourse and multi-level models. Studies analysed with earlier versions of seaMass-Σ and seaMass-Δ are published in [[Freeman et al, Diabetes, 2016]](	
 https://doi.org/10.2337/db15-0835), [[Xu et al, Nature Comms Biology, 2019]](https://doi.org/10.1038/s42003-018-0254-9) and [[Kassab et al, Molecular Metabolism, 2019]](	
 https://doi.org/10.1016/j.molmet.2019.08.003).
 
@@ -23,19 +25,13 @@ Please install the R package directly from our Github repository. To do this you
 install.packages("devtools")
 ```
 
-It is currently (14th September 2020) recommended to use R 3.6.3 rather than new version 4.0.2 as the later can crash randomly. However, one dependency will stop installation of seaMass as the latest version now requires R 4. As a workaround, please first install an old version of this package compatible with R 3:
-
-```
-devtools::install_version("foreign", version = "0.8-76")
-```
-
 Then to install seaMass or upgrade to the latest version, simply run:
 
 ```
 devtools::install_github("biospi/seaMass", dependencies = TRUE)
 ```
 
-## seaMass-Σ and seaMass-Δ
+## seaMass-Σ, seaMass-Θ and seaMass-Δ
 
 Firstly, you need to use an *import* function to convert from an upstream tool format to seaMass' standardised *data.frame* format. Then you can assign injections to runs if you've used fractionation, and specify a block structure to your assays if this is a large study (TMT/iTraq studies are blocked automatically). Finally, you use the *seaMass-sigma* function to fit the model and generate raw group-level quants.
 
@@ -63,39 +59,42 @@ data.design$Sample <- c("A1", "A3", "A5", "A6", "B2", "B3", "B4", "B5")
 data.design$Condition <- c("A", "A", "A", "A", "B", "B", "B", "B")
 ```
 
-Now you can run the seaMass-Σ model: 
+Now you can run the seaMass-Σ model for raw protein group-level quantification, followed by the seaMass-Θ normalisation model: 
 
 ```
-# run seaMass-sigma
+# run seaMass-sigma and seaMass-theta
 fit.sigma <- seaMass_sigma(data, data.design)
+fit.theta <- seaMass_theta(fit.sigma)
 ```
 
-A directory has been created called *fit.seaMass* with a *output* subdirectory that contains csv results and QC plots. You can also get all these results in R. For example, you can output the standardised protein group quants and generate a PCA plot coloured by 'Assay.SD', which is the unexplained variation in each assay - the higher this is for an assay, the more uncertain the results are (but note, this tutorial study is well run, the highest Assay.SD of 0.06 is still considered very low): 
+A directory has been created called *fit.seaMass* with a *csv* subdirectory that contains numerical results and a *report.zip* file that contains an interactive html report full of quality control and results plots. It is strongly recommend to use a utility such as [Pismo File Mount](https://pismotec.com/pfm/ap/) on Windows, [Archive Mounter](https://github.com/biospi/ArchiveMounter) on MacOS or [fuse-zip](https://linux.die.net/man/1/fuse-zip) on Linux to mount the zip report as a drive for browsing, as the unzipped contents can be more than 20 times the size as the zip file itself. You can also get all these results in R. For example, you can output the raw or normalised protein group quants and generate a PCA plot coloured by 'Assay.SD', which is the unexplained variation in each assay - the higher this is for an assay, the more uncertain the results are (but note, this tutorial study is well run, the highest Assay.SD of 0.06 is still considered very low): 
 
 ```
-# output standardised group deviation summaries
-standardised_group_deviations(fit.sigma, summary = T)
+# output raw protein group quant summaries
+group_quants(fit.sigma, summary = T)
+
+# output normalised protein group quant summaries
+group_quants(fit.theta, summary = T)
 
 # plot PCA with "Assay.SD"
-plot_pca(fit.sigma)
+plot_robust_pca(fit.theta)
 ```
 
-Now you can run seaMass-Δ on the results of seaMass-Σ:
+Now you can run seaMass-Δ on the results of seaMass-Θ:
 
 ```
 # run seaMass-delta
-fit.delta <- seaMass_delta(fit.sigma)
+fit.delta <- seaMass_delta(fit.theta)
 ```
 
-Results and plots of this analysis are added to a new *delta.fit* subdirectory in the *output* directory. Again, you can get these results in R. For this tutorial dataset, we also provide the ground truth for this dataset so we can check the False Discovery Rate against the ground truth False Discovery Proportion with the following:
+Results and plots of this analysis are added to the *csv* directory and *report.zip*. Again, you can get these results in R and generate plots such as Volcano plots:
 
 ```
 # get protein group FDR results
-data.fdr <- fdr_standardised_group_deviations(fit.delta)
+group_quants_fdr(fit.delta)
 
-# add ground truth and plot precision-recall curve
-data.fdr <- add_seaMass_spikein_truth(data.fdr)
-plot_pr(data.fdr)
+# plot volcano
+plot_volcano(fit.delta)
 ```
 
 ### Tutorial 2 - running on a HPC cluster
@@ -108,11 +107,14 @@ fit.sigma <- seaMass_sigma(data, data.design, path = "hpc", run = FALSE,
   control = sigma_control(schedule = schedule_slurm(cpus_per_task = 14, mem = "64000m", mail_user = "username@domain.com")))
 ```
 
-Note above we also set set *run = FALSE* which prepares but does not run seaMass-Σ. This gives you the opportunity to add one or more seaMass-Δ runs so that everything can be run in one go later.
+Note above we also set set *run = FALSE* which prepares but does not run seaMass-Σ. This gives you the opportunity to add one or more seaMass-Θ and seaMass-Δ runs so that everything can be run in one go later.
 
 ```
+# prepare seaMass-Θ
+fit.theta <- seaMass_theta(fit.sigma)
+
 # prepare seaMass-Δ
-fit.delta <- seaMass_delta(fit.sigma)
+fit.delta <- seaMass_delta(fit.theta)
 
 # run seaMass-Σ and then seaMass-Δ
 run(fit.sigma)
@@ -145,7 +147,7 @@ data.runs$Run[53:78] <- "2"
 runs(data) <- data.runs
 ```
 
-If you have a large amount of assays, you may group them into blocks so that seaMass will be robust to batch effects or measurement drift etc. This will also help memory consumption, as blocks are processed by seaMass independently. If you are processing iTraq or TMT data, each run will be treated as a seperate block by default, which seaMass-Σ will autodetect. To compare across blocks correctly, you need to normalise them via reference weights for each assay. Here we can specify specific reference assays e.g. pooled reference samples, of if the study design has been blocked appropriately, we can just use all relevant assays:
+If you have a large amount of assays, you may group them into blocks so that seaMass will be robust to batch effects or measurement drift etc. This will also help memory consumption, as blocks are processed by seaMass independently. If you are processing iTraq or TMT data, each run will be treated as a seperate block by default, which seaMass-Σ will autodetect.
 
 ```
 # Get skeleton design matrix
@@ -158,7 +160,19 @@ data.design$Assay <- factor(c(
 ))
 ```
 
-seaMass-Σ computes raw protein group quants (together with peptide deviations from the protein group quants, and peptide/feature stdevs) for each block. To allow comparisons to be made across blocks (standardisation), and optionally normalisation and/or false discovery rate controlled differential expression analysis, run seaMass-Δ on the *seaMass_sigma_fits* object returned by seaMass-Σ. Firstly, define which assays will be used as references: 
+Next, run the seaMass-Σ model. The *seaMass_sigma* *path* parameter allows you to specify the output directory, and any internal control parameters (such as the number of CPU threads to use) can be specified through a *sigma_control* object. 
+
+```
+# run seaMass-Σ
+fit.sigma <- seaMass_sigma(
+  data,
+  data.design,
+  path = "tutorial.seaMass",
+  control = sigma_control(nthread = 4)
+)
+```
+
+seaMass-Σ computes raw protein group quants (together with peptide deviations from the protein group quants, and peptide/feature stdevs) for each block. To compare across blocks correctly you need to normalise them via 'reference weights' for each assay. You can add columns to *data.design* before or after seaMass-Σ; here we specify the specific reference assays e.g. pooled reference samples, of if the study design has been blocked appropriately, we can just use all relevant assays:
 
 ```
 # Define reference weights for each block
@@ -166,21 +180,12 @@ data.design$RefWeight <- c(
   0, 0, 0, 0, 1, 1, 1, 1,
   0, 0, 0, 0, 1, 1, 1, 1
 )
+
+# run seaMass-Θ
+fit.theta <- seaMass_theta(fit.sigma, data.design)
 ```
 
-Next, run the seaMass-Σ model. Specifying TRUE for summaries will generate csv reports in the directory specified by the *seaMass-sigma* *path* parameter, and any internal control parameters (such as the number of CPU threads to use) can be specified through a *sigma_control* object. 
-
-```
-# run seaMass-Σ
-fit.sigma <- seaMass_sigma(
-  data,
-  data.design,
-  path = "tutorial",
-  control = sigma_control(nthread = 4)
-)
-```
-
-You can add columns to *data.design* after seaMass-Σ and supply it to seaMass-Δ for different differential analyses:
+You can also add columns to *data.design* before or after seaMass-Θ to supply seaMass-Δ with samples and conditions for different differential analyses:
 
 ```
 # Define Sample and Condition mappings
@@ -199,7 +204,7 @@ Using [MCMCglmm](https://cran.r-project.org/package=MCMCglmm) formula syntax you
 ```
 # run seaMass-Δ
 fit.delta <- seaMass_delta(
-  fit.sigma, data.design,
+  fit.theta, data.design,
   rcov = ~ units,
   prior = list(R = list(V = 1, nu = 2e-4))  
 )
@@ -209,9 +214,8 @@ Since we know the ground truth, lets visualise our performance with a Precision-
 
 ```
 # get protein group FDR results
-data.fdr <- fdr_standardised_group_deviations(fit.delta)
+group_quants_fdr(fit.delta)
 
-# add ground truth and plot precision-recall curve
-data.fdr <- add_seaMass_spikein_truth(data.fdr)
-plot_pr(data.fdr)
+# plot precision-recall curve with ground truth
+plot_pr(fit.delta, "truth_seaMass_spikein")
 ```

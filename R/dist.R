@@ -124,7 +124,7 @@ dist_samples_normal <- function(chain, sample, value, ...) {
 #' fit location-scale t distribution with fitdistrplus
 #'
 #' @export
-dist_lst <- function(value, min.df = 0, plots = FALSE, ...) {
+dist_lst <- function(value, min.df = 0, max.df = Inf, plots = FALSE, ...) {
   est <- dist_normal_robust(value)
   est$df <- Inf
 
@@ -154,7 +154,7 @@ dist_lst <- function(value, min.df = 0, plots = FALSE, ...) {
     }
 
     tryCatch({
-      ft <- fitdistrplus::fitdist(as.vector(value), "_seaMass_lst", start = list(log_df = log(min.df + 1), mu = est$m, log_sigma = log(est$s)), lower = c(log(min.df), -Inf, -Inf), ...)
+      ft <- fitdistrplus::fitdist(as.vector(value), "_seaMass_lst", start = list(log_df = log(min.df + 1), mu = est$m, log_sigma = log(est$s)), lower = c(log(min.df), -Inf, -Inf), upper = c(log(max.df), Inf, Inf), ...)
       if (plots == T) plot(ft)
       est <- list(m = ft$estimate[["mu"]], s = exp(ft$estimate[["log_sigma"]]), df = exp(ft$estimate[["log_df"]]))
     }, error = function(e) {
@@ -178,11 +178,11 @@ dist_samples_lst <- function(chain, sample, value, ...) {
 #'
 #' @export
 dist_samples_lst_ash <- function(chain, sample, value, ...) {
-  return(c(dist_lst(value, method = "mge", gof = "CvM", min.df = 2, ...), list(rhat = rhat(chain, sample, value, T))))
+  return(c(dist_lst(value, method = "mge", gof = "CvM", min.df = 2, max.df = 100, ...), list(rhat = rhat(chain, sample, value, T))))
 }
 
 
-#' fit scaled inverse chi squared distribution with fitdistrplus, note our input is stdevs not variances!
+#' fit inverse nakagami distribution with fitdistrplus, note our input is stdevs not variances!
 #'
 #' @export
 dist_inaka <- function(value, plots = FALSE, ...) {
@@ -241,8 +241,8 @@ dist_samples_inaka <- function(chain, sample, value, ...) {
 #'
 #' @export
 dist_sf_with_fixed_df1_fitdistrplus <- function(value, df1, plots = FALSE, ...) {
-  # first fit a _sample_ of value to an inverse chi squared distribution
-  est0 <- dist_inaka(sapply(1:length(value), function(i) rinaka(1, value[i], df1[i])), plots = plots)
+  # first fit a _sample_ of value to an inverse nakagami distribution
+  est0 <- dist_inaka(rinaka(length(value), value, df1), plots = plots)
 
   # this then seeds the fit to a scaled F distribution
   d_seaMass_scaled_f <<- function(x, log_df2, log_scale, log = FALSE) {

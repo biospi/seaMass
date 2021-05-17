@@ -3,7 +3,7 @@
 \docType{class}
 \name{seaMass-class}
 \alias{seaMass-class}
-\title{seaMass object}
+\title{seaMass class}
 \description{
-Methods shared between \link{seaMass_sigma}, \link{sigma_block} and \link{seaMass_delta}
+Methods shared between all \code{seaMass} objects
 }

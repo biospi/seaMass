@@ -20,7 +20,7 @@ batch_split <- function(DT, columns, n, drop = FALSE, keep.by = TRUE) {
 #' @import foreach
 #' @import doRNG
 parallel_lapply <- function(items, func, nthread = 0, pred.time = rep(1, length(items)), .packages = "seaMass") {
-  # retreive function arguments from the parent environment
+  # retrieve function arguments from the parent environment
   func.args <- sapply(names(formals(func)), function(arg) as.name(arg), simplify = F, USE.NAMES = T)
   for(n in names(func.args)) if (n != "item") assign(n, get(n, parent.frame(n = 1)))
 
@@ -44,7 +44,7 @@ parallel_lapply <- function(items, func, nthread = 0, pred.time = rep(1, length(
       close(pb)
     }
   } else {
-    # restart cluster EVERY TIME just to stop memory leaks (crap GC or other problem?)
+    # restart cluster EVERY TIME just to stop memory increasing (probably crap GC)
     if (!is.null(parallel::getDefaultCluster())) {
         parallel::stopCluster(parallel::getDefaultCluster())
     }
@@ -123,7 +123,3 @@ read_completed <- function(path, name = "complete", job.id = NULL) {
 
   return(cp)
 }
-
-
-
-

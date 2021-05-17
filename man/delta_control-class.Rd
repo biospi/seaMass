@@ -9,25 +9,28 @@
 delta_control(
   component.deviations = FALSE,
   keep = NULL,
-  plot = c("de.standardised.group.deviations", "fdr.standardised.group.deviations",
-    "de.component.deviations", "fdr.component.deviations"),
-  dea.model = "MCMCglmm",
-  dea.nwarmup = 4096,
-  dea.thin = 256,
+  summarise = "groups",
+  plot = c("group.quants.volcano", "group.quants.fdr", "group.quants.de"),
+  model = "MCMCglmm",
+  nwarmup = 4096,
+  thin = 256,
   fdr.model = "ash",
+  truth.func = NULL,
   random.seed = 0
 )
 }
 \arguments{
-\item{component.deviations}{Set this to \code{TRUE} to do differential expression analysis on the component deviations as well as the group quants.}
+\item{component.deviations}{Set this to \code{TRUE} to do differential expression analysis on the component deviations as weldeltl as the group quants.}
 
-\item{keep}{Outputs to keep MCMC samples for, \code{NULL} or a subset of c("group.de", "component.deviations.de")}
+\item{keep}{Outputs to keep MCMC samples for, \code{NULL} or a subset of c("markdown", "group.quants.de", "component.deviations.de")}
 
-\item{dea.model}{Either \code{NULL} (no differential expression analysis) or \code{"MCMCglmm"} (MCMCglmm differential expression analysis)}
+\item{summarise}{Outputs to write csv summaries for, \code{NULL} or a subset of \code{c("groups")}}
 
-\item{dea.nwarmup}{Number of MCMC warmup iterations to run for each chain with MCMCglmm differential expression analysis.}
+\item{model}{Either \code{NULL} (no differential expression analysis) or \code{"MCMCglmm"} (MCMCglmm differential expression analysis)}
 
-\item{dea.thin}{MCMC thinning factor with MCMCglmm differential expression analysis.}
+\item{nwarmup}{Number of MCMC warmup iterations to run for each chain with MCMCglmm differential expression analysis.}
+
+\item{thin}{MCMC thinning factor with MCMCglmm differential expression analysis.}
 
 \item{fdr.model}{Either \code{NULL} (no false discovery rate correction) or \code{"ash"} (ash false discovery rate correction)}
 

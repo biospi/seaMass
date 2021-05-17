@@ -2,12 +2,12 @@
 #' @include generics.R
 setMethod("model", "sigma_block", function(object, input, chain = 1) {
   ctrl <- control(object)
-  cat(paste0("[", Sys.time(), "]  SIGMA-", toupper(input), " block=", sub("^.*sigma\\.(.*)$", "\\1", filepath(object)), " chain=", chain, "/", ctrl@model.nchain, "\n"))
+  cat(paste0("[", Sys.time(), "]  SIGMA-", toupper(input), " block=", name(object), " chain=", chain, "/", ctrl@nchain, "\n"))
 
   # load metadata
   DT.index <- fst::read.fst(file.path(filepath(object), input, "input.index.fst"), as.data.table = T)
 
-  nitt <- ctrl@model.nwarmup + (ctrl@model.nsample * ctrl@model.thin) / ctrl@model.nchain
+  nitt <- ctrl@nwarmup + (ctrl@nsample * ctrl@thin) / ctrl@nchain
   DT.priors <- priors(object, input = input, as.data.table = T)
   if (!is.null(DT.priors)) {
     DT.priors[, Assay := as.integer(Assay)]
@@ -31,7 +31,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
   unlink(file.path(filepath(object), input, "dist_*.assay.deviations.fst"))
   dir.create(file.path(filepath(object), input, "measurement.stdevs"), showWarnings = F)
   dir.create(file.path(filepath(object), input, "component.stdevs"), showWarnings = F)
-  dir.create(file.path(filepath(object), input, "assay.deviations"), showWarnings = F)
+  if (input == "model0") dir.create(file.path(filepath(object), input, "assay.deviations"), showWarnings = F)
 
   if (input != "model0" || "model0" %in% ctrl@keep) {
     unlink(file.path(filepath(object), input, "dist_*.group.quants.fst"))
@@ -53,7 +53,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
   DT.index[, Group := as.integer(Group)]
   outputs <- rbindlists(parallel_lapply(split(DT.index, by = "Group", drop = T), function(item, object, input, chain, DT.priors) {
     ctrl <- control(object)
-    nitt <- ctrl@model.nwarmup + (ctrl@model.nsample * ctrl@model.thin) / ctrl@model.nchain
+    nitt <- ctrl@nwarmup + (ctrl@nsample * ctrl@thin) / ctrl@nchain
 
     # load data
     group <- item[1, Group]
@@ -191,10 +191,10 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
         }
       }
 
-      set.seed(ctrl@random.seed + (group - 1) * ctrl@model.nchain + (chain - 1))
+      set.seed(ctrl@random.seed + (group - 1) * ctrl@nchain + (chain - 1))
       try(output$DT.timings <- system.time(fit.model <- MCMCglmm::MCMCglmm(
         fixed, random, rcov, family, data = DT, prior = prior,
-        nitt = nitt, burnin = ctrl@model.nwarmup, thin = ctrl@model.thin, pr = T, verbose = F, singular.ok = T
+        nitt = nitt, burnin = ctrl@nwarmup, thin = ctrl@thin, pr = T, verbose = F, singular.ok = T
       )))
 
       attempt <- attempt + 1
@@ -209,119 +209,10 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
 
     # create emmeans ref grid
     class(fit.model) <- "MCMCglmm_seaMass"
-    system.time(frg <- emmeans::ref_grid(fit.model, data = DT))
+    frg <- emmeans::ref_grid(fit.model, data = DT)
 
-    ### EXTRACT GROUP QUANTS
-    if ((input != "model0" || "model0" %in% ctrl@keep) && ("group.quants" %in% ctrl@summarise || "group.quants" %in% ctrl@keep)) {
-      if (nA == 1) {
-        if (nM == 1) {
-          output$DT.group.quants <- as.data.table(fit.model$Sol[, 1, drop = F])
-        } else {
-          output$DT.group.quants <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
-        }
-        colnames(output$DT.group.quants) <- "value"
-        output$DT.group.quants[, Assay := as.integer(DT[1, Assay])]
-        output$DT.group.quants[, sample := 1:nrow(output$DT.group.quants)]
-      } else {
-        output$DT.group.quants <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "Assay")))
-        output$DT.group.quants[, sample := 1:nrow(output$DT.group.quants)]
-        output$DT.group.quants <- melt(output$DT.group.quants, variable.name = "Assay", id.vars = "sample")
-        output$DT.group.quants[, Assay := as.integer(sub("^Assay (.+)$", "\\1", Assay))]
-      }
-      output$DT.group.quants[, Group := group]
-      output$DT.group.quants[, chain := chain]
-      output$DT.group.quants[, value := value / log(2)]
-      setcolorder(output$DT.group.quants, c("Group", "Assay", "chain", "sample"))
-    }
-
-    ### EXTRACT GROUP EXPOSURE
-    if (input != "model0" && ("group.means" %in% ctrl@summarise || "group.means" %in% ctrl@keep)) {
-      output$DT.group.means <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
-      colnames(output$DT.group.means) <- "value"
-      output$DT.group.means[, sample := 1:nrow(output$DT.group.means)]
-      output$DT.group.means[, chain := chain]
-      output$DT.group.means[, value := value / log(2)]
-      output$DT.group.means[, Group := group]
-      setcolorder(output$DT.group.means, c("Group", "chain", "sample"))
-    }
-
-    ### EXTRACT MEASUREMENT means
-    if ((input != "model0" || "model0" %in% ctrl@keep) && ("measurement.means" %in% ctrl@summarise || "measurement.means" %in% ctrl@keep)) {
-      if (nM == 1) {
-        if (nA == 1) {
-          output$DT.measurement.means <- as.data.table(fit.model$Sol[, 1, drop = F])
-        } else {
-          output$DT.measurement.means <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
-        }
-        colnames(output$DT.measurement.means) <- "value"
-        output$DT.measurement.means[, Component := as.integer(as.character(DT[1, Component]))]
-        output$DT.measurement.means[, Measurement := as.integer(sub("^.+\\.(.+)$", "\\1", as.character(DT[1, Measurement])))]
-        output$DT.measurement.means[, sample := 1:nrow(output$DT.measurement.means)]
-      } else {
-        output$DT.measurement.means <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "Measurement")))
-        output$DT.measurement.means[, sample := 1:nrow(output$DT.measurement.means)]
-        output$DT.measurement.means <- melt(output$DT.measurement.means, variable.name = "Measurement", id.vars = "sample")
-        output$DT.measurement.means[, Component := as.integer(sub("^Measurement (.+)\\..+$", "\\1", Measurement))]
-        output$DT.measurement.means[, Measurement := as.integer(sub("^Measurement .+\\.(.+)$", "\\1", Measurement))]
-      }
-      output$DT.measurement.means[, chain := chain]
-      output$DT.measurement.means[, value := value / log(2)]
-      output$DT.measurement.means[, Group := group]
-      setcolorder(output$DT.measurement.means, c("Group", "Component", "Measurement", "chain", "sample"))
-    }
-
-    ### EXTRACT COMPONENT means
-    if ((input != "model0" || "model0" %in% ctrl@keep) && ("component.means" %in% ctrl@summarise || "component.means" %in% ctrl@keep)) {
-      if (nM == 1) {
-        if (nA == 1) {
-          output$DT.component.means <- as.data.table(fit.model$Sol[, 1, drop = F])
-        } else {
-          output$DT.component.means <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
-        }
-        colnames(output$DT.component.means) <- "value"
-        output$DT.component.means[, Component := as.integer(as.character(DT[1, Component]))]
-        output$DT.component.means[, sample := 1:nrow(output$DT.component.means)]
-      } else {
-        # do each level separately otherwise huge memory problem
-        newlevs <- sub("\\..+$", "", levels(DT$Measurement))
-        output$DT.component.means <- as.data.table(sapply(levels(DT$Component), function (l) {
-          frg2 <- emmeans::add_grouping(frg, "Component", "Measurement", ifelse(newlevs == l, newlevs, NA))
-          return(coda::as.mcmc(emmeans::emmeans(frg2, "Component")))
-        }))
-        output$DT.component.means[, sample := 1:nrow(output$DT.component.means)]
-        output$DT.component.means <- melt(output$DT.component.means, variable.name = "Component", id.vars = "sample")
-        output$DT.component.means[, Component := as.integer(as.character(Component))]
-      }
-      output$DT.component.means[, chain := chain]
-      output$DT.component.means[, value := value / log(2)]
-      output$DT.component.means[, Group := group]
-      setcolorder(output$DT.component.means, c("Group", "Component", "chain", "sample"))
-    }
-
-
-    ### EXTRACT COMPONENT DEVIATIONS
-    if ((input != "model0" || "model0" %in% ctrl@keep) && ctrl@component.model == "independent" && ("component.deviations" %in% ctrl@summarise || "component.deviations" %in% ctrl@keep)) {
-      if (nC == 1) {
-        output$DT.component.deviations <- as.data.table(fit.model$Sol[, grep("^Component:Assay\\..+\\..+$", colnames(fit.model$Sol)), drop = F])
-        output$DT.component.deviations[, sample := 1:nrow(output$DT.component.deviations)]
-        output$DT.component.deviations <- melt(output$DT.component.deviations, variable.name = "Component", id.vars = "sample")
-        output$DT.component.deviations[, Assay := as.integer(sub("^Component:Assay\\..+\\.(.+)$", "\\1", Component))]
-        output$DT.component.deviations[, Component := as.integer(sub("^Component:Assay\\.(.+)\\..+$", "\\1", Component))]
-      } else {
-        output$DT.component.deviations <- as.data.table(fit.model$Sol[, grep("^Component.+\\.Assay\\..+$", colnames(fit.model$Sol)), drop = F])
-        output$DT.component.deviations[, sample := 1:nrow(output$DT.component.deviations)]
-        output$DT.component.deviations <- melt(output$DT.component.deviations, variable.name = "Component", id.vars = "sample")
-        output$DT.component.deviations[, Assay := as.integer(sub("^Component.+\\.Assay\\.(.+)$", "\\1", Component))]
-        output$DT.component.deviations[, Component := as.integer(sub("^Component(.+)\\.Assay\\..+$", "\\1", Component))]
-      }
-      output$DT.component.deviations[, Group := group]
-      output$DT.component.deviations[, chain := chain]
-      output$DT.component.deviations[, value := value / log(2)]
-      setcolorder(output$DT.component.deviations, c("Group", "Component", "Assay", "chain", "sample"))
-    }
-
-    ### EXTRACT ASSAY DEVIATIONS
-    if (input == "model0" || "assay.deviations" %in% ctrl@summarise || "assay.deviations" %in% ctrl@keep) {
+    ### MODEL0: EXTRACT ASSAY DEVIATIONS TO CALCULATE PRIORS
+    if (input == "model0") {
       if (ctrl@assay.model == "measurement") {
         output$DT.assay.deviations <- as.data.table(fit.model$Sol[, grep("^Assay.+\\.Component:Measurement\\..+\\..+$", colnames(fit.model$Sol)), drop = F])
         output$DT.assay.deviations[, sample := 1:nrow(output$DT.assay.deviations)]
@@ -346,11 +237,123 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       }
     }
 
-    # conserve memory
+    ### EXTRACT FIXED EFFECT OUTPUT
+    if (input != "model0" || "model0" %in% ctrl@keep) {
+      # measurement means
+      if  ("measurements" %in% ctrl@summarise || "measurement.means" %in% ctrl@keep) {
+        if (nM == 1) {
+          if (nA == 1) {
+            output$DT.measurement.means <- as.data.table(fit.model$Sol[, 1, drop = F])
+          } else {
+            output$DT.measurement.means <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
+          }
+          colnames(output$DT.measurement.means) <- "value"
+          output$DT.measurement.means[, Component := as.integer(as.character(DT[1, Component]))]
+          output$DT.measurement.means[, Measurement := as.integer(sub("^.+\\.(.+)$", "\\1", as.character(DT[1, Measurement])))]
+          output$DT.measurement.means[, sample := 1:nrow(output$DT.measurement.means)]
+        } else {
+          output$DT.measurement.means <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "Measurement")))
+          output$DT.measurement.means[, sample := 1:nrow(output$DT.measurement.means)]
+          output$DT.measurement.means <- melt(output$DT.measurement.means, variable.name = "Measurement", id.vars = "sample")
+          output$DT.measurement.means[, Component := as.integer(sub("^Measurement (.+)\\..+$", "\\1", Measurement))]
+          output$DT.measurement.means[, Measurement := as.integer(sub("^Measurement .+\\.(.+)$", "\\1", Measurement))]
+        }
+        output$DT.measurement.means[, chain := chain]
+        output$DT.measurement.means[, value := value / log(2)]
+        output$DT.measurement.means[, Group := group]
+        setcolorder(output$DT.measurement.means, c("Group", "Component", "Measurement", "chain", "sample"))
+      }
+
+      # component means
+      if ("components" %in% ctrl@summarise || "component.means" %in% ctrl@keep) {
+        if (nM == 1) {
+          if (nA == 1) {
+            output$DT.component.means <- as.data.table(fit.model$Sol[, 1, drop = F])
+          } else {
+            output$DT.component.means <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
+          }
+          colnames(output$DT.component.means) <- "value"
+          output$DT.component.means[, Component := as.integer(as.character(DT[1, Component]))]
+          output$DT.component.means[, sample := 1:nrow(output$DT.component.means)]
+        } else {
+          # do each level separately otherwise huge memory problem
+          newlevs <- sub("\\..+$", "", levels(DT$Measurement))
+          output$DT.component.means <- as.data.table(sapply(levels(DT$Component), function (l) {
+            frg2 <- emmeans::add_grouping(frg, "Component", "Measurement", ifelse(newlevs == l, newlevs, NA))
+            return(coda::as.mcmc(emmeans::emmeans(frg2, "Component")))
+          }))
+          output$DT.component.means[, sample := 1:nrow(output$DT.component.means)]
+          output$DT.component.means <- melt(output$DT.component.means, variable.name = "Component", id.vars = "sample")
+          output$DT.component.means[, Component := as.integer(as.character(Component))]
+        }
+        output$DT.component.means[, chain := chain]
+        output$DT.component.means[, value := value / log(2)]
+        output$DT.component.means[, Group := group]
+        setcolorder(output$DT.component.means, c("Group", "Component", "chain", "sample"))
+      }
+
+      # component deviations
+      if (ctrl@component.model == "independent" && ("components" %in% ctrl@summarise || "component.deviations" %in% ctrl@keep)) {
+        if (nC == 1) {
+          output$DT.component.deviations <- as.data.table(fit.model$Sol[, grep("^Component:Assay\\..+\\..+$", colnames(fit.model$Sol)), drop = F])
+          output$DT.component.deviations[, sample := 1:nrow(output$DT.component.deviations)]
+          output$DT.component.deviations <- melt(output$DT.component.deviations, variable.name = "Component", id.vars = "sample")
+          output$DT.component.deviations[, Assay := as.integer(sub("^Component:Assay\\..+\\.(.+)$", "\\1", Component))]
+          output$DT.component.deviations[, Component := as.integer(sub("^Component:Assay\\.(.+)\\..+$", "\\1", Component))]
+        } else {
+          output$DT.component.deviations <- as.data.table(fit.model$Sol[, grep("^Component.+\\.Assay\\..+$", colnames(fit.model$Sol)), drop = F])
+          output$DT.component.deviations[, sample := 1:nrow(output$DT.component.deviations)]
+          output$DT.component.deviations <- melt(output$DT.component.deviations, variable.name = "Component", id.vars = "sample")
+          output$DT.component.deviations[, Assay := as.integer(sub("^Component.+\\.Assay\\.(.+)$", "\\1", Component))]
+          output$DT.component.deviations[, Component := as.integer(sub("^Component(.+)\\.Assay\\..+$", "\\1", Component))]
+        }
+        output$DT.component.deviations[, Group := group]
+        output$DT.component.deviations[, chain := chain]
+        output$DT.component.deviations[, value := value / log(2)]
+        setcolorder(output$DT.component.deviations, c("Group", "Component", "Assay", "chain", "sample"))
+      }
+
+      # group means
+      if ("groups" %in% ctrl@summarise || "group.means" %in% ctrl@keep) {
+        output$DT.group.means <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
+        colnames(output$DT.group.means) <- "value"
+        output$DT.group.means[, sample := 1:nrow(output$DT.group.means)]
+        output$DT.group.means[, chain := chain]
+        output$DT.group.means[, value := value / log(2)]
+        output$DT.group.means[, Group := group]
+        setcolorder(output$DT.group.means, c("Group", "chain", "sample"))
+      }
+
+      # group quants
+      if ("groups" %in% ctrl@summarise || "group.quants" %in% ctrl@keep) {
+        if (nA == 1) {
+          if (nM == 1) {
+            output$DT.group.quants <- as.data.table(fit.model$Sol[, 1, drop = F])
+          } else {
+            output$DT.group.quants <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "1")))
+          }
+          colnames(output$DT.group.quants) <- "value"
+          output$DT.group.quants[, Assay := as.integer(DT[1, Assay])]
+          output$DT.group.quants[, sample := 1:nrow(output$DT.group.quants)]
+        } else {
+          output$DT.group.quants <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "Assay")))
+          output$DT.group.quants[, sample := 1:nrow(output$DT.group.quants)]
+          output$DT.group.quants <- melt(output$DT.group.quants, variable.name = "Assay", id.vars = "sample")
+          output$DT.group.quants[, Assay := as.integer(sub("^Assay (.+)$", "\\1", Assay))]
+        }
+        output$DT.group.quants[, Group := group]
+        output$DT.group.quants[, chain := chain]
+        output$DT.group.quants[, value := value / log(2)]
+        setcolorder(output$DT.group.quants, c("Group", "Assay", "chain", "sample"))
+      }
+    }
+
+    # DELETE FIXED EFFECTS TO CONSERVE MEMORY
     fit.model$Sol <- NULL
 
-    ### EXTRACT MEASUREMENT STDEVS
-    if (input == "model0" || "measurement.stdevs" %in% ctrl@summarise || "measurement.stdevs" %in% ctrl@keep) {
+    ### EXTRACT RANDOM EFFECT OUTPUT
+    # measurement stdevs
+    if (input == "model0" || "measurements" %in% ctrl@summarise || "measurement.stdevs" %in% ctrl@keep) {
       if (ctrl@measurement.model == "single" || nM == 1) {
         output$DT.measurement.stdevs <- as.data.table(fit.model$VCV[, "units", drop = F])
       } else {
@@ -379,8 +382,8 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
       setcolorder(output$DT.measurement.stdevs, c("Group", "Component", "Measurement", "chain", "sample"))
     }
 
-    # EXTRACT COMPONENT STDEVS
-    if (ctrl@component.model != "" && (input == "model0" || "component.stdevs" %in% ctrl@summarise || "component.stdevs" %in% ctrl@keep)) {
+    # component stdevs
+    if (ctrl@component.model != "" && (input == "model0" || "components" %in% ctrl@summarise || "component.stdevs" %in% ctrl@keep)) {
       if (ctrl@component.model == "single" || nC == 1) {
         output$DT.component.stdevs <- as.data.table(fit.model$VCV[, "Component:Assay", drop = F])
       } else {
@@ -407,7 +410,6 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
     }
 
     ### WRITE OUT
-
     # if large enough write out group quants now to conserve memory, otherwise don't to conserve disk space
     if (object.size(output$DT.group.quants) > 2^18) {
       filename <- file.path("group.quants", paste0(chain, ".", group, ".fst"))

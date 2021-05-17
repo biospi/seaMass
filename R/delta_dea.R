@@ -6,7 +6,7 @@
 setMethod("dea_MCMCglmm", "seaMass_delta", function(
   object,
   input = "model1",
-  type = "standardised.group.deviations",
+  type = "group.quants",
   specs = ~ Condition,
   contrasts = list(method = "revpairwise"),
   fixed = ~ Condition,
@@ -27,7 +27,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
   slice = FALSE,
   ginverse = NULL,
   trunc = FALSE,
-  chains = 1:control(object)@model.nchain,
+  chains = 1:control(object)@nchain,
   data = NULL,
   ...
 ) {
@@ -43,7 +43,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
   fixed1 <- as.formula(paste("m", deparse(fixed, width.cutoff = 500), collapse=""))
 
   if (is.null(data)) {
-    DTs <- read_samples(object@fit, input, type, summary = T, summary.func = "robust_normal", as.data.table = T)
+    DTs <- read(parent(object), input, type, summary = T, summary.func = "robust_normal", as.data.table = T)
   } else {
     DTs <- as.data.table(data)
   }
@@ -53,14 +53,14 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
   DTs <- batch_split(DTs, cols, 4 * ctrl@nthread)
 
   # loop over all chains and all groups/components
-  dir.create(file.path(filepath(object), type), showWarnings = F)
+  dir.create(file.path(filepath(object), paste0(type, ".de")), showWarnings = F)
   for (chain in chains) {
     DT.index <- parallel_lapply(DTs, function(item, object, type, cols, chain, specs, contrasts, fixed1, random, rcov, start, prior, tune, pedigree, nodes, scale, pr, pl, DIC, saveX, saveZ, saveXL, slice, ginverse, trunc) {
       ctrl <- control(object)
       batch <- item[1, Batch]
 
       if ("Component" %in% colnames(item)) {
-        DT.components <- assay_components(object@fit, as.data.table = T)
+        DT.components <- assay_components(root(object), as.data.table = T)
         DT.components[, Block := as.integer(Block)]
         DT.components[, Group := as.integer(Group)]
         DT.components[, Component := as.integer(Component)]
@@ -68,7 +68,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
         item <- merge(item, DT.components, by = c("Block", "Group", "Component", "Assay"), sort = F)
         item <- split(item, by = c("Group", "Component"), drop = T)
       } else if ("Group" %in% colnames(item)) {
-        DT.groups <- assay_groups(object@fit, as.data.table = T)
+        DT.groups <- assay_groups(root(object), as.data.table = T)
         DT.groups[, Block := as.integer(Block)]
         DT.groups[, Group := as.integer(Group)]
         DT.groups[, Assay := as.integer(Assay)]
@@ -107,7 +107,7 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
             if (attempt > 1) print(attempt)
             tryCatch({
               # run MCMCglmm
-              set.seed(ctrl@random.seed + (DT[1, Group] - 1) * ctrl@model.nchain + (chain - 1))
+              set.seed(ctrl@random.seed + (DT[1, Group] - 1) * ctrl@nchain + (chain - 1))
               model <- MCMCglmm::MCMCglmm(
                 fixed = fixed1,
                 random = random,
@@ -121,9 +121,9 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
                 pedigree = pedigree,
                 nodes = nodes,
                 scale = scale,
-                nitt = ctrl@dea.nwarmup + (ctrl@model.nsample * ctrl@dea.thin) / ctrl@model.nchain,
-                thin = ctrl@dea.thin,
-                burnin = ctrl@dea.nwarmup,
+                nitt = ctrl@nwarmup + (ctrl@nsample * ctrl@thin) / ctrl@nchain,
+                thin = ctrl@thin,
+                burnin = ctrl@nwarmup,
                 pr = pr,
                 pl = pl,
                 verbose = F,
@@ -163,27 +163,27 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
             DT1.de <- as.data.table(as.mcmc.emmGrid(emmGrid))
             DT1.de[, sample := .I]
             DT1.de <- melt(DT1.de, id.vars = "sample", variable.name = "Baseline")
-            DT1.de[, Effect := paste(paste(colnames(emmGrid@misc$orig.grid)), collapse = ":")]
+            DT1.de[, Covariate := paste(paste(colnames(emmGrid@misc$orig.grid)), collapse = ":")]
             DT1.de[, Contrast := sub("^contrast (.*) - .*$", "\\1", Baseline)]
             DT1.de[, Baseline := sub("^contrast .* - (.*)$", "\\1", Baseline)]
             return(DT1.de)
           }))
           output$DT.de[, chain := chain]
-          output$DT.de[, Effect := factor(Effect, levels = unique(Effect))]
+          output$DT.de[, Covariate := factor(Covariate, levels = unique(Covariate))]
           output$DT.de[, Contrast := factor(Contrast, levels = unique(Contrast))]
           output$DT.de[, Baseline := factor(Baseline, levels = unique(Baseline))]
           output$DT.de[, Group := DT[1, Group]]
           if ("Component" %in% colnames(DT)) {
             output$DT.de[, Component := DT[1, Component]]
-            setcolorder(output$DT.de, c("Group", "Component", "Effect", "Contrast", "Baseline", "chain"))
+            setcolorder(output$DT.de, c("Group", "Component", "Covariate", "Contrast", "Baseline", "chain"))
           } else if ("Group" %in% colnames(output$DT.de)) {
-            setcolorder(output$DT.de, c("Group", "Effect", "Contrast", "Baseline", "chain"))
+            setcolorder(output$DT.de, c("Group", "Covariate", "Contrast", "Baseline", "chain"))
           }
 
           # TODO: handle interactions?
           if (chain == 1) {
             # calculate metadata (this is rubbish but works)
-            output$DT.meta <- unique(rbind(output$DT.de[, .(Effect, Level = Contrast)], output$DT.de[, .(Effect, Level = Baseline)]))[!is.na(Level)]
+            output$DT.meta <- unique(rbind(output$DT.de[, .(Covariate, Level = Contrast)], output$DT.de[, .(Covariate, Level = Baseline)]))[!is.na(Level)]
             output$DT.meta[, Group := DT[1, Group]]
 
             if ("Component" %in% colnames(DT)) {
@@ -198,17 +198,17 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
 
             if ("Component" %in% colnames(DT)) {
               for (i in 1:nrow(output$DT.meta)) {
-                if ("qC" %in% colnames(output$DT.meta)) output$DT.meta$qC[i] <- max(0, DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]), AC.qC], na.rm = T)
-                output$DT.meta$qM[i] <- max(0, DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]), AC.qM], na.rm = T)
-                output$DT.meta$qS[i] <- length(unique(DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]) & !is.na(m) & AC.qM > 0, Sample]))
-                output$DT.meta$uS[i] <- length(unique(DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]) & !is.na(m), Sample]))
+                if ("qC" %in% colnames(output$DT.meta)) output$DT.meta$qC[i] <- max(0, DT[get(as.character(output$DT.meta[i, Covariate])) == as.character(output$DT.meta[i, Level]), AC.qC], na.rm = T)
+                output$DT.meta$qM[i] <- max(0, DT[get(as.character(output$DT.meta[i, Covariate])) == as.character(output$DT.meta[i, Level]), AC.qM], na.rm = T)
+                output$DT.meta$qS[i] <- length(unique(DT[get(as.character(output$DT.meta[i, Covariate])) == as.character(output$DT.meta[i, Level]) & !is.na(m) & AC.qM > 0, Sample]))
+                output$DT.meta$uS[i] <- length(unique(DT[get(as.character(output$DT.meta[i, Covariate])) == as.character(output$DT.meta[i, Level]) & !is.na(m), Sample]))
               }
             } else if ("Group" %in% colnames(output$DT.de)) {
               for (i in 1:nrow(output$DT.meta)) {
-                if ("qC" %in% colnames(output$DT.meta)) output$DT.meta$qC[i] <- max(0, DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]), AG.qC], na.rm = T)
-                output$DT.meta$qM[i] <- max(0, DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]), AG.qM], na.rm = T)
-                output$DT.meta$qS[i] <- length(unique(DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]) & !is.na(m) & AG.qM > 0, Sample]))
-                output$DT.meta$uS[i] <- length(unique(DT[get(as.character(output$DT.meta[i, Effect])) == as.character(output$DT.meta[i, Level]) & !is.na(m), Sample]))
+                if ("qC" %in% colnames(output$DT.meta)) output$DT.meta$qC[i] <- max(0, DT[get(as.character(output$DT.meta[i, Covariate])) == as.character(output$DT.meta[i, Level]), AG.qC], na.rm = T)
+                output$DT.meta$qM[i] <- max(0, DT[get(as.character(output$DT.meta[i, Covariate])) == as.character(output$DT.meta[i, Level]), AG.qM], na.rm = T)
+                output$DT.meta$qS[i] <- length(unique(DT[get(as.character(output$DT.meta[i, Covariate])) == as.character(output$DT.meta[i, Level]) & !is.na(m) & AG.qM > 0, Sample]))
+                output$DT.meta$uS[i] <- length(unique(DT[get(as.character(output$DT.meta[i, Covariate])) == as.character(output$DT.meta[i, Level]) & !is.na(m), Sample]))
               }
             }
           }
@@ -224,37 +224,37 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
         # create index
         if (chain == 1) {
           DT0.index <- DT0.de[, .(
-            from = .I[!duplicated(DT0.de, by = c(cols, "Effect", "Contrast", "Baseline"))],
-            to = .I[!duplicated(DT0.de, fromLast = T, by = c(cols, "Effect", "Contrast", "Baseline"))]
+            from = .I[!duplicated(DT0.de, by = c(cols, "Covariate", "Contrast", "Baseline"))],
+            to = .I[!duplicated(DT0.de, fromLast = T, by = c(cols, "Covariate", "Contrast", "Baseline"))]
           )]
           DT0.index <- cbind(
-            DT0.de[DT0.index$from, c(cols, "Effect", "Contrast", "Baseline"), with = F],
-            data.table(file = factor(file.path(type, paste(chain, batch, "fst", sep = ".")))),
+            DT0.de[DT0.index$from, c(cols, "Covariate", "Contrast", "Baseline"), with = F],
+            data.table(file = factor(file.path(paste0(type, ".de"), paste(chain, batch, "fst", sep = ".")))),
             DT0.index
           )
 
           DT0.meta <- rbindlist(lapply(1:length(outputs), function(i) outputs[[i]]$DT.meta))
 
           setnames(DT0.meta, "Level", "Contrast")
-          DT0.index <- merge(DT0.index, DT0.meta, by = c(cols, "Effect", "Contrast"), sort = F)
+          DT0.index <- merge(DT0.index, DT0.meta, by = c(cols, "Covariate", "Contrast"), sort = F)
           setnames(DT0.index, c("qM", "qS", "uS"), c("Cont.qM", "Cont.qS", "Cont.uS"))
           if ("qC" %in% colnames(DT0.index)) setnames(DT0.index, "qC", "Cont.qC")
           setnames(DT0.meta, "Contrast", "Baseline")
-          DT0.index <- merge(DT0.index, DT0.meta, by = c(cols, "Effect", "Baseline"), sort = F)
+          DT0.index <- merge(DT0.index, DT0.meta, by = c(cols, "Covariate", "Baseline"), sort = F)
           setnames(DT0.index, c("qM", "qS", "uS"), c("Base.qM", "Base.qS", "Base.uS"))
           if ("qC" %in% colnames(DT0.index)) {
             setnames(DT0.index, "qC", "Base.qC")
-            setcolorder(DT0.index, c(cols, "Effect", "Contrast", "Baseline", "file", "from", "to", "Cont.uS", "Base.uS", "Cont.qS", "Base.qS", "Cont.qC", "Base.qC", "Cont.qM", "Base.qM"))
+            setcolorder(DT0.index, c(cols, "Covariate", "Contrast", "Baseline", "file", "from", "to", "Cont.uS", "Base.uS", "Cont.qS", "Base.qS", "Cont.qC", "Base.qC", "Cont.qM", "Base.qM"))
           } else {
-            setcolorder(DT0.index, c(cols, "Effect", "Contrast", "Baseline", "file", "from", "to", "Cont.uS", "Base.uS", "Cont.qS", "Base.qS", "Cont.qM", "Base.qM"))
+            setcolorder(DT0.index, c(cols, "Covariate", "Contrast", "Baseline", "file", "from", "to", "Cont.uS", "Base.uS", "Cont.qS", "Base.qS", "Cont.qM", "Base.qM"))
           }
         }
 
         # write results
-        DT0.de[, Effect := as.integer(Effect)]
+        DT0.de[, Covariate := as.integer(Covariate)]
         DT0.de[, Contrast := as.integer(Contrast)]
         DT0.de[, Baseline := as.integer(Baseline)]
-        fst::write.fst(DT0.de, file.path(filepath(object), type, paste(chain, batch, "fst", sep = ".")))
+        fst::write.fst(DT0.de, file.path(filepath(object), paste0(type, ".de"), paste(chain, batch, "fst", sep = ".")))
 
         if (chain == 1) return(DT0.index)
       }
@@ -265,15 +265,15 @@ setMethod("dea_MCMCglmm", "seaMass_delta", function(
     # save index
     if (chain == 1) {
       DT.index <- rbindlist(DT.index)
-      groups <- groups(object@fit, as.data.table = T)[, Group]
+      groups <- groups(root(object), as.data.table = T)[, Group]
       DT.index[, Group := factor(Group, levels = 1:nlevels(groups), labels = levels(groups))]
       rm(groups)
       if ("Component" %in% colnames(DT.index)) {
-        components <- components(object@fit, as.data.table = T)[, Component]
+        components <- components(root(object), as.data.table = T)[, Component]
         DT.index[, Component := factor(Component, levels = 1:nlevels(components), labels = levels(components))]
         rm(components)
       }
-      fst::write.fst(DT.index, file.path(filepath(object), paste(type, "index.fst", sep = ".")))
+      fst::write.fst(DT.index, file.path(filepath(object), paste0(type, ".de.index.fst")))
     }
 
     rm(DT.index)
