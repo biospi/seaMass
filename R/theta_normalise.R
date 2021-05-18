@@ -1,6 +1,6 @@
 #' @include generics.R
 #' @export
-setMethod("normalise_theta", "theta_block", function(object, norm.groups = NULL, input = "model1", type = "group.quants", ...) {
+setMethod("normalise_theta", "theta_block", function(object, norm.groups = control(object)@norm.groups, input = "model1", type = "group.quants", ...) {
   cat(paste0("[", Sys.time(), "]   seaMass-theta normalisation...\n"))
 
   unlink(file.path(filepath(object), "model0", "*.group.quants.fst"))
@@ -87,7 +87,7 @@ setMethod("normalise_theta", "theta_block", function(object, norm.groups = NULL,
 
 #' @include generics.R
 #' @export
-setMethod("normalise_median", "theta_block", function(object, norm.groups = NULL, input = "model1", type = "group.quants", ...) {
+setMethod("normalise_median", "theta_block", function(object, norm.groups = control(object)@norm.groups, input = "model1", type = "group.quants", ...) {
   cat(paste0("[", Sys.time(), "]    median normalisation...\n"))
 
   unlink(file.path(filepath(object), "model0", "*.group.quants.fst"))
@@ -96,14 +96,14 @@ setMethod("normalise_median", "theta_block", function(object, norm.groups = NULL
   dir.create(file.path(filepath(object), "model0", "group.quants"), recursive = T, showWarnings = F)
   dir.create(file.path(filepath(object), "model1", "assay.means"), recursive = T, showWarnings = F)
 
-  if (is.null(norm.groups)) norm.groups <- ".*"
+  if (!is.null(norm.groups)) norm.groups <- groups(parent(object), as.data.table = T)[Group %in% norm.groups, Group]
   parallel_lapply(1:control(object)@nchain, function(item, object, norm.groups, input, type) {
     DT <- read(parent(object), input, type, chain = item, as.data.table = T)[, Block := NULL]
 
     # group mean centre
     DT[, value := value - mean(value), by = .(Group, chain, sample)]
     # median normalisation
-    DT.assay.means <- DT[, .(deviation = median(value[grep(norm.groups, Group)])), by = .(Assay, chain, sample)]
+    DT.assay.means <- DT[, .(deviation = median(value[Group %in% norm.groups])), by = .(Assay, chain, sample)]
 
     # normalise
     DT <- merge(DT, DT.assay.means, by = c("Assay", "chain", "sample"), sort = F)
@@ -132,9 +132,8 @@ setMethod("normalise_median", "theta_block", function(object, norm.groups = NULL
 
 #' @include generics.R
 #' @export
-setMethod("normalise_quantile", "theta_block", function(object, norm.groups = NULL, input = "model1", type = "group.quants", ...) {
+setMethod("normalise_quantile", "theta_block", function(object, norm.groups = control(object)@norm.groups, input = "model1", type = "group.quants", ...) {
   cat(paste0("[", Sys.time(), "]    quantile normalisation...\n"))
-  if (!is.null(norm.groups)) warning("WARNING: norm.groups is set but quantile normalisation does not support it, ignored")
 
   unlink(file.path(filepath(object), "model0", "*.group.quants.fst"))
   unlink(file.path(filepath(object), "model1", "*.assay.means.fst"))

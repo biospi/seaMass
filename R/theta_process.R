@@ -9,7 +9,6 @@ setMethod("process", "theta_block", function(object, job.id) {
   cat(paste0("[", Sys.time(), "]  THETA-PROCESS name=", name(container(object)), " block=", name(object), " \n"))
 
   ellipsis <- ctrl@ellipsis
-  ellipsis$norm.groups <- ctrl@norm.groups
   ellipsis$object <- object
 
   # normalise
