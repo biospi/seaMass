@@ -32,7 +32,7 @@ seaMass_sigma <- function(
 ) {
   # check for finished output
   if (!is.null(open_sigma(path))) stop(paste0("ERROR: completed seaMass-sigma already found at ", path))
-  if (!dir.create(path)) stop(paste0("ERROR: could not create ", path))
+  dir.create(path, showWarnings = F)
   object <- open_sigma(path, force = T)
 
   ### INIT
