@@ -72,8 +72,11 @@ import_ProteomeDiscoverer <- function(
   DT[, row := NULL]
 
   # we can get a spectrum assigned to multiple peptides in a protein - if this occurs, assign the spectrum as a 'new' ambiguous peptide
+  # hack: data.table bug crashes R?
   setorder(DT, Component)
-  DT[, Component := paste(Component, collapse = " "), by = .(Group, Measurement, Use)]
+  DT[, Component2 := toString(Component), by = .(Group, Measurement, Use)]
+  DT[, Component := NULL]
+  setnames(DT, "Component2", "Component")
   DT <- unique(DT)
 
   # melt label counts
@@ -161,8 +164,11 @@ import_ProteinPilot <- function(
   rm(DT.raw)
 
   # we can get a spectrum assigned to multiple peptides in a protein - if this occurs, assign the spectrum as a 'new' ambiguous peptide
+  # hack: data.table bug crashes R?
   setorder(DT, Component)
-  DT[, Component := paste(Component, collapse = " "), by = .(Group, Measurement, Use)]
+  DT[, Component2 := toString(Component), by = .(Group, Measurement, Use)]
+  DT[, Component := NULL]
+  setnames(DT, "Component2", "Component")
   DT <- unique(DT)
 
   # melt
@@ -493,8 +499,11 @@ import_Progenesis <- function(
   )], DT.raw[, .SD, .SDcols = names(DT.raw) %like% "^Raw abundance "])
 
   # group ambiguous PSMs so seaMass-Delta treats them as a single component per group
+  # hack: data.table bug crashes R?
   setorder(DT, Component)
-  DT[, Component := paste(Component, collapse = " "), by = .(Group, Measurement)]
+  DT[, Component2 := toString(Component), by = .(Group, Measurement)]
+  DT[, Component := NULL]
+  setnames(DT, "Component2", "Component")
   DT <- unique(DT)
 
   # melt
@@ -707,8 +716,11 @@ import_MaxQuant_evidence0 <- function(
   DT <- dcast(DT, Group + Component + Measurement ~ Run, value.var = "Count")
 
   # group ambiguous transitions so seaMass-Delta treats them as a single component per group ## UNNECCESARY?
+  # hack: data.table bug crashes R?
   setorder(DT, Component)
-  DT[, Component := paste(Component, collapse = " "), by = .(Group, Measurement)]
+  DT[, Component2 := toString(Component), by = .(Group, Measurement)]
+  DT[, Component := NULL]
+  setnames(DT, "Component2", "Component")
   DT <- unique(DT)
 
   # melt
