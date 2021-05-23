@@ -13,6 +13,7 @@
   width = 1024,
   height = 768,
   data.fdr = group_quants_fdr(object),
+  truth.func = NULL,
   output = "plotly",
   ggplot.nlabel = 25
 )

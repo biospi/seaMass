@@ -76,13 +76,15 @@ setMethod("plot_volcano", "seaMass_delta", function(
   width = 1024,
   height = 768,
   data.fdr = group_quants_fdr(object),
+  truth.func = NULL,
   output = "plotly",
   ggplot.nlabel = 25
 ) {
   DT.fdr <- as.data.table(data.fdr)
   DT.fdr[, s := get(stdev.col)]
   DT.fdr[, x := get(x.col)]
-  if ("truth" %in% colnames(data.fdr)) {
+  if (!is.null(truth.func)) {
+    DT.fdr <- do.call(truth.func, list(DT.fdr))
     if (tolower(y.col) == "fdp") {
       # compute FDP
       DT.fdr[, FD := ifelse(truth == 0 | x * truth < 0, 1, 0)]
@@ -276,7 +278,6 @@ setMethod("plot_pr", "seaMass_delta", function(
     if (is.null(DT.pr$lower)) DT.pr[, lower := get(y.col)]
     if (is.null(DT.pr$upper)) DT.pr[, upper := get(y.col)]
     DT.pr <- DT.pr[, .(lower, y = get(y.col), upper, FD = ifelse(truth == 0, 1, 0))]
-    setorder(DT.pr, y, na.last = T)
     DT.pr[, Discoveries := 1:nrow(DT.pr)]
     DT.pr[, TrueDiscoveries := cumsum(1 - FD)]
     DT.pr[, FDP := cumsum(FD) / Discoveries]

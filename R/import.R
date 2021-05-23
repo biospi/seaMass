@@ -216,15 +216,16 @@ import_OpenSWATH <- function(
 
   DT <- rbindlist(lapply(file, function(f) {
     if (is.data.frame(f)) {
-      DT <- as.data.file(data)
+      DT <- as.data.table(data)
     } else {
       DT <- fread(file = f, showProgress = T)
     }
 
-    # fold out shared peptides and mark if use shared
+    # fold out shared peptides and mark if use shared or decoy
     DT[, row := seq_len(nrow(DT))]
-    DT[, ProteinName := sub("^[0-9]+/", "", ProteinName)]
-    DT.groups <- DT[, list(Group = unlist(strsplit(ProteinName, "/"))), by = row]
+    DT[, ProteinName2 := sub("^.+/", "", ProteinName)]
+    DT.groups <- DT[, list(Group = unlist(strsplit(ProteinName2, "/"))), by = row]
+    DT[, ProteinName2 := NULL]
     DT.groups[, Group := trimws(Group)]
     DT.groups[, Use := T]
     if (!use.decoys) DT.groups[grep("^reverse_", Group), Use := F]
