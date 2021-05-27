@@ -64,11 +64,7 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
         if ("group.quants.volcano" %in% ctrl@plot) {
           cat(paste0("[", Sys.time(), "]     generating group quants volcano plot...\n"))
           text <- paste0(group, " volcano plot for '", gsub("\\.", "' covariate, effect '", effect), "'", ifelse(name(object) == name(root(object)), "", paste0(" (", name(object), ")")))
-          if (ctrl@truth.func == "") {
-            fig <- plot_volcano(object, data.fdr = group_quants_fdr(object, data.table(Effect = effect)))
-          } else {
-            fig <- plot_volcano(object, data.fdr = do.call(ctrl@truth.func, list(data.fdr = group_quants_fdr(object, data.table(Effect = effect)))))
-          }
+          fig <- plot_volcano(object, truth.func = ctrl@truth.func, data.fdr = group_quants_fdr(object, data.table(Effect = effect)))
           report.index[[paste0("group.quants.volcano.", effect)]] <- data.table(
             section = "Covariate-level", section.order = 60, item = text, item.order = 25000,
             item.href = generate_markdown(

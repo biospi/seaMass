@@ -83,7 +83,7 @@ setMethod("plot_volcano", "seaMass_delta", function(
   DT.fdr <- as.data.table(data.fdr)
   DT.fdr[, s := get(stdev.col)]
   DT.fdr[, x := get(x.col)]
-  if (!is.null(truth.func)) {
+  if (!is.null(truth.func) && truth.func != "") {
     DT.fdr <- do.call(truth.func, list(DT.fdr))
     if (tolower(y.col) == "fdp") {
       # compute FDP

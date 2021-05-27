@@ -209,6 +209,7 @@ import_OpenSWATH <- function(
   max.m_score = 0.05,
   use.shared.peptides = FALSE,
   use.decoys = FALSE,
+  ignore.protein.decoy.prefix = "DECOY",
   data = NULL
 ) {
   if (is.null(file) && is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
@@ -221,14 +222,14 @@ import_OpenSWATH <- function(
       DT <- fread(file = f, showProgress = T)
     }
 
-    # fold out shared peptides and mark if use shared or decoy
+    # fold out shared peptides and mark unused if protein decoy or shared
     DT[, row := seq_len(nrow(DT))]
-    DT[, ProteinName2 := sub("^.+/", "", ProteinName)]
+    DT[, ProteinName2 := sub("^[^/]+/", "", ProteinName)]
     DT.groups <- DT[, list(Group = unlist(strsplit(ProteinName2, "/"))), by = row]
     DT[, ProteinName2 := NULL]
     DT.groups[, Group := trimws(Group)]
     DT.groups[, Use := T]
-    if (!use.decoys) DT.groups[grep("^reverse_", Group), Use := F]
+    if (!is.null(ignore.protein.decoy.prefix) && ignore.protein.decoy.prefix != "") DT.groups[grep(paste0("^", ignore.protein.decoy.prefix, "_"), Group), Use := F]
     if (!use.shared.peptides) DT.groups[Use == T, Use := sum(Use) == 1, by = row]
     DT <- merge(DT, DT.groups, by = "row", sort = F)
     DT[, row := NULL]
