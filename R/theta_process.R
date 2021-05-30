@@ -126,7 +126,7 @@ setMethod("process", "theta_block", function(object, job.id) {
         section = "Study-level", section.order = 0, item = text, item.order = 50000,
         item.href = generate_markdown(
           fit.theta,
-          plot_assay_means(fit.theta),
+          plot_assay_means(fit.theta, assay_design(fit.sigma, as.data.table = T)$Assay[1:32]),
           root, paste0("seamass_theta__", name(fit.theta), "__assay_means"),
           text
         )
@@ -136,7 +136,7 @@ setMethod("process", "theta_block", function(object, job.id) {
     # save group standards plot
     if ("group.standards" %in% ctrl@plot && length(unique(assay_design(fit.theta)$RefWeight)) != 1) {
       cat(paste0("[", Sys.time(), "]   generating group standards plot...\n"))
-      fig <- plot_group_standards(fit.theta, summary = T)
+      fig <- plot_group_standards(fit.theta, groups(fit.sigma, as.data.table = T)$Group[1:32], summary = T)
       report.index$group.means <- data.table(
         section = "Study-level", section.order = 0, item = paste0(group, " reference standards", ifelse(name(fit.theta) == name(fit.sigma), "", paste0(" (", name(fit.theta), ")"))), item.order = 150000,
         item.href = generate_markdown(

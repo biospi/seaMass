@@ -7,7 +7,6 @@
 import_OpenSWATH(
   file = NULL,
   max.m_score = 0.05,
-  use.shared.peptides = FALSE,
   use.decoys = FALSE,
   ignore.protein.decoy.prefix = "DECOY",
   data = NULL

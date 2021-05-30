@@ -65,14 +65,14 @@ seaMass_delta(
 
 \S4method{group_quants_fdr}{seaMass_delta}(
   object,
-  groups = NULL,
+  effect = NULL,
   type = "group.quants.fdr",
   as.data.table = FALSE
 )
 
 \S4method{component_deviations_fdr}{seaMass_delta}(
   object,
-  groups = NULL,
+  effect = NULL,
   type = "component.deviations.fdr",
   as.data.table = FALSE
 )

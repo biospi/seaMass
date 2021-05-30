@@ -214,22 +214,27 @@ setMethod("timings", "sigma_block", function(object, input = "model1", as.data.t
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("assay_stdevs", "sigma_block", function(object, input = "model1", as.data.table = FALSE) {
+setMethod("assay_stdevs", "sigma_block", function(object, assays = NULL, input = "model1", as.data.table = FALSE) {
   DT <- priors(object, input, as.data.table = T)
 
   if (!is.null(DT)) {
-    DT <- cbind(
-      DT[Effect == "Assay", .(Block, Assay, s, df)],
-      DT[Effect == "Components", .(B.s0C = s0, B.df0C = df0)],
-      DT[Effect == "Components", .(B.sC = s, B.dfC = df)],
-      DT[Effect == "Measurements", .(B.s0M = s0, B.df0M = df0)],
-      DT[Effect == "Measurements", .(B.sM = s, B.dfM = df)]
-    )
+    if (is.null(assays)) assays <- assay_design(object, as.data.table = T)$Assay
+    DT.assays <- DT[Effect == "Assay" & Assay %in% assays, .(Block, Assay, s, df)]
+    if (nrow(DT.assays) > 0) {
+      DT <- cbind(
+        DT.assays,
+        DT[Effect == "Components", .(B.s0C = s0, B.df0C = df0)],
+        DT[Effect == "Components", .(B.sC = s, B.dfC = df)],
+        DT[Effect == "Measurements", .(B.s0M = s0, B.df0M = df0)],
+        DT[Effect == "Measurements", .(B.sM = s, B.dfM = df)]
+      )
+      if (!as.data.table) setDF(DT)
+      else DT[]
+      return(DT)
+    }
   }
 
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
+  return(NULL)
 })
 
 
@@ -342,10 +347,11 @@ setMethod("group_means", "sigma_block", function(object, groups = NULL, summary 
 #' @include generics.R
 setMethod("plot_assay_stdevs", "sigma_block", function(
   object,
+  assays = NULL,
   data = list(
-    assay_stdevs(object, as.data.table = T)[, list(Block, Assay, s, df)],
-    assay_stdevs(object, as.data.table = T)[, list(Block, Assay, s = B.sC, df = B.dfC)],
-    assay_stdevs(object, as.data.table = T)[, list(Block, Assay, s = B.sM, df = B.dfM)]
+    assay_stdevs(object, assays, as.data.table = T)[, list(Block, Assay, s, df)],
+    assay_stdevs(object, assays, as.data.table = T)[, list(Block, Assay, s = B.sC, df = B.dfC)],
+    assay_stdevs(object, assays, as.data.table = T)[, list(Block, Assay, s = B.sM, df = B.dfM)]
   ),
   draw_quantiles = list(0.5, NULL, NULL),
   trim = c(0.05, 0.95),

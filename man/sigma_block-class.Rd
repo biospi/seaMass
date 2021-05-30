@@ -60,7 +60,7 @@
 
 \S4method{timings}{sigma_block}(object, input = "model1", as.data.table = FALSE)
 
-\S4method{assay_stdevs}{sigma_block}(object, input = "model1", as.data.table = FALSE)
+\S4method{assay_stdevs}{sigma_block}(object, assays = NULL, input = "model1", as.data.table = FALSE)
 
 \S4method{assay_deviations}{sigma_block}(
   object,

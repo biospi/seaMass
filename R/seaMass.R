@@ -218,10 +218,12 @@ setMethod("plot_dists", "seaMass", function(
   variable.labels = TRUE,
   variable.summary.cols = NULL,
   variable.label.cols = NULL,
-  variable.interval = 12,
+  variable.n = NULL,
+  variable.page = 1,
+  variable.return.npage = FALSE,
   show.legend = TRUE,
-  min.width = 1024,
-  min.height = 256,
+  width = 800,
+  height = 450,
   output = "plotly"
 ) {
   fit.sigma <- root(object)
@@ -324,17 +326,33 @@ setMethod("plot_dists", "seaMass", function(
   DT1[, Summary := factor(Summary, levels = unique(Summary))]
   DT1[, (paste0("_", label.cols)) := NULL]
 
+  # which variables to plot? return NULL when finished
+  if (is.null(variable.n)) {
+    vn <- nrow(DT1)
+  } else {
+    vn <- variable.n
+  }
+  if (variable.return.npage == T) return(ceiling(nrow(DT1) / vn))
+  if (variable.page * vn > nrow(DT1)) {
+    if ((variable.page - 1) * vn + 1 > nrow(DT1)) return(NULL)
+    DT1 <- DT1[((variable.page - 1) * vn + 1):nrow(DT1)]
+    eadd <- vn - nrow(DT1)
+  } else {
+    DT1 <- DT1[((variable.page - 1) * vn + 1):(variable.page * vn)]
+    eadd <- 0
+  }
+
   # set up plot
   g <- ggplot2::ggplot(DT1, ggplot2::aes(x = Summary))
   if (horizontal) {
-    g <- g + ggplot2::coord_flip(ylim = value.limits, expand = F)
-    g <- g + ggplot2::theme(axis.title.y = ggplot2::element_blank(), axis.text.y = ggplot2::element_text(size = ggplot2::rel(0.7)))
-    g <- g + ggplot2::scale_x_discrete(drop = F) # workaround for ggplot2 levels bug
+    g <- g + ggplot2::coord_flip(ylim = value.limits)
+    g <- g + ggplot2::theme(axis.title.y = ggplot2::element_blank())
+    g <- g + ggplot2::scale_x_discrete(expand = ggplot2::expansion(add = c(eadd, 0)))
     if (!variable.labels) g <- g + ggplot2::theme(axis.text.y = ggplot2::element_blank())
   } else {
-    g <- g + ggplot2::coord_cartesian(ylim = value.limits, expand = F)
-    g <- g + ggplot2::theme(axis.title.x = ggplot2::element_blank(), axis.text.x = ggplot2::element_text(angle = 90), axis.text.x = ggplot2::element_text(size = ggplot2::rel(0.7)))
-    g <- g + ggplot2::scale_y_discrete(drop = F) # workaround for ggplot2 levels bug
+    g <- g + ggplot2::coord_cartesian(ylim = value.limits)
+    g <- g + ggplot2::theme(axis.title.x = ggplot2::element_blank(), axis.text.x = ggplot2::element_text(angle = 90))
+    g <- g + ggplot2::scale_x_discrete(expand = ggplot2::expansion(add = c(0, eadd)))
     if (!variable.labels) g <- g + ggplot2::theme(axis.text.x = ggplot2::element_blank())
   }
   g <- g + ggplot2::ylab(paste("log2", value.label))
@@ -515,19 +533,12 @@ setMethod("plot_dists", "seaMass", function(
   }
 
   # origin
-  g <- g + ggplot2::geom_hline(yintercept = 0, show.legend = F)
+  g <- g + ggplot2::geom_segment(x = -1e10, y = 0, xend = 1e10, yend = 0, show.legend = F, size = 0.25)
   if (output == "ggplot") return(g)
 
   ## CONVERT TO PLOTLY
 
-  if (horizontal) {
-    width = min.width
-    height = min.height + variable.interval * nlevels(DT1$Summary)
-  } else {
-    width = min.width + variable.interval * nlevels(DT1$Summary)
-    height = min.height
-  }
-  fig <- suppressWarnings(plotly::ggplotly(g, min(width, 32767), min(height, 32767), "text"))
+  fig <- suppressWarnings(plotly::ggplotly(g, width, height, "text"))
   # horrible hack for ggplotly tooltip
   for (i in 1:length(fig$x$data)) fig$x$data[[i]]$text <- sapply(fig$x$data[[i]]$text, function(s) gsub("density", paste("log2", value.label), s), USE.NAMES = F)
   # remove annotation as ggplotly label implementation is awful
@@ -677,8 +688,8 @@ setMethod("plot_robust_pca", "seaMass", function(
   ellipse.alpha = 0.2,
   ellipse.size = 0.2,
   point.size = 1,
-  width = 1024,
-  height = 768,
+  width = 800,
+  height = 450,
   data = NULL,
   output = "plotly",
   ggplot.labels = TRUE,

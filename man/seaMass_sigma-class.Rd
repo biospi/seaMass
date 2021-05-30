@@ -82,7 +82,7 @@ open_sigma(path = "fit.seaMass", force = FALSE)
 
 \S4method{priors}{seaMass_sigma}(object, input = "model1", as.data.table = FALSE)
 
-\S4method{assay_stdevs}{seaMass_sigma}(object, input = "model1", as.data.table = FALSE)
+\S4method{assay_stdevs}{seaMass_sigma}(object, assays = NULL, input = "model1", as.data.table = FALSE)
 
 \S4method{assay_deviations}{seaMass_sigma}(
   object,

@@ -207,7 +207,6 @@ import_ProteinPilot <- function(
 import_OpenSWATH <- function(
   file = NULL,
   max.m_score = 0.05,
-  use.shared.peptides = FALSE,
   use.decoys = FALSE,
   ignore.protein.decoy.prefix = "DECOY",
   data = NULL
@@ -217,57 +216,57 @@ import_OpenSWATH <- function(
 
   DT <- rbindlist(lapply(file, function(f) {
     if (is.data.frame(f)) {
-      DT <- as.data.table(data)
+      DT.wide <- as.data.table(data)
     } else {
-      DT <- fread(file = f, showProgress = T)
+      DT.wide <- fread(file = f, showProgress = T)
     }
 
-    # fold out shared peptides and mark unused if protein decoy or shared
-    DT[, row := seq_len(nrow(DT))]
-    DT[, ProteinName2 := sub("^[^/]+/", "", ProteinName)]
-    DT.groups <- DT[, list(Group = unlist(strsplit(ProteinName2, "/"))), by = row]
-    DT[, ProteinName2 := NULL]
+    # re-order OpenSWATH's 'Protein Groups', removing decoys
+    DT.wide[, row := seq_len(nrow(DT.wide))]
+    DT.groups <- DT.wide[, .(Group = unlist(strsplit(sub("^[^/]+/", "", ProteinName), "/"))), by = row]
     DT.groups[, Group := trimws(Group)]
-    DT.groups[, Use := T]
-    if (!is.null(ignore.protein.decoy.prefix) && ignore.protein.decoy.prefix != "") DT.groups[grep(paste0("^", ignore.protein.decoy.prefix, "_"), Group), Use := F]
-    if (!use.shared.peptides) DT.groups[Use == T, Use := sum(Use) == 1, by = row]
-    DT <- merge(DT, DT.groups, by = "row", sort = F)
-    DT[, row := NULL]
+    if (!is.null(ignore.protein.decoy.prefix) && ignore.protein.decoy.prefix != "") DT.groups <- DT.groups[!grep(paste0("^", ignore.protein.decoy.prefix, "_"), Group)]
+    setorder(DT.groups, row, Group)
+    # reassemble to our Protein Groups
+    DT.groups <- DT.groups[, .(N = .N, Group = paste(Group, collapse = "/")), by = row]
+    setorder(DT.groups, Group)
+    DT.groups[N > 1, Group := paste(N, Group, sep = "/")]
+    DT.groups[, N := NULL]
+    DT.groups[, Group := factor(Group, levels = unique(Group))]
+    DT.wide <- merge(DT.wide, DT.groups, by = "row", sort = F, all.x = T)
 
-    # other filters
-    DT[m_score > max.m_score, Use := F]
-    if (!use.decoys) DT[decoy != 0, Use := F]
+    # filters
+    DT.wide[, Use := T]
+    DT.wide[m_score > max.m_score, Use := F]
+    if (!use.decoys) DT.wide[decoy != 0, Use := F]
 
     # create long data table
-    DT <- DT[, .(
+    DT.wide <- DT.wide[, .(
       Group,
-      GroupInfo = factor(""),
       Component = FullPeptideName,
-      Measurement = gsub(";", ";bayesprot;", aggr_Fragment_Annotation),
+      Measurement = gsub(";", ";seaMass;", aggr_Fragment_Annotation),
       Run = paste(run_id, tools::file_path_sans_ext(basename(filename)), sep = ";"),
-      Count = gsub(";", ";bayesprot;", aggr_Peak_Area),
+      Count = gsub(";", ";seaMass;", aggr_Peak_Area),
       Use
     )]
-    DT <- DT[, lapply(.SD, function(x) unlist(tstrsplit(x, ";bayesprot;", fixed = T)))]
-    DT[, Group := sub("^1/", "", Group)]
-    DT[, Group := factor(Group, levels = unique(Group))]
-    DT[, Component := factor(Component, levels = unique(Component))]
-    DT[, Measurement := factor(Measurement, levels = unique(Measurement))]
-    DT[, Run := factor(Run, levels = unique(Run))]
-    DT[, Count := as.numeric(Count)]
-    DT[, Use := as.logical(Use)]
+    DT.long <- DT.wide[, lapply(.SD, function(x) unlist(tstrsplit(x, ";seaMass;", fixed = T)))]
+    DT.long[, Group := factor(Group, levels = levels(DT.wide$Group))]
+    DT.long[, Component := factor(Component, levels = unique(Component))]
+    DT.long[, Measurement := factor(Measurement, levels = unique(Measurement))]
+    DT.long[, Run := factor(Run, levels = unique(Run))]
+    DT.long[, Count := as.numeric(Count)]
+    DT.long[, Use := as.logical(Use)]
 
-    return(DT)
+    return(DT.long)
   }))
 
+  # remove measurements that have more than one identification in any assay (todo: is this necessary?)
+  #DT[, N := .N, by = .(Measurement, Run)]
+  #DT[N != 1, Use := F]
+  #DT[, N := NULL]
 
-  # remove measurements that have more than one identification in any assay
-  DT[, N := .N, by = .(Measurement, Run)]
-  DT[N != 1, Use := F]
-  DT[, N := NULL]
   DT[, GroupInfo := ""]
   DT[, Channel := factor("1")]
-
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Channel"))
   setorder(DT, Group, Component, Measurement, Run, Channel)
 

@@ -4,7 +4,7 @@
 \alias{generate_markdown,seaMass-method}
 \title{Generate Rmarkdown for figure}
 \usage{
-\S4method{generate_markdown}{seaMass}(object, fig, root, filepath, title = filepath)
+\S4method{generate_markdown}{seaMass}(object, figs, root, filepath, title = filepath)
 }
 \description{
 Generate Rmarkdown for figure

@@ -221,14 +221,14 @@ setMethod("component_deviations_de", "seaMass_delta", function(object, component
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("group_quants_fdr", "seaMass_delta", function(object, groups = NULL, type = "group.quants.fdr", as.data.table = FALSE) {
+setMethod("group_quants_fdr", "seaMass_delta", function(object, effect = NULL, type = "group.quants.fdr", as.data.table = FALSE) {
   if (file.exists(file.path(filepath(object), paste0(type, ".fst")))) {
     DT <- fst::read.fst(file.path(filepath(object), paste0(type, ".fst")), as.data.table = as.data.table)
-    if (!is.null(groups)) {
-      if (is.data.frame(groups)) {
-        DT <- merge(DT, groups, by = colnames(groups), sort = F)
+    if (!is.null(effect)) {
+      if (is.data.frame(effect)) {
+        DT <- merge(DT, effect, by = colnames(effect), sort = F)
       } else {
-        DT <- DT[DT$Group %in% groups,]
+        DT <- DT[DT$Effect %in% effect,]
       }
     }
     return(DT)
@@ -242,10 +242,10 @@ setMethod("group_quants_fdr", "seaMass_delta", function(object, groups = NULL, t
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_deviations_fdr", "seaMass_delta", function(object, groups = NULL, type = "component.deviations.fdr", as.data.table = FALSE) {
+setMethod("component_deviations_fdr", "seaMass_delta", function(object, effect = NULL, type = "component.deviations.fdr", as.data.table = FALSE) {
   if (file.exists(file.path(filepath(object), paste0(type, ".fst")))) {
     DT <- fst::read.fst(file.path(filepath(object), paste0(type, ".fst")), as.data.table = as.data.table)
-    if (!is.null(groups)) DT <- DT[DT$Group %in% groups,]
+    if (!is.null(effect)) DT <- DT[DT$Effect %in% effect,]
     return(DT)
   } else {
     return(NULL)
@@ -283,7 +283,7 @@ setMethod("plot_group_quants_de", "seaMass_delta", function(
 #' @include generics.R
 setMethod("plot_group_quants_fdr", "seaMass_delta", function(
   object,
-  groups = NULL,
+  effect = NULL,
   summary = TRUE,
   colour = list("lfdr", "grey"),
   variable.summary.cols = c("qvalue", "Effect", "Covariate", "Contrast", "Baseline", "Group", "Cont.uS", "Base.uS", "Cont.qS", "Base.qS",
@@ -292,18 +292,18 @@ setMethod("plot_group_quants_fdr", "seaMass_delta", function(
   value.label = "fold change",
   ...
 ) {
-  de.groups <- groups
-  if (is.data.frame(de.groups) && "Effect" %in% colnames(de.groups)) {
-    de.groups$Effect <- NULL
-    de.groups <- unique(de.groups)
-    if (nrow(de.groups) == 0) de.groups <- NULL
+  de.effect <- effect
+  if (is.data.frame(de.effect) && "Effect" %in% colnames(de.effect)) {
+    de.effect$Effect <- NULL
+    de.effect <- unique(de.effect)
+    if (nrow(de.effect) == 0) de.effect <- NULL
   }
 
   return(plot_dists(
     object,
     data = list(
-      group_quants_fdr(object, groups, as.data.table = T),
-      group_quants_de(object, de.groups, summary = summary, as.data.table = T)
+      group_quants_fdr(object, effect, as.data.table = T),
+      group_quants_de(object, de.effect, summary = summary, as.data.table = T)
     ),
     colour = colour,
     variable.summary.cols = variable.summary.cols,

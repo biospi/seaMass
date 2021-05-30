@@ -3,7 +3,7 @@
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("generate_markdown", "seaMass", function(object, fig, root, filepath, title = filepath) {
+setMethod("generate_markdown", "seaMass", function(object, figs, root, filepath, title = filepath) {
   ctrl <- control(seaMass::root(object))
   dir.create(dirname(filepath), recursive = T, showWarnings = F)
 
@@ -128,17 +128,21 @@ setMethod("assemble_report", "seaMass_sigma", function(object, filename = paste0
   ), file = index.file)
 
   # gather index and sort
-  files <- list.files(dirname(filepath(object)), pattern = "^.*\\.report\\.fst$", recursive = T, full.names = T)
-  DT <- rbindlist(lapply(files, function(file) {
-    fst::read.fst(file, as.data.table = T)
+  fits <- unlist(list(object, open_thetas(object), open_deltas(object)), recursive = F)
+  DT <- rbindlist(lapply(fits, function(fit) {
+    rbindlist(lapply(list.files(file.path(filepath(fit), "report"), pattern = "report\\.fst$",  full.names = T), function(file) {
+      DT <- fst::read.fst(file, as.data.table = T)
+      DT[, file := file.path(filepath(fit), "report", file)]
+      return(DT)
+    }))
   }))
-  setkey(DT, section.order, section, item.order, item)
+  setkey(DT, section.order, page.order)
   DT[, section.dup := duplicated(section)]
 
   # populate index.Rmd
   for (i in 1:nrow(DT)) {
     if (!DT[i, section.dup]) cat(paste0("\n### ", DT[i, section], "\n"), file = index.file, append = T)
-    cat(paste0("* [", DT[i, item], "](", DT[i, item.href] ,")\n"), file = index.file, append = T)
+    cat(paste0("* [", DT[i, page], "](", DT[i, tools::file_path_sans_ext(basename(file))] ,".html)\n"), file = index.file, append = T)
   }
 
   # render site

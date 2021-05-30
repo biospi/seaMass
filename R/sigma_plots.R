@@ -14,96 +14,68 @@ setMethod("plots", "seaMass_sigma", function(object, batch, job.id) {
   groups <- groups[rep_len(1:ctrl@plot.nbatch, length(groups)) == batch]
   # plots!
   lims <- readRDS(file.path(filepath(object), "limits.rds"))
-  report.index <- rbindlists(parallel_lapply(groups, function(item, object, ctrl, lims, batch) {
-    # markdown folder
-    report.index1 <- list()
-    root1 <- file.path(filepath(object), "markdown", paste0("group.", as.integer(item)))
-    dir.create(root1, recursive = T)
+  report.index <- rbindlist(parallel_lapply(groups, function(item, object, ctrl, lims, batch) {
+     plots <- list()
 
     if ("group.quants" %in% ctrl@plot) {
-      fig <- plot_group_quants(object, item, value.limits = lims$group.quants, summary = T)
-      report.index1$group.quant <- data.table(
-        section = paste0(ctrl@group[1], " raw quants"), section.order = 150, item = item, item.order = as.integer(item),
-        item.href = generate_markdown(
-          object,
-          fig,
-          root1, paste0("seamass_sigma__", tolower(ctrl@group[1]), "_quants_", as.integer(item)),
-          paste0(ctrl@group[1], " raw quants for ", item))
-      )
+      pages <- 1:plot_group_quants(object, item, variable.n = 32, variable.return.npage = T)
+      names(pages)[1] <- paste0("Raw", ctrl@group[1], " Quants")
+      plots <- append(plots, lapply(pages, function(i) {
+        plot_group_quants(object, item, value.limits = lims$group.quants, variable.n = 32, variable.page = i, summary = T)
+      }))
     }
 
     if (ctrl@component.model != "") {
       if ("component.means" %in% ctrl@plot) {
-        fig <- plot_component_means(object, item, value.limits = lims$component.means, summary = T)
-        report.index1$component.means <- data.table(
-          section = paste0(ctrl@component[1], " means"), section.order = 250, item = item, item.order = as.integer(item),
-          item.href = generate_markdown(
-            object,
-            fig,
-            root1, paste0("seamass_sigma__", tolower(ctrl@component[1]), "_means_", as.integer(item)),
-            paste0(ctrl@component[1], " means for ", item)
-          )
-        )
+        pages <- 1:plot_component_means(object, item, variable.n = 32, variable.return.npage = T)
+        names(pages)[1] <- paste0(ctrl@component[1], " Means")
+        plots <- append(plots, lapply(pages, function(i) {
+          plot_component_means(object, item, value.limits = lims$component.means, variable.n = 32, variable.page = i, summary = T)
+        }))
       }
       if ("component.stdevs" %in% ctrl@plot) {
-        fig <- plot_component_stdevs(object, item, value.limits = lims$component.stdevs, summary = T)
-        report.index1$component.stdevs <- data.table(
-          section = paste0(ctrl@component[1], " stdevs"), section.order = 300, item = item, item.order = as.integer(item),
-          item.href = generate_markdown(
-            object,
-            fig,
-            root1, paste0("seamass_sigma__", tolower(ctrl@component[1]), "_stdevs_", as.integer(item)),
-            paste0(ctrl@component[1], " stdevs for ", item)
-          )
-        )
+        pages <- 1:plot_component_stdevs(object, item, variable.n = 32, variable.return.npage = T)
+        names(pages)[1] <- paste0(ctrl@component[1], " Stdevs")
+        plots <- append(plots, lapply(pages, function(i) {
+          plot_component_stdevs(object, item, value.limits = lims$component.stdevs, variable.n = 32, variable.page = i, summary = T)
+        }))
       }
       if ("component.deviations" %in% ctrl@plot) {
-        fig <- plot_component_deviations(object, item, value.limits = lims$component.deviations, summary = T)
-        report.index1$component.deviations <- data.table(
-          section = paste0(ctrl@component[1], " deviations"), section.order = 200, item = item, item.order = as.integer(item),
-          item.href = generate_markdown(
-            object,
-            fig,
-            root1, paste0("seamass_sigma__", tolower(ctrl@component[1]), "_deviations_", as.integer(item)),
-            paste0(ctrl@component[1], " deviations for ", item)
-          )
-        )
+        pages <- 1:plot_component_deviations(object, item, variable.n = 32, variable.return.npage = T)
+        names(pages)[1] <- paste0(ctrl@component[1], " Stdevs")
+        plots <- append(plots, lapply(pages, function(i) {
+          plot_component_deviations(object, item, value.limits = lims$component.deviations, variable.n = 32, variable.page = i, summary = T)
+        }))
       }
     }
 
     if ("measurement.means" %in% ctrl@plot) {
-      fig <- plot_measurement_means(object, item, value.limits = lims$measurement.means, summary = T)
-      report.index1$measurement.means <- data.table(
-        section = paste0(ctrl@measurement[1], " means"), section.order = 400, item = item, item.order = as.integer(item),
-        item.href = generate_markdown(
-          object,
-          fig,
-          root1, paste0("seamass_sigma__", tolower(ctrl@measurement[1]), "_means_", as.integer(item)),
-          paste0(ctrl@measurement[1], " means for ", item)
-        )
-      )
+      pages <- 1:plot_measurement_means(object, item, variable.n = 32, variable.return.npage = T)
+      names(pages)[1] <- paste0(ctrl@measurement[1], " Means")
+      plots <- append(plots, lapply(pages, function(i) {
+        plot_measurement_means(object, item, value.limits = lims$measurement.means, variable.n = 32, variable.page = i, summary = T)
+      }))
     }
     if ("measurement.stdevs" %in% ctrl@plot) {
-      fig <- plot_measurement_stdevs(object, item, value.limits = lims$measurement.stdevs, summary = T)
-      report.index1$measurement.stdevs <- data.table(
-        section = paste0(ctrl@measurement[1], " stdevs"), section.order = 450, item = item, item.order = as.integer(item),
-        item.href = generate_markdown(
-          object,
-          fig,
-          root1, paste0("seamass_sigma__", tolower(ctrl@measurement[1]), "_stdevs_", as.integer(item)),
-          paste0(ctrl@measurement[1], " stdevs for ", item)
-        )
-      )
+      pages <- 1:plot_measurement_stdevs(object, item, variable.n = 32, variable.return.npage = T)
+      names(pages)[1] <- paste0(ctrl@measurement[1], " Stdevs")
+      plots <- append(plots, lapply(pages, function(i) {
+        plot_measurement_stdevs(object, item, value.limits = lims$measurement.stdevs, variable.n = 32, variable.page = i, summary = T)
+      }))
     }
 
-    # zip
-    if (length(report.index1) > 0) render_markdown(object, root1)
-
-    return(report.index1)
+    # save plots and return index
+    file <- paste0(tolower(ctrl@group[1]), as.integer(item), ".rds")
+    saveRDS(plots, file.path(filepath(object), "report", file))
+    return(data.table(
+      section = ctrl@group[2], section.order = 1000,
+      page = as.character(item), page.order = as.integer(item) * 100,
+      file = file
+    ))
   }, nthread = ctrl@nthread))
 
   # save index
-  if (length(report.index) > 0) fst::write.fst(rbindlist(report.index), file.path(filepath(object), "report", paste0("groups.", batch, ".report.fst")))
+  if (length(report.index) > 0) fst::write.fst(report.index, file.path(filepath(object), "report", paste0("groups.", batch, ".report.fst")))
 
   return(invisible(NULL))
 })

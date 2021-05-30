@@ -103,14 +103,14 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
             section = "Covariate-level", section.order = 60, item = text, item.order = 75000,
             item.href = generate_markdown(
               object,
-              plot_group_quants_fdr(object, data.table(Effect = effect)),
+              plot_group_quants_fdr(object, data.table(Effect = effect, Group = )),
               root, paste0("seamass_delta__", name(object), "__group_de__", gsub("\\.", "_", effect)),
               text
             )
           )
         }
       }
-    }
+    } #plot_assay_stdevs(fit.sigma, assay_design(fit.sigma, as.data.table = T)$Assay[1:32])
 
     # zip
     render_markdown(object, root)

@@ -69,13 +69,14 @@ setMethod("plots", "seaMass_delta", function(object, batch, job.id) {
 #' @include seaMass_delta.R
 setMethod("plot_volcano", "seaMass_delta", function(
   object,
+  effect = NULL,
   error.bars = TRUE,
   stdev.col = "PosteriorSD",
   x.col = "PosteriorMean",
   y.col = "qvalue",
   width = 1024,
   height = 768,
-  data.fdr = group_quants_fdr(object),
+  data.fdr = group_quants_fdr(object, effect),
   truth.func = NULL,
   output = "plotly",
   ggplot.nlabel = 25

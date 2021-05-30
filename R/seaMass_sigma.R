@@ -43,7 +43,7 @@ seaMass_sigma <- function(
 
   # setup seaMass folder structure
   if (file.exists(path)) unlink(path, recursive = T)
-  if (!dir.create(file.path(path, "sigma"), recursive = T))
+  if (!dir.create(file.path(path, "sigma", "report"), recursive = T))
     stop("ERROR: problem creating folder")
 
   # setup seaMass-sigma folder structure
@@ -587,8 +587,8 @@ setMethod("priors", "seaMass_sigma", function(object, input = "model1", as.data.
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("assay_stdevs", "seaMass_sigma", function(object, input = "model1", as.data.table = FALSE) {
-  DT <- rbindlist(lapply(blocks(object), function(block) assay_stdevs(block, input, as.data.table = T)))
+setMethod("assay_stdevs", "seaMass_sigma", function(object, assays = NULL, input = "model1", as.data.table = FALSE) {
+  DT <- rbindlist(lapply(blocks(object), function(block) assay_stdevs(block, assays, input, as.data.table = T)))
   if (nrow(DT) == 0) return(NULL)
 
   if (!as.data.table) setDF(DT)
@@ -749,10 +749,11 @@ setMethod("group_means", "seaMass_sigma", function(object, groups = NULL, summar
 #' @include generics.R
 setMethod("plot_assay_stdevs", "seaMass_sigma", function(
   object,
+  assays = NULL,
   data = list(
-    assay_stdevs(object, as.data.table = T)[, list(Block, Assay, s, df)],
-    assay_stdevs(object, as.data.table = T)[, list(Block, Assay, s = B.sC, df = B.dfC)],
-    assay_stdevs(object, as.data.table = T)[, list(Block, Assay, s = B.sM, df = B.dfM)]
+    assay_stdevs(object, assays, as.data.table = T)[, list(Block, Assay, s, df)],
+    assay_stdevs(object, assays, as.data.table = T)[, list(Block, Assay, s = B.sC, df = B.dfC)],
+    assay_stdevs(object, assays, as.data.table = T)[, list(Block, Assay, s = B.sM, df = B.dfM)]
   ),
   draw_quantiles = list(0.5, NULL, NULL),
   trim = c(0.05, 0.95),
