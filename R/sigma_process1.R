@@ -28,7 +28,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       DT <- robust_pca(object, summary = F, as.data.table = T)
 
       file <- paste0("pca_", tolower(ctrl@group[1]), "_quants__assay_stdevs__block", name(object), ".rds")
-      saveRDS(plot_robust_pca(object, data = DT), file.path(filepath(fit.sigma), "report", file))
+      saveRDS(list(plot_robust_pca(object, data = DT)), file.path(filepath(fit.sigma), "report", file))
       report.index$group.quants.pca1 <- data.table(
         section = "Block-level", section.order = 50,
         page = paste0("PCA - ", ctrl@group[1], " raw quants with assay stdevs QC - Block ", name(object)), page.order = 1000000 + as.integer(assay_design(object)$Block[1]),
@@ -36,7 +36,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       )
 
       file <- paste0("pca_", tolower(ctrl@group[1]), "_quants__condition__block", name(object), ".rds")
-      saveRDS(plot_robust_pca(object, colour = "Condition", fill = "Condition", shape = NULL, data = DT), file.path(filepath(fit.sigma), "report", file))
+      saveRDS(list(plot_robust_pca(object, colour = "Condition", fill = "Condition", shape = NULL, data = DT)), file.path(filepath(fit.sigma), "report", file))
       report.index$group.quants.pca2 <- data.table(
         section = "Block-level", section.order = 50,
         page = paste0("PCA - ", ctrl@group[1], " raw quants by Condition - Block ", name(object)), page.order = 1100000 + as.integer(assay_design(object)$Block[1]),
@@ -210,7 +210,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
         DT <- robust_pca(fit.sigma, type = "component.deviations", summary = F)
 
         file <- paste0("pca_", tolower(ctrl@component[1]), "_deviations__assay_stdevs.rds")
-        saveRDS(plot_robust_pca(fit.sigma, shape = "Block", data = DT), file.path(filepath(fit.sigma), "report", file))
+        saveRDS(list(plot_robust_pca(fit.sigma, shape = "Block", data = DT)), file.path(filepath(fit.sigma), "report", file))
         report.index$component.deviations.pca1 <- data.table(
           section = "Study-level", section.order = 0,
           page = paste0("PCA - ", ctrl@component[1], " deviations with assay stdevs QC"), page.order = 2000000,
@@ -218,7 +218,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
         )
 
         file <- paste0("pca_", tolower(ctrl@component[1]), "_deviations__conditions.rds")
-        saveRDS(plot_robust_pca(object, colour = "Condition", fill = "Condition", shape = NULL, data = DT), file.path(filepath(fit.sigma), "report", file))
+        saveRDS(list(plot_robust_pca(object, colour = "Condition", fill = "Condition", shape = NULL, data = DT)), file.path(filepath(fit.sigma), "report", file))
         report.index$component.deviations.pca2 <- data.table(
           section = "Study-level", section.order = 0,
           page = paste0("PCA - ", ctrl@component[1], " deviations by Condition"), page.order = 2100000,

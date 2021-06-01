@@ -1,3 +1,101 @@
+check_dups <- function(DT) {
+  # if duplicated rows, warn and use only first
+  DT[, N := .N, by = .(Measurement, Run)]
+  DT.dup <- DT[N != 1]
+  if (nrow(DT.dup) > 0) {
+    warning(paste0("Some measurements are duplicated, only the first are used:\n", paste(capture.output(print(DT.dup)), collapse = "\n")))
+    DT[N != 1, Use := F]
+  }
+  DT[, N := NULL]
+  return(DT)
+}
+
+
+#' Import OpenSWATH data
+#'
+#' Reads in the output of an OpenSWATH -> PyProphet -> TRIC pipeline.
+#'
+#' @param files A \code{csv} file to import.
+#' @param max.m_score Include only measurements with PyProphet m_score >= than this?
+#' @param data Advanced: Rather than specifying a \code{file}, you can enter a \link{data.frame} preloaded with
+#'   \link[data.table]{fread} default parameters.
+#' @return A \link{data.frame} for input into \link{seaMass_sigma}.
+#' @import data.table
+#' @export
+import_OpenSWATH <- function(
+  file = NULL,
+  max.m_score = 0.05,
+  use.decoys = FALSE,
+  protein.decoy.prefix = "DECOY",
+  data = NULL
+) {
+  if (is.null(file) && is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
+  if (!is.null(data)) file <- data
+
+  DT <- rbindlist(lapply(file, function(f) {
+    if (is.data.frame(f)) {
+      DT.wide <- as.data.table(data)
+    } else {
+      DT.wide <- fread(file = f, showProgress = T)
+    }
+
+    # consolidate OpenSWATH's 'Protein Groups', removing decoys
+    DT.wide[, row := seq_len(nrow(DT.wide))]
+    DT.groups <- DT.wide[, .(Group = unlist(strsplit(sub("^[^/]+/", "", ProteinName), "/"))), by = row]
+    DT.groups[, Group := trimws(Group)]
+    if (!is.null(protein.decoy.prefix) && protein.decoy.prefix != "") DT.groups <- DT.groups[!grep(paste0("^", protein.decoy.prefix, "_"), Group)]
+    setorder(DT.groups, row, Group)
+    # reassemble to our Protein Groups
+    DT.groups <- DT.groups[, .(N = .N, Group = paste(Group, collapse = "/")), by = row]
+    setorder(DT.groups, Group)
+    DT.groups[N > 1, Group := paste(N, Group, sep = "/")]
+    DT.groups[, N := NULL]
+    DT.groups[, Group := factor(Group, levels = unique(Group))]
+    DT.wide <- merge(DT.wide, DT.groups, by = "row", sort = F, all.x = T)
+
+    # filters
+    DT.wide[, Use := T]
+    DT.wide[m_score > max.m_score, Use := F]
+    if (!use.decoys) DT.wide[decoy != 0, Use := F]
+
+    # create long data table
+    DT.wide <- DT.wide[, .(
+      Group,
+      Component = FullPeptideName,
+      Measurement = gsub(";", ";seaMass;", aggr_Fragment_Annotation),
+      Run = paste(run_id, tools::file_path_sans_ext(basename(filename)), sep = ";"),
+      Count = gsub(";", ";seaMass;", aggr_Peak_Area),
+      Use
+    )]
+    DT.long <- DT.wide[, lapply(.SD, function(x) unlist(tstrsplit(x, ";seaMass;", fixed = T)))]
+    DT.long[, Group := factor(Group, levels = levels(DT.wide$Group))]
+    DT.long[, Component := factor(Component, levels = unique(Component))]
+    DT.long[, Measurement := factor(Measurement, levels = unique(Measurement))]
+    DT.long[, Run := factor(Run, levels = unique(Run))]
+    DT.long[, Count := as.numeric(Count)]
+    DT.long[, Use := as.logical(Use)]
+
+    return(DT.long)
+  }))
+
+  DT[, GroupInfo := ""]
+  DT[, Channel := factor("1")]
+  setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Channel"))
+  setorder(DT, Group, Component, Measurement, Run, Channel)
+
+  setattr(DT, "group", c("Protein", "Proteins"))
+  setattr(DT, "component", c("Peptidoform", "Peptidoforms"))
+  setattr(DT, "measurement", c("Transition", "Transitions"))
+
+  DT <- check_dups(DT)
+  setDF(DT)
+  return(DT[])
+}
+
+
+#### BELOW TO CHECK
+
+
 #' Import Thermo ProteomeDiscoverer data
 #'
 #' Reads in a Thermo ProteomeDiscoverer \code{PSMs.txt} file.
@@ -193,90 +291,7 @@ import_ProteinPilot <- function(
 }
 
 
-#' Import OpenSWATH data
-#'
-#' Reads in the output of an OpenSWATH -> PyProphet -> TRIC pipeline.
-#'
-#' @param files A \code{csv} file to import.
-#' @param max.m_score Include only measurements with PyProphet m_score >= than this?
-#' @param data Advanced: Rather than specifying a \code{file}, you can enter a \link{data.frame} preloaded with
-#'   \link[data.table]{fread} default parameters.
-#' @return A \link{data.frame} for input into \link{seaMass_sigma}.
-#' @import data.table
-#' @export
-import_OpenSWATH <- function(
-  file = NULL,
-  max.m_score = 0.05,
-  use.decoys = FALSE,
-  ignore.protein.decoy.prefix = "DECOY",
-  data = NULL
-) {
-  if (is.null(file) && is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
-  if (!is.null(data)) file <- data
 
-  DT <- rbindlist(lapply(file, function(f) {
-    if (is.data.frame(f)) {
-      DT.wide <- as.data.table(data)
-    } else {
-      DT.wide <- fread(file = f, showProgress = T)
-    }
-
-    # re-order OpenSWATH's 'Protein Groups', removing decoys
-    DT.wide[, row := seq_len(nrow(DT.wide))]
-    DT.groups <- DT.wide[, .(Group = unlist(strsplit(sub("^[^/]+/", "", ProteinName), "/"))), by = row]
-    DT.groups[, Group := trimws(Group)]
-    if (!is.null(ignore.protein.decoy.prefix) && ignore.protein.decoy.prefix != "") DT.groups <- DT.groups[!grep(paste0("^", ignore.protein.decoy.prefix, "_"), Group)]
-    setorder(DT.groups, row, Group)
-    # reassemble to our Protein Groups
-    DT.groups <- DT.groups[, .(N = .N, Group = paste(Group, collapse = "/")), by = row]
-    setorder(DT.groups, Group)
-    DT.groups[N > 1, Group := paste(N, Group, sep = "/")]
-    DT.groups[, N := NULL]
-    DT.groups[, Group := factor(Group, levels = unique(Group))]
-    DT.wide <- merge(DT.wide, DT.groups, by = "row", sort = F, all.x = T)
-
-    # filters
-    DT.wide[, Use := T]
-    DT.wide[m_score > max.m_score, Use := F]
-    if (!use.decoys) DT.wide[decoy != 0, Use := F]
-
-    # create long data table
-    DT.wide <- DT.wide[, .(
-      Group,
-      Component = FullPeptideName,
-      Measurement = gsub(";", ";seaMass;", aggr_Fragment_Annotation),
-      Run = paste(run_id, tools::file_path_sans_ext(basename(filename)), sep = ";"),
-      Count = gsub(";", ";seaMass;", aggr_Peak_Area),
-      Use
-    )]
-    DT.long <- DT.wide[, lapply(.SD, function(x) unlist(tstrsplit(x, ";seaMass;", fixed = T)))]
-    DT.long[, Group := factor(Group, levels = levels(DT.wide$Group))]
-    DT.long[, Component := factor(Component, levels = unique(Component))]
-    DT.long[, Measurement := factor(Measurement, levels = unique(Measurement))]
-    DT.long[, Run := factor(Run, levels = unique(Run))]
-    DT.long[, Count := as.numeric(Count)]
-    DT.long[, Use := as.logical(Use)]
-
-    return(DT.long)
-  }))
-
-  # remove measurements that have more than one identification in any assay (todo: is this necessary?)
-  #DT[, N := .N, by = .(Measurement, Run)]
-  #DT[N != 1, Use := F]
-  #DT[, N := NULL]
-
-  DT[, GroupInfo := ""]
-  DT[, Channel := factor("1")]
-  setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Channel"))
-  setorder(DT, Group, Component, Measurement, Run, Channel)
-
-  setattr(DT, "group", c("ProteinGroup", "ProteinGroups"))
-  setattr(DT, "component", c("Peptidoform", "Peptidoforms"))
-  setattr(DT, "measurement", c("Transition", "Transitions"))
-
-  setDF(DT)
-  return(DT[])
-}
 
 #' Import MaxQuant LF data
 #'

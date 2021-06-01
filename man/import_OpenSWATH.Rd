@@ -8,7 +8,7 @@ import_OpenSWATH(
   file = NULL,
   max.m_score = 0.05,
   use.decoys = FALSE,
-  ignore.protein.decoy.prefix = "DECOY",
+  protein.decoy.prefix = "DECOY",
   data = NULL
 )
 }

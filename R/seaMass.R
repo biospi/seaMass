@@ -222,8 +222,8 @@ setMethod("plot_dists", "seaMass", function(
   variable.page = 1,
   variable.return.npage = FALSE,
   show.legend = TRUE,
-  width = 800,
-  height = 450,
+  width = 1024,
+  height = 576,
   output = "plotly"
 ) {
   fit.sigma <- root(object)
@@ -335,10 +335,18 @@ setMethod("plot_dists", "seaMass", function(
   if (variable.return.npage == T) return(ceiling(nrow(DT1) / vn))
   if (variable.page * vn > nrow(DT1)) {
     if ((variable.page - 1) * vn + 1 > nrow(DT1)) return(NULL)
-    DT1 <- DT1[((variable.page - 1) * vn + 1):nrow(DT1)]
+    if (horizontal) {
+      DT1 <- DT1[nrow(DT1):1][((variable.page - 1) * vn + 1):nrow(DT1)]
+    } else {
+      DT1 <- DT1[((variable.page - 1) * vn + 1):nrow(DT1)]
+    }
     eadd <- vn - nrow(DT1)
   } else {
-    DT1 <- DT1[((variable.page - 1) * vn + 1):(variable.page * vn)]
+    if (horizontal) {
+      DT1 <- DT1[nrow(DT1):1][((variable.page - 1) * vn + 1):(variable.page * vn)]
+    } else {
+      DT1 <- DT1[((variable.page - 1) * vn + 1):(variable.page * vn)]
+    }
     eadd <- 0
   }
 
@@ -688,8 +696,8 @@ setMethod("plot_robust_pca", "seaMass", function(
   ellipse.alpha = 0.2,
   ellipse.size = 0.2,
   point.size = 1,
-  width = 800,
-  height = 450,
+  width = 1024,
+  height = 576,
   data = NULL,
   output = "plotly",
   ggplot.labels = TRUE,

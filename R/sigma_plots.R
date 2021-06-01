@@ -19,7 +19,7 @@ setMethod("plots", "seaMass_sigma", function(object, batch, job.id) {
 
     if ("group.quants" %in% ctrl@plot) {
       pages <- 1:plot_group_quants(object, item, variable.n = 32, variable.return.npage = T)
-      names(pages)[1] <- paste0("Raw", ctrl@group[1], " Quants")
+      names(pages)[1] <- paste0("Raw ", ctrl@group[1], " Quants")
       plots <- append(plots, lapply(pages, function(i) {
         plot_group_quants(object, item, value.limits = lims$group.quants, variable.n = 32, variable.page = i, summary = T)
       }))

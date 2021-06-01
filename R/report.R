@@ -1,80 +1,3 @@
-#' Generate Rmarkdown for figure
-#'
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("generate_markdown", "seaMass", function(object, figs, root, filepath, title = filepath) {
-  ctrl <- control(seaMass::root(object))
-  dir.create(dirname(filepath), recursive = T, showWarnings = F)
-
-  cat(paste0(
-    "---\n",
-    "title: ", title, "\n",
-    "author: generated with seaMass v", ctrl@version, " by ", ctrl@user, "\n",
-    "date: ", Sys.Date(), "\n",
-    "---\n",
-    "```{r message = FALSE, echo = FALSE, warning = FALSE}\n",
-    "readRDS('", basename(filepath), ".rds')\n",
-    "```\n"
-  ), file = file.path(root, paste0(filepath, ".Rmd")))
-  saveRDS(suppressWarnings(fig), file.path(root, paste0(filepath, ".rds")))
-
-  return(paste0(filepath, ".html"))
-})
-
-
-#' Render Rmarkdown
-#'
-#' @import data.table
-#' @export
-#' @include generics.R
-setMethod("render_markdown", "seaMass", function(object, root) {
-  ctrl <- control(seaMass::root(object))
-
-  # generate _site.yml
-  cat(paste0(
-    'navbar:\n',
-    '  title: ', name(root(object)), '\n',
-    '  left:\n',
-    '    - text: "Index"\n',
-    '      href: index.html\n',
-    'output:\n',
-    '  html_document:\n'
-  ), file = file.path(root, "_site.yml"))
-
-  # generate index.Rmd
-  cat(paste0(
-    '---\n',
-    'title: index\n',
-    'author: generated with seaMass v', ctrl@version, ' by ', ctrl@user, '\n',
-    'date: ', Sys.Date(), '\n',
-    'output:\n',
-    '  html_document:\n',
-    '    toc: true\n',
-    '    toc_float: true\n',
-    '---\n'
-  ), file = file.path(root, "index.Rmd"))
-
-  # render site
-  rmarkdown::render_site(root, quiet = T)
-
-  # zip without index and site_libs
-  path <- file.path(filepath(object), "report")
-  dir.create(path, showWarnings = F)
-  files <- file.path(root, "_site", setdiff(list.files(file.path(root, "_site")), c("index.html", "site_libs")))
-  zip::zipr(file.path(path, paste0(basename(root), ".report.zip")), files, compression_level = 6, include_directories = F)
-
-  # tidy up
-  if (!("markdown" %in% ctrl@keep)) {
-    unlink(root, recursive = T)
-  } else {
-    unlink(file.path(root, "_site"), recursive = T)
-  }
-
-  return(invisible(NULL))
-})
-
-
 #' Generate html report
 #'
 #' @import data.table
@@ -169,14 +92,79 @@ setMethod("assemble_report", "seaMass_sigma", function(object, filename = paste0
   # tidy up
   unlink(file.path(root, "_site"), recursive = T)
 
-  # append zips
-  files <- list.files(dirname(filepath(object)), pattern = "^.*\\.report\\.zip$", recursive = T, full.names = T)
-  for (zipfile1 in files) {
-    root1 <- file.path(dirname(filepath(object)), "markdown", "_site", name(object))
-    zip::unzip(zipfile1, exdir = root1)
-    zip::zipr_append(zipfile, root1, compression_level = 6, include_directories = F)
+  # generate html for each page
+  DT[, id := tools::file_path_sans_ext(basename(file))]
+  parallel_lapply(split(DT, by = "id"), function(item, object, root) {
+    ctrl <- control(object)
+    root1 <- file.path(root, item$id[1])
+    dir.create(root1, recursive = T)
+
+    # generate _site.yml
+    cat(paste0(
+      'navbar:\n',
+      '  title: ', name(object), '\n',
+      '  left:\n',
+      '    - text: "Index"\n',
+      '      href: index.html\n',
+      'output:\n',
+      '  html_document:\n'
+    ), file = file.path(root1, "_site.yml"))
+
+    # generate index.Rmd
+    cat(paste0(
+      '---\n',
+      'title: index\n',
+      'author: generated with seaMass v', ctrl@version, ' by ', ctrl@user, '\n',
+      'date: ', Sys.Date(), '\n',
+      'output:\n',
+      '  html_document:\n',
+      '    toc: true\n',
+      '    toc_float: true\n',
+      '---\n'
+    ), file = file.path(root1, "index.Rmd"))
+
+    # generate page.Rmd
+    cat(paste0(
+      "---\n",
+      "title: ", item$page, "\n",
+      "author: generated with seaMass v", ctrl@version, " by ", ctrl@user, "\n",
+      "date: ", Sys.Date(), "\n",
+      "---\n"
+    ), file = file.path(root1, paste0(item$id, ".Rmd")))
+    for (i in 1:nrow(item)) {
+      figs <- readRDS(item$file[i])
+      cat(paste0(
+        "```{r message = FALSE, echo = FALSE, warning = FALSE}\n",
+        "figs <- readRDS('", item$file[i], "')\n",
+        "```\n"
+      ), file = file.path(root1, paste0(item$id, ".Rmd")), append = T)
+      for (j in 1:length(figs)) {
+        if (!is.null(names(figs)) && !is.na(names(figs)[j])) {
+          cat("## ", paste0(names(figs)[j], "\n"), file = file.path(root1, paste0(item$id, ".Rmd")), append = T)
+        }
+        cat(paste0(
+          "```{r message = FALSE, echo = FALSE, warning = FALSE}\n",
+          "figs[[", j, "]]\n",
+          "```\n"
+        ), file = file.path(root1, paste0(item$id, ".Rmd")), append = T)
+      }
+    }
+
+    # render site
+    rmarkdown::render_site(root1, quiet = T)
+
+    # delete everything except page.html and rename _site
+    unlink(file.path(root1, "_site", setdiff(list.files(file.path(root1, "_site")), paste0(item$id[1], ".html"))), recursive = T)
+    file.rename(file.path(root1, "_site"), file.path(root1, name(object)))
+
+    # append page.html to report.zip
+    zip::zipr_append(zipfile, file.path(root1, name(object)), compression_level = 6)
+
+    if ("markdown" %in% ctrl@keep) file.rename(file.path(root1, paste0(item$id[1], ".Rmd")), file.path(root, paste0(item$id[1], ".Rmd")))
     unlink(root1, recursive = T)
-  }
+
+    return(NULL)
+  }, nthread = 0)
 
   if (!("markdown" %in% ctrl@keep)) unlink(root, recursive = T)
 
