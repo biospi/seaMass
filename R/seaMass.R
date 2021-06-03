@@ -323,6 +323,7 @@ setMethod("plot_dists", "seaMass", function(
     }
   }
   DT1[, Summary := as.character(Reduce(function(...) paste(..., sep = " : "), .SD[, mget(paste0("_", label.cols))]))]
+  DT1[, Summary := sprintf(paste0("%-", max(nchar(Summary)), "s"), Summary)]
   DT1[, Summary := factor(Summary, levels = unique(Summary))]
   DT1[, (paste0("_", label.cols)) := NULL]
 
@@ -354,12 +355,12 @@ setMethod("plot_dists", "seaMass", function(
   g <- ggplot2::ggplot(DT1, ggplot2::aes(x = Summary))
   if (horizontal) {
     g <- g + ggplot2::coord_flip(ylim = value.limits)
-    g <- g + ggplot2::theme(axis.title.y = ggplot2::element_blank())
+    g <- g + ggplot2::theme(axis.title.y = ggplot2::element_blank(), axis.text.y = ggplot2::element_text(family = "mono"))
     g <- g + ggplot2::scale_x_discrete(expand = ggplot2::expansion(add = c(eadd, 0)))
     if (!variable.labels) g <- g + ggplot2::theme(axis.text.y = ggplot2::element_blank())
   } else {
     g <- g + ggplot2::coord_cartesian(ylim = value.limits)
-    g <- g + ggplot2::theme(axis.title.x = ggplot2::element_blank(), axis.text.x = ggplot2::element_text(angle = 90))
+    g <- g + ggplot2::theme(axis.title.x = ggplot2::element_blank(), axis.text.x = ggplot2::element_text(angle = 90, family = "mono"))
     g <- g + ggplot2::scale_x_discrete(expand = ggplot2::expansion(add = c(0, eadd)))
     if (!variable.labels) g <- g + ggplot2::theme(axis.text.x = ggplot2::element_blank())
   }
@@ -547,6 +548,12 @@ setMethod("plot_dists", "seaMass", function(
   ## CONVERT TO PLOTLY
 
   fig <- suppressWarnings(plotly::ggplotly(g, width, height, "text"))
+  # workaround for plotly monospaced font
+  if (horizontal) {
+    fig <- plotly::layout(fig, yaxis = list(tickfont = list(family = "Courier New, monospace")))
+  } else {
+    fig <- plotly::layout(fig, xaxis = list(tickfont = list(family = "Courier New, monospace")))
+  }
   # horrible hack for ggplotly tooltip
   for (i in 1:length(fig$x$data)) fig$x$data[[i]]$text <- sapply(fig$x$data[[i]]$text, function(s) gsub("density", paste("log2", value.label), s), USE.NAMES = F)
   # remove annotation as ggplotly label implementation is awful

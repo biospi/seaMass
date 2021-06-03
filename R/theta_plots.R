@@ -1,18 +1,18 @@
 #' @import data.table
 #' @include generics.R
 #' @include seaMass_theta.R
-setMethod("plots", "seaMass_theta", function(object, batch, job.id) {
+setMethod("plots", "seaMass_theta", function(object, job.id, batch = NULL) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))
     stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
 
   nbatch <- control(root(object))@plot.nbatch
-  cat(paste0("[", Sys.time(), "]  THETA-PLOTS name=", name(object), " batch=", batch, "/", nbatch, "\n"))
+  cat(paste0("[", Sys.time(), "]  THETA-PLOTS name=", name(object), ifelse(is.null(batch), "\n", paste0("batch=", batch, "/", nbatch, "\n"))))
   cat(paste0("[", Sys.time(), "]   generating...\n"))
 
   # grab out batch of groups
   groups <- unique(groups(root(object), as.data.table = T)[G.qC > 0, Group])
-  groups <- groups[rep_len(1:nbatch, length(groups)) == batch]
+  if (!is.null(batch)) groups <- groups[rep_len(1:nbatch, length(groups)) == batch]
   # plots!
   report.index <- rbindlists(parallel_lapply(groups, function(item, object) {
     ctrl <- control(object)
@@ -46,7 +46,7 @@ setMethod("plots", "seaMass_theta", function(object, batch, job.id) {
   }, nthread = ctrl@nthread))
 
   # save index
-  if (length(report.index) > 0) fst::write.fst(rbindlist(report.index), file.path(filepath(object), "report", paste0("groups.", batch, ".report.fst")))
+  if (length(report.index) > 0) fst::write.fst(rbindlist(report.index), file.path(filepath(object), "plots", ifelse(is.null(batch), "report.fst", paste0(batch, ".report.fst"))))
 
   return(invisible(NULL))
 })

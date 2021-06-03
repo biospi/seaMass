@@ -90,7 +90,7 @@ setMethod("run", "seaMass_delta", function(object) {
   cat(paste0("[", Sys.time(), "] finished processing!\n"))
 
   cat(paste0("[", Sys.time(), "] reporting...\n"))
-  for (batch in 1:control(root(object))@plot.nbatch) plots(object, batch, job.id)
+  plots(object, job.id)
   report(object)
   cat(paste0("[", Sys.time(), "] finished reporting!\n"))
 

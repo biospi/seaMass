@@ -1,17 +1,17 @@
 #' @import data.table
 #' @include generics.R
 #' @include seaMass_sigma.R
-setMethod("plots", "seaMass_sigma", function(object, batch, job.id) {
+setMethod("plots", "seaMass_sigma", function(object, job.id, batch = NULL) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))
     stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
 
-  cat(paste0("[", Sys.time(), "]  SIGMA-PLOTS batch=", batch, "/", ctrl@plot.nbatch, "\n"))
+  cat(paste0("[", Sys.time(), "]  SIGMA-PLOTS", ifelse(is.null(batch), "\n", paste0("batch=", batch, "/", ctrl@plot.nbatch, "\n"))))
   cat(paste0("[", Sys.time(), "]   generating...\n"))
 
   # grab out batch of groups
   groups <- unique(groups(object, as.data.table = T)[G.qC > 0, Group])
-  groups <- groups[rep_len(1:ctrl@plot.nbatch, length(groups)) == batch]
+  if (!is.null(batch)) groups <- groups[rep_len(1:ctrl@plot.nbatch, length(groups)) == batch]
   # plots!
   lims <- readRDS(file.path(filepath(object), "limits.rds"))
   report.index <- rbindlist(parallel_lapply(groups, function(item, object, ctrl, lims, batch) {
@@ -66,16 +66,17 @@ setMethod("plots", "seaMass_sigma", function(object, batch, job.id) {
 
     # save plots and return index
     file <- paste0(tolower(ctrl@group[1]), as.integer(item), ".rds")
-    saveRDS(plots, file.path(filepath(object), "report", file))
+    saveRDS(plots, file.path(filepath(object), "plots", file))
     return(data.table(
-      section = ctrl@group[2], section.order = 1000,
+      chapter = ctrl@group[2], chapter.order = 1000,
       page = as.character(item), page.order = as.integer(item) * 100,
+      section = names(plots), section.order = 1:length(plots),
       file = file
     ))
   }, nthread = ctrl@nthread))
 
   # save index
-  if (length(report.index) > 0) fst::write.fst(report.index, file.path(filepath(object), "report", paste0("groups.", batch, ".report.fst")))
+  if (length(report.index) > 0) fst::write.fst(report.index, file.path(filepath(object), "plots", ifelse(is.null(batch), "report.fst", paste0(batch, ".report.fst"))))
 
   return(invisible(NULL))
 })

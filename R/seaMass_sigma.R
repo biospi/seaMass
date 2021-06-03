@@ -43,7 +43,7 @@ seaMass_sigma <- function(
 
   # setup seaMass folder structure
   if (file.exists(path)) unlink(path, recursive = T)
-  if (!dir.create(file.path(path, "sigma", "report"), recursive = T))
+  if (!dir.create(file.path(path, "sigma", "plots"), recursive = T))
     stop("ERROR: problem creating folder")
 
   # setup seaMass-sigma folder structure
@@ -278,6 +278,7 @@ seaMass_sigma <- function(
     if (!dir.create(file.path(blockpath, "model1"))) stop()
     DT.index <- DT.block[, .(Group = unique(Group), file = factor("input.fst"), from = .I[!duplicated(Group)], to = .I[rev(!duplicated(rev(Group)))])]
     fst::write.fst(DT.index, file.path(blockpath, "model1", "input.index.fst"))
+    if (!dir.create(file.path(blockpath, "plots"))) stop()
 
     # convert factors to integers for efficiency for saving
     DT0[, Group := as.integer(Group)]

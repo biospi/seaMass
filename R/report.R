@@ -53,19 +53,21 @@ setMethod("assemble_report", "seaMass_sigma", function(object, filename = paste0
   # gather index and sort
   fits <- unlist(list(object, open_thetas(object), open_deltas(object)), recursive = F)
   DT <- rbindlist(lapply(fits, function(fit) {
-    rbindlist(lapply(list.files(file.path(filepath(fit), "report"), pattern = "report\\.fst$",  full.names = T), function(file) {
-      DT <- fst::read.fst(file, as.data.table = T)
-      DT[, file := file.path(filepath(fit), "report", file)]
+    rbindlist(lapply(list.files(filepath(fit), pattern = "report\\.fst$", recursive = T, full.names = T), function(f) {
+      DT <- fst::read.fst(f, as.data.table = T)
+      DT[, file := file.path(dirname(f), file)]
       return(DT)
     }))
   }))
-  setkey(DT, section.order, page.order)
-  DT[, section.dup := duplicated(section)]
+  setkey(DT, chapter.order, page.order, section.order)
+  DT[, chapter.dup := duplicated(chapter)]
+  DT[, page.dup := duplicated(page)]
 
   # populate index.Rmd
-  for (i in 1:nrow(DT)) {
-    if (!DT[i, section.dup]) cat(paste0("\n### ", DT[i, section], "\n"), file = index.file, append = T)
-    cat(paste0("* [", DT[i, page], "](", DT[i, tools::file_path_sans_ext(basename(file))] ,".html)\n"), file = index.file, append = T)
+  DT.index <- DT[page.dup == F]
+  for (i in 1:nrow(DT.index)) {
+    if (!DT.index[i, chapter.dup]) cat(paste0("\n### ", DT.index[i, chapter], "\n"), file = index.file, append = T)
+    cat(paste0("* [", DT.index[i, page], "](", DT.index[i, tools::file_path_sans_ext(basename(file))] ,".html)\n"), file = index.file, append = T)
   }
 
   # render site
@@ -87,7 +89,7 @@ setMethod("assemble_report", "seaMass_sigma", function(object, filename = paste0
   # zip
   zipfile <- file.path(dirname(filepath(object)), filename)
   files <- c(file.path(root, "_site", "index.html"), file.path(root, "_site", name(object)))
-  zip::zipr(zipfile, files, compression_level = 6)
+  zip::zipr(zipfile, files, compression_level = 6, include_directories = F)
 
   # tidy up
   unlink(file.path(root, "_site"), recursive = T)
@@ -126,27 +128,25 @@ setMethod("assemble_report", "seaMass_sigma", function(object, filename = paste0
     # generate page.Rmd
     cat(paste0(
       "---\n",
-      "title: ", item$page, "\n",
+      "title: ", item$page[1], "\n",
       "author: generated with seaMass v", ctrl@version, " by ", ctrl@user, "\n",
       "date: ", Sys.Date(), "\n",
       "---\n"
-    ), file = file.path(root1, paste0(item$id, ".Rmd")))
-    for (i in 1:nrow(item)) {
-      figs <- readRDS(item$file[i])
+    ), file = file.path(root1, paste0(item$id[1], ".Rmd")))
+
+    for (figs in split(item, by = "file")) {
       cat(paste0(
         "```{r message = FALSE, echo = FALSE, warning = FALSE}\n",
-        "figs <- readRDS('", item$file[i], "')\n",
+        "figs <- readRDS('", figs$file[1], "')\n",
         "```\n"
-      ), file = file.path(root1, paste0(item$id, ".Rmd")), append = T)
-      for (j in 1:length(figs)) {
-        if (!is.null(names(figs)) && !is.na(names(figs)[j])) {
-          cat("## ", paste0(names(figs)[j], "\n"), file = file.path(root1, paste0(item$id, ".Rmd")), append = T)
-        }
+      ), file = file.path(root1, paste0(figs$id[1], ".Rmd")), append = T)
+      for (i in 1:nrow(figs)) {
+        if (!is.na(figs$section[i])) cat("## ", paste0(figs$section[i], "\n"), file = file.path(root1, paste0(figs$id[i], ".Rmd")), append = T)
         cat(paste0(
           "```{r message = FALSE, echo = FALSE, warning = FALSE}\n",
-          "figs[[", j, "]]\n",
+          "figs[[", i, "]]\n",
           "```\n"
-        ), file = file.path(root1, paste0(item$id, ".Rmd")), append = T)
+        ), file = file.path(root1, paste0(figs$id[i], ".Rmd")), append = T)
       }
     }
 
@@ -157,14 +157,17 @@ setMethod("assemble_report", "seaMass_sigma", function(object, filename = paste0
     unlink(file.path(root1, "_site", setdiff(list.files(file.path(root1, "_site")), paste0(item$id[1], ".html"))), recursive = T)
     file.rename(file.path(root1, "_site"), file.path(root1, name(object)))
 
-    # append page.html to report.zip
-    zip::zipr_append(zipfile, file.path(root1, name(object)), compression_level = 6)
+    # use file lock to append page.html to report.zip
+    lock <- filelock::lock(paste0(zipfile, ".lock"))
+    zip::zipr_append(zipfile, file.path(root1, name(object)), compression_level = 6, include_directories = F)
+    filelock::unlock(lock)
 
     if ("markdown" %in% ctrl@keep) file.rename(file.path(root1, paste0(item$id[1], ".Rmd")), file.path(root, paste0(item$id[1], ".Rmd")))
     unlink(root1, recursive = T)
 
     return(NULL)
-  }, nthread = 0)
+  }, nthread = ctrl@nthread)
+  unlink(paste0(zipfile, ".lock"))
 
   if (!("markdown" %in% ctrl@keep)) unlink(root, recursive = T)
 

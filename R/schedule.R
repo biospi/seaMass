@@ -60,11 +60,9 @@ setMethod("run", "schedule_local", function(object, fit.sigma) {
   cat(paste0("[", Sys.time(), "] reporting...\n"))
 
   if (ctrl@plots == T) {
-    for (batch in 1:control(fit.sigma)@plot.nbatch) {
-      seaMass:::plots(fit.sigma, batch, job.id)
-      for (fit.theta in open_thetas(fit.sigma)) seaMass:::plots(fit.theta, batch, job.id)
-      for (fit.delta in open_deltas(fit.sigma)) seaMass:::plots(fit.delta, batch, job.id)
-    }
+    seaMass:::plots(fit.sigma, job.id)
+    for (fit.theta in open_thetas(fit.sigma)) seaMass:::plots(fit.theta, job.id)
+    for (fit.delta in open_deltas(fit.sigma)) seaMass:::plots(fit.delta, job.id)
   }
 
   # generate report
@@ -656,9 +654,9 @@ hpc_plots <- function(job.id, task) {
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running plots for name=", name(fit.sigma), "...\n"))
 
-  plots(fit.sigma, task, job.id)
-  for (fit.theta in open_thetas(fit.sigma)) plots(fit.theta, task, job.id)
-  for (fit.delta in open_deltas(fit.sigma)) plots(fit.delta, task, job.id)
+  plots(fit.sigma, job.id, task)
+  for (fit.theta in open_thetas(fit.sigma)) plots(fit.theta, job.id, task)
+  for (fit.delta in open_deltas(fit.sigma)) plots(fit.delta, job.id, task)
 
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))

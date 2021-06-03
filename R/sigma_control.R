@@ -43,7 +43,7 @@ setClass("sigma_control", slots = c(
 
 #' @describeIn sigma_control-class Generator function
 #' @param keep Outputs to keep, \code{NULL} or a subset of
-#'   \code{c("summaries", "model0", "report", "assay.means", "group.quants", "group.means", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}
+#'   \code{c("summaries", "model0", "plots", "assay.means", "group.quants", "group.means", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}
 #' @param summarise Outputs to write csv summaries for, \code{NULL} or a subset of
 #'   \code{c("groups", "components", "measurements")}
 #'   Note, you must summarise or keep \code{"standardised.group.deviations"} if you want to run seaMass-Δ!
@@ -72,7 +72,7 @@ setClass("sigma_control", slots = c(
 #' @param schedule Either \link{schedule_local} (execute locally), \link{schedule_pbs} or \link{schedule_slurm} (prepare for submission to HPC cluster)
 #' @export sigma_control
 sigma_control <- function(
-  keep = c("summaries", "group.quants", "report"),
+  keep = c("summaries", "group.quants", "plots"),
   summarise = c("groups", "components", "measurements"),
   plot = c("assay.stdevs", "group.quants.pca", "group.means", "group.quants", "component.means", "component.stdevs", "component.deviations", "measurement.means", "measurement.stdevs"),
   plot.nbatch = 40,
@@ -129,7 +129,7 @@ sigma_control <- function(
 
 
 setValidity("sigma_control", function(object) {
-  if (!(all(object@keep %in% c("summaries", "model0", "markdown", "report", "assay.means", "group.quants", "group.means", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")))) return("'keep' is not valid!")
+  if (!(all(object@keep %in% c("summaries", "model0", "markdown", "plots", "assay.means", "group.quants", "group.means", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")))) return("'keep' is not valid!")
   if (!(all(object@summarise %in% c("groups", "components", "measurements")))) return("'summarise' is not valid!")
   if (!(all(object@plot %in% c("assay.stdevs", "group.means", "group.quants", "group.quants.pca", "component.means", "component.stdevs",  "component.deviations", "component.deviations.pca", "measurement.means", "measurement.stdevs")))) return("'plot' is not valid!")
   if (length(object@plot.nbatch) != 1 || object@plot.nbatch < 0) return("'plot.nbatch' must be non-negative!")

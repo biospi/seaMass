@@ -27,19 +27,21 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       cat(paste0("[", Sys.time(), "]   generating robust PCA plots for group quants...\n"))
       DT <- robust_pca(object, summary = F, as.data.table = T)
 
-      file <- paste0("pca_", tolower(ctrl@group[1]), "_quants__assay_stdevs__block", name(object), ".rds")
-      saveRDS(list(plot_robust_pca(object, data = DT)), file.path(filepath(fit.sigma), "report", file))
+      file <- paste0("pca_", tolower(ctrl@group[1]), "_quants__assay_stdevs.rds")
+      saveRDS(list(plot_robust_pca(object, data = DT)), file.path(filepath(object), "plots", file))
       report.index$group.quants.pca1 <- data.table(
-        section = "Block-level", section.order = 50,
-        page = paste0("PCA - ", ctrl@group[1], " raw quants with assay stdevs QC - Block ", name(object)), page.order = 1000000 + as.integer(assay_design(object)$Block[1]),
+        chapter = "Block-level", chapter.order = 50,
+        page = paste0("PCA - ", ctrl@group[1], " raw quants with assay QC"), page.order = 1000000,
+        section = paste("Block", name(object)), section.order = 100 * match(name(object), names(blocks(object))),
         file = file
       )
 
-      file <- paste0("pca_", tolower(ctrl@group[1]), "_quants__condition__block", name(object), ".rds")
-      saveRDS(list(plot_robust_pca(object, colour = "Condition", fill = "Condition", shape = NULL, data = DT)), file.path(filepath(fit.sigma), "report", file))
+      file <- paste0("pca_", tolower(ctrl@group[1]), "_quants__condition.rds")
+      saveRDS(list(plot_robust_pca(object, colour = "Condition", fill = "Condition", shape = NULL, data = DT)), file.path(filepath(object), "plots", file))
       report.index$group.quants.pca2 <- data.table(
-        section = "Block-level", section.order = 50,
-        page = paste0("PCA - ", ctrl@group[1], " raw quants by Condition - Block ", name(object)), page.order = 1100000 + as.integer(assay_design(object)$Block[1]),
+        chapter = "Block-level", chapter.order = 50,
+        page = paste0("PCA - ", ctrl@group[1], " raw quants by Condition"), page.order = 1100000,
+        section = paste("Block", name(object)), section.order = 100 * match(name(object), names(blocks(object))),
         file = file
       )
     }
@@ -210,18 +212,20 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
         DT <- robust_pca(fit.sigma, type = "component.deviations", summary = F)
 
         file <- paste0("pca_", tolower(ctrl@component[1]), "_deviations__assay_stdevs.rds")
-        saveRDS(list(plot_robust_pca(fit.sigma, shape = "Block", data = DT)), file.path(filepath(fit.sigma), "report", file))
+        saveRDS(list(plot_robust_pca(fit.sigma, shape = "Block", data = DT)), file.path(filepath(object), "plots", file))
         report.index$component.deviations.pca1 <- data.table(
-          section = "Study-level", section.order = 0,
+          chapter = "Study-level", chapter.order = 0,
           page = paste0("PCA - ", ctrl@component[1], " deviations with assay stdevs QC"), page.order = 2000000,
+          section = NA_character_, section.order = 0,
           file = file
         )
 
         file <- paste0("pca_", tolower(ctrl@component[1]), "_deviations__conditions.rds")
-        saveRDS(list(plot_robust_pca(object, colour = "Condition", fill = "Condition", shape = NULL, data = DT)), file.path(filepath(fit.sigma), "report", file))
+        saveRDS(list(plot_robust_pca(object, colour = "Condition", fill = "Condition", shape = NULL, data = DT)), file.path(filepath(object), "plots", file))
         report.index$component.deviations.pca2 <- data.table(
-          section = "Study-level", section.order = 0,
+          chapter = "Study-level", chapter.order = 0,
           page = paste0("PCA - ", ctrl@component[1], " deviations by Condition"), page.order = 2100000,
+          section = NA_character_, section.order = 0,
           file = file
         )
       }
@@ -283,12 +287,14 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
         cat(paste0("[", Sys.time(), "]   generating group means plot...\n"))
         file <- paste0(tolower(ctrl@group[1]), "_means.rds")
         lims <- lims$group.means
-        saveRDS(parallel_lapply(1:plot_group_means(fit.sigma, variable.n = 32, variable.return.npage = T), function(item, fit.sigma, lims) {
+        npage <- plot_group_means(fit.sigma, variable.n = 32, variable.return.npage = T)
+        saveRDS(parallel_lapply(1:npage, function(item, fit.sigma, lims) {
           plot_group_means(fit.sigma, value.limits = lims, variable.n = 32, variable.page = item, summary = T)
-        }, nthread = ctrl@nthread), file.path(filepath(fit.sigma), "report", file))
+        }, nthread = ctrl@nthread), file.path(filepath(object), "plots", file))
         report.index$group.means <- data.table(
-          section = "Study-level", section.order = 0,
+          chapter = "Study-level", chapter.order = 0,
           page = paste0(ctrl@group[1], " raw means"), page.order = 100000,
+          section = NA_character_, section.order = 1:npage,
           file = file
         )
       }
@@ -297,13 +303,14 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       if (ctrl@assay.model != "" && "assay.stdevs" %in% ctrl@plot) {
         cat(paste0("[", Sys.time(), "]   generating assay stdevs plot...\n"))
         file <- "assay_stdevs.rds"
-        lims <- limits_dists(assay_stdevs(fit.sigma, as.data.table = T), include.zero = T, non.negative = T)
-        saveRDS(parallel_lapply(1:plot_assay_stdevs(fit.sigma, variable.n = 32, variable.return.npage = T), function(item, fit.sigma, lims) {
-          plot_assay_stdevs(fit.sigma, value.limits = lims, variable.n = 32, variable.page = item)
-        }, nthread = ctrl@nthread), file.path(filepath(fit.sigma), "report", file))
-        report.index$assay.stdevs <- data.table(
-          section = "Study-level", section.order = 0,
-          page = "Assay stdevs QC", page.order = 0,
+        npage <- plot_assay_stdevs(fit.sigma, variable.n = 32, variable.return.npage = T)
+        saveRDS(parallel_lapply(1:npage, function(item, fit.sigma, lims) {
+          plot_assay_stdevs(fit.sigma, variable.n = 32, variable.page = item)
+        }, nthread = ctrl@nthread), file.path(filepath(object), "plots", file))
+        report.index$assay.stats <- data.table(
+          chapter = "Study-level", chapter.order = 0,
+          page = "Assay QC", page.order = 0,
+          section = c("Stdevs (quality control)", rep(NA_character_, npage - 1)), section.order = 1:npage,
           file = file
         )
       }
@@ -312,7 +319,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
     }
 
     if (length(report.index) > 0) {
-      fst::write.fst(rbindlist(report.index), file.path(filepath(fit.sigma), "report", paste0("block.", name(object), ".report.fst")))
+      fst::write.fst(rbindlist(report.index), file.path(filepath(object), "plots", "report.fst"))
     }
   }
 

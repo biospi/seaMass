@@ -7,7 +7,7 @@
 \title{Control parameters for seaMass-Σ}
 \usage{
 sigma_control(
-  keep = c("summaries", "group.quants", "report"),
+  keep = c("summaries", "group.quants", "plots"),
   summarise = c("groups", "components", "measurements"),
   plot = c("assay.stdevs", "group.quants.pca", "group.means", "group.quants",
     "component.means", "component.stdevs", "component.deviations", "measurement.means",
@@ -36,7 +36,7 @@ sigma_control(
 }
 \arguments{
 \item{keep}{Outputs to keep, \code{NULL} or a subset of
-\code{c("summaries", "model0", "report", "assay.means", "group.quants", "group.means", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}}
+\code{c("summaries", "model0", "plots", "assay.means", "group.quants", "group.means", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")}}
 
 \item{summarise}{Outputs to write csv summaries for, \code{NULL} or a subset of
 \code{c("groups", "components", "measurements")}
