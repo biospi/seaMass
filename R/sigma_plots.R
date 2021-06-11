@@ -6,7 +6,7 @@ setMethod("plots", "seaMass_sigma", function(object, job.id, batch = NULL) {
   if (ctrl@version != as.character(packageVersion("seaMass")))
     stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
 
-  cat(paste0("[", Sys.time(), "]  SIGMA-PLOTS", ifelse(is.null(batch), "\n", paste0("batch=", batch, "/", ctrl@plot.nbatch, "\n"))))
+  cat(paste0("[", Sys.time(), "]  SIGMA-PLOTS ", ifelse(is.null(batch), "\n", paste0("batch=", batch, "/", ctrl@plot.nbatch, "\n"))))
   cat(paste0("[", Sys.time(), "]   generating...\n"))
 
   # grab out batch of groups

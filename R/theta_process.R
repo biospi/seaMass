@@ -1,12 +1,12 @@
 #' @import data.table
 #' @include generics.R
 #' @include seaMass_theta.R
-setMethod("process", "theta_block", function(object, job.id) {
+setMethod("process", "theta_block", function(object, chain, job.id) {
   ctrl <- control(object)
   if (ctrl@version != as.character(packageVersion("seaMass")))
     stop(paste0("version mismatch - '", name(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
 
-  cat(paste0("[", Sys.time(), "]  THETA-PROCESS name=", name(container(object)), " block=", name(object), " \n"))
+  cat(paste0("[", Sys.time(), "]  THETA-PROCESS name=", name(container(object)), " block=", name(object), " chain=", chain, "/", ctrl@nchain, "\n"))
 
   ellipsis <- ctrl@ellipsis
   ellipsis$object <- object
