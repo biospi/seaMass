@@ -46,7 +46,9 @@ setMethod("run", "schedule_local", function(object, fit.sigma) {
 
   # THETA
   for (fit.theta in open_thetas(fit.sigma, force = T)) {
-    for (block in blocks(fit.theta)) process(block, job.id)
+    for (block in blocks(fit.theta)) {
+      for (chain in 1:ctrl@nchain) process(block, chain, job.id)
+    }
   }
 
   # DELTA
@@ -232,7 +234,9 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, fit.sigma) {
 setMethod("prepare_theta", "schedule_slurm", function(object, fit.theta) {
   fit.sigma <- root(fit.theta)
   fp <- dirname(filepath(fit.sigma))
-  n <- length(open_thetas(fit.sigma, force = T)) * length(control(fit.sigma)@blocks)
+  ctrl <- control(fit.sigma)
+  n <- length(open_thetas(fit.sigma, force = T)) * length(control(fit.sigma)@blocks) * ctrl@nchain
+
   cat(config(object, "T", name(fit.sigma), n, F, "hpc_theta"), file = file.path(fp, "slurm", "submit.theta"))
 
   if (any(c(
@@ -674,6 +678,7 @@ hpc_theta <- function(job.id, task) {
   cat(paste0("[", Sys.time(), "] seaMass-theta v", control(fit.theta)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running name=", name(fit.theta), "...\n"))
 
+  task <- (task-1) %% nblock + 1
   seaMass:::process(blocks(fit.theta)[[(task-1) %% nblock + 1]], job.id)
 
   cat(paste0("[", Sys.time(), "] exiting...\n"))

@@ -31,7 +31,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       saveRDS(list(plot_robust_pca(object, data = DT)), file.path(filepath(object), "plots", file))
       report.index$group.quants.pca1 <- data.table(
         chapter = "Block-level", chapter.order = 50,
-        page = paste0("PCA - ", ctrl@group[1], " raw quants with assay QC"), page.order = 1000000,
+        page = paste0("PCA - ", ctrl@group[1], " raw quants with assay stdevs QC"), page.order = 1000000,
         section = paste("Block", name(object)), section.order = 100 * match(name(object), names(blocks(object))),
         file = file
       )
@@ -209,7 +209,7 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       # component deviations pca
       if ("component.deviations.pca" %in% ctrl@plot) {
         cat(paste0("[", Sys.time(), "]   generating robust PCA plot for component deviations...\n"))
-        DT <- robust_pca(fit.sigma, type = "component.deviations", summary = F)
+        DT <- robust_pca(fit.sigma, type = "component.deviations", summary = F, as.data.table = T)
 
         file <- paste0("pca_", tolower(ctrl@component[1]), "_deviations__assay_stdevs.rds")
         saveRDS(list(plot_robust_pca(fit.sigma, shape = "Block", data = DT)), file.path(filepath(object), "plots", file))
@@ -303,9 +303,10 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       if (ctrl@assay.model != "" && "assay.stdevs" %in% ctrl@plot) {
         cat(paste0("[", Sys.time(), "]   generating assay stdevs plot...\n"))
         file <- "assay_stdevs.rds"
+        lims <- limits_dists(assay_stdevs(fit.sigma, as.data.table = T), include.zero = T, non.negative = T)
         npage <- plot_assay_stdevs(fit.sigma, variable.n = 32, variable.return.npage = T)
         saveRDS(parallel_lapply(1:npage, function(item, fit.sigma, lims) {
-          plot_assay_stdevs(fit.sigma, variable.n = 32, variable.page = item)
+          plot_assay_stdevs(fit.sigma, value.limits = lims, variable.n = 32, variable.page = item)
         }, nthread = ctrl@nthread), file.path(filepath(object), "plots", file))
         report.index$assay.stats <- data.table(
           chapter = "Study-level", chapter.order = 0,

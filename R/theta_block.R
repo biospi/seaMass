@@ -114,7 +114,7 @@ setMethod("plot_assay_means", "theta_block", function(
   assays = NULL,
   summary = TRUE,
   colour = "A.qM",
-  value.label = "mean",
+  value.label = "mean log2 quant",
   variable.summary.cols = c("Block", "Run", "Channel", "Assay", "RefWeight", "Sample", "Condition", "A.qG", "A.qC", "A.qM", "A.qD"),
   variable.label.cols = c("Sample", "Assay", "Block"),
   ...
@@ -139,7 +139,7 @@ setMethod("plot_group_standards", "theta_block", function(
   groups = NULL,
   summary = TRUE,
   colour = "G.qC",
-  value.label = "mean",
+  value.label = "mean log2 quant",
   variable.summary.cols = c("Group", "Block", "G.qC", "G.qM", "G.qD"),
   variable.label.cols = "Group",
   ...
@@ -164,7 +164,7 @@ setMethod("plot_group_quants", "theta_block", function(
   group,
   summary = TRUE,
   colour = list("Condition", "grey"),
-  value.label = "quant",
+  value.label = "log2 quant",
   variable.summary.cols = c("Group", "Block", "Run", "Channel", "Assay", "RefWeight", "Sample", "Condition", "AG.qC", "AG.qM", "AG.qD"),
   variable.label.cols = c("Sample", "Assay", "Block"),
   ...

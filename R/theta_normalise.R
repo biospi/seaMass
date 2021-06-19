@@ -1,10 +1,7 @@
 #' @include generics.R
 #' @export
-setMethod("normalise_theta", "theta_block", function(object, norm.groups = control(object)@norm.groups, input = "model1", type = "group.quants", ...) {
+setMethod("normalise_theta", "theta_block", function(object, norm.groups = control(object)@norm.groups, input = "model1", type = "group.quants", chains = 1:control(object)@nchain, ...) {
   cat(paste0("[", Sys.time(), "]   seaMass-theta normalisation...\n"))
-
-  unlink(file.path(filepath(object), "model0", "*.group.quants.fst"))
-  unlink(file.path(filepath(object), "model1", "*.assay.means.fst"))
 
   dir.create(file.path(filepath(object), "model0", "group.quants"), recursive = T, showWarnings = F)
   dir.create(file.path(filepath(object), "model1", "assay.means"), recursive = T, showWarnings = F)
@@ -12,7 +9,7 @@ setMethod("normalise_theta", "theta_block", function(object, norm.groups = contr
   if (!is.null(norm.groups)) norm.groups <- groups(parent(object), as.data.table = T)[Group %in% norm.groups, Group]
 
   ctrl <- control(object)
-  parallel_lapply(1:ctrl@nchain, function(item, object, norm.groups, input, type) {
+  parallel_lapply(chains, function(item, object, norm.groups, input, type) {
     ctrl <- control(object)
     DT.summary <- read(parent(object), input, type, norm.groups, summary = T, as.data.table = T)[, .(Group, Assay, m, s)]
     DT <- copy(DT.summary)
@@ -79,7 +76,7 @@ setMethod("normalise_theta", "theta_block", function(object, norm.groups = contr
     fst::write.fst(DT, file.path(filepath(object), "model0", "group.quants", paste(item, "fst", sep = ".")))
 
     return(NULL)
-  }, nthread = ctrl@nthread)
+  }, nthread = ifelse(length(chains) == 1, 0, control(object)@nthread))
 
   return(invisible(object))
 })
@@ -87,17 +84,14 @@ setMethod("normalise_theta", "theta_block", function(object, norm.groups = contr
 
 #' @include generics.R
 #' @export
-setMethod("normalise_median", "theta_block", function(object, norm.groups = control(object)@norm.groups, input = "model1", type = "group.quants", ...) {
+setMethod("normalise_median", "theta_block", function(object, norm.groups = control(object)@norm.groups, input = "model1", type = "group.quants", chains = 1:control(object)@nchain, ...) {
   cat(paste0("[", Sys.time(), "]    median normalisation...\n"))
-
-  unlink(file.path(filepath(object), "model0", "*.group.quants.fst"))
-  unlink(file.path(filepath(object), "model1", "*.assay.means.fst"))
 
   dir.create(file.path(filepath(object), "model0", "group.quants"), recursive = T, showWarnings = F)
   dir.create(file.path(filepath(object), "model1", "assay.means"), recursive = T, showWarnings = F)
 
   if (!is.null(norm.groups)) norm.groups <- groups(parent(object), as.data.table = T)[Group %in% norm.groups, Group]
-  parallel_lapply(1:control(object)@nchain, function(item, object, norm.groups, input, type) {
+  parallel_lapply(chains, function(item, object, norm.groups, input, type) {
     DT <- read(parent(object), input, type, chain = item, as.data.table = T)[, Block := NULL]
 
     # group mean centre
@@ -124,7 +118,7 @@ setMethod("normalise_median", "theta_block", function(object, norm.groups = cont
     fst::write.fst(DT.assay.means, file.path(filepath(object), "model1", "assay.means", paste(item, "fst", sep = ".")))
 
     return(NULL)
-  }, nthread = control(object)@nthread)
+  }, nthread = ifelse(length(chains) == 1, 0, control(object)@nthread))
 
   return(invisible(object))
 })
@@ -132,16 +126,13 @@ setMethod("normalise_median", "theta_block", function(object, norm.groups = cont
 
 #' @include generics.R
 #' @export
-setMethod("normalise_quantile", "theta_block", function(object, norm.groups = control(object)@norm.groups, input = "model1", type = "group.quants", ...) {
+setMethod("normalise_quantile", "theta_block", function(object, norm.groups = control(object)@norm.groups, input = "model1", type = "group.quants", chains = 1:control(object)@nchain, ...) {
   cat(paste0("[", Sys.time(), "]    quantile normalisation...\n"))
-
-  unlink(file.path(filepath(object), "model0", "*.group.quants.fst"))
-  unlink(file.path(filepath(object), "model1", "*.assay.means.fst"))
 
   dir.create(file.path(filepath(object), "model0", "group.quants"), recursive = T, showWarnings = F)
   dir.create(file.path(filepath(object), "model1", "assay.means"), recursive = T, showWarnings = F)
 
-  parallel_lapply(1:control(object)@nchain, function(item, object, input, type) {
+  parallel_lapply(chains, function(item, object, input, type) {
     DT <- read(parent(object), input, type, chain = item, as.data.table = T)[, Block := NULL]
 
     # quantile normalisation
@@ -174,7 +165,7 @@ setMethod("normalise_quantile", "theta_block", function(object, norm.groups = co
     fst::write.fst(DT.assay.means, file.path(filepath(object), "model1", "assay.means", paste(item, "fst", sep = ".")))
 
     return(NULL)
-  }, nthread = control(object)@nthread)
+  }, nthread = ifelse(length(chains) == 1, 0, control(object)@nthread))
 
   return(invisible(object))
 })

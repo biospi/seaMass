@@ -333,20 +333,20 @@ setMethod("plot_dists", "seaMass", function(
   } else {
     vn <- variable.n
   }
-  if (variable.return.npage == T) return(ceiling(nrow(DT1) / vn))
-  if (variable.page * vn > nrow(DT1)) {
-    if ((variable.page - 1) * vn + 1 > nrow(DT1)) return(NULL)
+  if (variable.return.npage == T) return(ceiling(nlevels(DT1$Summary) / vn))
+  if (variable.page * vn > nlevels(DT1$Summary)) {
+    if ((variable.page - 1) * vn + 1 > nlevels(DT1$Summary)) return(NULL)
     if (horizontal) {
-      DT1 <- DT1[nrow(DT1):1][((variable.page - 1) * vn + 1):nrow(DT1)]
+      DT1 <- DT1[Summary %in% rev(levels(Summary))[((variable.page - 1) * vn + 1):nrow(DT1)]]
     } else {
-      DT1 <- DT1[((variable.page - 1) * vn + 1):nrow(DT1)]
+      DT1 <- DT1[Summary %in% levels(Summary)[((variable.page - 1) * vn + 1):nrow(DT1)]]
     }
-    eadd <- vn - nrow(DT1)
+    eadd <- vn - uniqueN(DT1$Summary)
   } else {
     if (horizontal) {
-      DT1 <- DT1[nrow(DT1):1][((variable.page - 1) * vn + 1):(variable.page * vn)]
+      DT1 <- DT1[Summary %in% rev(levels(Summary))[((variable.page - 1) * vn + 1):(variable.page * vn)]]
     } else {
-      DT1 <- DT1[((variable.page - 1) * vn + 1):(variable.page * vn)]
+      DT1 <- DT1[Summary %in% levels(Summary)[((variable.page - 1) * vn + 1):(variable.page * vn)]]
     }
     eadd <- 0
   }
@@ -364,7 +364,7 @@ setMethod("plot_dists", "seaMass", function(
     g <- g + ggplot2::scale_x_discrete(expand = ggplot2::expansion(add = c(0, eadd)))
     if (!variable.labels) g <- g + ggplot2::theme(axis.text.x = ggplot2::element_blank())
   }
-  g <- g + ggplot2::ylab(paste("log2", value.label))
+  g <- g + ggplot2::ylab(value.label)
   if (!is.null(colours[[1]]) && colours[[1]] %in% colnames(DT1) && !all(is.na(DT1[, get(colours[[1]])]))) {
     if (is.numeric(DT1[, get(colours[[1]])])) {
       g <- g + ggplot2::scale_colour_viridis_c(option = "plasma", end = 0.75, na.value = "black")
@@ -555,7 +555,7 @@ setMethod("plot_dists", "seaMass", function(
     fig <- plotly::layout(fig, xaxis = list(tickfont = list(family = "Courier New, monospace")))
   }
   # horrible hack for ggplotly tooltip
-  for (i in 1:length(fig$x$data)) fig$x$data[[i]]$text <- sapply(fig$x$data[[i]]$text, function(s) gsub("density", paste("log2", value.label), s), USE.NAMES = F)
+  for (i in 1:length(fig$x$data)) fig$x$data[[i]]$text <- sapply(fig$x$data[[i]]$text, function(s) gsub("density", value.label, s), USE.NAMES = F)
   # remove annotation as ggplotly label implementation is awful
   if (!is.null(fig$x$layout$annotations)) for (i in 1:length(fig$x$layout$annotations)) fig$x$layout$annotations[[i]]$text = ""
 

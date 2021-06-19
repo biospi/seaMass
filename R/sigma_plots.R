@@ -70,7 +70,7 @@ setMethod("plots", "seaMass_sigma", function(object, job.id, batch = NULL) {
     return(data.table(
       chapter = ctrl@group[2], chapter.order = 1000,
       page = as.character(item), page.order = as.integer(item) * 100,
-      section = names(plots), section.order = 1:length(plots),
+      section = names(plots), section.order = 2000000 + 1:length(plots),
       file = file
     ))
   }, nthread = ctrl@nthread))

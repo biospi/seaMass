@@ -732,8 +732,8 @@ setMethod("group_means", "seaMass_sigma", function(object, groups = NULL, summar
 #'   fill = list("lightblue", NULL, "grey"),
 #'   alpha = list(0.5, 0.5, 0.5),
 #'   facets = "Covariate",
-#'   value.label = "stdev",
-#'   value.limits = limits_dists(data, trim, c(0, 1), include.zero = T),
+#'   value.label = "stdev log2 quant",
+#'   value.limits = limits_dists(data, trim, c(0, 1)),
 #'   value.length = 160,
 #'   variable.sort.cols = NULL,
 #'   variable.label.cols = "Block",
@@ -761,7 +761,7 @@ setMethod("plot_assay_stdevs", "seaMass_sigma", function(
   colour = list("A.qM", NULL, NULL),
   fill = list(NULL, "darkgreen", "black"),
   alpha = list(0.75, 0.2, 0.2),
-  value.label = "stdev",
+  value.label = "stdev log2 quant",
   value.limits = limits_dists(data, trim, include.zero = T, non.negative = T),
   variable.summary.cols = c("Block", "Run", "Channel", "Assay", "RefWeight", "Sample", "Condition", "A.qG", "A.qC", "A.qM", "A.qD"),
   variable.label.cols = c("Sample", "Assay", "Block"),
@@ -792,7 +792,7 @@ setMethod("plot_group_means", "seaMass_sigma", function(
   groups = NULL,
   summary = TRUE,
   colour = "Block",
-  value.label = "mean",
+  value.label = "mean log2 quant",
   variable.summary.cols = c("Group", "Block", "G.qC", "G.qM", "G.qD"),
   variable.label.cols = "Group",
   ...
@@ -819,7 +819,7 @@ setMethod("plot_group_quants", "seaMass_sigma", function(
   colour = "Condition",
   variable.summary.cols = c("Group", "Block", "Run", "Channel", "Assay", "RefWeight", "Sample", "Condition", "AG.qC", "AG.qM", "AG.qD"),
   variable.label.cols = c("Sample", "Assay", "Block"),
-  value.label = "quant",
+  value.label = "log2 quant",
   ...
 ) {
   return(plot_dists(
@@ -842,7 +842,7 @@ setMethod("plot_component_means", "seaMass_sigma", function(
   group,
   summary = TRUE,
   colour = "Block",
-  value.label = "mean",
+  value.label = "mean log2 quant",
   variable.summary.cols = c("Group", "Component", "Block", "C.qM", "C.qD"),
   variable.label.cols = "Component",
   ...
@@ -867,7 +867,7 @@ setMethod("plot_component_stdevs", "seaMass_sigma", function(
   group,
   summary = TRUE,
   colour = "Block",
-  value.label = "stdev",
+  value.label = "stdev log2 quant",
   variable.summary.cols = c("Group", "Component", "Block", "C.qM", "C.qD"),
   variable.label.cols = "Component",
   ...
@@ -892,7 +892,7 @@ setMethod("plot_component_deviations", "seaMass_sigma", function(
   group,
   summary = TRUE,
   colour = "Condition",
-  value.label = "deviation",
+  value.label = "deviation log2 quant",
   variable.summary.cols = c("Group", "Component", "Block", "Run", "Channel", "Assay", "RefWeight", "Sample", "Condition", "AC.qM", "AC.qD"),
   variable.label.cols = c("Component", "Sample", "Assay", "Block"),
   ...
@@ -917,7 +917,7 @@ setMethod("plot_measurement_means", "seaMass_sigma", function(
   group,
   summary = TRUE,
   colour = "Block",
-  value.label = "mean",
+  value.label = "mean log2 quant",
   variable.summary.cols = c("Group", "Component", "Measurement", "Block", "M.qD"),
   variable.label.cols = c("Component", "Measurement"),
   ...
@@ -942,7 +942,7 @@ setMethod("plot_measurement_stdevs", "seaMass_sigma", function(
   group,
   summary = TRUE,
   colour = "Block",
-  value.label = "stdev",
+  value.label = "stdev log2 quant",
   variable.summary.cols = c("Group", "Component", "Measurement", "Block", "M.qD"),
   variable.label.cols = c("Component", "Measurement"),
   ...

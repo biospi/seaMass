@@ -44,7 +44,7 @@ seaMass_theta <- function(
 
   # create fit and output directories
   if (file.exists(filepath(object))) unlink(filepath(object), recursive = T)
-  if (!dir.create(filepath(object))) stop("ERROR: problem creating folder")
+  if (!dir.create(file.path(filepath(object), "plots"), recursive = T)) stop("ERROR: problem creating folder")
 
   # check and save control
   saveRDS(control, file.path(filepath(object), "control.rds"))
@@ -53,7 +53,7 @@ seaMass_theta <- function(
   for (i in 1:length(blocks(object))) {
     # create output directory
     blockpath <- filepath(blocks(object)[[i]])
-    dir.create(blockpath)
+    dir.create(file.path(blockpath, "plots"), recursive = T)
 
     # design for this block, update RefWeight
     DT.design.block <- assay_design(blocks(fit)[[i]], as.data.table = T)[, !"RefWeight"]
@@ -82,7 +82,9 @@ setMethod("run", "seaMass_theta", function(object) {
   job.id <- uuid::UUIDgenerate()
 
   cat(paste0("[", Sys.time(), "] processing...\n"))
-  for (block in blocks(object)) process(block, job.id)
+  for (block in blocks(object)) {
+    for (chain in 1:control(object)@nchain) process(block, chain, job.id)
+  }
   cat(paste0("[", Sys.time(), "] finished processing!\n"))
 
   cat(paste0("[", Sys.time(), "] reporting...\n"))
@@ -253,7 +255,7 @@ setMethod("plot_assay_means", "seaMass_theta", function(
   assays = NULL,
   summary = TRUE,
   colour = "A.qM",
-  value.label = "mean",
+  value.label = "mean log2 quant",
   variable.summary.cols = c("Block", "Run", "Channel", "Assay", "RefWeight", "Sample", "Condition", "A.qG", "A.qC", "A.qM", "A.qD"),
   variable.label.cols = c("Sample", "Assay", "Block"),
   ...
@@ -278,7 +280,7 @@ setMethod("plot_group_standards", "seaMass_theta", function(
   groups = NULL,
   summary = TRUE,
   colour = "Block",
-  value.label = "mean",
+  value.label = "mean log2 quant",
   variable.summary.cols = c("Group", "Block", "G.qC", "G.qM", "G.qD"),
   variable.label.cols = "Group",
   ...
@@ -305,7 +307,7 @@ setMethod("plot_group_quants", "seaMass_theta", function(
   colour = list("Condition", "grey"),
   variable.summary.cols = c("Group", "Block", "Run", "Channel", "Assay", "RefWeight", "Sample", "Condition", "AG.qC", "AG.qM", "AG.qD"),
   variable.label.cols = c("Sample", "Assay", "Block"),
-  value.label = "quant",
+  value.label = "log2 quant",
   ...
 ) {
   return(plot_dists(
