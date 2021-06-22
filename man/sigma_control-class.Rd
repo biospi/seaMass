@@ -7,11 +7,10 @@
 \title{Control parameters for seaMass-Σ}
 \usage{
 sigma_control(
-  keep = c("summaries", "group.quants", "plots"),
+  keep = c("summaries", "group.quants"),
   summarise = c("groups", "components", "measurements"),
   plot = c("assay.stdevs", "group.quants.pca", "group.means", "group.quants",
-    "component.means", "component.stdevs", "component.deviations", "measurement.means",
-    "measurement.stdevs"),
+    "component.means", "component.stdevs", "measurement.means", "measurement.stdevs"),
   plot.nbatch = 40,
   eb.model = "deconvolve",
   eb.max = 1024,

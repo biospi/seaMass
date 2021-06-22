@@ -125,10 +125,9 @@ setMethod("process", "theta_block", function(object, chain, job.id) {
       if ("group.standards" %in% ctrl@plot && length(unique(assay_design(fit.theta)$RefWeight)) != 1) {
         cat(paste0("[", Sys.time(), "]   generating group reference standards plot...\n"))
         file <- paste0("seamass_theta__", name(fit.theta), "__", tolower(group), "_standards")
-        lims <- lims$group.standards
         npage <- plot_group_standards(fit.theta, variable.n = 32, variable.return.npage = T)
-        saveRDS(parallel_lapply(1:npage, function(item, fit.theta, lims) {
-          plot_group_standards(fit.theta, value.limits = lims, variable.n = 32, variable.page = item, summary = T)
+        saveRDS(parallel_lapply(1:npage, function(item, fit.theta) {
+          plot_group_standards(fit.theta, variable.n = 32, variable.page = item, summary = T)
         }, nthread = ctrl@nthread), file.path(filepath(object), "plots", file))
         report.index$group.means <- data.table(
           chapter = "Study-level", chapter.order = 0,
@@ -138,15 +137,13 @@ setMethod("process", "theta_block", function(object, chain, job.id) {
         )
       }
 
-      # save assay stdevs plot
+      # save assay means plot
       if ("assay.means" %in% ctrl@plot) {
         cat(paste0("[", Sys.time(), "]   generating assay means plot...\n"))
         file <- paste0("seamass_theta__", name(fit.theta), "__assay_means.rds")
-        lims <- limits_dists(assay_means(fit.theta, summary = T, as.data.table = T), non.negative = T)
-
         npage <- plot_assay_means(fit.theta, variable.n = 32, variable.return.npage = T, summary = T)
-        saveRDS(parallel_lapply(1:npage, function(item, fit.theta, lims) {
-          plot_assay_means(fit.theta, value.limits = lims, variable.n = 32, variable.page = item)
+        saveRDS(parallel_lapply(1:npage, function(item, fit.theta) {
+          plot_assay_means(fit.theta, variable.n = 32, variable.page = item)
         }, nthread = ctrl@nthread), file.path(filepath(object), "plots", file))
         report.index$assay.stats <- data.table(
           chapter = "Study-level", chapter.order = 0,

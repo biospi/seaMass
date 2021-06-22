@@ -286,10 +286,9 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       if ("group.means" %in% ctrl@plot) {
         cat(paste0("[", Sys.time(), "]   generating group means plot...\n"))
         file <- paste0(tolower(ctrl@group[1]), "_means.rds")
-        lims <- lims$group.means
-        npage <- plot_group_means(fit.sigma, variable.n = 32, variable.return.npage = T)
-        saveRDS(parallel_lapply(1:npage, function(item, fit.sigma, lims) {
-          plot_group_means(fit.sigma, value.limits = lims, variable.n = 32, variable.page = item, summary = T)
+         npage <- plot_group_means(fit.sigma, variable.n = 32, variable.return.npage = T)
+        saveRDS(parallel_lapply(1:npage, function(item, fit.sigma) {
+          plot_group_means(fit.sigma, variable.n = 32, variable.page = item, summary = T)
         }, nthread = ctrl@nthread), file.path(filepath(object), "plots", file))
         report.index$group.means <- data.table(
           chapter = "Study-level", chapter.order = 0,
@@ -303,10 +302,9 @@ setMethod("process1", "sigma_block", function(object, chain, job.id) {
       if (ctrl@assay.model != "" && "assay.stdevs" %in% ctrl@plot) {
         cat(paste0("[", Sys.time(), "]   generating assay stdevs plot...\n"))
         file <- "assay_stdevs.rds"
-        lims <- limits_dists(assay_stdevs(fit.sigma, as.data.table = T), include.zero = T, non.negative = T)
         npage <- plot_assay_stdevs(fit.sigma, variable.n = 32, variable.return.npage = T)
-        saveRDS(parallel_lapply(1:npage, function(item, fit.sigma, lims) {
-          plot_assay_stdevs(fit.sigma, value.limits = lims, variable.n = 32, variable.page = item)
+        saveRDS(parallel_lapply(1:npage, function(item, fit.sigma) {
+          plot_assay_stdevs(fit.sigma, variable.n = 32, variable.page = item)
         }, nthread = ctrl@nthread), file.path(filepath(object), "plots", file))
         report.index$assay.stats <- data.table(
           chapter = "Study-level", chapter.order = 0,

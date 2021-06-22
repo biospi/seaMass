@@ -15,7 +15,7 @@ setMethod("plots", "seaMass_sigma", function(object, job.id, batch = NULL) {
   # plots!
   lims <- readRDS(file.path(filepath(object), "limits.rds"))
   report.index <- rbindlist(parallel_lapply(groups, function(item, object, ctrl, lims, batch) {
-     plots <- list()
+    plots <- list()
 
     if ("group.quants" %in% ctrl@plot) {
       pages <- 1:plot_group_quants(object, item, variable.n = 32, variable.return.npage = T)

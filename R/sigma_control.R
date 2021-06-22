@@ -72,9 +72,9 @@ setClass("sigma_control", slots = c(
 #' @param schedule Either \link{schedule_local} (execute locally), \link{schedule_pbs} or \link{schedule_slurm} (prepare for submission to HPC cluster)
 #' @export sigma_control
 sigma_control <- function(
-  keep = c("summaries", "group.quants", "plots"),
+  keep = c("summaries", "group.quants"),
   summarise = c("groups", "components", "measurements"),
-  plot = c("assay.stdevs", "group.quants.pca", "group.means", "group.quants", "component.means", "component.stdevs", "component.deviations", "measurement.means", "measurement.stdevs"),
+  plot = c("assay.stdevs", "group.quants.pca", "group.means", "group.quants", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs"),
   plot.nbatch = 40,
   eb.model = "deconvolve",
   eb.max = 1024,
