@@ -6,7 +6,8 @@ setMethod("normalise_theta", "theta_block", function(object, norm.groups = contr
   dir.create(file.path(filepath(object), "model0", "group.quants"), recursive = T, showWarnings = F)
   dir.create(file.path(filepath(object), "model1", "assay.means"), recursive = T, showWarnings = F)
 
-  if (!is.null(norm.groups)) norm.groups <- groups(parent(object), as.data.table = T)[Group %in% norm.groups, Group]
+  #if (!is.null(norm.groups)) norm.groups <- groups(parent(object), as.data.table = T)[Group %in% norm.groups, Group]
+  norm.groups <- top_groups(root(object))
 
   ctrl <- control(object)
   parallel_lapply(chains, function(item, object, norm.groups, input, type) {

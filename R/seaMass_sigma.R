@@ -450,7 +450,7 @@ setMethod("groups", "seaMass_sigma", function(object, summary = FALSE, as.data.t
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("top_groups", "seaMass_sigma", function(object, n = 100000, subset = NULL) {
+setMethod("top_groups", "seaMass_sigma", function(object, n = 1024, subset = NULL) {
   DT <- groups(object, as.data.table = T)
   if (!is.null(subset)) DT <- DT[Group %in% subset]
   DT <- DT[, .(.N, qC = min(G.qC)), by = Group][N == nlevels(DT$Block)]
