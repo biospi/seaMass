@@ -5,13 +5,13 @@ The seaMass suite of tools for quantification and differential expression analys
 
 - **seaMass-Θ**: Bayesian protein group normalisation on the output of seaMass-Σ.
 
-- **seaMass-Δ**: Bayesian differential expression analysis on the output of seaMass-Σ or seaMass-Θ. By harnessing the generic [MCMCglmm](https://cran.r-project.org/web/packages/MCMCglmm) package for Bayesian mixed-effect modelling, the tool allows the user to perform many kinds of univariate analysis on the data, from simple Welch's t-tests and two-way ANOVA to timecourse and multi-level models. Studies analysed with earlier versions of seaMass-Σ and seaMass-Δ are published in [[Freeman et al, Diabetes, 2016]](	
-https://doi.org/10.2337/db15-0835), [[Xu et al, Nature Comms Biology, 2019]](https://doi.org/10.1038/s42003-018-0254-9) and [[Kassab et al, Molecular Metabolism, 2019]](	
-https://doi.org/10.1016/j.molmet.2019.08.003).
+- **seaMass-Δ**: Bayesian differential expression analysis on the output of seaMass-Σ or seaMass-Θ. By harnessing the generic [MCMCglmm](https://cran.r-project.org/web/packages/MCMCglmm) package for Bayesian mixed-effect modelling, the tool allows the user to perform many kinds of univariate analysis on the data, from simple Welch's t-tests and two-way ANOVA to timecourse and multi-level models. Studies analysed with an earlier versions of seaMass-Σ/Θ/Δ which was called BayesProt are published in [[Freeman et al, Diabetes, 2016]](	
+https://doi.org/10.2337/db15-0835), [[Xu et al, Nature Comms Biology, 2019]](https://doi.org/10.1038/s42003-018-0254-9), [[Kassab et al, Molecular Metabolism, 2019]](	
+https://doi.org/10.1016/j.molmet.2019.08.003) and [[Philbert et al, Biochem Biophys Res Comm, 2021]](https://doi.org/10.1016/j.bbrc.2021.02.107).
 
 - **seaMass-α**: Still in development, this will provide sensitive feature extraction directly from raw mass spectrometry data. Please see [[Liao et al. IEEE ISBI, 2014]](https://doi.org/10.1109/ISBI.2014.6868123) and [[Zhang et al., Proteomics, 2015]](https://doi.org/10.1002/pmic.201400428) for technical details. The C++ codebase resides at [here](https://github.com/biospi/seaMass-alpha) and when ready will have an R interface through this package.
 
-- **mzMLb**: A future-proof binary HDF5 encoding of the [mzML](http://www.psidev.info/mzML) standard interchange format for raw mass spectrometry data flexibly providing best-in-class compression or best-in-class random access speeds. The manuscript is [[Bhamber et al, 2020]](https://doi.org/10.1101/2020.02.13.947218), the code is implemented in ProteoWizard [here](https://github.com/biospi/pwiz) and is moving towards approval by the [Proteomics Standards Intiative](http://www.psidev.info/).  
+- **mzMLb**: A future-proof binary HDF5 encoding of the [mzML](http://www.psidev.info/mzML) standard interchange format for raw mass spectrometry data flexibly providing best-in-class compression or best-in-class random access speeds. The manuscript is [[Bhamber et al, 2020]](https://doi.org/10.1021/acs.jproteome.0c00192), the code is implemented in ProteoWizard [here](https://github.com/biospi/pwiz) and is moving towards approval by the [Proteomics Standards Intiative](http://www.psidev.info/).  
 
 ## Requirements
 
@@ -104,7 +104,8 @@ To run seaMass on a HPC cluster, make sure that R and the seaMass R package is i
 ```
 # prepare seaMass-Σ
 fit.sigma <- seaMass_sigma(data, data.design, path = "hpc", run = FALSE, 
-  control = sigma_control(schedule = schedule_slurm(cpus_per_task = 14, mem = "64000m", mail_user = "username@domain.com")))
+  control = sigma_control(schedule = schedule_slurm(cpus_per_task = 14, mem = "64000m",
+                                                    mail_user = "username@domain.com")))
 ```
 
 Note above we also set set *run = FALSE* which prepares but does not run seaMass-Σ. This gives you the opportunity to add one or more seaMass-Θ and seaMass-Δ runs so that everything can be run in one go later.
@@ -135,15 +136,15 @@ data <- import_ProteinPilot(file)
 Unfortunately the input file does not contain information for linking fractions to runs, so seaMass allows you to update the imported data with this information.
 
 ```
-# Get skeleton injection-run table from imported data.
+# Get skeleton injection-run table from imported data
 data.runs <- runs(data)
 
-# Indicate which injection refers to which run; use 'NA' to indicate injections to ignore.
+# Indicate which injection refers to which run; use 'NA' to indicate injections to ignore
 data.runs$Run[1:26] <- NA
 data.runs$Run[27:52] <- "1"
 data.runs$Run[53:78] <- "2"
 
-# Update the imported data with the run information and remove any ignored injections.
+# Update the imported data with the run information and remove any ignored injections
 runs(data) <- data.runs
 ```
 
@@ -153,7 +154,7 @@ If you have a large amount of assays, you may group them into blocks so that sea
 # Get skeleton design matrix
 data.design <- new_assay_design(data)
 
-# You can rename assays, or remove them from the analysis with 'NA'.
+# You can rename assays, or remove them from the analysis with 'NA'
 data.design$Assay <- factor(c(
   NA, NA, NA, NA, "1.1", "1.2", "1.3", "1.4",
   NA, NA, NA, NA, "2.1", "2.2", "2.3", "2.4"
