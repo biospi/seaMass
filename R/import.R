@@ -144,7 +144,7 @@ import_ProteinPilot <- function(
   if(!("ProteinModifications" %in% colnames(DT.raw))) DT.raw[, ProteinModifications := ""]
   DT <- DT.raw[, .(
     Group = gsub(";", "", Accessions),
-    GroupInfo = paste0("[", N, "] ", Names),
+    GroupInfo = paste0(`Theor z`, " [", N, "] ", Names),
     Component = gsub(" ", "", paste0(Sequence, ",", Modifications, ",", ProteinModifications, ",", Cleavages), fixed = T),
     Measurement = Spectrum,
     Injection = as.integer(matrix(unlist(strsplit(as.character(DT.raw$Spectrum), ".", fixed = T)), ncol = 5, byrow = T)[, 1]),
