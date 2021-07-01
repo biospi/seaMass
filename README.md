@@ -5,7 +5,9 @@ The seaMass suite of tools for quantification and differential expression analys
 
 The current reference for seaMass includes an R script and data for a fully reproducible case study:
 
-Alexander Phillips, Richard D. Unwin, Simon Hubbard & Andrew Dowsey, "Uncertainty aware protein-level quantification and differential expression analysis of proteomics data with seaMass", book chapter in: Statistical Methods for Proteomics, Methods in Molecular Biology, Springer (to appear). Preprint availble [*here*](https://research-information.bris.ac.uk/en/publications/uncertainty-aware-protein-level-quantification-and-differential-e).
+*Alexander Phillips, Richard D. Unwin, Simon Hubbard & Andrew Dowsey, "Uncertainty aware protein-level quantification and differential expression analysis of proteomics data with seaMass", book chapter in: Statistical Methods for Proteomics, Methods in Molecular Biology, Springer (to appear). Preprint availble [**here**](https://research-information.bris.ac.uk/en/publications/uncertainty-aware-protein-level-quantification-and-differential-e).*
+
+## Tools
 
 - **seaMass-Σ**: A Bayesian protein group-level quantification technique univerally supporting label-free, SILAC, iTraq/TMT and DIA data. Currently we support proteomics input from Waters Progenesis (label-free), SCIEX ProteinPilot (iTraQ), Thermo ProteomeDiscoverer (SILAC/TMT) and OpenSWATH (SWATH). Other packages supported on request (MaxQuant coming soon). The model provides automatic quality control by downweighting problematic samples and peptides/features, can scale to massive study sizes, and propagates quantification uncertainty downstream to the differential expression analysis stage. 
 
