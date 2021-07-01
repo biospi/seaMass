@@ -9,7 +9,8 @@ import_MSqRob(
   exprs,
   evidence.file = NULL,
   is.log2 = TRUE,
-  evidence.data = NULL
+  evidence.data = NULL,
+  as.data.table = F
 )
 }
 \arguments{

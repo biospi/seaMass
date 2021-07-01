@@ -16,7 +16,8 @@ import_ProteomeDiscoverer <- function(
   use.not.unique = TRUE,
   use.excluded.by.method = TRUE,
   use.redundant = FALSE,
-  data = NULL
+  data = NULL,
+  as.data.table = F
 ) {
   if (is.null(file)) {
     if (is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
@@ -93,8 +94,9 @@ import_ProteomeDiscoverer <- function(
   setattr(DT, "component", c("Peptidoform", "Peptidoforms"))
   setattr(DT, "measurement", c("Spectrum", "Spectra"))
 
-  setDF(DT)
-  return(DT[])
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
 }
 
 
@@ -121,7 +123,8 @@ import_ProteinPilot <- function(
   use.discordant.peptide.type = FALSE,
   use.no.itraq = FALSE,
   use.weak.signal = FALSE,
-  data = NULL
+  data = NULL,
+  as.data.table = F
 ) {
   if (is.null(file)) {
     if (is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
@@ -144,9 +147,9 @@ import_ProteinPilot <- function(
   if(!("ProteinModifications" %in% colnames(DT.raw))) DT.raw[, ProteinModifications := ""]
   DT <- DT.raw[, .(
     Group = gsub(";", "", Accessions),
-    GroupInfo = paste0(`Theor z`, " [", N, "] ", Names),
+    GroupInfo = paste0(" [", N, "] ", Names),
     Component = gsub(" ", "", paste0(Sequence, ",", Modifications, ",", ProteinModifications, ",", Cleavages), fixed = T),
-    Measurement = Spectrum,
+    Measurement = paste0(`Theor z`, ":", Spectrum),
     Injection = as.integer(matrix(unlist(strsplit(as.character(DT.raw$Spectrum), ".", fixed = T)), ncol = 5, byrow = T)[, 1]),
     Use
   )]
@@ -182,8 +185,9 @@ import_ProteinPilot <- function(
   setattr(DT, "component", c("Peptidoform", "Peptidoforms"))
   setattr(DT, "measurement", c("Spectrum", "Spectra"))
 
-  setDF(DT)
-  return(DT[])
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
 }
 
 
@@ -203,7 +207,8 @@ import_OpenSWATH <- function(
   max.m_score = 0.05,
   use.shared.peptides = FALSE,
   use.decoys = FALSE,
-  data = NULL
+  data = NULL,
+  as.data.table = F
 ) {
   if (is.null(file) && is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
   if (!is.null(data)) file <- data
@@ -267,8 +272,9 @@ import_OpenSWATH <- function(
   setattr(DT, "component", c("Peptidoform", "Peptidoforms"))
   setattr(DT, "measurement", c("Transition", "Transitions"))
 
-  setDF(DT)
-  return(DT[])
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
 }
 
 #' Import MaxQuant LF data
@@ -291,7 +297,8 @@ import_MaxQuant <- function(
   use.only.identified.by.site = FALSE,
   use.potential.contaminant = FALSE,
   proteinGroups.data = NULL,
-  evidence.data = NULL
+  evidence.data = NULL,
+  as.data.table = F
 ) {
   warning("import_MaxQuant currently only supports labelfree data with no fractionation")
 
@@ -367,7 +374,8 @@ import_MaxQuant <- function(
   setattr(DT, "component", c("Peptidoform", "Peptidoforms"))
   setattr(DT, "measurement", c("Feature", "Features"))
 
-  setDF(DT)
+  if (!as.data.table) setDF(DT)
+  else DT[]
   return(DT)
 }
 
@@ -412,7 +420,8 @@ import_MaxQuant <- function(
 import_DIANN <- function(
   file = NULL,
   use.shared.peptides = FALSE,
-  data = NULL
+  data = NULL,
+  as.data.table = F
 ) {
   stop("todo: not implemented yet")
 
@@ -424,7 +433,8 @@ import_DIANN <- function(
     DT <- fread(file = file, showProgress = T)
   }
 
-  setDF(DT)
+  if (!as.data.table) setDF(DT)
+  else DT[]
   return(DT)
 }
 
@@ -444,7 +454,8 @@ import_DIANN <- function(
 import_Progenesis <- function(
   file = NULL,
   used = T,
-  data = NULL
+  data = NULL,
+  as.data.table = F
 ) {
   stop("todo: needs updating")
   suppressWarnings(suppressMessages(library(R.oo)))
@@ -508,8 +519,9 @@ import_Progenesis <- function(
   DT[, Injection := Run]
   DT[, Count := as.numeric(Count)]
 
-  setDF(DT)
-  return(DT[])
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
 }
 
 
@@ -532,7 +544,8 @@ import_MaxQuant_peptides <- function(
   peptides.file = NULL,
   shared = FALSE,
   proteinGroups.data = NULL,
-  peptides.data = NULL
+  peptides.data = NULL,
+  as.data.table = F
 ) {
   stop("todo: needs updating")
   # load groups
@@ -599,7 +612,8 @@ import_MaxQuant_peptides <- function(
   DT[, Count := as.double(Count)]
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Channel", "Injection"))
 
-  setDF(DT)
+  if (!as.data.table) setDF(DT)
+  else DT[]
   return(DT)
 }
 
@@ -622,7 +636,8 @@ import_MaxQuant_evidence0 <- function(
   shared = F,
   rollup = "measurement",
   proteinGroups.data = NULL,
-  evidence.data = NULL
+  evidence.data = NULL,
+  as.data.table = F
 ) {
   stop("todo: needs updating")
   suppressWarnings(suppressMessages(library(R.oo)))
@@ -722,9 +737,9 @@ import_MaxQuant_evidence0 <- function(
   DT[, Channel := factor("1")]
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Injection", "Channel"))
 
-  setDF(DT)
-  return(DT[])
-
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
 }
 
 
@@ -745,7 +760,8 @@ import_MSqRob <- function(
   exprs,
   evidence.file = NULL,
   is.log2 = TRUE,
-  evidence.data = NULL
+  evidence.data = NULL,
+  as.data.table = F
 ) {
   stop("todo: needs updating")
   if (is.null(evidence.file) & is.null(evidence.data)) {
@@ -805,7 +821,9 @@ import_MSqRob <- function(
   }
 
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run"))
-  setDF(DT)
+
+  if (!as.data.table) setDF(DT)
+  else DT[]
   return(DT)
 }
 
@@ -832,6 +850,7 @@ import_MSstats <- function(data) {
     Count = as.numeric(data$Intensity)
   )
 
-  setDF(DT)
-  return(DT[])
+  if (!as.data.table) setDF(DT)
+  else DT[]
+  return(DT)
 }
