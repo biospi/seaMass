@@ -13,7 +13,9 @@ setMethod("process", "theta_block", function(object, job.id) {
   ellipsis$object <- object
 
   # normalise
-  if (ctrl@model != "") {
+  if (ctrl@model == "") {
+    cat(paste0("[", Sys.time(), "]   normalisation skipped...\n"))
+  } else {
     do.call(paste("normalise", ctrl@model, sep = "_"), ellipsis)
 
     # if ("group.quants" %in% ctrl@plot) {
@@ -36,7 +38,7 @@ setMethod("process", "theta_block", function(object, job.id) {
 
       # standardise
       if (ctrl@model == "") {
-        #for (chain in 1:ctrl@nchain) standardise_group_quants
+        standardise_group_quants(fit.theta, chain, input = "sigma/model1")
       } else {
         standardise_group_quants(fit.theta, chain)
       }
