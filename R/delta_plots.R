@@ -306,7 +306,7 @@ setMethod("plot_pr", "seaMass_delta", function(
   if (plot.fdr) {
     g <- g + ggplot2::ylab("Solid Line: FDP [ 1 - Precision ], Dashed: FDR")
   } else {
-    g <- g + ggplot2::ylab("False Discovery Proportion [ 1 - Precision ]")
+    g <- g + ggplot2::ylab("FDP [ 1 - Precision ]")
   }
   g <- g + ggplot2::scale_linetype_manual(values = rep("solid", length(levels(DTs.pr$Method))))
 
