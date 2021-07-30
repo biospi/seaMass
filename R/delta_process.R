@@ -39,12 +39,14 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
     group <- control(root(object))@group[1]
 
     # calculate plot limits
-    if (ctrl@plots == T) {
-      cat(paste0("[", Sys.time(), "]   calculating plot limits...\n"))
-      lims <- list()
-      if ("group.quants.de" %in% ctrl@plot) lims$group.quants.de <- limits_dists(group_quants_de(object, summary = T, as.data.table = T))
-      saveRDS(lims, file.path(filepath(object), "limits.rds"))
+    cat(paste0("[", Sys.time(), "]   calculating plot limits...\n"))
+    lims <- list()
+    if (ctrl@fdr.model == "") {
+      lims$group.quants.de <- limits_dists(group_quants_de(object, summary = T, as.data.table = T), include.zero = T)
+    } else {
+      lims$group.quants.de <- limits_dists(group_quants_fdr(object, as.data.table = T), include.zero = T)
     }
+    if (ctrl@plots == T) saveRDS(lims, file.path(filepath(object), "limits.rds"))
 
     # write out and plot group fdr
     DTs.fdr <- group_quants_fdr(object, as.data.table = T)
@@ -107,7 +109,7 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
             section = "Covariate-level", section.order = 60, item = text, item.order = 75000,
             item.href = generate_markdown(
               object,
-              plot_group_quants_fdr(object, data.table(Effect = effect)),
+              plot_group_quants_fdr(object, data.table(Effect = effect), value.limits = lims$group.quants.de),
               root, paste0("seamass_delta__", name(object), "__group_de__", gsub("\\.", "_", effect)),
               text
             )
