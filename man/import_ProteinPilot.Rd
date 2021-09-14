@@ -12,7 +12,8 @@ import_ProteinPilot(
   use.discordant.peptide.type = FALSE,
   use.no.itraq = FALSE,
   use.weak.signal = FALSE,
-  data = NULL
+  data = NULL,
+  as.data.table = F
 )
 }
 \arguments{

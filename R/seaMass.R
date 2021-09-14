@@ -304,7 +304,7 @@ setMethod("plot_dists", "seaMass", function(
   }
 
   # elements are summary.cols with text.cols labels
-  data.table::setorderv(DT1, summary.cols, order = ifelse(horizontal, -1, 1), na.last = T)
+  data.table::setorderv(DT1, summary.cols, order = ifelse(horizontal, -1, 1), na.last = ifelse(horizontal, F, T))
 
   for (col in label.cols) {
     if (all(is.numeric(DT1[[col]])) && !all(DT1[[col]] == round(DT1[[col]]), na.rm = T)) {
@@ -466,7 +466,7 @@ setMethod("plot_dists", "seaMass", function(
       text.cols <- as.vector(sapply(text.old, function(col) gsub("\n", " ", col)))
       setnames(DT.plot, text.old, text.cols, skip_absent = T)
       for (col in text.cols) {
-        if (all(is.numeric(DT.plot[[col]])) && !all(DT.plot[[col]] == round(DT.plot[[col]]))) {
+        if (all(is.numeric(DT.plot[[col]]), na.rm = T) && !all(DT.plot[[col]] == round(DT.plot[[col]]), na.rm = T)) {
           DT.plot[, (col) := formatC(get(col), format = "g")]
         }
         DT.plot[, (col) := sapply(
@@ -481,36 +481,8 @@ setMethod("plot_dists", "seaMass", function(
       # remove unnecessary columns
       DT.plot <- DT.plot[, intersect(colnames(DT.plot), c("Summary", y, arg2, arg3, "dist", ggcolour.aes, ggfill.aes, "text")), with = F]
 
-      # plot violin!
-      args.aes <- list(
-        text = ~text,
-        y = formula(paste0("~`", y, "`")),
-        dist = ~dist,
-        arg2 = NULL,
-        arg3 = NULL
-      )
-      if (!is.null(arg2)) args.aes$arg2 <- formula(paste0("~`", arg2, "`"))
-      if (!is.null(arg3)) args.aes$arg3 <- formula(paste0("~`", arg3, "`"))
-      if (!is.null(ggcolour.aes)) args.aes$colour <- formula(paste0("~`", ggcolour.aes, "`"))
-      if (!is.null(ggfill.aes)) args.aes$fill <- formula(paste0("~`", ggfill.aes, "`"))
-
-      args <- list(
-        mapping = do.call(eval(parse(text = "ggplot2::aes_")), args.aes),
-        data = DT.plot,
-        position = "identity",
-        scale = NULL,
-        stat = seaMass::StatYlfdr,
-        alpha = alphas[[(i-1) %% length(alpha) + 1]],
-        trim = trims[[(i-1) %% length(trims) + 1]],
-        show.legend = ifelse(i == 1, show.legend, F)
-      )
-      if (!is.null(ggcolour)) args$colour <- ggcolour
-      if (!is.null(ggfill)) args$fill <- ggfill
-
-      suppressWarnings(g <- g + do.call(eval(parse(text = "ggplot2::geom_violin")), args))
-
-      # plot quantiles
-      for (qt in draw_quantiless[[(i-1) %% length(draw_quantiless) + 1]]) {
+      if (!all(is.na(DT.plot[, get(y)]))) {
+        # plot violin!
         args.aes <- list(
           text = ~text,
           y = formula(paste0("~`", y, "`")),
@@ -530,13 +502,43 @@ setMethod("plot_dists", "seaMass", function(
           scale = NULL,
           stat = seaMass::StatYlfdr,
           alpha = alphas[[(i-1) %% length(alpha) + 1]],
-          trim = c(qt, 1 - qt),
+          trim = trims[[(i-1) %% length(trims) + 1]],
           show.legend = ifelse(i == 1, show.legend, F)
         )
         if (!is.null(ggcolour)) args$colour <- ggcolour
         if (!is.null(ggfill)) args$fill <- ggfill
 
         suppressWarnings(g <- g + do.call(eval(parse(text = "ggplot2::geom_violin")), args))
+
+        # plot quantiles
+        for (qt in draw_quantiless[[(i-1) %% length(draw_quantiless) + 1]]) {
+          args.aes <- list(
+            text = ~text,
+            y = formula(paste0("~`", y, "`")),
+            dist = ~dist,
+            arg2 = NULL,
+            arg3 = NULL
+          )
+          if (!is.null(arg2)) args.aes$arg2 <- formula(paste0("~`", arg2, "`"))
+          if (!is.null(arg3)) args.aes$arg3 <- formula(paste0("~`", arg3, "`"))
+          if (!is.null(ggcolour.aes)) args.aes$colour <- formula(paste0("~`", ggcolour.aes, "`"))
+          if (!is.null(ggfill.aes)) args.aes$fill <- formula(paste0("~`", ggfill.aes, "`"))
+
+          args <- list(
+            mapping = do.call(eval(parse(text = "ggplot2::aes_")), args.aes),
+            data = DT.plot,
+            position = "identity",
+            scale = NULL,
+            stat = seaMass::StatYlfdr,
+            alpha = alphas[[(i-1) %% length(alpha) + 1]],
+            trim = c(qt, 1 - qt),
+            show.legend = ifelse(i == 1, show.legend, F)
+          )
+          if (!is.null(ggcolour)) args$colour <- ggcolour
+          if (!is.null(ggfill)) args$fill <- ggfill
+
+          suppressWarnings(g <- g + do.call(eval(parse(text = "ggplot2::geom_violin")), args))
+        }
       }
     }
   }

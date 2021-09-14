@@ -28,7 +28,7 @@ setMethod("plots", "seaMass_delta", function(object, job.id, batch = NULL) {
       group <- control(root(object))@group[1]
 
       fig <- plot_group_quants_fdr(
-        object, item, value.limits = lims$group.quants, summary = T,
+        object, item, value.limits = lims$group.quants.de, summary = T,
         variable.summary.cols = c("Effect", "Covariate", "Contrast", "Baseline", "Group", "Cont.uS", "Base.uS", "Cont.qS", "Base.qS",
                                   "Cont.qC", "Base.qC", "Cont.qM", "Base.qM", "lfdr", "lfsr", "qvalue", "svalue", "NegativeProb", "PositiveProb"),
         variable.label.cols = c("Group", "Effect", "qvalue")
@@ -220,6 +220,7 @@ setMethod("plot_fdr", "seaMass_delta", function(
 ) {
   DT <- as.data.table(data.fdr)
   DT <- DT[!is.na(get(y.col))]
+  setorderv(DT, y.col)
   DT <- rbind(DT[1], DT)
   DT[1, (y.col) := 0]
   DT[, Discoveries := 0:(.N-1)]
@@ -305,7 +306,11 @@ setMethod("plot_pr", "seaMass_delta", function(
   g <- g + ggplot2::scale_y_reverse(breaks = sort(c(pi, 0.0, 0.01, 0.05, 0.1, 0.2, 0.5, 1.0)), labels = ylabels(), expand = c(0.001, 0.001))
   g <- g + ggplot2::coord_cartesian(xlim = c(0, max(DTs.pr$TrueDiscoveries)), ylim = c(y.max, 0))
   g <- g + ggplot2::xlab(paste0("True Discoveries [ Sensitivity x ", max(DTs.pr$TrueDiscoveries), " ] from ", max(DTs.pr$Discoveries), " total groups"))
-  g <- g + ggplot2::ylab("Solid Line: False Discovery Proportion [ 1 - Precision ], Dashed Line: FDR")
+  if (plot.fdr) {
+    g <- g + ggplot2::ylab("Solid Line: FDP [ 1 - Precision ], Dashed: FDR")
+  } else {
+    g <- g + ggplot2::ylab("FDP [ 1 - Precision ]")
+  }
   g <- g + ggplot2::scale_linetype_manual(values = rep("solid", length(levels(DTs.pr$Method))))
 
   if (is.data.frame(data.fdr)) {

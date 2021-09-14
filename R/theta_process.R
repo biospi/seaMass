@@ -13,7 +13,11 @@ setMethod("process", "theta_block", function(object, chain, job.id) {
   ellipsis$chains <- chain
 
   # normalise
-  if (ctrl@model != "") do.call(paste("normalise", ctrl@model, sep = "_"), ellipsis)
+  if (ctrl@model == "") {
+    cat(paste0("[", Sys.time(), "]   normalisation skipped...\n"))
+  } else {
+    do.call(paste("normalise", ctrl@model, sep = "_"), ellipsis)
+  }
 
   if (increment_completed(file.path(filepath(object), "model1"), job.id = job.id) >= ctrl@nchain) {
     cat(paste0("[", Sys.time(), "]  SIGMA-PROCESS name=", name(container(object)), " block=", name(object), "\n"))
@@ -36,7 +40,6 @@ setMethod("process", "theta_block", function(object, chain, job.id) {
       for (chain in 1:ctrl@nchain) {
         cat(paste0("[", Sys.time(), "]  THETA-OUTPUT name=", name(fit.theta ), " chain=", chain, "/", ctrl@nchain, "\n"))
 
-        # standardise
         standardise_group_quants(fit.theta, chain)
       }
 

@@ -9,7 +9,8 @@ import_MaxQuant_peptides(
   peptides.file = NULL,
   shared = FALSE,
   proteinGroups.data = NULL,
-  peptides.data = NULL
+  peptides.data = NULL,
+  as.data.table = F
 )
 }
 \arguments{

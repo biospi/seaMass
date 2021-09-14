@@ -8,8 +8,13 @@ import_OpenSWATH(
   file = NULL,
   max.m_score = 0.05,
   use.decoys = FALSE,
+<<<<<<< HEAD
   protein.decoy.prefix = "DECOY",
   data = NULL
+=======
+  data = NULL,
+  as.data.table = F
+>>>>>>> master
 )
 }
 \arguments{

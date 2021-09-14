@@ -4,7 +4,7 @@
 \alias{import_Progenesis}
 \title{Import Waters Progenesis data}
 \usage{
-import_Progenesis(file = NULL, used = T, data = NULL)
+import_Progenesis(file = NULL, used = T, data = NULL, as.data.table = F)
 }
 \arguments{
 \item{file}{Location of the \code{pep_ion_measurements.csv} file.}

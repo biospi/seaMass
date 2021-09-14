@@ -63,7 +63,7 @@ setValidity("theta_control", function(object) {
   if (!(all(object@keep %in% c("model0", "markdown", "assay.means", "group.standards", "group.quants")))) return("'keep' is not valid!")
   if (!(all(object@summarise %in% c("assays", "groups")))) return("'summarise' is not valid!")
   if (!(all(object@plot %in% c("assay.means", "group.standards", "group.quants", "group.quants.pca")))) return("'plot' is not valid!")
-  if (!(all(object@model %in% c("theta", "median", "quantile")))) return("'model' is not valid!")
+  if (!(all(object@model %in% c("", "theta", "median", "quantile")))) return("'model' is not valid!")
   if (length(object@nwarmup) != 1 || object@nwarmup < 0) return("'nwarmup' must be non-negative!")
   if (length(object@thin) != 1 || object@thin <= 0) return("'thin' must be positive!")
 
