@@ -37,7 +37,7 @@ setClass("theta_control", slots = c(
 theta_control <- function(
   keep = "group.quants",
   summarise = c("assays", "groups"),
-  plot = c("assay.means", "group.standards", "group.quants", "group.quants.pca"),
+  plot = c("assay.means", "group.quants.pca"),
   model = "theta",
   nwarmup = 256,
   thin = 4,

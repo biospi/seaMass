@@ -74,7 +74,7 @@ setClass("sigma_control", slots = c(
 sigma_control <- function(
   keep = c("summaries", "group.quants"),
   summarise = c("groups", "components", "measurements"),
-  plot = c("assay.stdevs", "group.quants.pca", "group.means", "group.quants", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs"),
+  plot = c("assay.stdevs", "group.quants.pca"),
   plot.nbatch = 40,
   eb.model = "deconvolve",
   eb.max = 1024,

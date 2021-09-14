@@ -20,7 +20,7 @@ setMethod("process", "theta_block", function(object, chain, job.id) {
   }
 
   if (increment_completed(file.path(filepath(object), "model1"), job.id = job.id) >= ctrl@nchain) {
-    cat(paste0("[", Sys.time(), "]  SIGMA-PROCESS name=", name(container(object)), " block=", name(object), "\n"))
+    cat(paste0("[", Sys.time(), "]  THETA-PROCESS name=", name(container(object)), " block=", name(object), "\n"))
 
     if ("group.quants" %in% ctrl@plot) {
       cat(paste0("[", Sys.time(), "]   getting group quant summaries...\n"))
