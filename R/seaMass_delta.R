@@ -84,13 +84,14 @@ seaMass_delta <- function(
 #' @include generics.R
 setMethod("run", "seaMass_delta", function(object) {
   job.id <- uuid::UUIDgenerate()
+  ctrl <- control(object)
 
   cat(paste0("[", Sys.time(), "] processing...\n"))
-  for (chain in 1:control(object)@nchain) process(object, chain, job.id)
+  for (chain in 1:ctrl@nchain) process(object, chain, job.id)
   cat(paste0("[", Sys.time(), "] finished processing!\n"))
 
   cat(paste0("[", Sys.time(), "] reporting...\n"))
-  plots(object, job.id)
+  if (ctrl@plots == T) plots(object, job.id)
   report(object)
   cat(paste0("[", Sys.time(), "] finished reporting!\n"))
 
