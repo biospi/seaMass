@@ -5,7 +5,7 @@ The seaMass suite of tools for quantification and differential expression analys
 
 The current citation for seaMass includes an R script and data for a fully reproducible case study:
 
-*AM Phillips, RD Unwin, S Hubbard & AW Dowsey, "Uncertainty aware protein-level quantification and differential expression analysis of proteomics data with seaMass", book chapter in: Statistical Methods for Proteomics, Methods in Molecular Biology, Springer (to appear). Preprint availble [**here**](https://research-information.bris.ac.uk/en/publications/uncertainty-aware-protein-level-quantification-and-differential-e).*
+*AM Phillips, RD Unwin, S Hubbard & AW Dowsey, "Uncertainty aware protein-level quantification and differential expression analysis of proteomics data with seaMass", book chapter in: Statistical Analysis of Proteomic Data, Methods in Molecular Biology 2426, Springer 2021. Available [**here**](https://research-information.bris.ac.uk/en/publications/uncertainty-aware-protein-level-quantification-and-differential-e).*
 
 ## Tools
 
