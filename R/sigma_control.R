@@ -8,6 +8,7 @@ setClass("sigma_control", slots = c(
   keep = "character",
   summarise = "character",
   plot = "character",
+  plot.nbatch = "integer",
   eb.model = "character",
   eb.max = "integer",
   measurement.model = "character",
@@ -73,7 +74,8 @@ setClass("sigma_control", slots = c(
 sigma_control <- function(
   keep = c("summaries", "group.quants"),
   summarise = c("groups", "components", "measurements"),
-  plot = c("assay.stdevs", "group.means", "group.quants", "group.quants.pca", "component.means", "component.stdevs", "component.deviations", "component.deviations.pca", "measurement.means", "measurement.stdevs"),
+  plot = c("assay.stdevs", "group.quants.pca", "group.means", "group.quants", "component.means", "component.stdevs", "component.deviations", "measurement.means", "measurement.stdevs"),
+  plot.nbatch = 40,
   eb.model = "deconvolve",
   eb.max = 1024,
   measurement.model = "independent",
@@ -99,6 +101,7 @@ sigma_control <- function(
   if (!is.null(summarise)) params$summarise <- as.character(summarise)
   if (!is.null(keep)) params$keep <- as.character(keep)
   if (!is.null(plot)) params$plot <- as.character(plot)
+  if (!is.null(plot.nbatch)) params$plot.nbatch <- as.integer(plot.nbatch) else params$plot.nbatch <- 0L
   if (!is.null(eb.model)) params$eb.model <- as.character(eb.model) else params$eb.model <- ""
   params$eb.max <- as.integer(eb.max)
   params$measurement.model <- as.character(measurement.model)
@@ -129,6 +132,7 @@ setValidity("sigma_control", function(object) {
   if (!(all(object@keep %in% c("summaries", "model0", "markdown", "assay.means", "group.quants", "group.means", "component.deviations", "component.means", "component.stdevs", "measurement.means", "measurement.stdevs")))) return("'keep' is not valid!")
   if (!(all(object@summarise %in% c("groups", "components", "measurements")))) return("'summarise' is not valid!")
   if (!(all(object@plot %in% c("assay.stdevs", "group.means", "group.quants", "group.quants.pca", "component.means", "component.stdevs",  "component.deviations", "component.deviations.pca", "measurement.means", "measurement.stdevs")))) return("'plot' is not valid!")
+  if (length(object@plot.nbatch) != 1 || object@plot.nbatch < 0) return("'plot.nbatch' must be non-negative!")
   if (length(object@eb.model) != 1 || !(object@eb.model %in% c("", "fit", "deconvolve"))) return("'eb.model' is not valid!")
   if (length(object@eb.max) != 1 || object@eb.max <= 0) return("'eb.max' must be positive!")
   if (length(object@measurement.model) != 1 || !(object@measurement.model %in% c("single", "independent"))) return("'measurement.model' is not valid!")

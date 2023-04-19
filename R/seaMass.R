@@ -302,11 +302,11 @@ setMethod("plot_dists", "seaMass", function(
   }
 
   # elements are summary.cols with text.cols labels
-  data.table::setorderv(DT1, summary.cols, order = ifelse(horizontal, -1, 1), na.last = T)
+  data.table::setorderv(DT1, summary.cols, order = ifelse(horizontal, -1, 1), na.last = ifelse(horizontal, F, T))
 
   for (col in label.cols) {
     if (all(is.numeric(DT1[[col]])) && !all(DT1[[col]] == round(DT1[[col]]), na.rm = T)) {
-      DT1[, (paste0("_", col)) := formatC(signif(get(col), digits = 3), digits = 3, format = "fg", flag = "#")]
+      DT1[, (paste0("_", col)) := formatC(get(col), format = "g")]
     } else if (any(nchar(as.character(DT1[[col]])) > 24, na.rm = T)) {
       if (horizontal) {
         DT1[, (paste0("_", col)) := paste0(
@@ -328,12 +328,12 @@ setMethod("plot_dists", "seaMass", function(
   g <- ggplot2::ggplot(DT1, ggplot2::aes(x = Summary))
   if (horizontal) {
     g <- g + ggplot2::coord_flip(ylim = value.limits, expand = F)
-    g <- g + ggplot2::theme(axis.title.y = ggplot2::element_blank())
+    g <- g + ggplot2::theme(axis.title.y = ggplot2::element_blank(), axis.text.y = ggplot2::element_text(size = ggplot2::rel(0.7)))
     g <- g + ggplot2::scale_x_discrete(drop = F) # workaround for ggplot2 levels bug
     if (!variable.labels) g <- g + ggplot2::theme(axis.text.y = ggplot2::element_blank())
   } else {
     g <- g + ggplot2::coord_cartesian(ylim = value.limits, expand = F)
-    g <- g + ggplot2::theme(axis.title.x = ggplot2::element_blank(), axis.text.x = ggplot2::element_text(angle = 90))
+    g <- g + ggplot2::theme(axis.title.x = ggplot2::element_blank(), axis.text.x = ggplot2::element_text(angle = 90), axis.text.x = ggplot2::element_text(size = ggplot2::rel(0.7)))
     g <- g + ggplot2::scale_y_discrete(drop = F) # workaround for ggplot2 levels bug
     if (!variable.labels) g <- g + ggplot2::theme(axis.text.x = ggplot2::element_blank())
   }
@@ -354,7 +354,7 @@ setMethod("plot_dists", "seaMass", function(
   }
 
   ## PLOT EACH DATASET
-  for (i in 1:length(DTs)) {
+  for (i in length(DTs):1) {
     if (nrow(DTs[[i]]) > 0) {
       # cope with different inputs
       if ("PosteriorMean" %in% colnames(DTs[[i]]) || "m" %in% colnames(DTs[[i]])) {
@@ -439,8 +439,8 @@ setMethod("plot_dists", "seaMass", function(
       text.cols <- as.vector(sapply(text.old, function(col) gsub("\n", " ", col)))
       setnames(DT.plot, text.old, text.cols, skip_absent = T)
       for (col in text.cols) {
-        if (all(is.numeric(DT.plot[[col]])) && !all(DT.plot[[col]] == round(DT.plot[[col]]))) {
-          DT.plot[, (col) := formatC(signif(get(col), digits = 3), digits = 3, format = "fg", flag = "#")]
+        if (all(is.numeric(DT.plot[[col]]), na.rm = T) && !all(DT.plot[[col]] == round(DT.plot[[col]]), na.rm = T)) {
+          DT.plot[, (col) := formatC(get(col), format = "g")]
         }
         DT.plot[, (col) := sapply(
           paste0(col, ": ", DT.plot[[col]]),
@@ -454,36 +454,8 @@ setMethod("plot_dists", "seaMass", function(
       # remove unnecessary columns
       DT.plot <- DT.plot[, intersect(colnames(DT.plot), c("Summary", y, arg2, arg3, "dist", ggcolour.aes, ggfill.aes, "text")), with = F]
 
-      # plot violin!
-      args.aes <- list(
-        text = ~text,
-        y = formula(paste0("~`", y, "`")),
-        dist = ~dist,
-        arg2 = NULL,
-        arg3 = NULL
-      )
-      if (!is.null(arg2)) args.aes$arg2 <- formula(paste0("~`", arg2, "`"))
-      if (!is.null(arg3)) args.aes$arg3 <- formula(paste0("~`", arg3, "`"))
-      if (!is.null(ggcolour.aes)) args.aes$colour <- formula(paste0("~`", ggcolour.aes, "`"))
-      if (!is.null(ggfill.aes)) args.aes$fill <- formula(paste0("~`", ggfill.aes, "`"))
-
-      args <- list(
-        mapping = do.call(eval(parse(text = "ggplot2::aes_")), args.aes),
-        data = DT.plot,
-        position = "identity",
-        scale = NULL,
-        stat = seaMass::StatYlfdr,
-        alpha = alphas[[(i-1) %% length(alpha) + 1]],
-        trim = trims[[(i-1) %% length(trims) + 1]],
-        show.legend = ifelse(i == 1, show.legend, F)
-      )
-      if (!is.null(ggcolour)) args$colour <- ggcolour
-      if (!is.null(ggfill)) args$fill <- ggfill
-
-      suppressWarnings(g <- g + do.call(eval(parse(text = "ggplot2::geom_violin")), args))
-
-      # plot quantiles
-      for (qt in draw_quantiless[[(i-1) %% length(draw_quantiless) + 1]]) {
+      if (!all(is.na(DT.plot[, get(y)]))) {
+        # plot violin!
         args.aes <- list(
           text = ~text,
           y = formula(paste0("~`", y, "`")),
@@ -503,13 +475,43 @@ setMethod("plot_dists", "seaMass", function(
           scale = NULL,
           stat = seaMass::StatYlfdr,
           alpha = alphas[[(i-1) %% length(alpha) + 1]],
-          trim = c(qt, 1 - qt),
+          trim = trims[[(i-1) %% length(trims) + 1]],
           show.legend = ifelse(i == 1, show.legend, F)
         )
         if (!is.null(ggcolour)) args$colour <- ggcolour
         if (!is.null(ggfill)) args$fill <- ggfill
 
         suppressWarnings(g <- g + do.call(eval(parse(text = "ggplot2::geom_violin")), args))
+
+        # plot quantiles
+        for (qt in draw_quantiless[[(i-1) %% length(draw_quantiless) + 1]]) {
+          args.aes <- list(
+            text = ~text,
+            y = formula(paste0("~`", y, "`")),
+            dist = ~dist,
+            arg2 = NULL,
+            arg3 = NULL
+          )
+          if (!is.null(arg2)) args.aes$arg2 <- formula(paste0("~`", arg2, "`"))
+          if (!is.null(arg3)) args.aes$arg3 <- formula(paste0("~`", arg3, "`"))
+          if (!is.null(ggcolour.aes)) args.aes$colour <- formula(paste0("~`", ggcolour.aes, "`"))
+          if (!is.null(ggfill.aes)) args.aes$fill <- formula(paste0("~`", ggfill.aes, "`"))
+
+          args <- list(
+            mapping = do.call(eval(parse(text = "ggplot2::aes_")), args.aes),
+            data = DT.plot,
+            position = "identity",
+            scale = NULL,
+            stat = seaMass::StatYlfdr,
+            alpha = alphas[[(i-1) %% length(alpha) + 1]],
+            trim = c(qt, 1 - qt),
+            show.legend = ifelse(i == 1, show.legend, F)
+          )
+          if (!is.null(ggcolour)) args$colour <- ggcolour
+          if (!is.null(ggfill)) args$fill <- ggfill
+
+          suppressWarnings(g <- g + do.call(eval(parse(text = "ggplot2::geom_violin")), args))
+        }
       }
     }
   }
@@ -857,8 +859,10 @@ setMethod("plot_robust_pca", "seaMass", function(
   }
 
   suppressWarnings(fig <- plotly::ggplotly(g, tooltip = c("text", "x", "y"), dynamicTicks = T, width = width, height = height))
-  if (!is.null(fig$x$layout$annotations))
+
+  if (!is.null(fig$x$layout$annotations)) {
     for (i in 1:length(fig$x$layout$annotations)) fig$x$layout$annotations[[i]]$y <- fig$x$layout$annotations[[i]]$y - 0.05 # another grim plotly hack
+  }
 
   return(fig)
 })

@@ -1,6 +1,6 @@
 #' @include generics.R
 #' @export
-setMethod("normalise_theta", "theta_block", function(object, data.design = assay_design(object), norm.groups = NULL, input = "model1", type = "group.quants", ...) {
+setMethod("normalise_theta", "theta_block", function(object, norm.groups = NULL, input = "model1", type = "group.quants", ...) {
   cat(paste0("[", Sys.time(), "]   seaMass-theta normalisation...\n"))
 
   unlink(file.path(filepath(object), "model0", "*.group.quants.fst"))
@@ -46,7 +46,7 @@ setMethod("normalise_theta", "theta_block", function(object, data.design = assay
 
     # create emmeans ref grid
     class(fit.model) <- "MCMCglmm_seaMass"
-    frg <- emmeans::ref_grid(fit.model, data = DT, nesting = NULL)
+    frg <- emmeans::ref_grid(fit.model, data = DT, nesting = NULL, rg.limit = 100000)
 
     # extract assay means
     DT.assay.means <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "Assay")))
@@ -112,14 +112,14 @@ setMethod("normalise_median", "theta_block", function(object, norm.groups = NULL
     setcolorder(DT, "Group")
 
     # write normalised group quants
-    if (item == 1) fst::write.fst(DT[, .(file = file.path("group.quants", "1.fst"), from = min(.I), to = max(.I)), by = .(Group, Assay)], file.path(filepath(object), "group.quants.index.fst"))
+    if (item == 1) fst::write.fst(DT[, .(file = file.path("group.quants", "1.fst"), from = min(.I), to = max(.I)), by = .(Group, Assay)], file.path(filepath(object), "model0", "group.quants.index.fst"))
     DT[, Group := as.integer(Group)]
     DT[, Assay := as.integer(Assay)]
     fst::write.fst(DT, file.path(filepath(object), "model0", "group.quants", paste(item, "fst", sep = ".")))
 
     # write means
     setnames(DT.assay.means, "deviation", "value")
-    if (item == 1) fst::write.fst(DT.assay.means[, .(file = file.path("assay.means", "1.fst"), from = min(.I), to = max(.I)), by = Assay], file.path(filepath(object), "assay.means.index.fst"))
+    if (item == 1) fst::write.fst(DT.assay.means[, .(file = file.path("assay.means", "1.fst"), from = min(.I), to = max(.I)), by = Assay], file.path(filepath(object), "model1", "assay.means.index.fst"))
     DT.assay.means[, Assay := as.integer(Assay)]
     fst::write.fst(DT.assay.means, file.path(filepath(object), "model1", "assay.means", paste(item, "fst", sep = ".")))
 
@@ -132,8 +132,9 @@ setMethod("normalise_median", "theta_block", function(object, norm.groups = NULL
 
 #' @include generics.R
 #' @export
-setMethod("normalise_quantile", "theta_block", function(object, input = "model1", type = "group.quants", ...) {
+setMethod("normalise_quantile", "theta_block", function(object, norm.groups = NULL, input = "model1", type = "group.quants", ...) {
   cat(paste0("[", Sys.time(), "]    quantile normalisation...\n"))
+  if (!is.null(norm.groups)) warning("WARNING: norm.groups is set but quantile normalisation does not support it, ignored")
 
   unlink(file.path(filepath(object), "model0", "*.group.quants.fst"))
   unlink(file.path(filepath(object), "model1", "*.assay.means.fst"))
@@ -160,15 +161,16 @@ setMethod("normalise_quantile", "theta_block", function(object, input = "model1"
 
     # mean means (for visualisation)
     DT.assay.means <- DT[, .(value = mean(mean)), by = .(Assay, chain, sample)]
+    DT[, mean := NULL]
 
     # write normalised group quants
-    if (item == 1) fst::write.fst(DT[, .(file = file.path("group.quants", "1.fst"), from = min(.I), to = max(.I)), by = .(Group, Assay)], file.path(filepath(object), "group.quants.index.fst"))
+    if (item == 1) fst::write.fst(DT[, .(file = file.path("group.quants", "1.fst"), from = min(.I), to = max(.I)), by = .(Group, Assay)], file.path(filepath(object), "model0", "group.quants.index.fst"))
     DT[, Group := as.integer(Group)]
     DT[, Assay := as.integer(Assay)]
     fst::write.fst(DT, file.path(filepath(object), "model0", "group.quants", paste(item, "fst", sep = ".")))
 
     # write mean means
-    if (item == 1) fst::write.fst(DT.assay.means[, .(file = file.path("assay.means", "1.fst"), from = min(.I), to = max(.I)), by = Assay], file.path(filepath(object), "assay.means.index.fst"))
+    if (item == 1) fst::write.fst(DT.assay.means[, .(file = file.path("assay.means", "1.fst"), from = min(.I), to = max(.I)), by = Assay], file.path(filepath(object), "model1", "assay.means.index.fst"))
     DT.assay.means[, Assay := as.integer(Assay)]
     fst::write.fst(DT.assay.means, file.path(filepath(object), "model1", "assay.means", paste(item, "fst", sep = ".")))
 

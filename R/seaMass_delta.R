@@ -5,7 +5,6 @@
 #' @include seaMass.R
 #' @include seaMass_sigma.R
 setClass("seaMass_delta", contains = "seaMass", slots = c(
-  fit = "seaMass_group_quants",
   filepath = "character"
 ))
 
@@ -21,21 +20,19 @@ setClass("seaMass_delta", contains = "seaMass", slots = c(
 #' @export seaMass_delta
 seaMass_delta <- function(
   fit,
-  data.design = assay_design(fit),
-  name = "default",
-  control = delta_control(),
+  data.design = seaMass::assay_design(fit),
+  name = seaMass::name(fit),
+  control = seaMass::delta_control(),
   ...
 ) {
   # create delta object, checking for finished output
-  object <- open_delta(fit, name, quiet = T)
-  if (!is.null(object)) {
-    stop(paste0("ERROR: completed seaMass-delta found at ", name))
-  }
-  object <- open_delta(fit, name, force = T)
+  if (!is.null(open_deltas(root(fit))[[name]])) stop(paste0("ERROR: completed seaMass-delta found at ", name))
+  object <- new("seaMass_delta", filepath = file.path(dirname(filepath(fit)), paste0("delta.", name)))
 
   ### INIT
   control@version <- as.character(packageVersion("seaMass"))
   cat(paste0("[", Sys.time(), "] seaMass-delta v", control@version, "\n"))
+  control@fit <- fit
   control@nchain <- control(fit)@nchain
   control@nsample <- control(fit)@nsample
   control@nthread <- control(fit)@nthread
@@ -47,8 +44,7 @@ seaMass_delta <- function(
 
   # create fit and output directories
   if (file.exists(filepath(object))) unlink(filepath(object), recursive = T)
-  if (!dir.create(filepath(object)))
-    stop("ERROR: problem creating folder")
+  if (!dir.create(filepath(object))) stop("ERROR: problem creating folder")
 
   # check and save control
   saveRDS(control, file.path(filepath(object), "control.rds"))
@@ -75,7 +71,6 @@ seaMass_delta <- function(
 
   if (file.exists(file.path(filepath(fit), "complete.rds"))) {
     run(object)
-    cat(paste0("[", Sys.time(), "] finished!\n"))
   } else {
     cat(paste0("[", Sys.time(), "] queued\n"))
   }
@@ -84,32 +79,20 @@ seaMass_delta <- function(
 }
 
 
-#' @describeIn seaMass_delta-class Open a complete \code{seaMass_delta} run from the supplied \link{seaMass_sigma} fir object and \code{name}.
-#' @export
-open_delta <- function(fit, name = "default", quiet = FALSE, force = FALSE) {
-  filepath <- file.path(dirname(filepath(fit)), paste0("delta.", name))
-
-  object <- new("seaMass_delta", fit = fit, filepath = filepath)
-  if (!force && read_completed(file.path(filepath(object))) == 0) {
-    if (quiet) {
-      return(NULL)
-    } else {
-      stop("'", filepath, "' is not complete")
-    }
-  }
-
-  return(object)
-}
-
-
 #' @describeIn seaMass_delta-class Run.
 #' @export
 #' @include generics.R
 setMethod("run", "seaMass_delta", function(object) {
   job.id <- uuid::UUIDgenerate()
+
+  cat(paste0("[", Sys.time(), "] processing...\n"))
   for (chain in 1:control(object)@nchain) process(object, chain, job.id)
-  for (batch in 1:(length(blocks(root(object))) * control(object)@nchain)) plots(object, batch, job.id)
+  cat(paste0("[", Sys.time(), "] finished processing!\n"))
+
+  cat(paste0("[", Sys.time(), "] reporting...\n"))
+  for (batch in 1:control(root(object))@plot.nbatch) plots(object, batch, job.id)
   report(object)
+  cat(paste0("[", Sys.time(), "] finished reporting!\n"))
 
   return(invisible(object))
 })
@@ -144,11 +127,11 @@ setMethod("name", "seaMass_delta", function(object) {
 })
 
 
-#' @describeIn seaMass_theta-class Get the \code{seaMass_sigma} object.
+#' @describeIn seaMass_delta-class Get the \code{seaMass_sigma} object.
 #' @export
 #' @include generics.R
 setMethod("root", "seaMass_delta", function(object) {
-  return(root(object@fit))
+  return(root(parent(object)))
 })
 
 
@@ -164,7 +147,9 @@ setMethod("filepath", "seaMass_delta", function(object) {
 #' @export
 #' @include generics.R
 setMethod("parent", "seaMass_delta", function(object) {
-  return(object@fit)
+  fit <- control(object)@fit
+  fit@filepath <- file.path(dirname(filepath(object)), basename(fit@filepath))
+  return(fit)
 })
 
 
@@ -236,7 +221,7 @@ setMethod("component_deviations_de", "seaMass_delta", function(object, component
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("group_quants_fdr", "seaMass_delta", function(object, groups = NULL, summary = TRUE, type = "group.quants.fdr", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+setMethod("group_quants_fdr", "seaMass_delta", function(object, groups = NULL, type = "group.quants.fdr", as.data.table = FALSE) {
   if (file.exists(file.path(filepath(object), paste0(type, ".fst")))) {
     DT <- fst::read.fst(file.path(filepath(object), paste0(type, ".fst")), as.data.table = as.data.table)
     if (!is.null(groups)) {
@@ -257,7 +242,7 @@ setMethod("group_quants_fdr", "seaMass_delta", function(object, groups = NULL, s
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("component_deviations_fdr", "seaMass_delta", function(object, groups = NULL, summary = TRUE, type = "component.deviations.fdr", chains = 1:control(object)@nchain, as.data.table = FALSE) {
+setMethod("component_deviations_fdr", "seaMass_delta", function(object, groups = NULL, type = "component.deviations.fdr", as.data.table = FALSE) {
   if (file.exists(file.path(filepath(object), paste0(type, ".fst")))) {
     DT <- fst::read.fst(file.path(filepath(object), paste0(type, ".fst")), as.data.table = as.data.table)
     if (!is.null(groups)) DT <- DT[DT$Group %in% groups,]
@@ -276,7 +261,7 @@ setMethod("plot_group_quants_de", "seaMass_delta", function(
   groups = NULL,
   summary = TRUE,
   colour = "black",
-  variable.summary.cols = c("Group", "Effect", "Contrast", "Baseline", "Cont.uS", "Base.uS", "Cont.qS", "Base.qS", "Cont.qC", "Base.qC", "Cont.qM", "Base.qM"),
+  variable.summary.cols = c("Group", "Covariate", "Contrast", "Baseline", "Cont.uS", "Base.uS", "Cont.qS", "Base.qS", "Cont.qC", "Base.qC", "Cont.qM", "Base.qM"),
   variable.label.cols = c("Group", "Contrast", "Baseline"),
   value.label = "fold change",
   ...
@@ -301,17 +286,24 @@ setMethod("plot_group_quants_fdr", "seaMass_delta", function(
   groups = NULL,
   summary = TRUE,
   colour = list("lfdr", "grey"),
-  variable.summary.cols = c("qvalue", "Batch", "Effect", "Contrast", "Baseline", "Group", "Cont.uS", "Base.uS", "Cont.qS", "Base.qS",
+  variable.summary.cols = c("qvalue", "Effect", "Covariate", "Contrast", "Baseline", "Group", "Cont.uS", "Base.uS", "Cont.qS", "Base.qS",
                             "Cont.qC", "Base.qC", "Cont.qM", "Base.qM", "lfdr", "lfsr", "svalue", "NegativeProb", "PositiveProb"),
   variable.label.cols = c("Group", "qvalue"),
   value.label = "fold change",
   ...
 ) {
+  de.groups <- groups
+  if (is.data.frame(de.groups) && "Effect" %in% colnames(de.groups)) {
+    de.groups$Effect <- NULL
+    de.groups <- unique(de.groups)
+    if (nrow(de.groups) == 0) de.groups <- NULL
+  }
+
   return(plot_dists(
     object,
     data = list(
-      group_quants_fdr(object, groups, summary = summary, as.data.table = T),
-      group_quants_de(object, groups, summary = summary, as.data.table = T)
+      group_quants_fdr(object, groups, as.data.table = T),
+      group_quants_de(object, de.groups, summary = summary, as.data.table = T)
     ),
     colour = colour,
     variable.summary.cols = variable.summary.cols,
@@ -325,24 +317,27 @@ setMethod("plot_group_quants_fdr", "seaMass_delta", function(
 #' @describeIn seaMass_delta-class Add our spikein ground truth to the object of \code{group_fdr} pr \code{component_deviations_fdr}.
 #' @import data.table
 #' @export
-add_seaMass_spikein_truth <- function(data.fdr) {
+truth_seaMass_spikein <- function(data.fdr) {
+  is.data.table.fdr <- is.data.table(data.fdr)
+  setDT(data.fdr)
+
   # ground truth
   data.truth <- rbind(
-    data.frame(set = "Rat [1:1]",      truth =           0, grep = "_RAT$"),
-    data.frame(set = "E.coli [10:16]", truth = log2(16/10), grep = "_ECOL[I|X]$"),
-    data.frame(set = "[3:1]",          truth =   log2(1/3), grep = "^sp\\|P00330\\|ADH1_YEAST$"),
-    data.frame(set = "[5:3]",          truth =   log2(3/5), grep = "^sp\\|P08603\\|CFAH_HUMAN$"),
-    data.frame(set = "[3:2]",          truth =   log2(2/3), grep = "^sp\\|P02769\\|ALBU_BOVIN$|^sp\\|P00698\\|LYSC_CHICK$|^sp\\|P00711\\|LALBA_BOVIN$|^sp\\|P00915\\|CAH1_HUMAN$"),
-    data.frame(set = "[4:3]",          truth =   log2(3/4), grep = "^sp\\|P46406\\|G3P_RABIT$|^sp\\|P00489\\|PYGM_RABIT$"),
-    data.frame(set = "[5:4]",          truth =   log2(4/5), grep = "^sp\\|P00004\\|CYC_HORSE$|^sp\\|P02754\\|LACB_BOVIN$"),
-    data.frame(set = "[3:4]",          truth =   log2(4/3), grep = "^sp\\|P02666\\|CASB_BOVIN$|^sp\\|P01012\\|OVAL_CHICK$"),
-    data.frame(set = "[15:28]",        truth = log2(28/15), grep = "^sp\\|P00432\\|CATA_BOVIN$"),
-    data.frame(set = "[1:2]",          truth =   log2(2/1), grep = "^sp\\|P68082\\|MYG_HORSE$|^sp\\|P06278\\|AMY_BACLI$|^sp\\|Q29443\\|TRFE_BOVIN$")
+    data.table(set = "Rat [1:1]",      truth =           0, grep = "_RAT$"),
+    data.table(set = "E.coli [10:16]", truth = log2(16/10), grep = "_ECOL[I|X]$"),
+    data.table(set = "[3:1]",          truth =   log2(1/3), grep = "^sp\\|P00330\\|ADH1_YEAST$"),
+    data.table(set = "[5:3]",          truth =   log2(3/5), grep = "^sp\\|P08603\\|CFAH_HUMAN$"),
+    data.table(set = "[3:2]",          truth =   log2(2/3), grep = "^sp\\|P02769\\|ALBU_BOVIN$|^sp\\|P00698\\|LYSC_CHICK$|^sp\\|P00711\\|LALBA_BOVIN$|^sp\\|P00915\\|CAH1_HUMAN$"),
+    data.table(set = "[4:3]",          truth =   log2(3/4), grep = "^sp\\|P46406\\|G3P_RABIT$|^sp\\|P00489\\|PYGM_RABIT$"),
+    data.table(set = "[5:4]",          truth =   log2(4/5), grep = "^sp\\|P00004\\|CYC_HORSE$|^sp\\|P02754\\|LACB_BOVIN$"),
+    data.table(set = "[3:4]",          truth =   log2(4/3), grep = "^sp\\|P02666\\|CASB_BOVIN$|^sp\\|P01012\\|OVAL_CHICK$"),
+    data.table(set = "[15:28]",        truth = log2(28/15), grep = "^sp\\|P00432\\|CATA_BOVIN$"),
+    data.table(set = "[1:2]",          truth =   log2(2/1), grep = "^sp\\|P68082\\|MYG_HORSE$|^sp\\|P06278\\|AMY_BACLI$|^sp\\|Q29443\\|TRFE_BOVIN$")
   )
 
   # unlist proteins from protein groups
   s <- strsplit(as.character(data.fdr$Group), split = ";")
-  data <- data.frame(Group = rep(data.fdr$Group, sapply(s, length)), Protein = unlist(s))
+  data <- data.table(Group = rep(data.fdr$Group, sapply(s, length)), Protein = unlist(s))
   # initialize new varible with NAs
   data$truth <- NA
   # fill in matching indices
@@ -356,6 +351,7 @@ add_seaMass_spikein_truth <- function(data.fdr) {
   data <- merge(data.fdr, data[, c("Group", "truth")], by = "Group", sort = F, all.x = T)
   setcolorder(data, cols)
 
+  if (!is.data.table.fdr) setDF(data)
   return(data)
 }
 
@@ -363,17 +359,20 @@ add_seaMass_spikein_truth <- function(data.fdr) {
 #' @describeIn seaMass_delta-class Add Navarro spikein ground truth to the object of \code{group_fdr} pr \code{component_deviations_fdr}.
 #' @import data.table
 #' @export
-add_Navarro_spikein_truth <- function(data.fdr) {
+truth_Navarro_spikein <- function(data.fdr) {
+  is.data.table.fdr <- is.data.table(data.fdr)
+  setDT(data.fdr)
+
   # ground truth
   data.truth <- rbind(
-    data.frame(set = "Human [1:1]",  truth = 0, grep = "_HUMAN$"),
-    data.frame(set = "E.coli [1:4]", truth = 2, grep = "_ECOLI$"),
-    data.frame(set = "Yeast [2:1]",  truth = -1, grep = "_YEAS8$")
+    data.table(set = "Human [1:1]",  truth = 0, grep = "_HUMAN$"),
+    data.table(set = "E.coli [1:4]", truth = 2, grep = "_ECOLI$"),
+    data.table(set = "Yeast [2:1]",  truth = -1, grep = "_YEAS8$")
   )
 
   # unlist proteins from protein groups
   s <- strsplit(as.character(data.fdr$Group), split = ";")
-  data <- data.frame(Group = rep(data.fdr$Group, sapply(s, length)), Protein = unlist(s))
+  data <- data.table(Group = rep(data.fdr$Group, sapply(s, length)), Protein = unlist(s))
   # initialize new varible with NAs
   data$truth <- NA
   # fill in matching indices
@@ -387,5 +386,6 @@ add_Navarro_spikein_truth <- function(data.fdr) {
   data <- merge(data.fdr, data[, c("Group", "truth")], by = "Group", sort = F, all.x = T)
   setcolorder(data, cols)
 
+  if (!is.data.table.fdr) setDF(data)
   return(data)
 }

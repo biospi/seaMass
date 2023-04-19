@@ -4,7 +4,12 @@
 \alias{import_DIANN}
 \title{Import DIA-NN data}
 \usage{
-import_DIANN(file = NULL, use.shared.peptides = FALSE, data = NULL)
+import_DIANN(
+  file = NULL,
+  use.shared.peptides = FALSE,
+  data = NULL,
+  as.data.table = F
+)
 }
 \arguments{
 \item{data}{Advanced: Rather than specifying \code{file}, you can enter a \link{data.frame} preloaded with

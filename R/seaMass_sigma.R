@@ -23,18 +23,17 @@ setClass("seaMass_sigma", contains = "seaMass_group_quants", slots = c(
 #' @export seaMass_sigma
 seaMass_sigma <- function(
   data,
-  data.design = new_assay_design(data),
-  path = "fit",
+  data.design = seaMass::new_assay_design(data),
+  path = "fit.seaMass",
   user = Sys.info()[["user"]],
   run = TRUE,
-  control = sigma_control(),
+  control = seaMass::sigma_control(),
   ...
 ) {
   # check for finished output
-  object <- open_sigma(path, quiet = T)
-  if (!is.null(object)) {
-    stop(paste0("ERROR: completed seaMass-sigma already found at ", path))
-  }
+  if (!is.null(open_sigma(path))) stop(paste0("ERROR: completed seaMass-sigma already found at ", path))
+  if (!dir.create(path)) stop(paste0("ERROR: could not create ", path))
+  object <- open_sigma(path, force = T)
 
   ### INIT
   control@version <- as.character(packageVersion("seaMass"))
@@ -43,7 +42,6 @@ seaMass_sigma <- function(
   fst::threads_fst(control@nthread)
 
   # setup seaMass folder structure
-  if (!grepl("\\.seaMass$", path)) path <- paste0(path, ".seaMass")
   if (file.exists(path)) unlink(path, recursive = T)
   if (!dir.create(file.path(path, "sigma"), recursive = T))
     stop("ERROR: problem creating folder")
@@ -91,6 +89,7 @@ seaMass_sigma <- function(
 
   control@user <- user
   control@blocks <- sub("^Block\\.(.*)$", "\\1", block.cols)
+  if (control@plot.nbatch == 0) control@plot.nbatch <- length(control@blocks) * control@nchain
   control@ellipsis <- list(...)
   validObject(control)
   saveRDS(control, file.path(path, "control.rds"))
@@ -296,7 +295,6 @@ seaMass_sigma <- function(
   }))
 
   ### RUN
-  object <- new("seaMass_sigma", filepath = path)
   prepare_sigma(control@schedule, object)
 
   if (run) {
@@ -347,29 +345,41 @@ setMethod("report", "seaMass_sigma", function(object, job.id) {
 #' @export
 open_sigma <- function(
   path = "fit.seaMass",
-  quiet = FALSE,
   force = FALSE
 ) {
-  path2 <- file.path(ifelse(dir.exists(path), path, paste0(path, ".seaMass")), "sigma")
-  if (!dir.exists(path2)) {
-    if (quiet) {
-      return(NULL)
-    } else {
-      stop("'", path, "' does not exist")
-    }
-  }
-
-  object <- new("seaMass_sigma", filepath = normalizePath(path2))
-  if (!force && read_completed(filepath(object)) == 0) {
-    if (quiet) {
-      return(NULL)
-    } else {
-      stop("'", path, "' is not complete")
-    }
-  }
-
-  return(object)
+  if (!dir.exists(path)) return(NULL)
+  fit <- new("seaMass_sigma", filepath = file.path(normalizePath(path), "sigma"))
+  if (!force && read_completed(fit@filepath) == 0) fit <- NULL
+  return(fit)
 }
+
+
+#' @describeIn seaMass_sigma-class Open the list of \link{seaMass_theta} objects.
+#' @export
+#' @include generics.R
+setMethod("open_thetas", "seaMass_sigma", function(object, force = FALSE) {
+  fits <- Filter(Negate(is.null), lapply(list.files(dirname(filepath(object)), "^theta\\.*", full.names = T), function(filepath) {
+    fit <- new("seaMass_theta", filepath = filepath)
+    if (!force && read_completed(file.path(fit@filepath)) == 0) fit <- NULL
+    return(fit)
+  }))
+  names(fits) <- lapply(fits, function(fit) sub("^theta\\.", "", basename(fit@filepath)))
+  return(fits)
+})
+
+
+#' @describeIn seaMass_sigma-class Open the list of \link{seaMass_delta} objects.
+#' @export
+#' @include generics.R
+setMethod("open_deltas", "seaMass_sigma", function(object, force = FALSE) {
+  fits <- Filter(Negate(is.null), lapply(list.files(dirname(filepath(object)), "^delta\\.*", full.names = T), function(filepath) {
+    fit <- new("seaMass_delta", filepath = filepath)
+    if (!force && read_completed(file.path(fit@filepath)) == 0) fit <- NULL
+    return(fit)
+  }))
+  names(fits) <- lapply(fits, function(fit) sub("^delta\\.", "", basename(fit@filepath)))
+  return(fits)
+})
 
 
 #' @describeIn seaMass_sigma-class Delete the \code{seaMass_sigma} run from disk.
@@ -439,7 +449,7 @@ setMethod("groups", "seaMass_sigma", function(object, summary = FALSE, as.data.t
 #' @import data.table
 #' @export
 #' @include generics.R
-setMethod("top_groups", "seaMass_sigma", function(object, n = 512) {
+setMethod("top_groups", "seaMass_sigma", function(object, n = 100000) {
   DT <- groups(object, as.data.table = T)
   DT <- DT[, .(.N, qC = min(G.qC)), by = Group][N == nlevels(DT$Block)]
   setorder(DT, -qC)
@@ -514,26 +524,6 @@ setMethod("blocks", "seaMass_sigma", function(object) {
   names(blocks) <- blocks
   blocks <- lapply(blocks, function(block) new("sigma_block", filepath = file.path(filepath(object), block)))
   return(blocks)
-})
-
-
-#' @describeIn seaMass_sigma-class Open the list of \link{seaMass_delta} objects.
-#' @export
-#' @include generics.R
-setMethod("open_thetas", "seaMass_sigma", function(object, quiet = FALSE, force = FALSE) {
-  deltas <- lapply(sub("^delta\\.", "", list.files(filepath(object), "^delta\\.*")), function(name) open_delta(object, name, quiet, force))
-  names(deltas) <- lapply(deltas, function(delta) name(delta))
-  return(deltas)
-})
-
-
-#' @describeIn seaMass_sigma-class Open the list of \link{seaMass_delta} objects.
-#' @export
-#' @include generics.R
-setMethod("open_deltas", "seaMass_sigma", function(object, quiet = FALSE, force = FALSE) {
-  deltas <- lapply(sub("^delta\\.", "", list.files(filepath(object), "^delta\\.*")), function(name) open_delta(object, name, quiet, force))
-  names(deltas) <- lapply(deltas, function(delta) name(delta))
-  return(deltas)
 })
 
 
@@ -725,11 +715,11 @@ setMethod("group_means", "seaMass_sigma", function(object, groups = NULL, summar
 #' setMethod("plot_priors", "seaMass_sigma", function(
 #'   object,
 #'   data = list(
-#'     priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Effect, s, df)],
-#'     priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Effect, s = s0, df = df0)],
+#'     priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Covariate, s, df)],
+#'     priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Covariate, s = s0, df = df0)],
 #'     rbind(
-#'       measurement_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Effect = "Measurements", value = rinaka(length(s), s, df))],
-#'       component_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Effect = "Components", value = rinaka(length(s), s, df))]
+#'       measurement_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Covariate = "Measurements", value = rinaka(length(s), s, df))],
+#'       component_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Covariate = "Components", value = rinaka(length(s), s, df))]
 #'     )
 #'   ),
 #'   horizontal = TRUE,
@@ -739,7 +729,7 @@ setMethod("group_means", "seaMass_sigma", function(object, groups = NULL, summar
 #'   colour = list("blue", "black", NULL),
 #'   fill = list("lightblue", NULL, "grey"),
 #'   alpha = list(0.5, 0.5, 0.5),
-#'   facets = "Effect",
+#'   facets = "Covariate",
 #'   value.label = "stdev",
 #'   value.limits = limits_dists(data, trim, c(0, 1), include.zero = T),
 #'   value.length = 160,

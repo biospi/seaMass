@@ -209,7 +209,7 @@ setMethod("model", "sigma_block", function(object, input, chain = 1) {
 
     # create emmeans ref grid
     class(fit.model) <- "MCMCglmm_seaMass"
-    frg <- emmeans::ref_grid(fit.model, data = DT)
+    frg <- emmeans::ref_grid(fit.model, data = DT, rg.limit = 100000)
 
     ### MODEL0: EXTRACT ASSAY DEVIATIONS TO CALCULATE PRIORS
     if (input == "model0") {

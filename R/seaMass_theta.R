@@ -12,25 +12,22 @@ setClass("seaMass_theta", contains = "seaMass_group_quants", slots = c(
 #' @param fit A \link{seaMass_sigma} object as returned by seaMass-sigma.
 #' @param data.design Optionally, a \link{data.frame} created by \link{new_design} and then customised, which specifies RefWeight channels.
 #' @param groups Groups to normalise on, default is the top 10 that are in every block (instead of all, just for computational considerations).
-#' @param name Name of subfolder on disk where all intermediate and output data will be stored; default is \code{"default"}.
+#' @param name Name of subfolder on disk where all intermediate and output data will be stored; default is \code{"name(fit)"}.
 #' @param control A control object created with \link{new_theta_control} specifying control parameters for the normalisation.
 #' @return A \code{seaMass_theta} object that can be interrogated for various metadata and results.
 #' @import data.table
 #' @export seaMass_theta
 seaMass_theta <- function(
   fit,
-  data.design = assay_design(fit),
-  norm.groups = top_groups(fit),
-  name = "default",
-  control = theta_control(),
+  data.design = seaMass::assay_design(fit),
+  norm.groups = seaMass::top_groups(fit),
+  name = seaMass::name(fit),
+  control = seaMass::theta_control(),
   ...
 ) {
   # create theta object, checking for finished output
-  object <- open_theta(fit, name, quiet = T)
-  if (!is.null(object)) {
-    stop(paste0("ERROR: completed seaMass-theta found at ", name))
-  }
-  object <- open_theta(fit, name, force = T)
+  if (!is.null(open_thetas(fit)[[name]])) stop(paste0("ERROR: completed seaMass-theta found at ", name))
+  object <- new("seaMass_theta", filepath = file.path(dirname(filepath(fit)), paste0("theta.", name)))
 
   ### INIT
   control@version <- as.character(packageVersion("seaMass"))
@@ -38,7 +35,7 @@ seaMass_theta <- function(
   control@nchain <- control(fit)@nchain
   control@nsample <- control(fit)@nsample
   control@nthread <- control(fit)@nthread
-  control@norm.groups <- norm.groups
+  control@norm.groups <- as.character(norm.groups)
   control@ellipsis <- list(...)
   validObject(control)
 
@@ -47,8 +44,7 @@ seaMass_theta <- function(
 
   # create fit and output directories
   if (file.exists(filepath(object))) unlink(filepath(object), recursive = T)
-  if (!dir.create(filepath(object)))
-    stop("ERROR: problem creating folder")
+  if (!dir.create(filepath(object))) stop("ERROR: problem creating folder")
 
   # check and save control
   saveRDS(control, file.path(filepath(object), "control.rds"))
@@ -71,7 +67,6 @@ seaMass_theta <- function(
 
   if (file.exists(file.path(filepath(fit), "complete.rds"))) {
     run(object)
-    cat(paste0("[", Sys.time(), "] finished!\n"))
   } else {
     cat(paste0("[", Sys.time(), "] queued\n"))
   }
@@ -80,32 +75,20 @@ seaMass_theta <- function(
 }
 
 
-#' @describeIn seaMass_theta-class Open a complete \code{seaMass_theta} run from the supplied \link{seaMass_sigma} fir object and \code{name}.
-#' @export
-open_theta <- function(fit, name = "default", quiet = FALSE, force = FALSE) {
-  path <- file.path(filepath(fit), paste0("theta.", name))
-
-  object <- new("seaMass_theta", filepath = file.path(dirname(filepath(fit)), paste0("theta.", name)))
-  if (!force && read_completed(file.path(filepath(object))) == 0) {
-    if (quiet) {
-      return(NULL)
-    } else {
-      stop("'", path, "' is not complete")
-    }
-  }
-
-  return(object)
-}
-
-
 #' @describeIn seaMass_theta-class Run.
 #' @export
 #' @include generics.R
 setMethod("run", "seaMass_theta", function(object) {
   job.id <- uuid::UUIDgenerate()
+
+  cat(paste0("[", Sys.time(), "] processing...\n"))
   for (block in blocks(object)) process(block, job.id)
-  for (batch in 1:(length(blocks(root(object))) * control(object)@nchain)) plots(object, batch, job.id)
+  cat(paste0("[", Sys.time(), "] finished processing!\n"))
+
+  cat(paste0("[", Sys.time(), "] reporting...\n"))
+  for (batch in 1:control(root(object))@plot.nbatch) plots(object, batch, job.id)
   report(object)
+  cat(paste0("[", Sys.time(), "] finished reporting!\n"))
 
   return(invisible(object))
 })

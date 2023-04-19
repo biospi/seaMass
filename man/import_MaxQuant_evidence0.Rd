@@ -10,7 +10,8 @@ import_MaxQuant_evidence0(
   shared = F,
   rollup = "measurement",
   proteinGroups.data = NULL,
-  evidence.data = NULL
+  evidence.data = NULL,
+  as.data.table = F
 )
 }
 \arguments{

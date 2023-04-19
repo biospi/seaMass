@@ -6,13 +6,12 @@ setMethod("plots", "seaMass_sigma", function(object, batch, job.id) {
   if (ctrl@version != as.character(packageVersion("seaMass")))
     stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
 
-  nbatch <- length(control(root(object))@blocks) * control(root(object))@nchain
-  cat(paste0("[", Sys.time(), "]  PLOTS batch=", batch, "/", nbatch, "\n"))
+  cat(paste0("[", Sys.time(), "]  SIGMA-PLOTS batch=", batch, "/", ctrl@plot.nbatch, "\n"))
   cat(paste0("[", Sys.time(), "]   generating...\n"))
 
   # grab out batch of groups
   groups <- unique(groups(object, as.data.table = T)[G.qC > 0, Group])
-  groups <- groups[rep_len(1:nbatch, length(groups)) == batch]
+  groups <- groups[rep_len(1:ctrl@plot.nbatch, length(groups)) == batch]
   # plots!
   lims <- readRDS(file.path(filepath(object), "limits.rds"))
   report.index <- rbindlists(parallel_lapply(groups, function(item, object, ctrl, lims, batch) {
