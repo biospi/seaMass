@@ -12,8 +12,7 @@ import_MaxQuant(
   use.only.identified.by.site = FALSE,
   use.potential.contaminant = FALSE,
   proteinGroups.data = NULL,
-  evidence.data = NULL,
-  as.data.table = F
+  evidence.data = NULL
 )
 }
 \arguments{

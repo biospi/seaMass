@@ -6,8 +6,8 @@ setMethod("plots", "seaMass_theta", function(object, batch, job.id) {
   if (ctrl@version != as.character(packageVersion("seaMass")))
     stop(paste0("version mismatch - '", filepath(object), "' was prepared with seaMass v", ctrl@version, " but is running on v", packageVersion("seaMass")))
 
-  nbatch <- control(root(object))@plot.nbatch
-  cat(paste0("[", Sys.time(), "]  THETA-PLOTS name=", name(object), " batch=", batch, "/", nbatch, "\n"))
+  nbatch <- length(control(root(object))@blocks) * control(root(object))@nchain
+  cat(paste0("[", Sys.time(), "]  PLOTS batch=", batch, "/", nbatch, "\n"))
   cat(paste0("[", Sys.time(), "]   generating...\n"))
 
   # grab out batch of groups
@@ -26,8 +26,8 @@ setMethod("plots", "seaMass_theta", function(object, batch, job.id) {
       group <- control(root(object))@group[1]
 
       fig <- plot_group_quants(object, item, value.limits = lims$group.quants, summary = T)
-      text1 <- paste0(group, " quants", ifelse(name(object) == name(root(object)), "", paste0(" (", name(object), ")")))
-      text2 <- paste0(group, " quants", ifelse(name(object) == name(root(object)), " ", paste0(" (", name(object), ") ")), " for ", item)
+      text1 <- paste0(group, " quants", ifelse(name(object) == "default", "", paste0(" (", name(object), ")")))
+      text2 <- paste0(group, " quants", ifelse(name(object) == "default", " ", paste0(" (", name(object), ") ")), " for ", item)
       report.index1$group.quant <- data.table(
         section = text1, section.order = 100, item = item, item.order = as.integer(item),
         item.href = generate_markdown(

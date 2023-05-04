@@ -32,7 +32,7 @@ setMethod("run", "schedule_local", function(object, fit.sigma) {
   ctrl <- control(fit.sigma)
   job.id <- uuid::UUIDgenerate()
 
-  cat(paste0("[", Sys.time(), "] processing...\n"))
+  cat(paste0("[", Sys.time(), "] running...\n"))
 
   # SIGMA
   # run empirical bayes process0
@@ -46,7 +46,9 @@ setMethod("run", "schedule_local", function(object, fit.sigma) {
 
   # THETA
   for (fit.theta in open_thetas(fit.sigma, force = T)) {
-    for (block in blocks(fit.theta)) process(block, job.id)
+    for (block in blocks(fit.theta)) {
+      for (chain in 1:ctrl@nchain) process(block, chain, job.id)
+    }
   }
 
   # DELTA
@@ -54,23 +56,19 @@ setMethod("run", "schedule_local", function(object, fit.sigma) {
     for (chain in 1:control(fit.delta)@nchain) process(fit.delta, chain, job.id)
   }
 
-  cat(paste0("[", Sys.time(), "] finished processing!\n"))
-
   # PLOTS
-  cat(paste0("[", Sys.time(), "] reporting...\n"))
-
   if (ctrl@plots == T) {
-    for (batch in 1:control(fit.sigma)@plot.nbatch) {
-      seaMass:::plots(fit.sigma, batch, job.id)
-      for (fit.theta in open_thetas(fit.sigma)) seaMass:::plots(fit.theta, batch, job.id)
-      for (fit.delta in open_deltas(fit.sigma)) seaMass:::plots(fit.delta, batch, job.id)
+    for (batch in 1:(length(blocks(fit.sigma)) * control(fit.sigma)@nchain)) {
+      plots(fit.sigma, batch, job.id)
+      for (fit.theta in open_thetas(fit.sigma)) plots(fit.theta, batch, job.id)
+      for (fit.delta in open_deltas(fit.sigma)) plots(fit.delta, batch, job.id)
     }
   }
 
   # generate report
-  report(fit.sigma, job.id)
+  report(fit.sigma)
 
-  cat(paste0("[", Sys.time(), "] finished reporting!\n"))
+  cat(paste0("[", Sys.time(), "] finished!\n"))
 
   return(invisible(object))
 })
@@ -147,12 +145,12 @@ setMethod("config", "schedule_slurm", function(object, prefix, name, n, notify, 
     ifelse(is.na(object@partition), "", paste0("#SBATCH --partition=", object@partition, "\n")),
     "#SBATCH --nodes=1\n",
     "#SBATCH --ntasks-per-node=1\n",
-    "#SBATCH --requeue\n",
+    "#SBATCH --no-requeue\n",
     ifelse(is.na(object@cpus_per_task), "", paste0("#SBATCH --cpus-per-task=", object@cpus_per_task, "\n")),
     ifelse(is.na(object@mem), "", paste0("#SBATCH --mem=", object@mem, "\n")),
     ifelse(is.na(object@time), "", paste0("#SBATCH --time=", object@time, "\n")),
     ifelse(is.na(object@mail_user), "", paste0("#SBATCH --mail-user=", object@mail_user, "\n")),
-    ifelse(is.na(object@mail_user), "", ifelse(notify, "#SBATCH --mail-type=END,FAIL\n", "#SBATCH --mail-type=FAIL\n")),
+    ifelse(is.na(object@mail_user), "", ifelse(notify, "#SBATCH --mail-type=END,FAIL,REQUEUE\n", "#SBATCH --mail-type=FAIL,REQUEUE\n")),
     ifelse(is.na(object@pre), "", paste0(paste(object@pre, collapse = "\n"), "\n")),
     paste0("srun Rscript --vanilla -e seaMass:::", func, '\\(\\"${SLURM_ARRAY_JOB_ID}\\",${SLURM_ARRAY_TASK_ID}\\)\n'),
     ifelse(is.na(object@post), "", paste0(paste(object@post, collapse = "\n"), "\n"))
@@ -166,12 +164,11 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, fit.sigma) {
   ctrl <- control(fit.sigma)
   n <- length(blocks(fit.sigma)) * ctrl@nchain
 
-  fp <- dirname(filepath(fit.sigma))
-  dir.create(file.path(fp, "slurm"))
-  cat(config(object, "0", name, n, F, "hpc_sigma_process0"), file = file.path(fp, "slurm", "submit.sigma0"))
-  cat(config(object, "1", name, n, F, "hpc_sigma_process1"), file = file.path(fp, "slurm", "submit.sigma1"))
-  if (ctrl@plots == T) cat(config(object, "P", name, ctrl@plot.nbatch, F, "hpc_plots"), file = file.path(fp, "slurm", "submit.plots"))
-  cat(config(object, "R", name, 1, T, "hpc_report"), file = file.path(fp, "slurm", "submit.report"))
+  dir.create(file.path(filepath(fit.sigma), "slurm"))
+  cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(filepath(fit.sigma), "slurm", "submit.process0"))
+  cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(filepath(fit.sigma), "slurm", "submit.process1"))
+  if (ctrl@plots == T) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(filepath(fit.sigma), "slurm", "submit.plots"))
+  cat(config(object, "R", name, 1, T, "hpc_report"), file = file.path(filepath(fit.sigma), "slurm", "submit.report"))
 
   # submit script
   cat(paste0(
@@ -180,18 +177,18 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, fit.sigma) {
     "pushd $DIR > /dev/null\n",
     "\n",
     "# job chain\n",
-    "JOBID=$(sbatch --parsable submit.sigma0)\n",
+    "JOBID=$(sbatch --parsable submit.process0)\n",
     "EXITCODE=$?\n",
-    "sigma0=$JOBID\n",
+    "PROCESS0=$JOBID\n",
     "\n",
-    "JOBID=$(sbatch --parsable --dependency=afterok:$JOBID submit.sigma1)\n",
+    "JOBID=$(sbatch --parsable --dependency=afterok:$JOBID submit.process1)\n",
     "EXITCODE=$?\n",
-    "sigma1=$JOBID\n",
+    "PROCESS1=$JOBID\n",
     "\n",
-    "if [ -e \"submit.theta\" ]; then\n",
-    "  JOBID=$(sbatch --parsable --dependency=afterok:$JOBID submit.theta)\n",
+    "if [ -e \"submit.plots\" ]; then\n",
+    "  JOBID=$(sbatch --parsable --dependency=afterok:$JOBID submit.plots)\n",
     "  EXITCODE=$?\n",
-    "  DELTA=$JOBID\n",
+    "  PLOTS=$JOBID\n",
     "fi\n",
     "\n",
     "if [ -e \"submit.delta\" ]; then\n",
@@ -200,50 +197,25 @@ setMethod("prepare_sigma", "schedule_slurm", function(object, fit.sigma) {
     "  DELTA=$JOBID\n",
     "fi\n",
     "\n",
-    "if [ -e \"submit.plots\" ]; then\n",
-    "  JOBID=$(sbatch --parsable --dependency=afterok:$JOBID submit.plots)\n",
-    "  EXITCODE=$?\n",
-    "  PLOTS=$JOBID\n",
-    "fi\n",
-    "\n",
     "JOBID=$(sbatch --parsable --dependency=afterok:$JOBID submit.report)\n",
     "EXITCODE=$?\n",
     "report=$JOBID\n",
     "\n",
     "# clean up\n",
     "if [[ $EXITCODE != 0 ]]; then\n",
-    "  scancel $sigma0 $sigma1 $PLOTS $DELTA $report \n",
+    "  scancel $PROCESS0 $PROCESS1 $PLOTS $DELTA $report \n",
     "  echo Failed to submit jobs!\n",
     "else\n",
     "  echo Submitted jobs! To cancel execute $DIR/cancel.sh\n",
     "  echo '#!/bin/bash' > $DIR/cancel.sh\n",
-    "  echo scancel $sigma0 $sigma1 $PLOTS $DELTA $report >> $DIR/cancel.sh\n",
+    "  echo scancel $PROCESS0 $PROCESS1 $PLOTS $DELTA $report >> $DIR/cancel.sh\n",
     "  chmod u+x $DIR/cancel.sh\n",
     "fi\n",
     "\n",
     "popd > /dev/null\n",
     "exit $EXITCODE\n"
-  ), file = file.path(fp, "slurm", "submit.sh"))
-  system(paste("chmod u+x", file.path(fp, "slurm", "submit.sh")))
-
-  return(invisible(object))
-})
-
-
-#' @include generics.R
-setMethod("prepare_theta", "schedule_slurm", function(object, fit.theta) {
-  fit.sigma <- root(fit.theta)
-  fp <- dirname(filepath(fit.sigma))
-  n <- length(open_thetas(fit.sigma, force = T)) * length(control(fit.sigma)@blocks)
-  cat(config(object, "T", name(fit.sigma), n, F, "hpc_theta"), file = file.path(fp, "slurm", "submit.theta"))
-
-  if (any(c(
-    control(fit.sigma)@plots,
-    any(sapply(open_thetas(fit.sigma, force = T), function(fit) control(fit)@plots)),
-    any(sapply(open_deltas(fit.sigma, force = T), function(fit) control(fit)@plots))
-  ))) {
-    cat(config(object, "P", name(fit.sigma), control(fit.sigma)@plot.nbatch, F, "hpc_plots"), file = file.path(fp, "slurm", "submit.plots"))
-  }
+  ), file = file.path(filepath(fit.sigma), "slurm", "submit.sh"))
+  system(paste("chmod u+x", file.path(filepath(fit.sigma), "slurm", "submit.sh")))
 
   return(invisible(object))
 })
@@ -251,27 +223,15 @@ setMethod("prepare_theta", "schedule_slurm", function(object, fit.theta) {
 
 #' @include generics.R
 setMethod("prepare_delta", "schedule_slurm", function(object, fit.delta) {
-  fit.sigma <- root(fit.delta)
-  fp <- dirname(filepath(fit.sigma))
-  n <- length(open_deltas(fit.sigma, force = T)) * control(fit.sigma)@nchain
-  cat(config(object, "D", name(fit.sigma), n, F, "hpc_delta"), file = file.path(fp, "slurm", "submit.delta"))
-
-  if (any(c(
-    control(fit.sigma)@plots,
-    any(sapply(open_thetas(fit.sigma, force = T), function(fit) control(fit)@plots)),
-    any(sapply(open_deltas(fit.sigma, force = T), function(fit) control(fit)@plots))
-  ))) {
-    cat(config(object, "P", name(fit.sigma), control(fit.sigma)@plot.nbatch, F, "hpc_plots"), file = file.path(fp, "slurm", "submit.plots"))
-  }
-
+  cat(config(object, "D", name(fit.delta@fit), length(open_deltas(fit.delta@fit, force = T)) * control(fit.delta@fit)@nchain, F, "hpc_delta"), file = file.path(filepath(fit.delta@fit), "slurm", "submit.delta"))
   return(invisible(object))
 })
 
 
 #' @include generics.R
 setMethod("run", "schedule_slurm", function(object, fit.sigma) {
-  cat(paste0("[", Sys.time(), "] submitting to SLURM...\n"))
-  system(paste0(object@submit.prefix, file.path(basename(dirname(filepath(fit.sigma))), "slurm", "submit.sh")))
+  cat(paste0("[", Sys.time(), "]  submitting to SLURM...\n"))
+  system(paste0(object@submit.prefix, file.path(basename(filepath(fit.sigma)), "slurm", "submit.sh")))
   return(invisible(object))
 })
 
@@ -366,8 +326,8 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, fit.sigma) {
   n <- length(blocks(fit.sigma)) * ctrl@nchain
 
   dir.create(file.path(filepath(fit.sigma), "pbs"))
-  cat(config(object, "0", name, n, F, "hpc_sigma_process0"), file = file.path(filepath(fit.sigma), "pbs", "submit.sigma0"))
-  cat(config(object, "1", name, n, F, "hpc_sigma_process1"), file = file.path(filepath(fit.sigma), "pbs", "submit.sigma1"))
+  cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(filepath(fit.sigma), "pbs", "submit.process0"))
+  cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(filepath(fit.sigma), "pbs", "submit.process1"))
   if (ctrl@plots == T) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(filepath(fit.sigma), "pbs", "submit.plots"))
   cat(config(object, "R", name, 1, T, "hpc_report"), file = file.path(filepath(fit.sigma), "pbs", "submit.report"))
 
@@ -378,13 +338,13 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, fit.sigma) {
     "pushd $DIR > /dev/null\n",
     "\n",
     "# job chain\n",
-    "JOBID=$(qsub submit.sigma0)\n",
+    "JOBID=$(qsub submit.process0)\n",
     "EXITCODE=$?\n",
-    "sigma0=$JOBID\n",
+    "PROCESS0=$JOBID\n",
     "\n",
-    "JOBID=$(qsub -W depend=afterokarray:$JOBID submit.sigma1)\n",
+    "JOBID=$(qsub -W depend=afterokarray:$JOBID submit.process1)\n",
     "EXITCODE=$?\n",
-    "sigma1=$JOBID\n",
+    "PROCESS1=$JOBID\n",
     "\n",
     "if [ -e \"submit.plots\" ]; then\n",
     "  JOBID=$(qsub -W depend=afterokarray:$JOBID submit.plots)\n",
@@ -404,12 +364,12 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, fit.sigma) {
     "\n",
     "# clean up\n",
     "if [[ $EXITCODE != 0 ]]; then\n",
-    "  qdel $sigma0 $sigma1 $PLOTS $DELTA $report \n",
+    "  qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $report \n",
     "  echo Failed to submit jobs!\n",
     "else\n",
     "  echo Submitted jobs! To cancel execute $DIR/cancel.sh\n",
     "  echo '#!/bin/bash' > $DIR/cancel.sh\n",
-    "  echo qdel $sigma0 $sigma1 $PLOTS $DELTA $report >> $DIR/cancel.sh\n",
+    "  echo qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $report >> $DIR/cancel.sh\n",
     "  chmod u+x $DIR/cancel.sh\n",
     "fi\n",
     "\n",
@@ -424,26 +384,14 @@ setMethod("prepare_sigma", "schedule_pbs", function(object, fit.sigma) {
 
 #' @include generics.R
 setMethod("prepare_delta", "schedule_pbs", function(object, fit.delta) {
-  fit.sigma <- root(fit.delta)
-  fp <- dirname(filepath(fit.sigma))
-  n <- length(open_deltas(fit.sigma, force = T)) * control(fit.sigma)@nchain
-  cat(config(object, "D", name(fit.sigma), n, F, "hpc_delta"), file = file.path(fp, "pbs", "submit.delta"))
-
-  if (any(c(
-    control(fit.sigma)@plots,
-    any(sapply(open_thetas(fit.sigma, force = T), function(fit) control(fit)@plots)),
-    any(sapply(open_deltas(fit.sigma, force = T), function(fit) control(fit)@plots))
-  ))) {
-    cat(config(object, "P", name(fit.sigma), control(fit.sigma)@plot.nbatch, F, "hpc_plots"), file = file.path(fp, "pbs", "submit.plots"))
-  }
-
+  cat(config(object, "D", name(fit.delta@fit), length(open_deltas(fit.delta@fit, force = T)) * control(fit.delta@fit)@nchain, F, "hpc_delta"), file = file.path(filepath(fit.delta@fit), "pbs", "submit.delta"))
   return(invisible(object))
 })
 
 
 #' @include generics.R
 setMethod("run", "schedule_pbs", function(object, fit.sigma) {
-  cat(paste0("[", Sys.time(), "] submitting to PBS...\n"))
+  cat(paste0("[", Sys.time(), "]  submitting to PBS...\n"))
   system(paste0(object@submit.prefix, file.path(basename(filepath(fit.sigma)), "pbs", "submit.sh")))
   return(invisible(object))
 })
@@ -539,8 +487,8 @@ setMethod("prepare_sigma", "schedule_sge", function(object, fit.sigma) {
   n <- length(blocks(fit.sigma)) * ctrl@nchain
 
   dir.create(file.path(filepath(fit.sigma), "sge"))
-  cat(config(object, "0", name, n, F, "hpc_sigma_process0"), file = file.path(filepath(fit.sigma), "sge", "submit.sigma0"))
-  cat(config(object, "1", name, n, F, "hpc_sigma_process1"), file = file.path(filepath(fit.sigma), "sge", "submit.sigma1"))
+  cat(config(object, "0", name, n, F, "hpc_process0"), file = file.path(filepath(fit.sigma), "sge", "submit.process0"))
+  cat(config(object, "1", name, n, F, "hpc_process1"), file = file.path(filepath(fit.sigma), "sge", "submit.process1"))
   if (ctrl@plots == T) cat(config(object, "P", name, n, F, "hpc_plots"), file = file.path(filepath(fit.sigma), "sge", "submit.plots"))
   cat(config(object, "R", name, 1, T, "hpc_report"), file = file.path(filepath(fit.sigma), "sge", "submit.report"))
 
@@ -551,13 +499,13 @@ setMethod("prepare_sigma", "schedule_sge", function(object, fit.sigma) {
     "pushd $DIR > /dev/null\n",
     "\n",
     "# job chain\n",
-    "sigma0=$(qsub submit.sigma0)\n",
+    "PROCESS0=$(qsub submit.process0)\n",
     "EXITCODE=$?\n",
-    "JOBNAME=submit.sigma0\n",
+    "JOBNAME=submit.process0\n",
     "\n",
-    "sigma1=$(qsub -hold_jid $JOBNAME submit.sigma1)\n",
+    "PROCESS1=$(qsub -hold_jid $JOBNAME submit.process1)\n",
     "EXITCODE=$?\n",
-    "JOBNAME=submit.sigma1\n",
+    "JOBNAME=submit.process1\n",
     "\n",
     "if [ -e \"submit.plots\" ]; then\n",
     "  PLOTS=$(qsub -hold_jid $JOBNAME submit.plots)\n",
@@ -576,12 +524,12 @@ setMethod("prepare_sigma", "schedule_sge", function(object, fit.sigma) {
     "\n",
     "# clean up\n",
     "if [[ $EXITCODE != 0 ]]; then\n",
-    "  qdel $sigma0 $sigma1 $PLOTS $DELTA $report \n",
+    "  qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $report \n",
     "  echo Failed to submit jobs!\n",
     "else\n",
     "  echo Submitted jobs! To cancel execute $DIR/cancel.sh\n",
     "  echo '#!/bin/bash' > $DIR/cancel.sh\n",
-    "  echo qdel $sigma0 $sigma1 $PLOTS $DELTA $report >> $DIR/cancel.sh\n",
+    "  echo qdel $PROCESS0 $PROCESS1 $PLOTS $DELTA $report >> $DIR/cancel.sh\n",
     "  chmod u+x $DIR/cancel.sh\n",
     "fi\n",
     "\n",
@@ -596,18 +544,7 @@ setMethod("prepare_sigma", "schedule_sge", function(object, fit.sigma) {
 
 #' @include generics.R
 setMethod("prepare_delta", "schedule_sge", function(object, fit.delta) {
-  fit.sigma <- root(fit.delta)
-  fp <- dirname(filepath(fit.sigma))
-  n <- length(open_deltas(fit.sigma, force = T)) * control(fit.sigma)@nchain
-  cat(config(object, "D", name(fit.sigma), n, F, "hpc_delta"), file = file.path(fp, "sge", "submit.delta"))
-
-  if (any(c(
-    control(fit.sigma)@plots,
-    any(sapply(open_thetas(fit.sigma, force = T), function(fit) control(fit)@plots)),
-    any(sapply(open_deltas(fit.sigma, force = T), function(fit) control(fit)@plots))
-  ))) {
-    cat(config(object, "P", name(fit.sigma), control(fit.sigma)@plot.nbatch, F, "hpc_plots"), file = file.path(fp, "sge", "submit.plots"))
-  }
+  cat(config(object, "D", name(fit.delta@fit), length(open_deltas(fit.delta@fit, force = T)) * control(fit.delta@fit)@nchain, F, "hpc_delta"), file = file.path(filepath(fit.delta@fit), "sge", "submit.delta"))
 
   return(invisible(object))
 })
@@ -615,20 +552,18 @@ setMethod("prepare_delta", "schedule_sge", function(object, fit.delta) {
 
 #' @include generics.R
 setMethod("run", "schedule_sge", function(object, fit.sigma) {
-  cat(paste0("[", Sys.time(), "] submitting to SGE...\n"))
+  cat(paste0("[", Sys.time(), "]  submitting to SGE...\n"))
   system(paste0(object@submit.prefix, file.path(basename(filepath(fit.sigma)), "sge", "submit.sh")))
   return(invisible(object))
 })
 
 
-hpc_sigma_process0 <- function(job.id, task) {
+hpc_process0 <- function(job.id, task) {
   fit.sigma <- open_sigma("..", force = T)
+  nchain <- control(fit.sigma)@nchain
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running process0 for name=", name(fit.sigma), "...\n"))
-
-  nchain <- control(fit.sigma)@nchain
   process0(blocks(fit.sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1, job.id)
-
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
 
@@ -636,14 +571,12 @@ hpc_sigma_process0 <- function(job.id, task) {
 }
 
 
-hpc_sigma_process1 <- function(job.id, task) {
+hpc_process1 <- function(job.id, task) {
   fit.sigma <- open_sigma("..", force = T)
+  nchain <- control(fit.sigma)@nchain
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running process1 for name=", name(fit.sigma), "...\n"))
-
-  nchain <- control(fit.sigma)@nchain
   process1(blocks(fit.sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1, job.id)
-
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
 
@@ -653,31 +586,10 @@ hpc_sigma_process1 <- function(job.id, task) {
 
 hpc_plots <- function(job.id, task) {
   fit.sigma <- open_sigma("..", force = T)
+  nchain <- control(fit.sigma)@nchain
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running plots for name=", name(fit.sigma), "...\n"))
-
-  plots(fit.sigma, task, job.id)
-  for (fit.theta in open_thetas(fit.sigma)) plots(fit.theta, task, job.id)
-  for (fit.delta in open_deltas(fit.sigma)) plots(fit.delta, task, job.id)
-
-  cat(paste0("[", Sys.time(), "] exiting...\n"))
-  print(warnings(file = stderr()))
-
-  return(0)
-}
-
-
-hpc_theta <- function(job.id, task) {
-  fit.sigma <- open_sigma("..", force = T)
-  fit.thetas <- open_thetas(fit.sigma, force = T)
-  nblock <- length(control(fit.sigma)@blocks)
-  fit.theta <- fit.thetas[[(task-1) %/% nblock + 1]]
-
-  cat(paste0("[", Sys.time(), "] seaMass-theta v", control(fit.theta)@version, "\n"))
-  cat(paste0("[", Sys.time(), "]  running name=", name(fit.theta), "...\n"))
-
-  seaMass:::process(blocks(fit.theta)[[(task-1) %% nblock + 1]], job.id)
-
+  plots(blocks(fit.sigma)[[(task-1) %/% nchain + 1]], (task-1) %% nchain + 1, job.id)
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
 
@@ -690,12 +602,9 @@ hpc_delta <- function(job.id, task) {
   fit.deltas <- open_deltas(fit.sigma, force = T)
   nchain <- control(fit.sigma)@nchain
   fit.delta <- fit.deltas[[(task-1) %/% nchain + 1]]
-
   cat(paste0("[", Sys.time(), "] seaMass-delta v", control(fit.delta)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  running name=", name(fit.delta), "...\n"))
-
   process(fit.delta, (task-1) %% nchain + 1, job.id)
-
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
 
@@ -705,12 +614,10 @@ hpc_delta <- function(job.id, task) {
 
 hpc_report <- function(job.id, task) {
   fit.sigma <- open_sigma("..", force = T)
-
   cat(paste0("[", Sys.time(), "] seaMass-sigma v", control(fit.sigma)@version, "\n"))
   cat(paste0("[", Sys.time(), "]  reporting...\n"))
-
+  for (fit.delta in open_deltas(fit.sigma, force = T)) report(fit.delta, job.id)
   report(fit.sigma, job.id)
-
   cat(paste0("[", Sys.time(), "] exiting...\n"))
   print(warnings(file = stderr()))
 

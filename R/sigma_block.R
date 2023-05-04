@@ -306,35 +306,38 @@ setMethod("group_means", "sigma_block", function(object, groups = NULL, summary 
 })
 
 
-# setMethod("plot_priors", "sigma_block", function(
-#   object,
-#   data = list(
-#     priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Effect, s, df)],
-#     priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Effect, s = s0, df = df0)],
-#     rbind(
-#       measurement_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Effect = "Measurements", value = rinaka(length(s), s, df))],
-#       component_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Effect = "Components", value = rinaka(length(s), s, df))]
-#     )
-#   ),
-#   horizontal = TRUE,
-#   draw_quantiles = list(0.5, NULL, NULL),
-#   trim = c(0.05, 0.95),
-#   colour = list("blue", "black", NULL),
-#   fill = list("lightblue", NULL, "grey"),
-#   alpha = list(0.5, 0.5, 0.5),
-#   facets = "Block",
-#   value.label = "stdev",
-#   value.limits = limits_dists(data, trim, c(0, 1), include.zero = T),
-#   value.length = 160,
-#   variables.labels = TRUE,
-#   variable.sort.cols = NULL,
-#   variable.label.cols = "Effect",
-#   variable.interval = 5,
-#   show.legend = TRUE,
-#   file = NULL
-# ) {
-#   return(plot_dists(object, data, horizontal, draw_quantiles, trim, colour, fill, alpha, facets, value.label, value.limits, value.length, variables.labels, variable.sort.cols, variable.label.cols, variable.interval, show.legend, file))
-# })
+#' #' @import data.table
+#' #' @export
+#' #' @include generics.R
+#' setMethod("plot_priors", "sigma_block", function(
+#'   object,
+#'   data = list(
+#'     priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Effect, s, df)],
+#'     priors(object, as.data.table = T)[is.na(Assay)][, .(Block, Effect, s = s0, df = df0)],
+#'     rbind(
+#'       measurement_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Effect = "Measurements", value = rinaka(length(s), s, df))],
+#'       component_stdevs(object, input = "model0", summary = T, as.data.table = T)[, .(Block, Effect = "Components", value = rinaka(length(s), s, df))]
+#'     )
+#'   ),
+#'   horizontal = TRUE,
+#'   draw_quantiles = list(0.5, NULL, NULL),
+#'   trim = c(0.05, 0.95),
+#'   colour = list("blue", "black", NULL),
+#'   fill = list("lightblue", NULL, "grey"),
+#'   alpha = list(0.5, 0.5, 0.5),
+#'   facets = "Block",
+#'   value.label = "stdev",
+#'   value.limits = limits_dists(data, trim, c(0, 1), include.zero = T),
+#'   value.length = 160,
+#'   variables.labels = TRUE,
+#'   variable.sort.cols = NULL,
+#'   variable.label.cols = "Effect",
+#'   variable.interval = 5,
+#'   show.legend = TRUE,
+#'   file = NULL
+#' ) {
+#'   return(plot_dists(object, data, horizontal, draw_quantiles, trim, colour, fill, alpha, facets, value.label, value.limits, value.length, variables.labels, variable.sort.cols, variable.label.cols, variable.interval, show.legend, file))
+#' })
 
 
 #' @import data.table

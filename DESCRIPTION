@@ -1,7 +1,7 @@
 Package: seaMass
 Type: Package
 Title: Statistical modelling for mass spectrometry omics
-Version: 1.0.1.21
+Version: 1.0.1.20
 Authors@R: as.person(c(
     "Andrew Dowsey <andrew.dowsey@bristol.ac.uk> [aut, cre]",
     "Alexander Phillips <a.m.phillips@liverpool.ac.uk> [ctb]",
@@ -35,12 +35,12 @@ Imports:
     R.utils (>= 2.9.0),
     utf8 (>= 1.1.4),
     uuid (>= 0.1-4),
-    zip (>= 2.0.4)
+    zip (>= 2.1.1)
 RoxygenNote: 7.1.1
 Collate: 
+    'delta_control.R'
     'generics.R'
     'seaMass.R'
-    'delta_control.R'
     'seaMass_sigma.R'
     'seaMass_delta.R'
     'delta_dea.R'

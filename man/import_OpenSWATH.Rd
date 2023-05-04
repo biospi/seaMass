@@ -9,8 +9,7 @@ import_OpenSWATH(
   max.m_score = 0.05,
   use.shared.peptides = FALSE,
   use.decoys = FALSE,
-  data = NULL,
-  as.data.table = F
+  data = NULL
 )
 }
 \arguments{

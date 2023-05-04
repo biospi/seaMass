@@ -5,8 +5,6 @@
 \alias{seaMass_sigma-class}
 \alias{seaMass_sigma}
 \alias{open_sigma}
-\alias{open_thetas,seaMass_sigma-method}
-\alias{open_deltas,seaMass_sigma-method}
 \alias{del,seaMass_sigma-method}
 \alias{root,seaMass_sigma-method}
 \alias{name,seaMass_sigma-method}
@@ -20,6 +18,8 @@
 \alias{assay_components,seaMass_sigma-method}
 \alias{measurements,seaMass_sigma-method}
 \alias{blocks,seaMass_sigma-method}
+\alias{open_thetas,seaMass_sigma-method}
+\alias{open_deltas,seaMass_sigma-method}
 \alias{assay_design,seaMass_sigma-method}
 \alias{timings,seaMass_sigma-method}
 \alias{priors,seaMass_sigma-method}
@@ -36,19 +36,15 @@
 \usage{
 seaMass_sigma(
   data,
-  data.design = seaMass::new_assay_design(data),
-  path = "fit.seaMass",
+  data.design = new_assay_design(data),
+  path = "fit",
   user = Sys.info()[["user"]],
   run = TRUE,
-  control = seaMass::sigma_control(),
+  control = sigma_control(),
   ...
 )
 
-open_sigma(path = "fit.seaMass", force = FALSE)
-
-\S4method{open_thetas}{seaMass_sigma}(object, force = FALSE)
-
-\S4method{open_deltas}{seaMass_sigma}(object, force = FALSE)
+open_sigma(path = "fit.seaMass", quiet = FALSE, force = FALSE)
 
 \S4method{del}{seaMass_sigma}(object)
 
@@ -64,7 +60,7 @@ open_sigma(path = "fit.seaMass", force = FALSE)
 
 \S4method{groups}{seaMass_sigma}(object, summary = FALSE, as.data.table = FALSE)
 
-\S4method{top_groups}{seaMass_sigma}(object, n = 1e+05)
+\S4method{top_groups}{seaMass_sigma}(object, n = 512)
 
 \S4method{components}{seaMass_sigma}(object, summary = FALSE, as.data.table = FALSE)
 
@@ -75,6 +71,10 @@ open_sigma(path = "fit.seaMass", force = FALSE)
 \S4method{measurements}{seaMass_sigma}(object, summary = FALSE, as.data.table = FALSE)
 
 \S4method{blocks}{seaMass_sigma}(object)
+
+\S4method{open_thetas}{seaMass_sigma}(object, quiet = FALSE, force = FALSE)
+
+\S4method{open_deltas}{seaMass_sigma}(object, quiet = FALSE, force = FALSE)
 
 \S4method{assay_design}{seaMass_sigma}(object, as.data.table = FALSE)
 
@@ -182,10 +182,6 @@ Fits the seaMass-Σ Bayesian group-level quantification model to imported data.
 
 \item \code{open_sigma}: Open a complete \code{seaMass_sigma} run from the supplied \code{path}.
 
-\item \code{open_thetas,seaMass_sigma-method}: Open the list of \link{seaMass_theta} objects.
-
-\item \code{open_deltas,seaMass_sigma-method}: Open the list of \link{seaMass_delta} objects.
-
 \item \code{del,seaMass_sigma-method}: Delete the \code{seaMass_sigma} run from disk.
 
 \item \code{root,seaMass_sigma-method}: Get the \code{seaMass_sigma} object.
@@ -211,6 +207,10 @@ Fits the seaMass-Σ Bayesian group-level quantification model to imported data.
 \item \code{measurements,seaMass_sigma-method}: Get the groups as a \code{data.frame}.
 
 \item \code{blocks,seaMass_sigma-method}: Get the list of \link{sigma_block} objects for the blocks.
+
+\item \code{open_thetas,seaMass_sigma-method}: Open the list of \link{seaMass_delta} objects.
+
+\item \code{open_deltas,seaMass_sigma-method}: Open the list of \link{seaMass_delta} objects.
 
 \item \code{assay_design,seaMass_sigma-method}: Get the study design as a \code{data.frame}.
 

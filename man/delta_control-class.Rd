@@ -10,12 +10,12 @@ delta_control(
   component.deviations = FALSE,
   keep = NULL,
   summarise = "groups",
-  plot = c("group.quants.volcano", "group.quants.fdr", "group.quants.de"),
+  plot = c("group.quants.de", "component.deviations.de", "group.quants.de.batch",
+    "component.deviations.de.batch"),
   model = "MCMCglmm",
   nwarmup = 4096,
   thin = 256,
   fdr.model = "ash",
-  truth.func = NULL,
   random.seed = 0
 )
 }

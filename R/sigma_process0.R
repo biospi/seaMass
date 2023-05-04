@@ -9,7 +9,7 @@ setMethod("process0", "sigma_block", function(object, chain, job.id) {
   # EXECUTE MODEL
   model(object, "model0", chain)
 
-  if (increment_completed(file.path(filepath(object), "model0"), job.id = job.id) >= ctrl@nchain) {
+  if (increment_completed(file.path(filepath(object), "model0"), job.id = job.id) == ctrl@nchain) {
     # PROCESS OUTPUT
     cat(paste0("[", Sys.time(), "]  SIGMA-PROCESS0 block=", name(object), "\n"))
 

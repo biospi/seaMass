@@ -4,7 +4,7 @@
 setMethod("fdr_ash", "seaMass_delta", function(
   object,
   type = "group.quants",
-  by.covariate = TRUE,
+  by.effect = TRUE,
   by.contrast = TRUE,
   sort.col = "qvalue",
   min.components = 1,
@@ -64,17 +64,17 @@ setMethod("fdr_ash", "seaMass_delta", function(
     }
   }
 
-  if (by.contrast && by.covariate) {
-    DT[, Effect := interaction(Covariate, interaction(Contrast, Baseline, drop = T, sep = "-", lex.order = T), drop = T, lex.order = T)]
-  } else if (by.covariate) {
-    DT[, Effect := Covariate]
+  if (by.contrast && by.effect) {
+    DT[, Batch := interaction(Effect, interaction(Contrast, Baseline, drop = T, sep = "-", lex.order = T), drop = T, lex.order = T)]
+  } else if (by.effect) {
+    DT[, Batch := Effect]
   } else if (by.contrast) {
-    DT[, Effect := interaction(Contrast, Baseline, drop = T, sep = "-", lex.order = T)]
+    DT[, Batch := interaction(Contrast, Baseline, drop = T, sep = "-", lex.order = T)]
   } else {
-    DT[, Effect := factor("all")]
+    DT[, Batch := factor("all")]
   }
 
-  DT <- rbindlist(parallel_lapply(split(DT, by = "Effect"), function(item, type, ash.mixcompdist, ash.optmethod, ash.nullweight, ash.pointmass, ash.prior, ash.mixsd, ash.gridmult, ash.g, ash.fixg, ash.mode, ash.alpha, ash.grange, ash.control, ash.pi_thresh) {
+  DT <- rbindlist(parallel_lapply(split(DT, by = "Batch"), function(item, type, ash.mixcompdist, ash.optmethod, ash.nullweight, ash.pointmass, ash.prior, ash.mixsd, ash.gridmult, ash.g, ash.fixg, ash.mode, ash.alpha, ash.grange, ash.control, ash.pi_thresh) {
     if (nrow(item[use == T]) > 0) {
       # run ash, but allowing variable DF
       if (!all(is.infinite(item$df))) {
@@ -125,8 +125,8 @@ setMethod("fdr_ash", "seaMass_delta", function(
     }
   }, nthread = control(object)@nthread))
 
-  setcolorder(DT, c("Effect", "Covariate", "Contrast", "Baseline"))
-  setorderv(DT, c("Effect", sort.col), na.last = T)
+  setcolorder(DT, c("Batch", "Effect", "Contrast", "Baseline"))
+  setorderv(DT, c("Batch", sort.col), na.last = T)
   fst::write.fst(DT, file.path(filepath(object), paste0(type, ".fdr.fst")))
 
   options(warn = warn)

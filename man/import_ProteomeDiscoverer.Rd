@@ -10,8 +10,7 @@ import_ProteomeDiscoverer(
   use.not.unique = TRUE,
   use.excluded.by.method = TRUE,
   use.redundant = FALSE,
-  data = NULL,
-  as.data.table = F
+  data = NULL
 )
 }
 \arguments{

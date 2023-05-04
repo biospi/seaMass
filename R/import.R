@@ -16,8 +16,7 @@ import_ProteomeDiscoverer <- function(
   use.not.unique = TRUE,
   use.excluded.by.method = TRUE,
   use.redundant = FALSE,
-  data = NULL,
-  as.data.table = F
+  data = NULL
 ) {
   if (is.null(file)) {
     if (is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
@@ -73,8 +72,7 @@ import_ProteomeDiscoverer <- function(
   DT[, row := NULL]
 
   # we can get a spectrum assigned to multiple peptides in a protein - if this occurs, assign the spectrum as a 'new' ambiguous peptide
-  setorder(DT, Component)
-  DT[, Component := paste(Component, collapse = " "), by = .(Group, Measurement, Use)]
+  DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement, Use)]
   DT <- unique(DT)
 
   # melt label counts
@@ -94,9 +92,8 @@ import_ProteomeDiscoverer <- function(
   setattr(DT, "component", c("Peptidoform", "Peptidoforms"))
   setattr(DT, "measurement", c("Spectrum", "Spectra"))
 
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
+  setDF(DT)
+  return(DT[])
 }
 
 
@@ -123,8 +120,7 @@ import_ProteinPilot <- function(
   use.discordant.peptide.type = FALSE,
   use.no.itraq = FALSE,
   use.weak.signal = FALSE,
-  data = NULL,
-  as.data.table = F
+  data = NULL
 ) {
   if (is.null(file)) {
     if (is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
@@ -147,9 +143,9 @@ import_ProteinPilot <- function(
   if(!("ProteinModifications" %in% colnames(DT.raw))) DT.raw[, ProteinModifications := ""]
   DT <- DT.raw[, .(
     Group = gsub(";", "", Accessions),
-    GroupInfo = paste0(" [", N, "] ", Names),
+    GroupInfo = paste0("[", N, "] ", Names),
     Component = gsub(" ", "", paste0(Sequence, ",", Modifications, ",", ProteinModifications, ",", Cleavages), fixed = T),
-    Measurement = paste0(`Theor z`, ":", Spectrum),
+    Measurement = Spectrum,
     Injection = as.integer(matrix(unlist(strsplit(as.character(DT.raw$Spectrum), ".", fixed = T)), ncol = 5, byrow = T)[, 1]),
     Use
   )]
@@ -164,8 +160,7 @@ import_ProteinPilot <- function(
   rm(DT.raw)
 
   # we can get a spectrum assigned to multiple peptides in a protein - if this occurs, assign the spectrum as a 'new' ambiguous peptide
-  setorder(DT, Component)
-  DT[, Component := paste(Component, collapse = " "), by = .(Group, Measurement, Use)]
+  DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement, Use)]
   DT <- unique(DT)
 
   # melt
@@ -185,9 +180,8 @@ import_ProteinPilot <- function(
   setattr(DT, "component", c("Peptidoform", "Peptidoforms"))
   setattr(DT, "measurement", c("Spectrum", "Spectra"))
 
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
+  setDF(DT)
+  return(DT[])
 }
 
 
@@ -207,8 +201,7 @@ import_OpenSWATH <- function(
   max.m_score = 0.05,
   use.shared.peptides = FALSE,
   use.decoys = FALSE,
-  data = NULL,
-  as.data.table = F
+  data = NULL
 ) {
   if (is.null(file) && is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
   if (!is.null(data)) file <- data
@@ -272,9 +265,8 @@ import_OpenSWATH <- function(
   setattr(DT, "component", c("Peptidoform", "Peptidoforms"))
   setattr(DT, "measurement", c("Transition", "Transitions"))
 
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
+  setDF(DT)
+  return(DT[])
 }
 
 #' Import MaxQuant LF data
@@ -297,8 +289,7 @@ import_MaxQuant <- function(
   use.only.identified.by.site = FALSE,
   use.potential.contaminant = FALSE,
   proteinGroups.data = NULL,
-  evidence.data = NULL,
-  as.data.table = F
+  evidence.data = NULL
 ) {
   warning("import_MaxQuant currently only supports labelfree data with no fractionation")
 
@@ -374,8 +365,7 @@ import_MaxQuant <- function(
   setattr(DT, "component", c("Peptidoform", "Peptidoforms"))
   setattr(DT, "measurement", c("Feature", "Features"))
 
-  if (!as.data.table) setDF(DT)
-  else DT[]
+  setDF(DT)
   return(DT)
 }
 
@@ -420,8 +410,7 @@ import_MaxQuant <- function(
 import_DIANN <- function(
   file = NULL,
   use.shared.peptides = FALSE,
-  data = NULL,
-  as.data.table = F
+  data = NULL
 ) {
   stop("todo: not implemented yet")
 
@@ -433,8 +422,7 @@ import_DIANN <- function(
     DT <- fread(file = file, showProgress = T)
   }
 
-  if (!as.data.table) setDF(DT)
-  else DT[]
+  setDF(DT)
   return(DT)
 }
 
@@ -454,8 +442,7 @@ import_DIANN <- function(
 import_Progenesis <- function(
   file = NULL,
   used = T,
-  data = NULL,
-  as.data.table = F
+  data = NULL
 ) {
   stop("todo: needs updating")
   suppressWarnings(suppressMessages(library(R.oo)))
@@ -504,8 +491,7 @@ import_Progenesis <- function(
   )], DT.raw[, .SD, .SDcols = names(DT.raw) %like% "^Raw abundance "])
 
   # group ambiguous PSMs so seaMass-Delta treats them as a single component per group
-  setorder(DT, Component)
-  DT[, Component := paste(Component, collapse = " "), by = .(Group, Measurement)]
+  DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement)]
   DT <- unique(DT)
 
   # melt
@@ -519,9 +505,8 @@ import_Progenesis <- function(
   DT[, Injection := Run]
   DT[, Count := as.numeric(Count)]
 
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
+  setDF(DT)
+  return(DT[])
 }
 
 
@@ -544,8 +529,7 @@ import_MaxQuant_peptides <- function(
   peptides.file = NULL,
   shared = FALSE,
   proteinGroups.data = NULL,
-  peptides.data = NULL,
-  as.data.table = F
+  peptides.data = NULL
 ) {
   stop("todo: needs updating")
   # load groups
@@ -612,8 +596,7 @@ import_MaxQuant_peptides <- function(
   DT[, Count := as.double(Count)]
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Channel", "Injection"))
 
-  if (!as.data.table) setDF(DT)
-  else DT[]
+  setDF(DT)
   return(DT)
 }
 
@@ -636,8 +619,7 @@ import_MaxQuant_evidence0 <- function(
   shared = F,
   rollup = "measurement",
   proteinGroups.data = NULL,
-  evidence.data = NULL,
-  as.data.table = F
+  evidence.data = NULL
 ) {
   stop("todo: needs updating")
   suppressWarnings(suppressMessages(library(R.oo)))
@@ -722,9 +704,9 @@ import_MaxQuant_evidence0 <- function(
   DT <- dcast(DT, Group + Component + Measurement ~ Run, value.var = "Count")
 
   # group ambiguous transitions so seaMass-Delta treats them as a single component per group ## UNNECCESARY?
-  setorder(DT, Component)
-  DT[, Component := paste(Component, collapse = " "), by = .(Group, Measurement)]
+  DT[, Component := paste(sort(as.character(Component)), collapse = " "), by = .(Group, Measurement)]
   DT <- unique(DT)
+
 
   # melt
   DT[, GroupInfo := factor(Group)]
@@ -737,9 +719,9 @@ import_MaxQuant_evidence0 <- function(
   DT[, Channel := factor("1")]
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run", "Injection", "Channel"))
 
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
+  setDF(DT)
+  return(DT[])
+
 }
 
 
@@ -760,8 +742,7 @@ import_MSqRob <- function(
   exprs,
   evidence.file = NULL,
   is.log2 = TRUE,
-  evidence.data = NULL,
-  as.data.table = F
+  evidence.data = NULL
 ) {
   stop("todo: needs updating")
   if (is.null(evidence.file) & is.null(evidence.data)) {
@@ -821,9 +802,7 @@ import_MSqRob <- function(
   }
 
   setcolorder(DT, c("Group", "GroupInfo", "Component", "Measurement", "Run"))
-
-  if (!as.data.table) setDF(DT)
-  else DT[]
+  setDF(DT)
   return(DT)
 }
 
@@ -850,7 +829,6 @@ import_MSstats <- function(data) {
     Count = as.numeric(data$Intensity)
   )
 
-  if (!as.data.table) setDF(DT)
-  else DT[]
-  return(DT)
+  setDF(DT)
+  return(DT[])
 }

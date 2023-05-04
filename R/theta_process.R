@@ -13,9 +13,7 @@ setMethod("process", "theta_block", function(object, job.id) {
   ellipsis$object <- object
 
   # normalise
-  if (ctrl@model == "") {
-    cat(paste0("[", Sys.time(), "]   normalisation skipped...\n"))
-  } else {
+  if (ctrl@model != "") {
     do.call(paste("normalise", ctrl@model, sep = "_"), ellipsis)
 
     # if ("group.quants" %in% ctrl@plot) {
@@ -29,7 +27,7 @@ setMethod("process", "theta_block", function(object, job.id) {
     }
   }
 
-  if (increment_completed(filepath(container(object)), "process", job.id) >= length(blocks(object))) {
+  if (increment_completed(filepath(container(object)), "process", job.id) == length(blocks(object))) {
     fit.sigma <- root(object)
     fit.theta <- container(object)
 
@@ -38,7 +36,7 @@ setMethod("process", "theta_block", function(object, job.id) {
 
       # standardise
       if (ctrl@model == "") {
-        standardise_group_quants(fit.theta, chain, input = "sigma/model1")
+        #for (chain in 1:ctrl@nchain) standardise_group_quants
       } else {
         standardise_group_quants(fit.theta, chain)
       }
@@ -104,7 +102,7 @@ setMethod("process", "theta_block", function(object, job.id) {
         DT <- merge(DT, DT2, by = "Group", all = T)
       }
 
-      fwrite(DT, file.path(dirname(filepath(fit.sigma)), "csv", paste0(tolower(ctrl2@group[1]), ifelse(name(fit.theta) == name(fit.sigma), "", paste0("__", name(fit.theta))), ".csv")))
+      fwrite(DT, file.path(dirname(filepath(fit.sigma)), "csv", paste0(tolower(ctrl2@group[1]), ifelse(name(fit.theta) == "default", "", paste0("__", name(fit.theta))), ".csv")))
     }
 
     # markdown folder
@@ -117,6 +115,8 @@ setMethod("process", "theta_block", function(object, job.id) {
     if (ctrl@plots == T) {
       cat(paste0("[", Sys.time(), "]   calculating plot limits...\n"))
       lims <- list()
+      # if ("assay.means" %in% ctrl@plot) lims$assay.means <- limits_dists(assay_means(fit.theta, summary = T, as.data.table = T))
+      #if ("group.standards" %in% ctrl@plot) lims$group.standards <- limits_dists(group_standards(fit.theta, summary = T, as.data.table = T))
       if ("group.quants" %in% ctrl@plot) lims$group.quants <- limits_dists(group_quants(fit.theta, summary = T, as.data.table = T))
       saveRDS(lims, file.path(filepath(fit.theta), "limits.rds"))
     }
@@ -124,7 +124,7 @@ setMethod("process", "theta_block", function(object, job.id) {
     # save assay means plot
     if ("assay.means" %in% ctrl@plot) {
       cat(paste0("[", Sys.time(), "]   generating assay means plot...\n"))
-      text <- paste0("Assay means" , ifelse(name(fit.theta) == name(fit.sigma), "", paste0(" (", name(fit.theta), ")")))
+      text <- paste0("Assay means" , ifelse(name(fit.theta) == "default", "", paste0(" (", name(fit.theta), ")")))
       report.index$assay.stdevs <- data.table(
         section = "Study-level", section.order = 0, item = text, item.order = 50000,
         item.href = generate_markdown(
@@ -136,12 +136,12 @@ setMethod("process", "theta_block", function(object, job.id) {
       )
     }
 
-    # save group standards plot
-    if ("group.standards" %in% ctrl@plot && length(unique(assay_design(fit.theta)$RefWeight)) != 1) {
+    # save group means plot
+    if ("group.standards" %in% ctrl@plot) {
       cat(paste0("[", Sys.time(), "]   generating group standards plot...\n"))
       fig <- plot_group_standards(fit.theta, summary = T)
       report.index$group.means <- data.table(
-        section = "Study-level", section.order = 0, item = paste0(group, " reference standards", ifelse(name(fit.theta) == name(fit.sigma), "", paste0(" (", name(fit.theta), ")"))), item.order = 150000,
+        section = "Study-level", section.order = 0, item = paste0(group, " reference standards", ifelse(name(fit.theta) == "default", "", paste0(" (", name(fit.theta), ")"))), item.order = 150000,
         item.href = generate_markdown(
           fit.sigma,
           fig,
@@ -155,7 +155,7 @@ setMethod("process", "theta_block", function(object, job.id) {
       cat(paste0("[", Sys.time(), "]   generating robust PCA plot for group quants...\n"))
       DT <- robust_pca(fit.theta, summary = F, as.data.table = T)
 
-      text <- paste0("PCA - ", group, " quants with assay stdevs QC", ifelse(name(fit.theta) == name(fit.sigma), "", paste0(" (", name(fit.theta), ")")))
+      text <- paste0("PCA - ", group, " quants with assay stdevs QC", ifelse(name(fit.theta) == "default", "", paste0(" (", name(fit.theta), ")")))
       report.index$group.quants.pca1 <- data.table(
         section = "Study-level", section.order = 0, item = text, item.order = 1000000,
         item.href = generate_markdown(
@@ -166,7 +166,7 @@ setMethod("process", "theta_block", function(object, job.id) {
         )
       )
 
-      text <- paste0("PCA - ", group, " quants by Condition", ifelse(name(fit.theta) == name(fit.sigma), "", paste0(" (", name(fit.theta), ")")))
+      text <- paste0("PCA - ", group, " quants by Condition", ifelse(name(fit.theta) == "default", "", paste0(" (", name(fit.theta), ")")))
       report.index$group.quants.pca2 <- data.table(
         section = "Study-level", section.order = 0, item = text, item.order = 1100000,
         item.href = generate_markdown(

@@ -17,7 +17,7 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
     do.call(paste("dea", ctrl@model, sep = "_"), ellipsis)
   }
 
-  if (increment_completed(filepath(object), "process", job.id) >= ctrl@nchain) {
+  if (increment_completed(filepath(object), "process", job.id) == ctrl@nchain) {
     cat(paste0("[", Sys.time(), "]  DELTA-OUTPUT name=", name(object), "\n"))
 
     # summarise group de and perform fdr correction
@@ -39,78 +39,40 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
     group <- control(root(object))@group[1]
 
     # calculate plot limits
-    cat(paste0("[", Sys.time(), "]   calculating plot limits...\n"))
-    lims <- list()
-    if (ctrl@fdr.model == "") {
-      lims$group.quants.de <- limits_dists(group_quants_de(object, summary = T, as.data.table = T), include.zero = T)
-    } else {
-      lims$group.quants.de <- limits_dists(group_quants_fdr(object, as.data.table = T), include.zero = T)
+    if (ctrl@plots == T) {
+      cat(paste0("[", Sys.time(), "]   calculating plot limits...\n"))
+      lims <- list()
+      if ("group.quants.de" %in% ctrl@plot) lims$group.quants.de <- limits_dists(group_quants_de(object, summary = T, as.data.table = T))
+      saveRDS(lims, file.path(filepath(object), "limits.rds"))
     }
-    if (ctrl@plots == T) saveRDS(lims, file.path(filepath(object), "limits.rds"))
 
     # write out and plot group fdr
-    DTs.fdr <- group_quants_fdr(object, as.data.table = T)
-    if (!is.null(DTs.fdr)) {
+    if (file.exists(file.path(filepath(object), "group.quants.fdr.fst"))) {
       cat(paste0("[", Sys.time(), "]   writing group quants differential expression output...\n"))
 
-      DTs.fdr <- split(DTs.fdr, drop = T, by = "Effect")
-      for (effect in names(DTs.fdr)) {
-        cat(paste0("[", Sys.time(), "]    effect=", effect, "...\n"))
+      DTs.fdr <- fst::read.fst(file.path(filepath(object), "group.quants.fdr.fst"), as.data.table = T)
+      DTs.fdr <- split(DTs.fdr, drop = T, by = "Batch")
+      for (batch in names(DTs.fdr)) {
+        cat(paste0("[", Sys.time(), "]    batch=", batch, "...\n"))
 
-        name <- ifelse(name(object) == name(parent(object)), "", paste0("__", name(object)))
+        name <- ifelse(name(object) == "default", "", paste0("__", name(object)))
 
         # write
-        fwrite(DTs.fdr[[effect]], file.path(dirname(filepath(object)), "csv", paste0(tolower(group), "_fdr__", gsub("\\.", "_", effect), name, ".csv")))
+        fwrite(DTs.fdr[[batch]], file.path(dirname(filepath(object)), "csv", paste0(tolower(group), "_fdr__", gsub("\\.", "_", batch), name, ".csv")))
 
-        # plots
-        if ("group.quants.volcano" %in% ctrl@plot) {
-          cat(paste0("[", Sys.time(), "]     generating group quants volcano plot...\n"))
-          text <- paste0(group, " volcano plot for '", gsub("\\.", "' covariate, effect '", effect), "'", ifelse(name(object) == name(root(object)), "", paste0(" (", name(object), ")")))
-          if (ctrl@truth.func == "") {
-            fig <- plot_volcano(object, data.fdr = group_quants_fdr(object, data.table(Effect = effect)))
-          } else {
-            fig <- plot_volcano(object, data.fdr = do.call(ctrl@truth.func, list(data.fdr = group_quants_fdr(object, data.table(Effect = effect)))))
-          }
-          report.index[[paste0("group.quants.volcano.", effect)]] <- data.table(
-            section = "Covariate-level", section.order = 60, item = text, item.order = 25000,
-            item.href = generate_markdown(
-              object,
-              fig,
-              root, paste0("seamass_delta__", name(object), "__group_volcano__", gsub("\\.", "_", effect)),
-              text
-            )
-          )
-        }
+        # plot
+        if ("group.quants.de.batch" %in% ctrl@plot) {
+          #cat(paste0("[", Sys.time(), "]     generating group quants differential expression summary...\n"))
+          #group_quants_de(object, summary = T, as.data.table = T)
 
-         if ("group.quants.fdr" %in% ctrl@plot) {
-          cat(paste0("[", Sys.time(), "]     generating group quants fdr plot...\n"))
-          if (ctrl@truth.func == "") {
-            text <- paste0(group, " FDR plot for '", gsub("\\.", "' covariate, effect '", effect), "'", ifelse(name(object) == name(root(object)), "", paste0(" (", name(object), ")")))
-            fig <- plot_fdr(object, data.fdr = group_quants_fdr(object, data.table(Effect = effect)))
-          } else {
-            text <- paste0(group, " Precision-Recall plot for '", gsub("\\.", "' covariate, effect '", effect), "'", ifelse(name(object) == name(root(object)), "", paste0(" (", name(object), ")")))
-            fig <- plot_pr(object, ctrl@truth.func, data.fdr = group_quants_fdr(object, data.table(Effect = effect)))
-          }
-          report.index[[paste0("group.quants.fdr.", effect)]] <- data.table(
-            section = "Covariate-level", section.order = 60, item = text, item.order = 50000,
-            item.href = generate_markdown(
-              object,
-              fig,
-              root, paste0("seamass_delta__", name(object), "__group_fdr__", gsub("\\.", "_", effect)),
-              text
-            )
-          )
-        }
-
-        if ("group.quants.de" %in% ctrl@plot) {
           cat(paste0("[", Sys.time(), "]     generating group quants differential expression plot...\n"))
-          text <- paste0(group, " differential expression for '", gsub("\\.", "' covariate, effect '", effect), "'", ifelse(name(object) == name(root(object)), "", paste0(" (", name(object), ")")))
-          report.index[[paste0("group.quants.de.", effect)]] <- data.table(
-            section = "Covariate-level", section.order = 60, item = text, item.order = 75000,
+          text <- paste0(group, " differential expression for '", gsub("\\.", "' effect, comparison '", batch), "'", name)
+          report.index$assay.stdevs <- data.table(
+            section = "Study-level", section.order = 0, item = text, item.order = 75000,
             item.href = generate_markdown(
               object,
-              plot_group_quants_fdr(object, data.table(Effect = effect), value.limits = lims$group.quants.de),
-              root, paste0("seamass_delta__", name(object), "__group_de__", gsub("\\.", "_", effect)),
+              plot_group_quants_fdr(object),
+              root, paste0("seamass_delta__", name(object), "__group_fdr__", gsub("\\.", "_", batch)),
               text
             )
           )
@@ -152,7 +114,7 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
 # if ("fdr.group.quants" %in% ctrl@plot) {
 #   DTs <- list(
 #     DTs.fdr[[name]],
-#     de_group_quants(object, unique(DTs.fdr[[name]][, .(Covariate, Contrast, Baseline)]), as.data.table = T)
+#     de_group_quants(object, unique(DTs.fdr[[name]][, .(Effect, Contrast, Baseline)]), as.data.table = T)
 #   )
 #   plot_fdr_group_quants(object, DTs, limits_dists(DTs, include.zero = T), file = file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_fdr_group_quants_dists.", gsub("\\.", "_", name), ".pdf")))
 #   rm(DTs)
@@ -189,7 +151,7 @@ setMethod("process", "seaMass_delta", function(object, chain, job.id) {
 #
 #   # write out component deviations fdr
 #   if (file.exists(file.path(filepath(object), "fdr.component.deviations.fst"))) {
-#     DTs.fdr <- split(fdr_component_deviations(object, as.data.table = T), drop = T, by = "Effect")
+#     DTs.fdr <- split(fdr_component_deviations(object, as.data.table = T), drop = T, by = "Batch")
 #     for (name in names(DTs.fdr)) {
 #       # save
 #       fwrite(DTs.fdr[[name]], file.path(dirname(filepath(object)), "output", basename(filepath(object)), paste0("log2_fdr_component_deviations.", gsub("\\.", "_", name), ".csv")))
