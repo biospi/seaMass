@@ -46,7 +46,7 @@ setMethod("normalise_theta", "theta_block", function(object, data.design = assay
 
     # create emmeans ref grid
     class(fit.model) <- "MCMCglmm_seaMass"
-    frg <- emmeans::ref_grid(fit.model, data = DT, nesting = NULL)
+    frg <- emmeans::ref_grid(fit.model, data = DT, nesting = NULL, rg.limit = 10000000)
 
     # extract assay means
     DT.assay.means <- as.data.table(coda::as.mcmc(emmeans::emmeans(frg, "Assay")))

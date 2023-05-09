@@ -328,21 +328,21 @@ setMethod("plot_group_quants_fdr", "seaMass_delta", function(
 add_seaMass_spikein_truth <- function(data.fdr) {
   # ground truth
   data.truth <- rbind(
-    data.frame(set = "Rat [1:1]",      truth =           0, grep = "_RAT$"),
-    data.frame(set = "E.coli [10:16]", truth = log2(16/10), grep = "_ECOL[I|X]$"),
-    data.frame(set = "[3:1]",          truth =   log2(1/3), grep = "^sp\\|P00330\\|ADH1_YEAST$"),
-    data.frame(set = "[5:3]",          truth =   log2(3/5), grep = "^sp\\|P08603\\|CFAH_HUMAN$"),
-    data.frame(set = "[3:2]",          truth =   log2(2/3), grep = "^sp\\|P02769\\|ALBU_BOVIN$|^sp\\|P00698\\|LYSC_CHICK$|^sp\\|P00711\\|LALBA_BOVIN$|^sp\\|P00915\\|CAH1_HUMAN$"),
-    data.frame(set = "[4:3]",          truth =   log2(3/4), grep = "^sp\\|P46406\\|G3P_RABIT$|^sp\\|P00489\\|PYGM_RABIT$"),
-    data.frame(set = "[5:4]",          truth =   log2(4/5), grep = "^sp\\|P00004\\|CYC_HORSE$|^sp\\|P02754\\|LACB_BOVIN$"),
-    data.frame(set = "[3:4]",          truth =   log2(4/3), grep = "^sp\\|P02666\\|CASB_BOVIN$|^sp\\|P01012\\|OVAL_CHICK$"),
-    data.frame(set = "[15:28]",        truth = log2(28/15), grep = "^sp\\|P00432\\|CATA_BOVIN$"),
-    data.frame(set = "[1:2]",          truth =   log2(2/1), grep = "^sp\\|P68082\\|MYG_HORSE$|^sp\\|P06278\\|AMY_BACLI$|^sp\\|Q29443\\|TRFE_BOVIN$")
+    data_frame(set = "Rat [1:1]",      truth = 0, grep = "_RAT$"),
+    data_frame(set = "E.coli [10:16]", truth = log2(16/10), grep = "_ECOL[I|X]$"),
+    data_frame(set = "[3:1]",          truth = log2(1/3), grep = "^sp\\|P00330\\|ADH1_YEAST$"),
+    data_frame(set = "[5:3]",          truth = log2(3/5), grep = "^sp\\|P08603\\|CFAH_HUMAN$"),
+    data_frame(set = "[3:2]",          truth = log2(2/3), grep = "^sp\\|P02769\\|ALBU_BOVIN$|^sp\\|P00698\\|LYSC_CHICK$|^sp\\|P00711\\|LALBA_BOVIN$|^sp\\|P00915\\|CAH1_HUMAN$"),
+    data_frame(set = "[4:3]",          truth = log2(3/4), grep = "^sp\\|P46406\\|G3P_RABIT$|^sp\\|P00489\\|PYGM_RABIT$"),
+    data_frame(set = "[5:4]",          truth = log2(4/5), grep = "^sp\\|P00004\\|CYC_HORSE$|^sp\\|P02754\\|LACB_BOVIN$"),
+    data_frame(set = "[3:4]",          truth = log2(4/3), grep = "^sp\\|P02666\\|CASB_BOVIN$|^sp\\|P01012\\|OVAL_CHICK$"),
+    data_frame(set = "[15:28]",        truth = log2(28/15), grep = "^sp\\|P00432\\|CATA_BOVIN$"),
+    data_frame(set = "[1:2]",          truth = log2(2/1), grep = "^sp\\|P68082\\|MYG_HORSE$|^sp\\|P06278\\|AMY_BACLI$|^sp\\|Q29443\\|TRFE_BOVIN$")
   )
 
   # unlist proteins from protein groups
   s <- strsplit(as.character(data.fdr$Group), split = ";")
-  data <- data.frame(Group = rep(data.fdr$Group, sapply(s, length)), Protein = unlist(s))
+  data <- data_frame(Group = rep(data.fdr$Group, sapply(s, length)), Protein = unlist(s))
   # initialize new varible with NAs
   data$truth <- NA
   # fill in matching indices
@@ -366,14 +366,14 @@ add_seaMass_spikein_truth <- function(data.fdr) {
 add_Navarro_spikein_truth <- function(data.fdr) {
   # ground truth
   data.truth <- rbind(
-    data.frame(set = "Human [1:1]",  truth = 0, grep = "_HUMAN$"),
-    data.frame(set = "E.coli [1:4]", truth = 2, grep = "_ECOLI$"),
-    data.frame(set = "Yeast [2:1]",  truth = -1, grep = "_YEAS8$")
+    data_frame(set = "Human [1:1]",  truth = 0, grep = "_HUMAN$"),
+    data_frame(set = "E.coli [1:4]", truth = 2, grep = "_ECOLI$"),
+    data_frame(set = "Yeast [2:1]",  truth = -1, grep = "_YEAS8$")
   )
 
   # unlist proteins from protein groups
   s <- strsplit(as.character(data.fdr$Group), split = ";")
-  data <- data.frame(Group = rep(data.fdr$Group, sapply(s, length)), Protein = unlist(s))
+  data <- data_frame(Group = rep(data.fdr$Group, sapply(s, length)), Protein = unlist(s))
   # initialize new varible with NAs
   data$truth <- NA
   # fill in matching indices

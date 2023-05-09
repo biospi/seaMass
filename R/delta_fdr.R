@@ -91,23 +91,54 @@ setMethod("fdr_ash", "seaMass_delta", function(
             item[use == T, m], item[use == T, s], mixcompdist = ash.mixcompdist, lik = lik_ts, nullweight = ash.nullweight, pointmass = ash.pointmass, prior = ash.prior,
             mixsd = ash.mixsd, gridmult = ash.gridmult, fixg = ash.fixg, mode = ash.mode, alpha = ash.alpha, grange = ash.grange, control = ash.control, pi_thresh = ash.pi_thresh
           )
+          if (any(is.na(fit.fdr$result))) {
+            fit.fdr2 <- ashr::ash(
+              item[use == T, m], item[use == T, s], mixcompdist = ash.mixcompdist, lik = lik_ts, nullweight = ash.nullweight, pointmass = ash.pointmass, prior = ash.prior,
+              mixsd = ash.mixsd, gridmult = ash.gridmult, fixg = ash.fixg, mode = ash.mode, alpha = ash.alpha, grange = ash.grange, control = ash.control, pi_thresh = 1e-2
+            )
+            fit.fdr$result[is.na(fit.fdr$result["PosteriorMean"]), "PosteriorMean"] <- fit.fdr2$result[is.na(fit.fdr$result["PosteriorMean"]), "PosteriorMean"]
+            fit.fdr$result[is.na(fit.fdr$result["PosteriorSD"]), "PosteriorSD"] <- fit.fdr2$result[is.na(fit.fdr$result["PosteriorSD"]), "PosteriorSD"]
+          }
         } else {
           fit.fdr <- ashr::ash(
             item[use == T, m], item[use == T, s], mixcompdist = ash.mixcompdist, lik = lik_ts, nullweight = ash.nullweight, pointmass = ash.pointmass, prior = ash.prior,
             mixsd = ash.mixsd, gridmult = ash.gridmult, g = ash.g, fixg = ash.fixg, mode = ash.mode, alpha = ash.alpha, grange = ash.grange, control = ash.control, pi_thresh = ash.pi_thresh
           )
-        }
+          if (any(is.na(fit.fdr$result))) {
+            fit.fdr2 <- ashr::ash(
+              item[use == T, m], item[use == T, s], mixcompdist = ash.mixcompdist, lik = lik_ts, nullweight = ash.nullweight, pointmass = ash.pointmass, prior = ash.prior,
+              mixsd = ash.mixsd, gridmult = ash.gridmult, g = ash.g, fixg = ash.fixg, mode = ash.mode, alpha = ash.alpha, grange = ash.grange, control = ash.control, pi_thresh = 1e-2
+            )
+            fit.fdr$result[is.na(fit.fdr$result["PosteriorMean"]), "PosteriorMean"] <- fit.fdr2$result[is.na(fit.fdr$result["PosteriorMean"]), "PosteriorMean"]
+            fit.fdr$result[is.na(fit.fdr$result["PosteriorSD"]), "PosteriorSD"] <- fit.fdr2$result[is.na(fit.fdr$result["PosteriorSD"]), "PosteriorSD"]
+          }        }
       } else {
         if (is.null(ash.g)) {
           fit.fdr <- ashr::ash(
             item[use == T, m], item[use == T, s], mixcompdist = ash.mixcompdist, nullweight = ash.nullweight, pointmass = ash.pointmass, prior = ash.prior, mixsd = ash.mixsd,
             gridmult = ash.gridmult, fixg = ash.fixg, mode = ash.mode, alpha = ash.alpha, grange = ash.grange, control = ash.control, pi_thresh = ash.pi_thresh
           )
+          if (any(is.na(fit.fdr$result))) {
+            fit.fdr2 <- ashr::ash(
+              item[use == T, m], item[use == T, s], mixcompdist = ash.mixcompdist, nullweight = ash.nullweight, pointmass = ash.pointmass, prior = ash.prior, mixsd = ash.mixsd,
+              gridmult = ash.gridmult, fixg = ash.fixg, mode = ash.mode, alpha = ash.alpha, grange = ash.grange, control = ash.control, pi_thresh = 1e-2
+            )
+            fit.fdr$result[is.na(fit.fdr$result["PosteriorMean"]), "PosteriorMean"] <- fit.fdr2$result[is.na(fit.fdr$result["PosteriorMean"]), "PosteriorMean"]
+            fit.fdr$result[is.na(fit.fdr$result["PosteriorSD"]), "PosteriorSD"] <- fit.fdr2$result[is.na(fit.fdr$result["PosteriorSD"]), "PosteriorSD"]
+          }
         } else {
           fit.fdr <- ashr::ash(
             item[use == T, m], item[use == T, s], mixcompdist = ash.mixcompdist, nullweight = ash.nullweight, pointmass = ash.pointmass, prior = ash.prior, mixsd = ash.mixsd,
             gridmult = ash.gridmult, g = ash.g, fixg = ash.fixg, mode = ash.mode, alpha = ash.alpha, grange = ash.grange, control = ash.control, pi_thresh = ash.pi_thresh
           )
+          if (any(is.na(fit.fdr$result))) {
+            fit.fdr2 <- ashr::ash(
+              item[use == T, m], item[use == T, s], mixcompdist = ash.mixcompdist, nullweight = ash.nullweight, pointmass = ash.pointmass, prior = ash.prior, mixsd = ash.mixsd,
+              gridmult = ash.gridmult, g = ash.g, fixg = ash.fixg, mode = ash.mode, alpha = ash.alpha, grange = ash.grange, control = ash.control, pi_thresh = 1e-2
+            )
+            fit.fdr$result[is.na(fit.fdr$result["PosteriorMean"]), "PosteriorMean"] <- fit.fdr2$result[is.na(fit.fdr$result["PosteriorMean"]), "PosteriorMean"]
+            fit.fdr$result[is.na(fit.fdr$result["PosteriorSD"]), "PosteriorSD"] <- fit.fdr2$result[is.na(fit.fdr$result["PosteriorSD"]), "PosteriorSD"]
+          }
         }
       }
       setDT(fit.fdr$result)
@@ -127,6 +158,8 @@ setMethod("fdr_ash", "seaMass_delta", function(
 
   setcolorder(DT, c("Batch", "Effect", "Contrast", "Baseline"))
   setorderv(DT, c("Batch", sort.col), na.last = T)
+  DT[is.na(PosteriorMean), PosteriorMean := 0] # quick workaround for new(?) ashr bug (defensive, ought to be fixed by if statements above)
+  DT[is.na(PosteriorSD), PosteriorSD := 0] # quick workaround for new(?) ashr bug
   fst::write.fst(DT, file.path(filepath(object), paste0(type, ".fdr.fst")))
 
   options(warn = warn)
