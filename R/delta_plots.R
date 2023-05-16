@@ -76,7 +76,7 @@ setMethod("plot_volcano", "seaMass_delta", function(
   x.col = "PosteriorMean",
   y.col = "qvalue",
   data.fdr = group_quants_fdr(object),
-  output = "plotly"
+  output = "ggplot"
 ) {
   DT.fdr <- as.data.table(data.fdr)
   DT.fdr[, s := get(stdev.col)]
@@ -109,6 +109,11 @@ setMethod("plot_volcano", "seaMass_delta", function(
   )]
   DT.fdr[, Truth := factor(truth)]
   DT.fdr[, label := NA_character_]
+
+  # sort y
+  setorder(DT.fdr, y)
+
+  # labels
   if (labels > 0) {
     if (y.col == "s" || y.col == "PosteriorSD") {
       DT.fdr[1:labels, label := as.character(variable)]
@@ -220,7 +225,7 @@ setMethod("plot_fdr", "seaMass_delta", function(
   y.max = NULL,
   y.col = "qvalue",
   data.fdr = group_quants_fdr(object),
-  output = "plotly"
+  output = "ggplot"
 ) {
   DT <- as.data.table(data.fdr)
   DT <- DT[!is.na(get(y.col))]
@@ -263,7 +268,7 @@ setMethod("plot_pr", "seaMass_delta", function(
   legend.nrow = 1,
   y.col = "qvalue",
   data.fdr = group_quants_fdr(object),
-  output = "plotly"
+  output = "ggplot"
 ) {
   if (is.data.frame(data.fdr)) {
     DTs.pr <- list(unknown = data.fdr)

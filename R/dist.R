@@ -170,7 +170,7 @@ dist_lst <- function(value, min.df = 0, plots = FALSE, ...) {
 #'
 #' @export
 dist_samples_lst <- function(chain, sample, value, ...) {
-  return(c(dist_lst(value, method = "mge", gof = "CvM", ...), list(rhat = rhat(chain, sample, value, T))))
+  return(c(dist_lst(value, method = "mge", gof = "CvM", ...), list(rhat = rhat(chain, sample, value, T)), list(pMCMC = min(mean(value < 0), mean(value > 0)))))
 }
 
 
@@ -178,7 +178,7 @@ dist_samples_lst <- function(chain, sample, value, ...) {
 #'
 #' @export
 dist_samples_lst_ash <- function(chain, sample, value, ...) {
-  return(c(dist_lst(value, method = "mge", gof = "CvM", min.df = 2, ...), list(rhat = rhat(chain, sample, value, T))))
+  return(c(dist_lst(value, method = "mge", gof = "CvM", min.df = 2, ...), list(rhat = rhat(chain, sample, value, T)), list(pMCMC = min(mean(value < 0), mean(value > 0)))))
 }
 
 
