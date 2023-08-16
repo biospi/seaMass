@@ -94,32 +94,32 @@ Perform seaMass-theta normalisation on raw group-level quants output by seaMass-
 }
 \section{Functions}{
 \itemize{
-\item \code{root,seaMass_delta-method}: Get the \code{seaMass_sigma} object.
+\item \code{root(seaMass_delta)}: Get the \code{seaMass_sigma} object.
 
-\item \code{seaMass_theta}: Runs seaMass-theta.
+\item \code{seaMass_theta()}: Runs seaMass-theta.
 
-\item \code{open_theta}: Open a complete \code{seaMass_theta} run from the supplied \link{seaMass_sigma} fir object and \code{name}.
+\item \code{open_theta()}: Open a complete \code{seaMass_theta} run from the supplied \link{seaMass_sigma} fir object and \code{name}.
 
-\item \code{run,seaMass_theta-method}: Run.
+\item \code{run(seaMass_theta)}: Run.
 
-\item \code{name,seaMass_theta-method}: Get name.
+\item \code{name(seaMass_theta)}: Get name.
 
-\item \code{root,seaMass_theta-method}: Get the \code{seaMass_sigma} object.
+\item \code{root(seaMass_theta)}: Get the \code{seaMass_sigma} object.
 
-\item \code{filepath,seaMass_theta-method}: Get path.
+\item \code{filepath(seaMass_theta)}: Get path.
 
-\item \code{parent,seaMass_theta-method}: Get the \link{seaMass_sigma} object.
+\item \code{parent(seaMass_theta)}: Get the \link{seaMass_sigma} object.
 
-\item \code{del,seaMass_theta-method}: Delete the \code{seaMass_theta} run from disk.
+\item \code{del(seaMass_theta)}: Delete the \code{seaMass_theta} run from disk.
 
-\item \code{control,seaMass_theta-method}: Get the \link{fit_control}.
+\item \code{control(seaMass_theta)}: Get the \link{fit_control}.
 
-\item \code{assay_design,seaMass_theta-method}: Get the study design as a \code{data.frame}.
+\item \code{assay_design(seaMass_theta)}: Get the study design as a \code{data.frame}.
 
-\item \code{assay_means,seaMass_theta-method}: Get the model assay means as a \link{data.frame}.
+\item \code{assay_means(seaMass_theta)}: Get the model assay means as a \link{data.frame}.
 
-\item \code{group_standards,seaMass_theta-method}: Get the model group standards as a \link{data.frame}.
+\item \code{group_standards(seaMass_theta)}: Get the model group standards as a \link{data.frame}.
 
-\item \code{group_quants,seaMass_theta-method}: Get the model group quantifications as a \link{data.frame}.
+\item \code{group_quants(seaMass_theta)}: Get the model group quantifications as a \link{data.frame}.
+
 }}
-

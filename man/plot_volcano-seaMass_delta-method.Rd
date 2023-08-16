@@ -13,7 +13,7 @@
   x.col = "PosteriorMean",
   y.col = "qvalue",
   data.fdr = group_quants_fdr(object),
-  output = "plotly"
+  output = "ggplot"
 )
 }
 \arguments{

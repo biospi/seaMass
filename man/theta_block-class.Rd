@@ -62,24 +62,24 @@ The results, returned by /link{seaMass_theta} /code{blocks()} function
 }
 \section{Methods (by generic)}{
 \itemize{
-\item \code{filepath}: Get the path.
+\item \code{filepath(theta_block)}: Get the path.
 
-\item \code{name}: Get the block name.
+\item \code{name(theta_block)}: Get the block name.
 
-\item \code{parent}: Get the \link{seaMass_theta} object for this block.
+\item \code{parent(theta_block)}: Get the \link{seaMass_theta} object for this block.
 
-\item \code{root}: Get the \code{seaMass_sigma} object.
+\item \code{root(theta_block)}: Get the \code{seaMass_sigma} object.
 
-\item \code{container}: Get the \link{seaMass_theta} object for this block.
+\item \code{container(theta_block)}: Get the \link{seaMass_theta} object for this block.
 
-\item \code{control}: Get the \link{theta_control} object for this block.
+\item \code{control(theta_block)}: Get the \link{theta_control} object for this block.
 
-\item \code{assay_design}: Get the study design for this block as a \link{data.frame}.
+\item \code{assay_design(theta_block)}: Get the study design for this block as a \link{data.frame}.
 
-\item \code{assay_means}: Get the model assay means as a \link{data.frame}.
+\item \code{assay_means(theta_block)}: Get the model assay means as a \link{data.frame}.
 
-\item \code{group_standards}: Get the model normalised group quantifications as a \link{data.frame}.
+\item \code{group_standards(theta_block)}: Get the model normalised group quantifications as a \link{data.frame}.
 
-\item \code{group_quants}: Get the model normalised group quantifications as a \link{data.frame}.
+\item \code{group_quants(theta_block)}: Get the model normalised group quantifications as a \link{data.frame}.
+
 }}
-

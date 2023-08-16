@@ -9,7 +9,7 @@
   y.max = NULL,
   y.col = "qvalue",
   data.fdr = group_quants_fdr(object),
-  output = "plotly"
+  output = "ggplot"
 )
 }
 \arguments{

@@ -43,6 +43,6 @@ Define advanced control parameters for the seaMass-Σ Bayesian model.
 }
 \section{Functions}{
 \itemize{
-\item \code{delta_control}: Generator function
-}}
+\item \code{delta_control()}: Generator function
 
+}}

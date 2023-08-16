@@ -47,7 +47,7 @@ setMethod("run", "schedule_local", function(object, fit.sigma) {
   # THETA
   for (fit.theta in open_thetas(fit.sigma, force = T)) {
     for (block in blocks(fit.theta)) {
-      for (chain in 1:ctrl@nchain) process(block, chain, job.id)
+      for (chain in 1:ctrl@nchain) process(block, job.id)
     }
   }
 

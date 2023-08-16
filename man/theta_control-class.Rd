@@ -37,6 +37,6 @@ Define control parameters for the seaMass-theta Bayesian model.
 }
 \section{Functions}{
 \itemize{
-\item \code{theta_control}: Generator function
-}}
+\item \code{theta_control()}: Generator function
 
+}}

@@ -132,52 +132,52 @@ The results of a seaMass-Σ block to a single block, returned by /link{seaMass_s
 }
 \section{Methods (by generic)}{
 \itemize{
-\item \code{filepath}: Get the path.
+\item \code{filepath(sigma_block)}: Get the path.
 
-\item \code{name}: Get the block name.
+\item \code{name(sigma_block)}: Get the block name.
 
-\item \code{root}: Get the \code{seaMass_sigma} object.
+\item \code{root(sigma_block)}: Get the \code{seaMass_sigma} object.
 
-\item \code{container}: Get the \link{seaMass_sigma} object for this block.
+\item \code{container(sigma_block)}: Get the \link{seaMass_sigma} object for this block.
 
-\item \code{control}: Get the \link{sigma_control} object for this block.
+\item \code{control(sigma_block)}: Get the \link{sigma_control} object for this block.
 
-\item \code{blocks}: Get the list of \link{sigma_block} objects for the blocks.
+\item \code{blocks(sigma_block)}: Get the list of \link{sigma_block} objects for the blocks.
 
-\item \code{groups}: Get the group metadata as a \link{data.frame}.
+\item \code{groups(sigma_block)}: Get the group metadata as a \link{data.frame}.
 
-\item \code{measurements}: Get the measurement metadata as a \link{data.frame}.
+\item \code{measurements(sigma_block)}: Get the measurement metadata as a \link{data.frame}.
 
-\item \code{components}: Get the component metadata as a \link{data.frame}.
+\item \code{components(sigma_block)}: Get the component metadata as a \link{data.frame}.
 
-\item \code{assay_groups}: Get the assay groups as a \code{data.frame}.
+\item \code{assay_groups(sigma_block)}: Get the assay groups as a \code{data.frame}.
 
-\item \code{assay_components}: Get the assay groups as a \code{data.frame}.
+\item \code{assay_components(sigma_block)}: Get the assay groups as a \code{data.frame}.
 
-\item \code{assay_design}: Get the study design for this block as a \link{data.frame}.
+\item \code{assay_design(sigma_block)}: Get the study design for this block as a \link{data.frame}.
 
-\item \code{priors}: Get the priors if computed.
+\item \code{priors(sigma_block)}: Get the priors if computed.
 
-\item \code{summary}: Print the model summary for a group.
+\item \code{summary(sigma_block)}: Print the model summary for a group.
 
-\item \code{timings}: Get the model timings as a \link{data.frame}.
+\item \code{timings(sigma_block)}: Get the model timings as a \link{data.frame}.
 
-\item \code{assay_stdevs}: Get the model assay stdevs as a \link{data.frame}.
+\item \code{assay_stdevs(sigma_block)}: Get the model assay stdevs as a \link{data.frame}.
 
-\item \code{assay_deviations}: Get the model assay deviations as a \link{data.frame}.
+\item \code{assay_deviations(sigma_block)}: Get the model assay deviations as a \link{data.frame}.
 
-\item \code{measurement_means}: Get the model measurement means as a \link{data.frame}.
+\item \code{measurement_means(sigma_block)}: Get the model measurement means as a \link{data.frame}.
 
-\item \code{measurement_stdevs}: Get the model measurement stdevs as a \link{data.frame}.
+\item \code{measurement_stdevs(sigma_block)}: Get the model measurement stdevs as a \link{data.frame}.
 
-\item \code{component_means}: Get the model component means as a \link{data.frame}.
+\item \code{component_means(sigma_block)}: Get the model component means as a \link{data.frame}.
 
-\item \code{component_stdevs}: Get the model component stdevs as a \link{data.frame}.
+\item \code{component_stdevs(sigma_block)}: Get the model component stdevs as a \link{data.frame}.
 
-\item \code{component_deviations}: Gets the model component deviations as a \link{data.frame}.
+\item \code{component_deviations(sigma_block)}: Gets the model component deviations as a \link{data.frame}.
 
-\item \code{group_quants}: Get the model group quantifications as a \link{data.frame}.
+\item \code{group_quants(sigma_block)}: Get the model group quantifications as a \link{data.frame}.
 
-\item \code{blocks}: Get the list of \link{theta_block} objects for the blocks.
+\item \code{blocks(theta_block)}: Get the list of \link{theta_block} objects for the blocks.
+
 }}
-

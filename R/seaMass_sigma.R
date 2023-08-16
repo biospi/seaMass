@@ -58,17 +58,34 @@ seaMass_sigma <- function(
 
   # get design into the format we need
   DT.design <- as.data.table(data.design)
-  if (!is.factor(DT.design[, Assay])) DT.design[, Assay := factor(as.character(Assay), levels = unique(as.character(Assay)))]
+
+  if (!is.factor(DT.design[, Assay])) {
+    DT.design[, Assay := factor(as.character(Assay), levels = unique(as.character(Assay)))]
+  }
+
   if (all(is.na(DT.design[, Run]))) {
     DT.design[, Run := NULL]
     DT.design[, Run := "1"]
   }
-  if (!is.factor(DT.design[, Run])) DT.design[, Run := factor(as.character(Run), levels = levels(DT[, Run]))]
+  if (!is.factor(DT.design[, Run])) {
+    if (!is.factor(DT[, Run])) {
+      DT.design[, Run := factor(as.character(Run), levels = unique(as.character(Run)))]
+    } else {
+      DT.design[, Run := factor(as.character(Run), levels = levels(DT[, Run]))]
+    }
+  }
+
   if (all(is.na(DT.design[, Channel]))) {
     DT.design[, Channel := NULL]
     DT.design[, Channel := "1"]
   }
-  if (!is.factor(DT.design[, Channel])) DT.design[, Channel := factor(as.character(Channel), levels = levels(DT[, Channel]))]
+  if (!is.factor(DT.design[, Channel])) {
+    if (!is.factor(DT[, Channel])) {
+      DT.design[, Channel := factor(as.character(Channel), levels = unique(as.character(Channel)))]
+    } else {
+      DT.design[, Channel := factor(as.character(Channel), levels = levels(DT[, Channel]))]
+    }
+  }
 
   # extract blocks and save control
   block.cols <- colnames(DT.design)[grep("^Block\\.(.*)$", colnames(DT.design))]
@@ -521,9 +538,9 @@ setMethod("blocks", "seaMass_sigma", function(object) {
 #' @export
 #' @include generics.R
 setMethod("open_thetas", "seaMass_sigma", function(object, quiet = FALSE, force = FALSE) {
-  deltas <- lapply(sub("^delta\\.", "", list.files(filepath(object), "^delta\\.*")), function(name) open_delta(object, name, quiet, force))
-  names(deltas) <- lapply(deltas, function(delta) name(delta))
-  return(deltas)
+  thetas <- lapply(sub("^theta\\.", "", list.files(dirname(filepath(object)), "^theta\\.*")), function(name) open_theta(object, name, quiet, force))
+  names(thetas) <- lapply(thetas, function(theta) name(theta))
+  return(thetas)
 })
 
 
@@ -531,7 +548,7 @@ setMethod("open_thetas", "seaMass_sigma", function(object, quiet = FALSE, force 
 #' @export
 #' @include generics.R
 setMethod("open_deltas", "seaMass_sigma", function(object, quiet = FALSE, force = FALSE) {
-  deltas <- lapply(sub("^delta\\.", "", list.files(filepath(object), "^delta\\.*")), function(name) open_delta(object, name, quiet, force))
+  deltas <- lapply(sub("^delta\\.", "", list.files(dirname(filepath(object)), "^delta\\.*")), function(name) open_delta(object, name, quiet, force))
   names(deltas) <- lapply(deltas, function(delta) name(delta))
   return(deltas)
 })

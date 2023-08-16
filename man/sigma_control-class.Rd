@@ -10,8 +10,8 @@ sigma_control(
   keep = c("summaries", "group.quants"),
   summarise = c("groups", "components", "measurements"),
   plot = c("assay.stdevs", "group.means", "group.quants", "group.quants.pca",
-    "component.means", "component.stdevs", "component.deviations",
-    "component.deviations.pca", "measurement.means", "measurement.stdevs"),
+    "component.means", "component.stdevs", "component.deviations", "measurement.means",
+    "measurement.stdevs"),
   eb.model = "deconvolve",
   eb.max = 1024,
   measurement.model = "independent",
@@ -88,6 +88,6 @@ Define control parameters for the seaMass-Σ Bayesian model.
 }
 \section{Functions}{
 \itemize{
-\item \code{sigma_control}: Generator function
-}}
+\item \code{sigma_control()}: Generator function
 
+}}

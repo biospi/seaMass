@@ -178,62 +178,62 @@ Fits the seaMass-Σ Bayesian group-level quantification model to imported data.
 }
 \section{Functions}{
 \itemize{
-\item \code{seaMass_sigma}: Runs seaMass-Σ.
+\item \code{seaMass_sigma()}: Runs seaMass-Σ.
 
-\item \code{open_sigma}: Open a complete \code{seaMass_sigma} run from the supplied \code{path}.
+\item \code{open_sigma()}: Open a complete \code{seaMass_sigma} run from the supplied \code{path}.
 
-\item \code{del,seaMass_sigma-method}: Delete the \code{seaMass_sigma} run from disk.
+\item \code{del(seaMass_sigma)}: Delete the \code{seaMass_sigma} run from disk.
 
-\item \code{root,seaMass_sigma-method}: Get the \code{seaMass_sigma} object.
+\item \code{root(seaMass_sigma)}: Get the \code{seaMass_sigma} object.
 
-\item \code{name,seaMass_sigma-method}: Get name.
+\item \code{name(seaMass_sigma)}: Get name.
 
-\item \code{filepath,seaMass_sigma-method}: Get path.
+\item \code{filepath(seaMass_sigma)}: Get path.
 
-\item \code{run,seaMass_sigma-method}: Run.
+\item \code{run(seaMass_sigma)}: Run.
 
-\item \code{control,seaMass_sigma-method}: Get the \link{sigma_control}.
+\item \code{control(seaMass_sigma)}: Get the \link{sigma_control}.
 
-\item \code{groups,seaMass_sigma-method}: Get the groups as a \code{data.frame}.
+\item \code{groups(seaMass_sigma)}: Get the groups as a \code{data.frame}.
 
-\item \code{top_groups,seaMass_sigma-method}: Get the n groups with the most quantified components that are present in all blocks \code{data.frame}.
+\item \code{top_groups(seaMass_sigma)}: Get the n groups with the most quantified components that are present in all blocks \code{data.frame}.
 
-\item \code{components,seaMass_sigma-method}: Get the groups as a \code{data.frame}.
+\item \code{components(seaMass_sigma)}: Get the groups as a \code{data.frame}.
 
-\item \code{assay_groups,seaMass_sigma-method}: Get the assay groups as a \code{data.frame}.
+\item \code{assay_groups(seaMass_sigma)}: Get the assay groups as a \code{data.frame}.
 
-\item \code{assay_components,seaMass_sigma-method}: Get the assay groups as a \code{data.frame}.
+\item \code{assay_components(seaMass_sigma)}: Get the assay groups as a \code{data.frame}.
 
-\item \code{measurements,seaMass_sigma-method}: Get the groups as a \code{data.frame}.
+\item \code{measurements(seaMass_sigma)}: Get the groups as a \code{data.frame}.
 
-\item \code{blocks,seaMass_sigma-method}: Get the list of \link{sigma_block} objects for the blocks.
+\item \code{blocks(seaMass_sigma)}: Get the list of \link{sigma_block} objects for the blocks.
 
-\item \code{open_thetas,seaMass_sigma-method}: Open the list of \link{seaMass_delta} objects.
+\item \code{open_thetas(seaMass_sigma)}: Open the list of \link{seaMass_delta} objects.
 
-\item \code{open_deltas,seaMass_sigma-method}: Open the list of \link{seaMass_delta} objects.
+\item \code{open_deltas(seaMass_sigma)}: Open the list of \link{seaMass_delta} objects.
 
-\item \code{assay_design,seaMass_sigma-method}: Get the study design as a \code{data.frame}.
+\item \code{assay_design(seaMass_sigma)}: Get the study design as a \code{data.frame}.
 
-\item \code{timings,seaMass_sigma-method}: Get the model timings as a \link{data.frame}.
+\item \code{timings(seaMass_sigma)}: Get the model timings as a \link{data.frame}.
 
-\item \code{priors,seaMass_sigma-method}: Get priors as a \link{data.frame}.
+\item \code{priors(seaMass_sigma)}: Get priors as a \link{data.frame}.
 
-\item \code{assay_stdevs,seaMass_sigma-method}: Get the model assay stdevs as a \link{data.frame}.
+\item \code{assay_stdevs(seaMass_sigma)}: Get the model assay stdevs as a \link{data.frame}.
 
-\item \code{assay_deviations,seaMass_sigma-method}: Get the model assay deviations as a \link{data.frame}.
+\item \code{assay_deviations(seaMass_sigma)}: Get the model assay deviations as a \link{data.frame}.
 
-\item \code{measurement_means,seaMass_sigma-method}: Get the model measurement means as a \link{data.frame}.
+\item \code{measurement_means(seaMass_sigma)}: Get the model measurement means as a \link{data.frame}.
 
-\item \code{measurement_stdevs,seaMass_sigma-method}: Get the model measurement stdevs as a \link{data.frame}.
+\item \code{measurement_stdevs(seaMass_sigma)}: Get the model measurement stdevs as a \link{data.frame}.
 
-\item \code{component_means,seaMass_sigma-method}: Get the model component means as a \link{data.frame}.
+\item \code{component_means(seaMass_sigma)}: Get the model component means as a \link{data.frame}.
 
-\item \code{component_stdevs,seaMass_sigma-method}: Get the model component stdevs as a \link{data.frame}.
+\item \code{component_stdevs(seaMass_sigma)}: Get the model component stdevs as a \link{data.frame}.
 
-\item \code{component_deviations,seaMass_sigma-method}: Gets the model component deviations as a \link{data.frame}.
+\item \code{component_deviations(seaMass_sigma)}: Gets the model component deviations as a \link{data.frame}.
 
-\item \code{group_quants,seaMass_sigma-method}: Get the model group quantifications as a \link{data.frame}.
+\item \code{group_quants(seaMass_sigma)}: Get the model group quantifications as a \link{data.frame}.
 
-\item \code{group_means,seaMass_sigma-method}: Get the model group means as a \link{data.frame}.
+\item \code{group_means(seaMass_sigma)}: Get the model group means as a \link{data.frame}.
+
 }}
-

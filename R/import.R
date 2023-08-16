@@ -832,3 +832,61 @@ import_MSstats <- function(data) {
   setDF(DT)
   return(DT[])
 }
+
+
+#' Import data outputed by FragPipe (SILAC only at present)
+#'
+#' Reads in a \code{ion_label_quant} dataset processed by FragPipe.
+#'
+#' @param data MSstats output
+#'   \link[data.table]{fread} default parameters.
+#' @return A \link{data.frame} for input into \link{seaMass_sigma}.
+#' @import data.table
+#' @export
+import_FragPipe <- function(
+    file = NULL,
+    sum.fractions = FALSE,
+    data = NULL
+) {
+  if (is.null(file)) {
+    if (is.null(data)) stop("One of 'data' or 'file' needs to be specified.")
+    DT.raw <- setDT.raw(data)
+  } else {
+    DT.raw <- fread(file = file, showProgress = T)
+  }
+
+  # create wide data table
+  DT <- DT.raw[ , list(
+    Group = factor(`Protein`),
+    GroupInfo = factor(paste(`Protein ID`, `Entry Name`, Gene, `Protein Description`,  `Mapped Genes`, `Mapped Proteins`, sep = " : ")),
+    Component = factor(`Modified Peptide`),
+    Run = factor(condition)
+  )]
+  if (sum.fractions) {
+    DT[, Measurement := factor(paste0(DT.raw$`Modified Peptide`, ",", DT.raw$Charge))]
+  } else {
+    DT[, Measurement := factor(paste0(DT.raw$`Modified Peptide`, ",", DT.raw$Charge, ",", DT.raw$fraction))]
+  }
+  DT <- cbind(DT, DT.raw[, grepl("Intensity$", colnames(DT.raw)), with=F])
+  rm(DT.raw)
+
+  # melt
+  DT <- melt(DT, id.vars = c("Group", "GroupInfo", "Component", "Measurement", "Run"), variable.name = "Channel", value.name = "Count")
+  DT[, Channel := factor(sub(" Intensity$", "", Channel), levels = c("Light", "Medium", "Heavy"))]
+  setorder(DT, Group, Component, Measurement, Run, Channel)
+
+  # filtering
+  if (sum.fractions) {
+    DT <- DT[, .(Count = sum(Count, na.rm = T), n = length(Count)), by=.(Group, GroupInfo, Component, Measurement, Run, Channel)][n > 0,][, n := NULL]
+    DT[Count == 0, Count := NA]
+  }
+
+  DT[, Use := T]
+
+  setattr(DT, "group", c("ProteinGroup", "ProteinGroups"))
+  setattr(DT, "component", c("Peptidoform", "Peptidoforms"))
+  setattr(DT, "measurement", c("Feature", "Features"))
+
+  setDF(DT)
+  return(DT[])
+}

@@ -113,36 +113,36 @@ quants output by seaMass-theta
 }
 \section{Functions}{
 \itemize{
-\item \code{seaMass_delta}: Runs seaMass-Σ.
+\item \code{seaMass_delta()}: Runs seaMass-Σ.
 
-\item \code{open_delta}: Open a complete \code{seaMass_delta} run from the supplied \link{seaMass_sigma} fir object and \code{name}.
+\item \code{open_delta()}: Open a complete \code{seaMass_delta} run from the supplied \link{seaMass_sigma} fir object and \code{name}.
 
-\item \code{run,seaMass_delta-method}: Run.
+\item \code{run(seaMass_delta)}: Run.
 
-\item \code{name,seaMass_delta-method}: Get name.
+\item \code{name(seaMass_delta)}: Get name.
 
-\item \code{filepath,seaMass_delta-method}: Get path.
+\item \code{filepath(seaMass_delta)}: Get path.
 
-\item \code{parent,seaMass_delta-method}: Get the \link{seaMass_sigma} object.
+\item \code{parent(seaMass_delta)}: Get the \link{seaMass_sigma} object.
 
-\item \code{control,seaMass_delta-method}: Get the \link{fit_control}.
+\item \code{control(seaMass_delta)}: Get the \link{fit_control}.
 
-\item \code{assay_design,seaMass_delta-method}: Get the study design as a \code{data.frame}.
+\item \code{assay_design(seaMass_delta)}: Get the study design as a \code{data.frame}.
 
-\item \code{del,seaMass_delta-method}: Delete the \code{seaMass_delta} run from disk.
+\item \code{del(seaMass_delta)}: Delete the \code{seaMass_delta} run from disk.
 
-\item \code{group_quants_de,seaMass_delta-method}: Get the model differential expression as a \link{data.frame}.
+\item \code{group_quants_de(seaMass_delta)}: Get the model differential expression as a \link{data.frame}.
 
-\item \code{component_deviations_de,seaMass_delta-method}: Get the component deviations differential expression as a \link{data.frame}.
+\item \code{component_deviations_de(seaMass_delta)}: Get the component deviations differential expression as a \link{data.frame}.
 
-\item \code{group_quants_fdr,seaMass_delta-method}: Get the model differential expression as a \link{data.frame}.
+\item \code{group_quants_fdr(seaMass_delta)}: Get the model differential expression as a \link{data.frame}.
 
-\item \code{component_deviations_fdr,seaMass_delta-method}: Get the component deviations differential expression as a \link{data.frame}.
+\item \code{component_deviations_fdr(seaMass_delta)}: Get the component deviations differential expression as a \link{data.frame}.
 
-\item \code{add_seaMass_spikein_truth}: Add our spikein ground truth to the object of \code{group_fdr} pr \code{component_deviations_fdr}.
+\item \code{add_seaMass_spikein_truth()}: Add our spikein ground truth to the object of \code{group_fdr} pr \code{component_deviations_fdr}.
 
-\item \code{add_Navarro_spikein_truth}: Add Navarro spikein ground truth to the object of \code{group_fdr} pr \code{component_deviations_fdr}.
+\item \code{add_Navarro_spikein_truth()}: Add Navarro spikein ground truth to the object of \code{group_fdr} pr \code{component_deviations_fdr}.
 
-\item \code{group_means,sigma_block-method}: Get the model group means as a \link{data.frame}.
+\item \code{group_means(sigma_block)}: Get the model group means as a \link{data.frame}.
+
 }}
-

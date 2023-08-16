@@ -36,7 +36,7 @@ Imports:
     utf8 (>= 1.1.4),
     uuid (>= 0.1-4),
     zip (>= 2.1.1)
-RoxygenNote: 7.1.1
+RoxygenNote: 7.2.3
 Collate: 
     'delta_control.R'
     'generics.R'

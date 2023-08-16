@@ -11,7 +11,7 @@
   legend.nrow = 1,
   y.col = "qvalue",
   data.fdr = group_quants_fdr(object),
-  output = "plotly"
+  output = "ggplot"
 )
 }
 \arguments{

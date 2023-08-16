@@ -34,6 +34,6 @@ Schedule seaMass to run on SGE
 }
 \section{Functions}{
 \itemize{
-\item \code{schedule_sge}: Generator function
-}}
+\item \code{schedule_sge()}: Generator function
 
+}}

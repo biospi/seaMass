@@ -34,6 +34,6 @@ Schedule seaMass to run on PBS
 }
 \section{Functions}{
 \itemize{
-\item \code{schedule_pbs}: Generator function
-}}
+\item \code{schedule_pbs()}: Generator function
 
+}}

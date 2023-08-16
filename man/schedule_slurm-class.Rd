@@ -33,6 +33,6 @@ Schedule seaMass to run on SLURM
 }
 \section{Functions}{
 \itemize{
-\item \code{schedule_slurm}: Generator function
-}}
+\item \code{schedule_slurm()}: Generator function
 
+}}
